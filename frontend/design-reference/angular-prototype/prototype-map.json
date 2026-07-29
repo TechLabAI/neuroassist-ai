@@ -1,0 +1,122 @@
+{
+  "project": "neuro-assist-ai",
+  "scope": "@neuro-assist-ai",
+  "angularVersion": "21",
+  "nxVersion": "22",
+  "theme": "dark",
+  "density": 1.2,
+  "colors": {
+    "primary": "#00B4A6",
+    "warning": "#F59E0B",
+    "ai": "#8B5CF6"
+  },
+  "screens": [
+    {
+      "id": "entrada",
+      "label": "Entrada",
+      "icon": "\u2022",
+      "ngComponent": "EntradaComponent",
+      "ngSelector": "app-entrada",
+      "ngRoute": "/entrada",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/entrada/entrada.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Tela de entrada/login \u2014 momento de marca, fora do shell de navega\u00e7\u00e3o. Estabelece a identidade calma e confi\u00e1vel do produto antes de qualquer dado operacional aparecer.",
+      "componentes": [
+        "Logo (vers\u00e3o fundo escuro \u2014 `logo-white.png`)",
+        "T\u00edtulo + subt\u00edtulo (tom visual da marca)",
+        "Bot\u00e3o CTA \u00fanico \"Entrar no painel\""
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "home",
+      "label": "Home",
+      "icon": "\ud83c\udfe0",
+      "ngComponent": "HomeComponent",
+      "ngSelector": "app-home",
+      "ngRoute": "/home",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/home/home.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Responder, em at\u00e9 2 segundos de leitura, \"M\u00e1rcio est\u00e1 bem?\" \u2014 a pergunta central do produto (Princ\u00edpio 2.1). Tamb\u00e9m mostra o status do dispositivo edge sem exigir navega\u00e7\u00e3o extra (Princ\u00edpio 2.6), cobrindo o fluxo 4.6.",
+      "componentes": [
+        "StatusCard (\u00edcone grande + texto de estado + timestamp)",
+        "DeviceStatusBadge (online/offline + \u00faltima sincroniza\u00e7\u00e3o) \u2014 tamb\u00e9m presente na Topbar (3.2.B)",
+        "Link r\u00e1pido para Hist\u00f3rico do dia"
+      ],
+      "hasAiDrawer": true
+    },
+    {
+      "id": "alarme",
+      "label": "Alarme",
+      "icon": "\u2022",
+      "ngComponent": "AlarmeComponent",
+      "ngSelector": "app-alarme",
+      "ngRoute": "/alarme",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/alarme/alarme.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Ser absolutamente inconfund\u00edvel no momento em que M\u00e1rcio precisa de ajuda (Princ\u00edpio 2.2) e exigir confirma\u00e7\u00e3o humana expl\u00edcita antes de voltar ao estado normal (Princ\u00edpio 2.3). Cobre o fluxo 4.2 (fluxo-m\u00e3e do produto). *(Emenda 1)* Esta tela \u00e9 **exclusiva para comandos de urg\u00eancia `emergencia`** do",
+      "componentes": [
+        "AlarmOverlay (full-bleed, cor `--color-alarm`, substitui qualquer tela ativa)",
+        "Timestamp do evento",
+        "Bot\u00e3o \u00fanico de confirma\u00e7\u00e3o (nenhuma outra a\u00e7\u00e3o dispon\u00edvel \u2014 foco total)"
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "historico",
+      "label": "Historico",
+      "icon": "\u2022",
+      "ngComponent": "HistoricoComponent",
+      "ngSelector": "app-historico",
+      "ngRoute": "/historico",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/historico/historico.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Permitir que a cuidadora revise eventos do dia/semana/m\u00eas em linguagem humana (Princ\u00edpio 2.5) e registre feedback de falso positivo/negativo (fluxo 4.7). Cobre o fluxo 4.4.",
+      "componentes": [
+        "FilterTabs (hoje/semana/m\u00eas)",
+        "EventListItem *(Emenda 1)* \u2014 mostra o **r\u00f3tulo do comando** (`Evento.comando.rotulo`), n\u00e3o mais um texto fixo de gesto (ex.: \"\u00e1gua\" ou \"Sapo\", entre aspas \u2014 \u00e9 a palavra da fam\u00edlia, n\u00e3o uma descri\u00e7\u00e3o do sistema); badge de urg\u00eancia (emerg\u00eancia/rotina) ao lado do r\u00f3tulo",
+        "A\u00e7\u00e3o de feedback (\"Foi real?\" \u2192 marca `Evento.feedback`)"
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "calibracao",
+      "label": "Calibracao",
+      "icon": "\u2022",
+      "ngComponent": "CalibracaoComponent",
+      "ngSelector": "app-calibracao",
+      "ngRoute": "/calibracao",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/calibracao/calibracao.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Permitir que uma pessoa n\u00e3o-t\u00e9cnica gerencie o **cat\u00e1logo de comandos** de M\u00e1rcio (adicionar, editar, remover) e calibre cada um independentemente \u2014 gesto, sensibilidade e n\u00edvel de urg\u00eancia (Princ\u00edpio 2.4). Cobre o fluxo 4.3, agora estendido de \"1 gesto\" para \"N comandos, cada um com sua pr\u00f3pria cal",
+      "componentes": [
+        "CommandList *(novo)* \u2014 lista o cat\u00e1logo, cada item mostra r\u00f3tulo, badge de urg\u00eancia (cor `--color-alarm` para emerg\u00eancia, cor neutra para rotina), gesto (1 ou 2 primitivos) e sensibilidade; a\u00e7\u00e3o de abrir editor ou remover",
+        "CommandEditor *(novo)* \u2014 formul\u00e1rio do comando individual, reutiliza os campos abaixo; abre para \"Novo comando\" ou edi\u00e7\u00e3o de um existente",
+        "LabelInput \u2014 campo de texto livre para o r\u00f3tulo (a fam\u00edlia escreve a pr\u00f3pria palavra-c\u00f3digo, ex.: \"\u00e1gua\", \"Sapo\" \u2014 sem sugest\u00e3o nem valida\u00e7\u00e3o de significado)",
+        "UrgencySelector *(novo)* \u2014 escolha bin\u00e1ria emerg\u00eancia/rotina, com explica\u00e7\u00e3o inline de que emerg\u00eancia dispara a Tela 02 (full-bleed) e rotina dispara s\u00f3 o toast (\u00a73.2.E)",
+        "GestureSelector (dropdown com exemplos visuais, n\u00e3o nomes t\u00e9cnicos) \u2014 usado 1x para o primitivo principal, e opcionalmente 1x mais para o primitivo secund\u00e1rio (gesto composto)",
+        "SensitivitySlider (visual, 3-5 n\u00edveis nomeados, n\u00e3o valores num\u00e9ricos crus)",
+        "TestLiveButton (testa a combina\u00e7\u00e3o de gesto ao vivo antes de salvar \u2014 cr\u00edtico quando h\u00e1 2 primitivos, j\u00e1 que o risco de falso negativo \u00e9 maior, ver LBC \u00a712 Emenda 1)",
+        "SaveButton / RemoveButton (por comando)"
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "onboarding",
+      "label": "Onboarding",
+      "icon": "rocket_launch",
+      "ngComponent": "OnboardingComponent",
+      "ngSelector": "app-onboarding",
+      "ngRoute": "/onboarding",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/onboarding/onboarding.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5",
+      "objetivo": "Cadastro inicial de tenant, paciente e pareamento do dispositivo edge \u2014 conduzido uma \u00fanica vez por Danilo Amaral (condutor t\u00e9cnico), n\u00e3o pela cuidadora no dia a dia. Cobre o fluxo 4.5.",
+      "componentes": [
+        "Wizard de passos (tenant \u2192 paciente \u2192 dispositivo \u2192 primeiro comando \u2192 convite)",
+        "DevicePairingStatus (indicador de pareamento em andamento)",
+        "InviteCaregiverForm"
+      ],
+      "hasAiDrawer": false
+    }
+  ]
+}

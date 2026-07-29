@@ -1,0 +1,22 @@
+@startuml c4-container-reg
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title REG (neuroassist-ai-service-registry) - Container
+
+System_Boundary(reg_b, "neuroassist-ai-service-registry (REG)") {
+  Container(eureka_server, "Eureka Server", "Java 21, Spring Boot 3.5, spring-cloud-starter-netflix-eureka-server (servlet)", "@EnableEurekaServer. Single node MVP: register-with-eureka=false, fetch-registry=false.")
+  ContainerDb(leases, "Lease Registry", "In-memory", "app -> instances -> status/expiry. Ephemeral, rebuilt from heartbeats on restart.")
+}
+
+System_Ext(services, "NeuroAssist AI backend services", "GEST / EVNT / PAC / ACS / HIST / DASH / EDGE / migrations")
+System_Ext(gwy, "neuroassist-ai-api-gateway (GWY)", "lb:// discovery client")
+System_Ext(operator, "Operator", "Eureka dashboard")
+System_Ext(obs, "Platform observability pipeline", "Lifecycle + access logs, metrics")
+
+Rel(services, eureka_server, "Register / renew / resolve", "Eureka HTTP")
+Rel(gwy, eureka_server, "Register / resolve lb://", "Eureka HTTP")
+Rel(eureka_server, leases, "Reads/writes leases")
+Rel(operator, eureka_server, "Dashboard view", "HTTPS")
+Rel(eureka_server, obs, "Lifecycle + access logs", "best-effort")
+
+@enduml

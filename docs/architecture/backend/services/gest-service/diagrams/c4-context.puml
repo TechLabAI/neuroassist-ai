@@ -1,0 +1,34 @@
+@startuml c4-context-gest
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context — gest-service (GEST: Detecção de Gesto)
+
+Person(conductor, "Conductor (Cuidador)", "Configures gesture primitives and publishes detection profiles for the patient's tenant.")
+Person(patient, "Paciente", "Uses the assistive device; not a direct GEST user.")
+
+System(gest, "gest-service", "Cloud-side detection authority. Owns the TipoGesto primitive vocabulary, detectability lifecycle, versioned detection profiles, and the frozen detection contract.")
+
+System_Ext(edge_engine, "GestureDetectionEngine (Edge)", "Runs locally on the patient's device. Pulls detection profiles from GEST and streams RecognizedCommandReport to EVNT.")
+System_Ext(pac, "PAC (Paciente-Ação-Comando)", "Calls GEST /eligibility:check before creating an emergency Comando.")
+System_Ext(evnt, "EVNT (Evento Service)", "Receives RecognizedCommandReport from the edge. Calls GEST /recognized-commands to validate the report before persisting the Evento.")
+System_Ext(dash, "DASH (Dashboard)", "Reads primitive catalog state for operational visibility.")
+System_Ext(acs, "ACS (Auth & User Mgmt)", "Issues OAuth2 JWTs consumed by GEST for auth. Provides /oauth2/jwks.")
+System_Ext(gwy, "GWY (API Gateway)", "Routes /api/v1/gest/** to gest-service; injects X-Correlation-Id.")
+System_Ext(reg, "REG (Service Registry)", "Eureka — GEST registers and discovers EDGE service.")
+System_Ext(mig, "MIG (Migration Service)", "Applies Flyway V0400 DDL for GEST tables to each tenant schema.")
+
+Rel(conductor, gwy, "Manages primitives and profiles", "HTTPS / REST (OAuth2 JWT)")
+Rel(gwy, gest, "Routes /api/v1/gest/**", "HTTP REST (internal)")
+Rel(gest, acs, "Validates JWT via jwk-set-uri", "HTTP REST")
+Rel(gest, reg, "Registers as Eureka client", "Eureka HTTP")
+Rel(gest, edge_engine, "Verifies device pairing (outbound to EDGE service)", "HTTP REST (service credential)")
+Rel(edge_engine, gest, "Pulls detection profile (GET /devices/{id}/detection-profile)", "HTTPS REST (device credential)")
+Rel(evnt, gest, "Validates RecognizedCommandReport (POST /recognized-commands)", "HTTP REST")
+Rel(pac, gest, "Checks eligibility (POST /eligibility:check)", "HTTP REST")
+Rel(dash, gest, "Reads primitive catalog", "HTTP REST")
+Rel(mig, gest, "Applies GEST DDL to tenant schemas (V0400)", "PostgreSQL")
+
+@enduml

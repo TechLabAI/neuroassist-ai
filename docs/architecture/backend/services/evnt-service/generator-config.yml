@@ -1,0 +1,80 @@
+service: evnt-service
+type: standard
+port: 8085
+
+domain:
+  aggregates:
+    - Evento
+  entities:
+    - NotificationDispatch
+    - ReportIdempotency
+
+application_services:
+  - name: ReportIngressService
+    operations:
+      - ingestReport
+  - name: EventQueryService
+    operations:
+      - findById
+      - listActive
+      - listAll
+  - name: EventConfirmationService
+    operations:
+      - confirm
+      - acknowledgeDispatch
+  - name: NotificationOrchestrationService
+    operations:
+      - orchestrate
+      - retrySweep
+
+enums:
+  UrgenciaSnapshot:
+    - emergencia
+    - rotina
+  Feedback:
+    - nao_avaliado
+    - real
+    - falso_positivo
+  Tier:
+    - full_screen_alarm
+    - discreet
+  DispatchStatus:
+    - queued
+    - delivered
+    - acknowledged
+    - failed
+
+feign_clients:
+  - name: GestValidationClient
+    service: gest-service
+    url_prop: evnt.gest.baseurl
+  - name: CommandLookupClient
+    service: pac-service
+    url_prop: evnt.pac.baseurl
+  - name: CaregiverRoutingClient
+    service: acs-service
+    url_prop: evnt.acs.baseurl
+  - name: NotificationDispatchClient
+    service: dash-service
+    url_prop: evnt.dash.baseurl
+  - name: AuditTrailClient
+    service: hist-service
+    url_prop: evnt.hist.baseurl
+
+consumed_events: []
+
+events:
+  published:
+    - com.neuroassist.evnt.event.EventoCriado
+    - com.neuroassist.evnt.event.NotificacaoDespachada
+    - com.neuroassist.evnt.event.NotificacaoFalhou
+    - com.neuroassist.evnt.event.EventoConfirmado
+    - com.neuroassist.evnt.event.FalsoPositivoMarcado
+
+outbound_ports:
+  - GestValidationPort
+  - CommandLookupPort
+  - CaregiverRoutingPort
+  - NotificationDispatchPort
+  - AuditTrailPort
+  - SseEventBroadcastPort

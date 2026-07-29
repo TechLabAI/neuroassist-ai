@@ -1,0 +1,9 @@
+{
+  "name": "@neuroassist/evnt",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/evnt/src",
+  "prefix": "evnt",
+  "tags": ["scope:evnt", "type:feature"],
+  "targets": {}
+}

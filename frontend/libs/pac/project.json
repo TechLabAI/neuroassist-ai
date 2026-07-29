@@ -1,0 +1,9 @@
+{
+  "name": "@neuroassist/pac",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/pac/src",
+  "prefix": "pac",
+  "tags": ["scope:pac", "type:feature"],
+  "targets": {}
+}

@@ -1,0 +1,66 @@
+service: edge-service
+type: standard
+port: 8087
+
+domain:
+  aggregates:
+    - DispositivoEdge
+  entities:
+    - DispositivoEnrollment
+    - DispositivoCredential
+    - DispositivoEdgeTransition
+
+enums:
+  PairingState:
+    - registered
+    - paired
+    - unpaired
+    - retired
+  TransitionKind:
+    - pairing
+    - liveness
+  CredentialStatus:
+    - active
+    - revoked
+
+application_services:
+  - name: DeviceRegistrationService
+    operations:
+      - register
+      - enroll
+      - retire
+  - name: PairingService
+    operations:
+      - pair
+      - unpair
+  - name: HeartbeatService
+    operations:
+      - recordHeartbeat
+  - name: LivenessService
+    operations:
+      - evaluate
+      - resolveDeviceForPatient
+      - resolveTenant
+  - name: ProfilePointerService
+    operations:
+      - currentPointerForTenant
+
+feign_clients:
+  - name: DetectionProfileClient
+    service: gest-service
+    url_prop: neuroassist.gest.url
+
+consumed_events: []
+
+events:
+  published:
+    - com.neuroassist.edge.event.DispositivoRegistrado
+    - com.neuroassist.edge.event.DispositivoPareado
+    - com.neuroassist.edge.event.DispositivoDespareado
+    - com.neuroassist.edge.event.HeartbeatRecebido
+    - com.neuroassist.edge.event.DispositivoFicouOffline
+    - com.neuroassist.edge.event.DispositivoVoltouOnline
+    - com.neuroassist.edge.event.ProfileDriftDetected
+
+outbound_ports:
+  - DetectionProfilePort

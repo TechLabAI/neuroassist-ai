@@ -1,0 +1,35 @@
+@startuml c4-container-gwy
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+title Container — GWY (API Gateway), NeuroAssist AI
+
+Person(caregiver, "Caregiver", "Angular dashboard + JWT")
+System_Ext(edge, "Edge agent", "Device token + outbox")
+
+System_Boundary(gw, "neuroassist-ai-api-gateway (single stateless service, N replicas)") {
+  Container(gateway, "Gateway process", "Java 21 · Spring Boot 3.5 · Spring Cloud Gateway (WebFlux/Netty)", "Filter pipeline: CORS -> correlation -> auth -> tenant -> rate-limit -> route; RFC 7807 error shaping")
+}
+
+Container_Ext(reg, "Service Registry", "Eureka", "lb:// instance resolution")
+Container_Ext(acs, "ACS", "Spring MVC", "JWK set / issuer; device-token authority")
+Container_Ext(evnt, "EVNT", "Spring MVC", "Events & alarms")
+Container_Ext(pac, "PAC", "Spring MVC", "Patients & command catalog")
+Container_Ext(hist, "HIST", "Spring MVC", "History & audit")
+Container_Ext(dash, "DASH", "Spring MVC", "Dashboard & notifications")
+Container_Ext(edgesvc, "EDGE", "Spring MVC", "Device pairing & heartbeat")
+
+Rel(caregiver, gateway, "HTTPS /api/** + Bearer JWT")
+Rel(edge, gateway, "HTTPS /api/evnt|edge + device token")
+Rel(gateway, reg, "register + fetch registry", "Eureka")
+Rel(gateway, acs, "GET JWK set (cached)", "HTTPS")
+Rel(gateway, evnt, "route (lb://)", "HTTP")
+Rel(gateway, pac, "route (lb://)", "HTTP")
+Rel(gateway, hist, "route (lb://)", "HTTP")
+Rel(gateway, dash, "route (lb://)", "HTTP")
+Rel(gateway, edgesvc, "route (lb://)", "HTTP")
+
+note right of gateway
+  No database, no broker.
+  State = ephemeral rate-limit
+  buckets + JWK cache only.
+end note
+@enduml

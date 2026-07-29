@@ -1,0 +1,30 @@
+@startuml c4-component-mig
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title MIG (neuroassist-ai-migrations) - Component (hexagonal)
+
+Container_Boundary(mig, "neuroassist-ai-migrations") {
+
+  Component(api, "api", "Spring Boot (thin)", "MigrationsJobRunner (--mode dispatch, exit code) + InternalMigrationsController + ProblemDetailMapper")
+
+  Component(app, "application", "use cases", "MigrateAllSchemas, MigrateGlobal, ProvisionTenantSchema, ReportStatus; builds MigrationPlan, aggregates run report")
+
+  Component(domain, "domain", "pure", "SchemaTarget (global|tenant), MigrationPlan, RunReport, TenantRegistryEntry, tenantId validation")
+
+  Component(infra, "infrastructure", "adapters", "FlywayAdapter, PostgresAdminAdapter (privileged), TenantRegistryReader, MigrationLock, ActivityTrailReporter, EurekaConfig")
+}
+
+System_Ext(pg, "PostgreSQL", "schemas + flyway_schema_history")
+
+Rel(api, app, "invokes")
+Rel(app, domain, "uses")
+Rel(app, infra, "drives (ports)")
+Rel(infra, pg, "DDL / history / read", "privileged JDBC")
+
+note right of domain
+  Pure: no Spring, no JDBC.
+  Knows ordering, scopes, validation.
+  Owns NO business entity.
+end note
+
+@enduml

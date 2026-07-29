@@ -1,0 +1,9 @@
+{
+  "name": "@neuroassist/edge",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/edge/src",
+  "prefix": "edge",
+  "tags": ["scope:edge", "type:feature"],
+  "targets": {}
+}

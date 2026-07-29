@@ -1,0 +1,5 @@
+# Profile 'test' — sem datasource/messaging (serviço de infra, não persiste estado).
+eureka:
+  client:
+    enabled: false
+

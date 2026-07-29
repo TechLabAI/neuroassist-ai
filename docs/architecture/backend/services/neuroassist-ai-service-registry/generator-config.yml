@@ -1,0 +1,3 @@
+service: neuroassist-ai-service-registry
+type: registry
+port: 8761

@@ -1,0 +1,399 @@
+{
+  "version": "v1.0",
+  "generatedBy": "techlab-architecture /new-project (ingest_discovery, D-073)",
+  "generatedAt": "2026-07-26T23:49:31Z",
+  "lastUpdatedAt": "2026-07-27T16:38:38Z",
+  "locale": {
+    "primary": "pt-BR",
+    "technicalDocs": "en-US",
+    "humanFacingDocs": "pt-BR"
+  },
+  "project": {
+    "name": "neuroassist-ai",
+    "displayName": "NeuroAssist AI",
+    "description": "A NeuroAssist AI propõe uma plataforma de tecnologia assistiva que transforma pequenos movimentos voluntários residuais — de pessoas com doenças neurodegenerativas como ALS/MND — em pedidos de ajuda estruturados, capturados por uma webcam comum e processados por visão computacional.",
+    "codeName": "neuroassist",
+    "segment": "healthtech",
+    "rigorLevel": "complete-bosq",
+    "issuePrefix": "NEUR",
+    "archetype": "code-monorepo"
+  },
+  "ai": {
+    "hasAi": false
+  },
+  "stack": {
+    "backend": {
+      "language": "java",
+      "version": "21",
+      "framework": "spring-boot",
+      "packageBase": "com.neuroassist"
+    },
+    "frontend": {
+      "framework": "angular",
+      "monorepoTool": "nx",
+      "enabled": true,
+      "npmScope": "@neuroassist",
+      "prototypePath": "frontend/design-reference"
+    },
+    "messaging": {
+      "enabled": false,
+      "engine": null,
+      "$comment": "N/A no MVP (estagio-0.json): sincronização edge→backend via REST/HTTPS síncrono com fila local de retry (outbox); reavaliar broker assíncrono (ex: RabbitMQ) apenas se o número de pacientes/edge agents crescer."
+    },
+    "database": {
+      "engine": "PostgreSQL (transacional, schema-per-empresa)"
+    }
+  },
+  "multiTenancy": {
+    "isolationStrategy": "schema-per-tenant",
+    "mode": "multi-tenant",
+    "term": "empresa",
+    "termPlural": "empresas",
+    "globalSchema": "neuroassist_global"
+  },
+  "_extensions": {
+    "compliance": {
+      "lgpd": true
+    },
+    "wireframe": {
+      "path": "D:\\01_Trabalho\\Cybersoft\\TechLab IA\\techlab-ba\\projects\\neuro-assist-ai\\design\\wireframe.md",
+      "screen_count": 6
+    },
+    "module_candidates": [
+      {
+        "displayName": "Eventos e Alarmes"
+      },
+      {
+        "displayName": "Pacientes e Catálogo de Comandos"
+      },
+      {
+        "displayName": "Cuidadores e Acesso"
+      },
+      {
+        "displayName": "Histórico e Auditoria"
+      },
+      {
+        "displayName": "Dashboard e Notificações"
+      },
+      {
+        "displayName": "Integração de Dispositivo Edge"
+      }
+    ],
+    "data_model": {
+      "status": "draft (BA)",
+      "version": "0.1.0",
+      "entityCount": 7,
+      "entities": [
+        {
+          "name": "Tenant",
+          "description": "Unidade de cuidado — família ou clínica (multi-tenant, schema-per-empresa)",
+          "fieldCount": 3,
+          "pk": "id",
+          "enums": {
+            "tipo": [
+              "familia",
+              "clinica"
+            ]
+          },
+          "refs": {}
+        },
+        {
+          "name": "Paciente",
+          "description": "Pessoa monitorada pelo sistema",
+          "fieldCount": 4,
+          "pk": "id",
+          "enums": {},
+          "refs": {
+            "tenantId": "Tenant",
+            "dispositivo": "DispositivoEdge"
+          }
+        },
+        {
+          "name": "Cuidador",
+          "description": "Pessoa com acesso ao painel",
+          "fieldCount": 5,
+          "pk": "id",
+          "enums": {
+            "papel": [
+              "cuidadora",
+              "coordenador_clinica"
+            ]
+          },
+          "refs": {
+            "tenantId": "Tenant"
+          }
+        },
+        {
+          "name": "TipoGesto",
+          "description": "Catálogo de tipos de movimento facial (primitivos) reconhecidos pelo motor de detecção — extensível (LBC Emenda 2, 2026-07-27). Cadastrar um nome aqui NÃO implica suporte real do motor de detecção (ver TODO[arquiteto] no Framing §6.1/§7.1a/§9.3).",
+          "fieldCount": 2,
+          "pk": "id",
+          "enums": {},
+          "refs": {}
+        },
+        {
+          "name": "Comando",
+          "description": "Item do catálogo de comandos do paciente — gesto (simples ou composto) mapeado a uma necessidade (LBC Emenda 1, 2026-07-27)",
+          "fieldCount": 9,
+          "pk": "id",
+          "enums": {
+            "urgencia": [
+              "emergencia",
+              "rotina"
+            ],
+            "sensibilidade": [
+              "baixa",
+              "media",
+              "alta"
+            ]
+          },
+          "refs": {
+            "pacienteId": "Paciente",
+            "primitivoPrincipal": "TipoGesto",
+            "primitivoSecundario": "TipoGesto"
+          }
+        },
+        {
+          "name": "Evento",
+          "description": "Ocorrência estruturada gerada pelo edge",
+          "fieldCount": 7,
+          "pk": "id",
+          "enums": {
+            "feedback": [
+              "nao_avaliado",
+              "real",
+              "falso_positivo"
+            ]
+          },
+          "refs": {
+            "pacienteId": "Paciente",
+            "comando": "Comando",
+            "confirmadoPor": "Cuidador"
+          }
+        },
+        {
+          "name": "DispositivoEdge",
+          "description": "Agente local que roda a detecção de gesto",
+          "fieldCount": 5,
+          "pk": "id",
+          "enums": {
+            "status": [
+              "online",
+              "offline"
+            ]
+          },
+          "refs": {
+            "pacienteId": "Paciente"
+          }
+        }
+      ],
+      "entityNames": [
+        "Tenant",
+        "Paciente",
+        "Cuidador",
+        "TipoGesto",
+        "Comando",
+        "Evento",
+        "DispositivoEdge"
+      ],
+      "screenBindingCount": 6,
+      "mock": {
+        "tenants": 1,
+        "cuidadores": 1,
+        "pacientes": 1,
+        "dispositivos": 1,
+        "tiposGesto": 7,
+        "comandos": 3,
+        "eventos": 9
+      }
+    },
+    "stakeholder_roles": [
+      "Sponsor executivo",
+      "Tech approver",
+      "Cliente piloto",
+      "Security gate",
+      "Time interno de desenvolvimento"
+    ],
+    "lbc_personas": [
+      {
+        "role_code": "CUIDADORA_FAMILIAR",
+        "role_name": "Cuidadora Familiar",
+        "description": "Jamilly Amaral, cuidadora familiar de Márcio Amaral (paciente com doença neurodegenerativa em estágio avançado), monitorando em ambiente domiciliar. (Danilo Amaral conduz o projeto como engenheiro/BA — não é o cuidador do dia a dia.)"
+      }
+    ],
+    "frontend_reference": {
+      "path": "D:\\01_Trabalho\\Cybersoft\\TechLab IA\\techlab-ba\\projects\\neuro-assist-ai\\design",
+      "kind": "angular-prototype",
+      "component_count": 15,
+      "build_plans": [
+        "alarme",
+        "calibracao",
+        "entrada",
+        "historico",
+        "home",
+        "onboarding"
+      ],
+      "has_design_system": true,
+      "has_theme": true
+    }
+  },
+  "modules": {
+    "registry": [
+      {
+        "prefix": "GWY",
+        "displayName": "API Gateway",
+        "description": "Spring Cloud Gateway",
+        "backendService": "neuroassist-ai-api-gateway",
+        "frontendLib": null,
+        "hasUi": false,
+        "isInfrastructure": true,
+        "status": "declared"
+      },
+      {
+        "prefix": "REG",
+        "displayName": "Service Registry",
+        "description": "Eureka",
+        "backendService": "neuroassist-ai-service-registry",
+        "frontendLib": null,
+        "hasUi": false,
+        "isInfrastructure": true,
+        "status": "declared"
+      },
+      {
+        "prefix": "MIG",
+        "displayName": "Migrations",
+        "description": "Centralized Flyway (all schemas)",
+        "backendService": "neuroassist-ai-migrations",
+        "frontendLib": null,
+        "hasUi": false,
+        "isInfrastructure": true,
+        "status": "declared"
+      },
+      {
+        "prefix": "GEST",
+        "displayName": "Detecção de Gesto (Edge)",
+        "description": "Captura de webcam, extração de landmarks faciais e classificação multi-classe do comando ativo (gesto simples ou composto por múltiplos primitivos), executado localmente no dispositivo do paciente.",
+        "backendService": "gest-service",
+        "frontendLib": "gest",
+        "hasUi": true,
+        "isInfrastructure": false
+      },
+      {
+        "prefix": "EVNT",
+        "displayName": "Eventos e Alarmes",
+        "description": "Geração do evento estruturado correspondente ao comando reconhecido, orquestração de notificação por nível de urgência (alarme full-screen para emergência; discreta para rotina) e roteamento para o responsável.",
+        "backendService": "evnt-service"
+      },
+      {
+        "prefix": "PAC",
+        "displayName": "Pacientes e Catálogo de Comandos",
+        "description": "Cadastro de paciente e catálogo de comandos (gesto -> ação, rótulo livre definido pela família, sensibilidade, tempo mínimo/máximo de gesto e nível de urgência), calibráveis independentemente por comando.",
+        "backendService": "pac-service"
+      },
+      {
+        "prefix": "ACS",
+        "displayName": "Cuidadores e Acesso",
+        "description": "Gestão de cuidadores/usuários, papéis e vínculo com paciente(s); base do multi-tenant (tenant = família ou clínica).",
+        "backendService": "acs-service"
+      },
+      {
+        "prefix": "HIST",
+        "displayName": "Histórico e Auditoria",
+        "description": "Registro imutável de eventos, alarmes e ações de confirmação/edição, com trilha de auditoria.",
+        "backendService": "hist-service"
+      },
+      {
+        "prefix": "DASH",
+        "displayName": "Dashboard e Notificações",
+        "description": "Painel web (Angular) para cuidador consultar histórico, calibrar sensibilidade e receber notificações.",
+        "backendService": "dash-service"
+      },
+      {
+        "prefix": "EDGE",
+        "displayName": "Integração de Dispositivo Edge",
+        "description": "Registro, pareamento e monitoramento de heartbeat do agente local (edge) que roda a detecção de gesto.",
+        "backendService": "edge-service",
+        "frontendLib": "edge",
+        "hasUi": true,
+        "isInfrastructure": false
+      }
+    ]
+  },
+  "growth": {
+    "enabled": false
+  },
+  "setup": {
+    "phases": [
+      {
+        "id": "P0-bootstrap",
+        "name": "Repository bootstrap (minimal structure + git init)",
+        "status": "done",
+        "command": "new-project.py bootstrap",
+        "completedAt": "2026-07-26T23:49:32Z",
+        "startedAt": "2026-07-26T23:49:32Z"
+      },
+      {
+        "id": "P1-claude-folder",
+        "name": "Copy .claude/ + generated CLAUDE.md",
+        "status": "done",
+        "command": "new-project.py claude-folder",
+        "completedAt": "2026-07-26T23:50:23Z",
+        "startedAt": "2026-07-26T23:50:23Z"
+      },
+      {
+        "id": "P2-docs-skeleton",
+        "name": "Create docs/architecture/ per rigor level",
+        "status": "done",
+        "rigorAffected": true,
+        "command": "new-project.py docs-skeleton --rigor complete-bosq",
+        "completedAt": "2026-07-26T23:52:52Z",
+        "startedAt": "2026-07-26T23:52:52Z"
+      },
+      {
+        "id": "P3-techlab-ai-sync",
+        "name": "Sync TechLab AI docs snapshot (docs-only) and populate integration contract",
+        "status": "skipped",
+        "conditional": "ai.hasAi == true",
+        "command": "sync-techlab-ai.py --target-sha <pinned>"
+      },
+      {
+        "id": "P3b-elastic-stack-overlay",
+        "name": "Generate elastic-stack overlay (compose + integration contract + Java ports/adapters)",
+        "status": "skipped",
+        "conditional": "stack.elastic.enabled == true",
+        "command": "new-project.py backend-skeleton (elastic-stack overlay triggered automatically)"
+      },
+      {
+        "id": "P4-backend-skeleton",
+        "name": "backend/ Gradle root + empty settings.gradle.kts",
+        "status": "done",
+        "command": "new-project.py backend-skeleton",
+        "completedAt": "2026-07-26T23:53:12Z",
+        "startedAt": "2026-07-26T23:53:12Z"
+      },
+      {
+        "id": "P5-frontend-skeleton",
+        "name": "frontend/ empty Nx workspace",
+        "status": "done",
+        "conditional": "stack.frontend.enabled == true",
+        "command": "new-project.py frontend-skeleton",
+        "completedAt": "2026-07-26T23:53:55Z",
+        "startedAt": "2026-07-26T23:53:55Z"
+      },
+      {
+        "id": "Pg-growth-skeleton",
+        "name": "Growth skeleton (docs/growth/ scaffold + admin-module service-spec)",
+        "status": "skipped",
+        "conditional": "growth.enabled == true",
+        "command": "new-project.py growth-skeleton"
+      },
+      {
+        "id": "P6-handoff",
+        "name": "Handoff message: setup done, next step is /be-architect-vision <MODULE>",
+        "status": "done",
+        "completedAt": "2026-07-26T23:55:46Z",
+        "startedAt": "2026-07-26T23:55:46Z"
+      }
+    ]
+  }
+}

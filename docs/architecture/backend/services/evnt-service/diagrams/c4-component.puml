@@ -1,0 +1,74 @@
+@startuml evnt-c4-component
+' C4 Component — EVNT internal hexagonal structure (ADR-001 shared)
+title EVNT — Component View (hexagonal)
+
+package "api (inbound adapters)" {
+  [ReportIngressController]
+  [ConfirmationController]
+  [EventQueryController]
+  [EventStreamController (SSE)]
+}
+
+package "application (use cases + ports)" {
+  [IngestRecognizedReport]
+  [GenerateEvento]
+  [OrchestrateNotification]
+  [ConfirmEvento]
+  interface GestValidationPort
+  interface CommandLookupPort
+  interface CaregiverRoutingPort
+  interface NotificationDispatchPort
+  interface AuditTrailPort
+  interface IdempotencyStore
+  interface EventStreamPublisher
+}
+
+package "domain (pure)" {
+  [Evento «aggregate root»]
+  [NotificationDispatch]
+  [Urgencia «VO»]
+  [FeedbackVerdict «VO»]
+  [TimingWindow «VO»]
+  [NotificationTier «VO»]
+}
+
+package "infrastructure (outbound adapters)" {
+  [EventoJpaRepository]
+  [DispatchJpaRepository]
+  [ReportIdempotencyStoreJpa]
+  [GestFeignClient]
+  [PacFeignClient]
+  [AcsFeignClient]
+  [DashFeignClient]
+  [HistFeignClient]
+  [SseEventStreamPublisher]
+  [DispatchRetrySweep]
+}
+
+ReportIngressController --> IngestRecognizedReport
+ConfirmationController --> ConfirmEvento
+EventQueryController --> GenerateEvento
+EventStreamController --> EventStreamPublisher
+
+IngestRecognizedReport --> IdempotencyStore
+IngestRecognizedReport --> GestValidationPort
+IngestRecognizedReport --> CommandLookupPort
+IngestRecognizedReport --> GenerateEvento
+GenerateEvento --> Evento
+GenerateEvento --> OrchestrateNotification
+OrchestrateNotification --> CaregiverRoutingPort
+OrchestrateNotification --> NotificationDispatchPort
+OrchestrateNotification --> NotificationDispatch
+ConfirmEvento --> Evento
+ConfirmEvento --> AuditTrailPort
+
+IdempotencyStore <|.. ReportIdempotencyStoreJpa
+GestValidationPort <|.. GestFeignClient
+CommandLookupPort <|.. PacFeignClient
+CaregiverRoutingPort <|.. AcsFeignClient
+NotificationDispatchPort <|.. DashFeignClient
+AuditTrailPort <|.. HistFeignClient
+EventStreamPublisher <|.. SseEventStreamPublisher
+DispatchRetrySweep --> DispatchJpaRepository
+
+@enduml

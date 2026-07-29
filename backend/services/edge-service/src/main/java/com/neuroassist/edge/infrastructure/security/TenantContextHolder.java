@@ -1,0 +1,40 @@
+package com.neuroassist.edge.infrastructure.security;
+
+import org.slf4j.MDC;
+
+/**
+ * Per-request tenant context (CLAUDE.md RULE-07). - Sync requests: TenantContextFilter sets/clears.
+ * - Async (@JmsListener, background): caller MUST set/clear explicitly.
+ */
+public final class TenantContextHolder {
+
+    public static final String MDC_KEY = "tenantId";
+
+    private static final ThreadLocal<String> CTX = new ThreadLocal<>();
+
+    private TenantContextHolder() {}
+
+    public static void set(String tenantId) {
+        CTX.set(tenantId);
+        if (tenantId != null) {
+            MDC.put(MDC_KEY, tenantId);
+        }
+    }
+
+    public static String require() {
+        String t = CTX.get();
+        if (t == null || t.isBlank()) {
+            throw new IllegalStateException("TenantContext not set — RULE-07 violation");
+        }
+        return t;
+    }
+
+    public static String getTenantIdOrNull() {
+        return CTX.get();
+    }
+
+    public static void clear() {
+        CTX.remove();
+        MDC.remove(MDC_KEY);
+    }
+}

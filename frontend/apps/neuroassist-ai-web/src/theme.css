@@ -1,0 +1,195 @@
+/*
+ * NeuroAssist AI — Design System — theme.css
+ * Origem: ingerido da identidade visual do logotipo aprovado (assets/logo.png)
+ * Direção estética: "guardião silencioso" — tema claro, calmo, sóbrio na maior parte
+ *   do tempo; vermelho de alarme reservado EXCLUSIVAMENTE para o evento HELP_REQUESTED
+ *   (nunca usado para erro genérico de UI — ver nota em --color-alarm)
+ * Atualizado: 2026-07-27
+ *
+ * Estrutura:
+ *   :root               → tema claro (padrão — calma é o estado default)
+ *   [data-theme="dark"] → tema escuro (override)
+ *   [data-sidebar]      → sidebar sempre escura (ambos os temas)
+ *
+ * Tokens em oklch(lightness% chroma hue)
+ */
+
+@theme {
+
+  /* ─── TEMA CLARO (padrão — calmo, discreto) ─────────────────────────────── */
+  /* Backgrounds */
+    --bg-base:            oklch(98% 0.004 260);
+    --bg-surface:         oklch(96% 0.006 260);
+    --bg-surface-hover:   oklch(93% 0.008 260);
+    --bg-surface-active:  oklch(90% 0.010 260);
+    --bg-topbar:          oklch(98% 0.004 260 / 0.95);
+    --bg-overlay:         oklch(20% 0.08 265 / 0.55);
+
+    /* Sidebar — sempre escura */
+    --bg-sidebar:         oklch(19% 0.06 265);
+    --bg-sidebar-hover:   oklch(25% 0.06 265);
+    --bg-sidebar-active:  oklch(31% 0.07 265);
+
+    /* Brand — azul do ícone (figura central/topo do logo, ~#2E86F0) */
+    --color-brand:        oklch(60% 0.19 250);
+    --color-brand-strong: oklch(50% 0.19 250);
+    --color-brand-subtle: oklch(60% 0.19 250 / 0.12);
+    --color-brand-ink:    oklch(99% 0.005 250);
+
+    /* Marca / Navy (wordmark "neuroassist", ~#0F2247) */
+    --color-ink:          oklch(21% 0.08 265);
+    --color-ink-strong:   oklch(14% 0.06 265);
+    --color-ink-subtle:   oklch(48% 0.05 265);
+
+    /* Texto */
+    --text-primary:       oklch(21% 0.08 265);
+    --text-secondary:     oklch(45% 0.05 265);
+    --text-tertiary:      oklch(65% 0.03 265);
+    --text-on-dark:       oklch(96% 0.005 265);
+    --text-on-brand:      oklch(99% 0.003 265);
+
+    /* Semânticas (paleta do ícone: verde e âmbar são as duas figuras laterais) */
+    --color-success:      oklch(60% 0.16 160);    /* verde do ícone (~#22B573) */
+    --color-success-bg:   oklch(60% 0.16 160 / 0.10);
+    --color-success-ink:  oklch(38% 0.13 160);
+
+    --color-warning:      oklch(72% 0.17 60);     /* âmbar/laranja do ícone (~#F5A623) */
+    --color-warning-bg:   oklch(72% 0.17 60 / 0.12);
+    --color-warning-ink:  oklch(45% 0.15 60);
+
+    --color-info:         oklch(60% 0.19 250);    /* alias brand */
+    --color-info-bg:      oklch(60% 0.19 250 / 0.10);
+
+    /*
+     * ALARME (não "erro" genérico) — cor deliberadamente FORA da paleta do
+     * logo. Reservada EXCLUSIVAMENTE para o evento HELP_REQUESTED (UI Concept
+     * §2.2). Nunca reutilizar para validação de formulário ou erro de rede —
+     * isso quebraria o princípio "alarme nunca é ambíguo".
+     */
+    --color-alarm:        oklch(55% 0.24 25);     /* vermelho vivo, alto contraste */
+    --color-alarm-bg:     oklch(55% 0.24 25 / 0.12);
+    --color-alarm-ink:    oklch(97% 0.01 25);      /* texto sobre fundo de alarme full-bleed */
+
+    /* Erro genérico de UI (validação, falha de rede) — distinto do alarme */
+    --color-error:        oklch(58% 0.18 30);
+    --color-error-bg:     oklch(58% 0.18 30 / 0.10);
+    --color-error-ink:    oklch(38% 0.15 30);
+
+    /* IA — reservado (visão computacional determinística, sem chat no MVP) */
+    --color-ai:           oklch(55% 0.20 290);
+    --color-ai-bg:        oklch(55% 0.20 290 / 0.08);
+    --color-ai-ink:       oklch(75% 0.13 290);
+
+    /* Borders */
+    --border-subtle:      oklch(88% 0.007 260);
+    --border-default:     oklch(81% 0.010 260);
+    --border-strong:      oklch(64% 0.03 260);
+    --border-brand:       oklch(60% 0.19 250 / 0.35);
+    --border-alarm:       oklch(55% 0.24 25 / 0.50);
+
+    /* Shadows */
+    --shadow-sm:  0 1px 2px oklch(21% 0.08 265 / 0.06);
+    --shadow-md:  0 4px 12px oklch(21% 0.08 265 / 0.10);
+    --shadow-lg:  0 8px 24px oklch(21% 0.08 265 / 0.14);
+
+    /* Tipografia — calma e legível, tamanhos grandes para estado do paciente */
+    --font-display: 'Nunito', system-ui, sans-serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+    --text-xs:   0.75rem;
+    --text-sm:   0.875rem;
+    --text-base: 1rem;
+    --text-lg:   1.125rem;
+    --text-xl:   1.25rem;
+    --text-2xl:  1.5rem;
+    --text-3xl:  1.875rem;
+    --text-4xl:  2.5rem;    /* estado do paciente — precisa ser lido rápido */
+
+    --font-normal:   400;
+    --font-medium:   500;
+    --font-semibold: 600;
+    --font-bold:     700;
+
+    --leading-tight:   1.2;
+    --leading-normal:  1.5;
+    --leading-relaxed: 1.7;
+
+    /* Espaçamento */
+    --space-1:  0.25rem;
+    --space-2:  0.5rem;
+    --space-3:  0.75rem;
+    --space-4:  1rem;
+    --space-5:  1.25rem;
+    --space-6:  1.5rem;
+    --space-8:  2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+
+    /* Border radius */
+    --radius-sm:  0.25rem;
+    --radius-md:  0.5rem;
+    --radius-lg:  0.75rem;
+    --radius-xl:  1rem;
+    --radius-full: 9999px;
+
+    /* Layout */
+    --sidebar-width:     240px;
+    --topbar-height:     56px;
+    --content-max-width: 800px;   /* poucas informações por tela, foco no estado */
+
+    /* Ícones: Material Symbols (fixo) */
+    --icon-size-sm: 18px;
+    --icon-size-md: 24px;
+    --icon-size-lg: 32px;
+
+    /* Transições */
+    --transition-fast:   120ms ease;
+    --transition-normal: 220ms ease;
+    --transition-slow:   350ms ease;
+}
+
+/* ─── TEMA ESCURO (override) ──────────────────────────────────────────────────
+ * Fora do @theme: overrides de tema são custom properties de escopo normal,
+ * não tokens de design — @theme só aceita declarações diretas de propriedade.
+ */
+[data-theme="dark"] {
+
+  --bg-base:            oklch(13% 0.03 265);
+    --bg-surface:         oklch(17% 0.04 265);
+    --bg-surface-hover:   oklch(21% 0.04 265);
+    --bg-surface-active:  oklch(25% 0.05 265);
+    --bg-topbar:          oklch(13% 0.03 265 / 0.96);
+    --bg-overlay:         oklch(6% 0.02 265 / 0.70);
+
+    --bg-sidebar:         oklch(10% 0.03 265);
+    --bg-sidebar-hover:   oklch(16% 0.04 265);
+    --bg-sidebar-active:  oklch(21% 0.05 265);
+
+    --color-brand:        oklch(67% 0.19 250);
+    --color-brand-strong: oklch(57% 0.19 250);
+    --color-brand-subtle: oklch(67% 0.19 250 / 0.15);
+
+    --text-primary:       oklch(95% 0.008 265);
+    --text-secondary:     oklch(70% 0.015 265);
+    --text-tertiary:      oklch(50% 0.012 265);
+    --text-on-dark:       oklch(95% 0.008 265);
+
+    --border-subtle:      oklch(23% 0.04 265);
+    --border-default:     oklch(31% 0.05 265);
+    --border-strong:      oklch(46% 0.06 265);
+    --border-brand:       oklch(67% 0.19 250 / 0.30);
+    --border-alarm:       oklch(62% 0.24 25 / 0.55);
+
+    --shadow-sm:  0 1px 2px oklch(6% 0.02 265 / 0.30);
+    --shadow-md:  0 4px 12px oklch(6% 0.02 265 / 0.40);
+    --shadow-lg:  0 8px 24px oklch(6% 0.02 265 / 0.50);
+
+    --color-success-ink:  oklch(74% 0.15 160);
+    --color-warning-ink:  oklch(80% 0.16 60);
+    --color-alarm:        oklch(62% 0.24 25);
+    --color-alarm-ink:    oklch(98% 0.01 25);
+    --color-error-ink:    oklch(72% 0.18 30);
+    --color-ai-ink:       oklch(80% 0.13 290);
+}

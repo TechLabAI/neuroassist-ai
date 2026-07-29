@@ -1,0 +1,122 @@
+# generator-config.yml — PAC (frontend)
+# Input for the Nx module generator (@neuroassist/internal:module), consumed by /fe-architect-scaffold.
+# Emitted by /fe-architect-specs neuroassist-ai PAC · 2026-07-28
+# Sources: frontend/01-06 + adr/ADR-005 (draft-first) + shared ADR-006 (module-as-library),
+#          frontend-spec/SPEC-01..08, contracts/backend-api-cross-link.md.
+# Barrier: backend/services/pac-service/contracts/api-contract.md (lifecycle, no DELETE — ADR-006).
+
+module: pac
+issue_prefix: PAC
+type: standard
+nx_scope: "@neuroassist"
+state_management: signals            # Signals-first; no NgRx, no BehaviorSubject in components (FE 04 §6)
+shell_route: /pac                    # top-level "Calibração / Catálogo" destination (FE 04 §7)
+shell_app: pac                       # thin host apps/pac loads @neuroassist/pac (ADR-006)
+
+# ── Nx libraries (SPEC-02 / FE 04 §3) ─────────────────────────────────────────
+libs:
+  - name: pac/shell-entry
+    type: domain            # entry lib @neuroassist/pac (tags scope:pac,type:app) + descriptor
+  - name: pac/data-access
+    type: data-access       # clients + facades (signals)
+  - name: pac/feature-command-catalog
+    type: feature
+  - name: pac/feature-command-editor
+    type: feature
+  - name: pac/feature-patient-register
+    type: feature
+  - name: pac/access
+    type: domain            # guards
+  - name: pac/integration
+    type: domain            # PacShellIntegrationService
+  - name: pac/navigation
+    type: domain            # breadcrumb/menu state
+  - name: pac/ui
+    type: ui                # CommandRow, UrgencyBadge, SensitivitySelector, SyncStatusBadge
+
+# ── Features (routed surfaces) ────────────────────────────────────────────────
+features:
+  - name: command-catalog
+    routes: [/pac]
+    components:
+      - CommandCatalogComponent
+  - name: command-editor
+    routes: [/pac/comandos/novo, /pac/comandos/:comandoId/editar]
+    components:
+      - CommandEditorComponent
+  - name: patient-register           # composed inside ACS onboarding wizard (not a shell nav route)
+    routes: []
+    components:
+      - PatientRegisterComponent
+
+# ── Data access (aligned to the BE barrier — lifecycle, no DELETE) ────────────
+data_access:
+  - resource: Paciente
+    base_path: /api/pac/v1/pacientes
+    operations: [list, get, create, update]
+    idempotent_ops: [create]
+  - resource: Comando
+    base_path: /api/pac/v1/pacientes/{pid}/comandos
+    operations: [list, get, create, updateDraft, validate, publish, recalibrate, retire]
+    idempotent_ops: [create, validate, publish, recalibrate, retire]   # If-Match guarded
+  - resource: TipoGesto               # cross-module read (GEST-owned) via GWY — PAC never authors primitives
+    base_path: /api/gest/v1/tipos-gesto
+    operations: [list, get, requestNew]
+
+# ── Access guards (SPEC-01 §3) ────────────────────────────────────────────────
+guards:
+  - authGuard
+  - pacTenantPatientGuard             # active tenant + registered paciente, else redirect to onboarding
+  - pacCommandWriteGuard              # pac.comando.write for editor routes (BE enforces scope)
+
+# ── Module contract (pac.contract.ts — SPEC-05) ───────────────────────────────
+module_contract:
+  key: pac
+  label: Calibração
+  icon: tune
+  route: /pac
+  show_in_nav: true
+  permissions:
+    - pac.paciente.read
+    - pac.paciente.write
+    - pac.comando.read
+    - pac.comando.write
+    - pac.comando.publish
+
+feature_flags:
+  - key: pac.inlineNewTipoGesto
+    default: "on"
+  - key: pac.deferredEdgeSync
+    default: "on"
+  - key: pac.emergencyGateAdvisoryHint
+    default: "on"
+
+# ── Shared / UI libs consumed (@neuroassist/*) — FE 04 §4 ─────────────────────
+shared_deps:
+  - "@neuroassist/shared/access-http-base"
+  - "@neuroassist/shared/empresa-context"
+  - "@neuroassist/shared/access-decision"
+  - "@neuroassist/shared/auth-session"
+  - "@neuroassist/shared/contracts"
+  - "@neuroassist/shared/error-model"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+
+# ── Cross-module composition seam (shell-level only — NOT a PAC dependency) ───
+# The GEST GestureLiveTestComponent is composed by the scope:web shell page, never imported by scope:pac.
+shell_surfaces:
+  - gest-live-test-slot@command-editor
+
+extra_dependencies: []
+
+# ── Backend cross-link (barrier) ──────────────────────────────────────────────
+backend_contract: ../../../../../backend/services/pac-service/contracts/api-contract.md
+
+# ── E2E ───────────────────────────────────────────────────────────────────────
+e2e:
+  e2e_project: pac-e2e
+  framework: playwright
+  features_path: docs/architecture/frontend/modules/pac/frontend/e2e/

@@ -1,0 +1,35 @@
+@startuml c4-container-mig
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title MIG (neuroassist-ai-migrations) - Container
+
+System_Ext(pipeline, "Deploy pipeline", "Runs the job, gates on exit code")
+System_Ext(acs, "ACS", "Tenant provisioning trigger")
+
+System_Boundary(mig_b, "neuroassist-ai-migrations (MIG)") {
+  Container(runner, "Migrations Job Runner", "Java 21, Spring Boot 3.5 (run-to-completion)", "Parses --mode, dispatches use cases, writes the run report, maps to exit code")
+  Container(admin, "Internal HTTP surface", "Spring Boot", "PUT tenant provisioning, GET status, POST run; OAuth2 migrations:internal/admin scopes")
+  Container(flyway, "Flyway Adapter", "Flyway", "migrate / info per target schema; writes flyway_schema_history")
+  Container(adminsql, "PostgreSQL Admin Adapter", "JDBC (privileged role)", "CREATE SCHEMA, cross-schema DDL")
+  Container(registry, "Tenant Registry Reader", "JDBC (read)", "Enumerates t_<tenantId> from the tenant table in neuroassist_global")
+  Container(sets, "Packaged Migration Sets", "SQL resources", "global set + tenant-template set")
+  Container(activity, "Activity Trail Reporter", "best-effort HTTP/ES client (D-423)", "Records lifecycle facts; never blocks the run")
+}
+
+System_Ext(pg, "PostgreSQL", "neuroassist_global + t_<tenantId> + flyway_schema_history per schema")
+System_Ext(obs, "Pipeline activity trail (D-423)", "Best-effort sink")
+
+Rel(pipeline, runner, "Invokes migrate-all", "exit code gate")
+Rel(acs, admin, "provision(tenantId)", "synchronous")
+Rel(runner, registry, "Enumerate tenants")
+Rel(runner, flyway, "Apply set per target")
+Rel(runner, adminsql, "CREATE SCHEMA")
+Rel(admin, runner, "delegates to")
+Rel(flyway, sets, "Reads SQL")
+Rel(flyway, pg, "DDL + history", "privileged JDBC")
+Rel(adminsql, pg, "Schema DDL", "privileged JDBC")
+Rel(registry, pg, "Read tenant list")
+Rel(runner, activity, "Emit lifecycle fact", "best-effort")
+Rel(activity, obs, "Report fact")
+
+@enduml

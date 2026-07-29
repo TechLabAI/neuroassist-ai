@@ -1,0 +1,40 @@
+@startuml c4-container-gest
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram — gest-service (GEST module)
+
+Person(conductor, "Conductor", "Manages primitives and profiles")
+
+System_Boundary(gest_boundary, "gest-service (Spring Boot 3 / Java 21)") {
+    Container(gest_api, "REST API Layer", "Spring MVC / Spring Security", "Exposes /api/v1/gest/**; JWT validation; scope enforcement; schema routing via tenant JWT claim.")
+    Container(gest_app, "Application Layer", "Spring beans (use cases)", "RegisterPrimitiveUseCase, TransitionDetectabilityUseCase, PublishProfileUseCase, EligibilityCheckUseCase, ReportValidationUseCase.")
+    Container(gest_domain, "Domain Layer", "Plain Java", "TipoGesto aggregate, DetectabilityState enum, DetectionProfile value object, domain events.")
+    Container(gest_infra, "Infrastructure Layer", "JPA + Feign + Resilience4j", "TipoGestoRepository (JPA), TransitionRepository (append-only), DetectionProfileRepository, EdgePairingClient (Feign), SchemaRoutingDataSource.")
+}
+
+ContainerDb(postgres, "PostgreSQL 16", "per-tenant schema (empresa)", "Tables: tipo_gesto, tipo_gesto_transition, detection_profile, detection_profile_primitive. No biometric data.")
+
+Container_Ext(gwy, "GWY (API Gateway)", "Spring Cloud Gateway", "Routes /api/v1/gest/**; injects X-Correlation-Id.")
+Container_Ext(reg, "REG (Service Registry)", "Eureka Server", "Service discovery.")
+Container_Ext(acs, "ACS", "Keycloak / OAuth2", "Issues JWTs; /oauth2/jwks.")
+Container_Ext(edge_svc, "EDGE Service", "Spring Boot", "Device pairing resolution.")
+Container_Ext(pac, "PAC Service", "Spring Boot", "Emergency-command eligibility consumer.")
+Container_Ext(evnt, "EVNT Service", "Spring Boot", "Report validation consumer.")
+
+Rel(conductor, gwy, "HTTPS REST")
+Rel(gwy, gest_api, "HTTP REST (routed)")
+Rel(gest_api, gest_app, "Delegates to use cases")
+Rel(gest_app, gest_domain, "Operates on aggregates")
+Rel(gest_app, gest_infra, "Ports (Repository, Feign)")
+Rel(gest_infra, postgres, "JDBC / JPA (schema-routed)")
+Rel(gest_infra, edge_svc, "Feign: GET /edge/devices/{id}/tenant (device pairing)")
+Rel(gest_api, acs, "Validates JWT (jwk-set-uri)")
+Rel(gest_infra, reg, "Eureka registration + discovery")
+Rel(pac, gest_api, "POST /eligibility:check")
+Rel(evnt, gest_api, "POST /recognized-commands (validate)")
+Rel_Back(gest_api, edge_svc, "GET /devices/{id}/detection-profile (edge pull)")
+
+@enduml

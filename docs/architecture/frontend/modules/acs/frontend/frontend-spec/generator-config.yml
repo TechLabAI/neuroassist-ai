@@ -1,0 +1,138 @@
+# generator-config.yml — ACS (frontend)
+# Input for the Nx module generator (@neuroassist/internal:module), consumed by /fe-architect-scaffold.
+# Emitted by /fe-architect-specs neuroassist-ai ACS · 2026-07-29
+# Sources: frontend/01-06 + adr/ADR-005 (coverage invariant) + shared ADR-006 (module-as-library),
+#          frontend-spec/SPEC-01..08, contracts/backend-api-cross-link.md.
+# Barrier: backend/services/acs-service/contracts/api-contract.md (3 surfaces; directory = service-to-service).
+
+module: acs
+issue_prefix: ACS
+type: standard
+nx_scope: "@neuroassist"
+state_management: signals            # Signals-first; no NgRx, no BehaviorSubject in components (FE 04 §6)
+shell_route: /acs                    # top-level "Cuidadores / Acesso" destination, coordinator-gated (FE 04 §7)
+shell_app: acs                       # thin host apps/acs loads @neuroassist/acs (ADR-006)
+
+# ── Nx libraries (SPEC-02 / FE 04 §3) ─────────────────────────────────────────
+libs:
+  - name: acs/shell-entry
+    type: domain            # entry lib @neuroassist/acs (tags scope:acs,type:app) + descriptor
+  - name: acs/data-access
+    type: data-access       # clients + facades (signals) + CoverageFacade (derived)
+  - name: acs/feature-tenant-setup
+    type: feature
+  - name: acs/feature-caregiver-roster
+    type: feature
+  - name: acs/feature-caregiver-editor
+    type: feature
+  - name: acs/feature-patient-linkage
+    type: feature
+  - name: acs/access
+    type: domain            # guards (coordinator-only + write guards)
+  - name: acs/integration
+    type: domain            # AcsShellIntegrationService (+ tenant-writer seam)
+  - name: acs/navigation
+    type: domain            # breadcrumb/menu state
+  - name: acs/ui
+    type: ui                # RoleBadge, StatusBadge, CoverageBadge, CaregiverRow
+
+# ── Features (routed surfaces) ────────────────────────────────────────────────
+features:
+  - name: caregiver-roster
+    routes: [/acs]
+    components:
+      - CaregiverRosterComponent
+  - name: caregiver-editor
+    routes: [/acs/cuidadores/novo, /acs/cuidadores/:cuidadorId/editar]
+    components:
+      - CaregiverEditorComponent
+  - name: patient-linkage
+    routes: [/acs/pacientes/:pacienteId/vinculos]
+    components:
+      - PatientLinkageComponent
+  - name: tenant-setup                 # composed inside ACS onboarding wizard step 1 (not a shell nav route)
+    routes: []
+    components:
+      - TenantSetupComponent
+  - name: caregiver-link-step          # composed inside ACS onboarding wizard step 5 (not a shell nav route)
+    routes: []
+    components:
+      - CaregiverLinkStepComponent
+
+# ── Data access (aligned to the BE barrier — 3 surfaces; directory NOT a FE resource) ─────
+data_access:
+  - resource: Tenant
+    base_path: /api/v1/acs/tenants
+    operations: [create, get, retryProvisioning]
+    idempotent_ops: [create, retryProvisioning]
+  - resource: Cuidador
+    base_path: /api/v1/acs/caregivers
+    operations: [list, get, create, deactivate]
+    idempotent_ops: [create, deactivate]
+  - resource: CaregiverPatientLink
+    base_path: /api/v1/acs/caregivers/{cid}/links
+    operations: [listForCaregiver, listForPatient, link, revoke]
+    idempotent_ops: [link, revoke]
+  - resource: Paciente                 # cross-module read (PAC-owned) via GWY — ACS never authors a paciente
+    base_path: /api/pac/v1/pacientes
+    operations: [list, get]
+
+# ── Access guards (SPEC-01 §3) ────────────────────────────────────────────────
+guards:
+  - authGuard
+  - acsCoordinatorGuard                # coordinator-capable papel, else redirect off the roster surface
+  - acsCaregiverWriteGuard             # acs.cuidador.write for editor routes (BE enforces authority)
+  - acsLinkWriteGuard                  # acs.vinculo.write for linkage route (BE enforces authority)
+
+# ── Module contract (acs.contract.ts — SPEC-05) ───────────────────────────────
+module_contract:
+  key: acs
+  label: Cuidadores
+  icon: group
+  route: /acs
+  show_in_nav: true
+  permissions:
+    - acs.cuidador.read
+    - acs.cuidador.write
+    - acs.vinculo.write
+    - acs.tenant.write
+
+feature_flags:
+  - key: acs.coverageGuard
+    default: "on"
+  - key: acs.inviteByEmail
+    default: "off"
+  - key: acs.showSemCoberturaBanner
+    default: "on"
+
+# ── Shared / UI libs consumed (@neuroassist/*) — FE 04 §4 ─────────────────────
+shared_deps:
+  - "@neuroassist/shared/access-http-base"
+  - "@neuroassist/shared/empresa-context"     # ACS is the WRITER (FE 05 §1); peers are readers
+  - "@neuroassist/shared/access-decision"
+  - "@neuroassist/shared/auth-session"
+  - "@neuroassist/shared/contracts"
+  - "@neuroassist/shared/error-model"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+
+# ── Cross-module composition seam (shell-level only — NOT an ACS dependency) ───
+# The ACS-owned onboarding wizard composes PAC (PatientRegister/CommandEditor) and EDGE (device-pairing) step
+# features at the scope:web shell page. ACS exposes its own step components; it never imports scope:pac/edge/gest.
+shell_surfaces:
+  - acs-tenant-setup-slot@onboarding-step-1
+  - acs-caregiver-link-slot@onboarding-step-5
+
+extra_dependencies: []
+
+# ── Backend cross-link (barrier) ──────────────────────────────────────────────
+backend_contract: ../../../../../backend/services/acs-service/contracts/api-contract.md
+
+# ── E2E ───────────────────────────────────────────────────────────────────────
+e2e:
+  e2e_project: acs-e2e
+  framework: playwright
+  features_path: docs/architecture/frontend/modules/acs/frontend/e2e/

@@ -1,0 +1,9 @@
+{
+  "name": "@neuroassist/gest",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/gest/src",
+  "prefix": "gest",
+  "tags": ["scope:gest", "type:feature"],
+  "targets": {}
+}

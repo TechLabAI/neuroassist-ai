@@ -1,0 +1,82 @@
+service: acs-service
+type: standard
+port: 8088
+
+domain:
+  aggregates:
+    - Tenant          # global schema (neuroassist_global) — tenant directory + provisioning lifecycle
+    - SigningKey      # global schema — JWT signing key material; only public_jwk exposed
+    - Cuidador        # empresa schema (t_<tenantId>) — caregiver account
+  entities:
+    - CaregiverPatientLink  # empresa schema — authoritative routing/scope source (ADR-006)
+
+application_services:
+  - name: AutenticacaoService
+    operations:
+      - authenticate          # POST /oauth2/token — credential validation + JWT issuance
+  - name: JwkSetService
+    operations:
+      - getPublicKeys         # GET /oauth2/jwks — JWK set publication
+  - name: TenantService
+    operations:
+      - provision             # POST /api/v1/acs/tenants — saga vs MIG
+      - findById              # GET /api/v1/acs/tenants/{id}
+      - retryProvisioning     # POST /api/v1/acs/tenants/{id}/provisioning:retry
+  - name: CaregiverService
+    operations:
+      - create                # POST /api/v1/acs/caregivers
+      - listAll               # GET /api/v1/acs/caregivers (tenant-scoped)
+      - findById              # GET /api/v1/acs/caregivers/{id}
+      - deactivate            # POST /api/v1/acs/caregivers/{id}/deactivation (soft)
+  - name: CaregiverPatientLinkService
+    operations:
+      - link                  # POST /api/v1/acs/caregivers/{id}/links
+      - listLinks             # GET /api/v1/acs/caregivers/{id}/links
+      - revokeLink            # DELETE /api/v1/acs/caregivers/{id}/links/{linkId}
+  - name: DirectoryService
+    operations:
+      - getTenantValidity       # GET /api/v1/acs/directory/tenants/{tenantId}
+      - getRoutingTargets       # GET /api/v1/acs/directory/patients/{pid}/caregivers
+      - getCaregiverRole        # GET /api/v1/acs/directory/caregivers/{id}
+      - getPatientScope         # GET /api/v1/acs/directory/caregivers/{id}/patient-scope
+
+enums:
+  TenantTipo:
+    - familia
+    - clinica
+  TenantStatus:
+    - provisioning
+    - active
+    - suspended
+  CuidadorPapel:
+    - cuidadora
+    - coordenador_clinica
+  CuidadorStatus:
+    - active
+    - inactive
+  LinkStatus:
+    - active
+    - revoked
+  SigningKeyStatus:
+    - active
+    - retired
+
+feign_clients:
+  - name: MigProvisioningClient
+    service: neuroassist-ai-migrations
+    url_prop: neuroassist.mig.url
+  - name: PacPatientResolveClient
+    service: pac-service
+    url_prop: neuroassist.pac.url
+  - name: HistAuditClient
+    service: hist-service
+    url_prop: neuroassist.hist.url
+
+# No consumed_events and no events.published — messaging disabled in MVP
+# Domain facts recorded synchronously to HIST via HistAuditPort (best-effort REST)
+
+outbound_ports:
+  - MigProvisioningPort      # Fail-closed tenant schema provisioning (timeout 5s, CB OPEN → 202)
+  - PacPatientResolvePort    # Fail-closed patient resolve on link creation (timeout 2s, CB OPEN → 502)
+  - HistAuditPort            # Best-effort domain fact recording; retry outbox; never blocks ACS ops
+  - SigningKeyPort            # JWT signing key lifecycle (active key load + JWK set assembly)

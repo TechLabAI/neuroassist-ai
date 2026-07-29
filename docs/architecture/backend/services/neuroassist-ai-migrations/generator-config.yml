@@ -1,0 +1,51 @@
+service: neuroassist-ai-migrations
+type: migrations
+issue_prefix: MIG
+port: 8093
+run_model: job
+admin_http_optional: true
+
+# type=migrations → reduced manifest (Flyway runner only, no web/JPA/messaging/domain
+# per be-module-generator.py). The tenant-template tables below (data-model.md §3)
+# are DDL MIG runs, not domain code MIG owns (ADR-002) — they are NOT scaffolded here.
+
+database:
+  engine: postgresql
+  privileged_role: neuroassist_migrator
+  global_schema: neuroassist_global
+  tenant_schema_prefix: t_
+
+flyway:
+  mode: centralized
+  forward_only: true
+  validate_on_migrate: true
+  out_of_order: false
+  locations:
+    global: "classpath:db/migration/global"
+    empresa: "classpath:db/migration/empresa"
+
+run_modes:
+  - migrate-all
+  - migrate-global
+  - provision-tenant
+  - info
+
+exit_codes:
+  0: converged
+  1: invocation-error
+  2: migration-failure
+  3: preflight-failure
+
+messaging: disabled
+$comment_messaging: "stack.messaging.enabled=false platform-wide; MIG declares no producer and no consumer (event-contracts.md, SPEC-09)."
+
+feign_clients: []
+$comment_feign: "MIG is always the callee (ACS calls it); it holds no outbound Feign client (hub-integration.md §5, techlab-ai-integration.md N/A)."
+
+techlab_ai: none
+
+extra_dependencies:
+  - "org.flywaydb:flyway-core"
+  - "org.flywaydb:flyway-database-postgresql"
+  - "org.postgresql:postgresql"
+  - "org.testcontainers:postgresql"

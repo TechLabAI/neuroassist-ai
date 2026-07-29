@@ -1,0 +1,21 @@
+{
+  "name": "edge-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/edge-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:edge",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "@neuroassist/edge"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/edge-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

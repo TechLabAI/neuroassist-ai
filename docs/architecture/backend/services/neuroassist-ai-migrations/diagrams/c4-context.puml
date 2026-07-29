@@ -1,0 +1,24 @@
+@startuml c4-context-mig
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title MIG (neuroassist-ai-migrations) - Context
+
+Person_Ext(operator, "Platform / dev team operator", "Runs MIG, reads the per-schema report")
+System_Ext(pipeline, "Deploy pipeline", "Runs MIG as a gating job before rollout")
+System_Ext(acs, "ACS (Cuidadores e Acesso)", "Calls provisioning synchronously at empresa onboarding")
+System_Ext(auditor, "Security gate / LGPD auditor", "Reads Flyway history for structural-change audit")
+
+System(mig, "neuroassist-ai-migrations (MIG)", "Centralized Flyway runner: migrates global + every tenant schema; provisions tenant schemas synchronously. Forward-only, fail-fast, no message broker.")
+
+System_Ext(pg, "PostgreSQL", "Single instance, many schemas (neuroassist_global + t_<tenantId>)")
+System_Ext(obs, "Pipeline activity trail (D-423)", "Best-effort lifecycle logging")
+
+Rel(pipeline, mig, "Runs migrate-all; gates rollout on exit code")
+Rel(operator, mig, "Runs / inspects (info); reads report")
+Rel(acs, mig, "PUT /internal/migrations/tenants/{tenantId}", "synchronous")
+Rel(mig, pg, "CREATE SCHEMA, cross-schema DDL, Flyway history", "privileged JDBC")
+Rel(mig, pg, "Reads tenant registry (global schema)", "read")
+Rel(auditor, pg, "Reads flyway_schema_history per schema", "audit")
+Rel(mig, obs, "Best-effort lifecycle facts (schema migrado, empresa provisionada, migração falhou)")
+
+@enduml

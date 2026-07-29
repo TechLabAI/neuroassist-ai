@@ -1,0 +1,21 @@
+{
+  "name": "evnt-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/evnt-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:evnt",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "evnt"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/evnt-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

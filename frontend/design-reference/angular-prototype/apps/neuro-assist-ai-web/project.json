@@ -1,0 +1,69 @@
+{
+  "name": "neuro-assist-ai-web",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/neuro-assist-ai-web/src",
+  "tags": [
+    "type:app",
+    "scope:web"
+  ],
+  "targets": {
+    "build": {
+      "executor": "@angular-devkit/build-angular:application",
+      "outputs": [
+        "{options.outputPath}"
+      ],
+      "options": {
+        "outputPath": "dist/apps/neuro-assist-ai-web",
+        "index": "apps/neuro-assist-ai-web/src/index.html",
+        "browser": "apps/neuro-assist-ai-web/src/main.ts",
+        "polyfills": [
+          "zone.js"
+        ],
+        "tsConfig": "apps/neuro-assist-ai-web/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/neuro-assist-ai-web/src/assets",
+            "output": "assets"
+          }
+        ],
+        "styles": [
+          "apps/neuro-assist-ai-web/src/styles.css"
+        ],
+        "scripts": []
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "executor": "@angular-devkit/build-angular:dev-server",
+      "configurations": {
+        "production": {
+          "buildTarget": "neuro-assist-ai-web:build:production"
+        },
+        "development": {
+          "buildTarget": "neuro-assist-ai-web:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    }
+  }
+}

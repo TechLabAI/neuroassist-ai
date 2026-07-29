@@ -1,0 +1,290 @@
+{
+  "project": "neuro-assist-ai",
+  "status": "draft (BA)",
+  "version": "0.1.0",
+  "entities": {
+    "Tenant": {
+      "description": "Unidade de cuidado — família ou clínica (multi-tenant, schema-per-empresa)",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "nome": {
+          "type": "string"
+        },
+        "tipo": {
+          "type": "enum",
+          "enum": [
+            "familia",
+            "clinica"
+          ]
+        }
+      }
+    },
+    "Paciente": {
+      "description": "Pessoa monitorada pelo sistema",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "tenantId": {
+          "type": "ref",
+          "ref": "Tenant",
+          "label": "nome"
+        },
+        "nome": {
+          "type": "string"
+        },
+        "dispositivo": {
+          "type": "ref",
+          "ref": "DispositivoEdge",
+          "label": "status"
+        }
+      }
+    },
+    "Cuidador": {
+      "description": "Pessoa com acesso ao painel",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "tenantId": {
+          "type": "ref",
+          "ref": "Tenant",
+          "label": "nome"
+        },
+        "nome": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "papel": {
+          "type": "enum",
+          "enum": [
+            "cuidadora",
+            "coordenador_clinica"
+          ]
+        }
+      }
+    },
+    "TipoGesto": {
+      "description": "Catálogo de tipos de movimento facial (primitivos) reconhecidos pelo motor de detecção — extensível (LBC Emenda 2, 2026-07-27). Cadastrar um nome aqui NÃO implica suporte real do motor de detecção (ver TODO[arquiteto] no Framing §6.1/§7.1a/§9.3).",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "nome": {
+          "type": "string"
+        }
+      }
+    },
+    "Comando": {
+      "description": "Item do catálogo de comandos do paciente — gesto (simples ou composto) mapeado a uma necessidade (LBC Emenda 1, 2026-07-27)",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "pacienteId": {
+          "type": "ref",
+          "ref": "Paciente",
+          "label": "rotulo"
+        },
+        "rotulo": {
+          "type": "string"
+        },
+        "urgencia": {
+          "type": "enum",
+          "enum": [
+            "emergencia",
+            "rotina"
+          ]
+        },
+        "primitivoPrincipal": {
+          "type": "ref",
+          "ref": "TipoGesto",
+          "label": "nome"
+        },
+        "primitivoSecundario": {
+          "type": "ref",
+          "ref": "TipoGesto",
+          "label": "nome",
+          "nullable": true
+        },
+        "sensibilidade": {
+          "type": "enum",
+          "enum": [
+            "baixa",
+            "media",
+            "alta"
+          ]
+        },
+        "tempoMinimoGestoMs": {
+          "type": "int"
+        },
+        "tempoMaximoGestoMs": {
+          "type": "int"
+        }
+      }
+    },
+    "Evento": {
+      "description": "Ocorrência estruturada gerada pelo edge",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "pacienteId": {
+          "type": "ref",
+          "ref": "Paciente",
+          "label": "nome"
+        },
+        "comando": {
+          "type": "ref",
+          "ref": "Comando",
+          "label": "rotulo"
+        },
+        "timestamp": {
+          "type": "datetime"
+        },
+        "confirmadoEm": {
+          "type": "datetime",
+          "nullable": true,
+          "source": "mock"
+        },
+        "confirmadoPor": {
+          "type": "ref",
+          "ref": "Cuidador",
+          "label": "nome"
+        },
+        "feedback": {
+          "type": "enum",
+          "enum": [
+            "nao_avaliado",
+            "real",
+            "falso_positivo"
+          ]
+        }
+      }
+    },
+    "DispositivoEdge": {
+      "description": "Agente local que roda a detecção de gesto",
+      "fields": {
+        "id": {
+          "type": "string",
+          "pk": true
+        },
+        "pacienteId": {
+          "type": "ref",
+          "ref": "Paciente",
+          "label": "nome"
+        },
+        "status": {
+          "type": "enum",
+          "enum": [
+            "online",
+            "offline"
+          ]
+        },
+        "ultimaSincronizacao": {
+          "type": "datetime"
+        },
+        "versao": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "screenBindings": {
+    "entrada": {
+      "reads": [
+        "(nenhum — tela estática",
+        "sem dados operacionais)"
+      ],
+      "writes": [
+        "(nenhum)"
+      ]
+    },
+    "home": {
+      "reads": [
+        "Paciente[]",
+        "DispositivoEdge[]",
+        "Evento[] (do dia",
+        "com `Evento.comando` resolvido para rótulo + urgência)"
+      ],
+      "writes": [
+        "(nenhuma neste momento — leitura pura)"
+      ],
+      "mock": {
+        "pacientes": "mock-data.json#/pacientes",
+        "dispositivos": "mock-data.json#/dispositivos",
+        "comandos": "mock-data.json#/comandos",
+        "eventos": "mock-data.json#/eventos"
+      }
+    },
+    "alarme": {
+      "reads": [
+        "Evento[] (mesma coleção do Home/Histórico; o evento ativo é o mais recente cujo `Comando.urgencia = emergencia` e ainda sem `confirmadoEm` — não é uma coleção separada)"
+      ],
+      "writes": [
+        "Evento.confirmadoEm",
+        "Evento.confirmadoPor"
+      ],
+      "mock": {
+        "eventos": "mock-data.json#/eventos",
+        "comandos": "mock-data.json#/comandos"
+      }
+    },
+    "historico": {
+      "reads": [
+        "Evento[] (filtrado por período",
+        "com `Evento.comando` resolvido para rótulo + urgência)"
+      ],
+      "writes": [
+        "Evento.feedback"
+      ],
+      "mock": {
+        "eventos": "mock-data.json#/eventos"
+      }
+    },
+    "calibracao": {
+      "reads": [
+        "Comando[] (todos do paciente ativo)",
+        "TipoGesto[] (catálogo extensível de primitivos, Emenda 2)"
+      ],
+      "writes": [
+        "Comando (criar/editar/remover)",
+        "campos: rotulo",
+        "urgencia",
+        "primitivoPrincipal",
+        "primitivoSecundario",
+        "sensibilidade",
+        "TipoGesto (criar novo tipo — ex.: \"Leitura labial\" — direto no editor de comando)"
+      ],
+      "mock": {
+        "comandos": "mock-data.json#/comandos",
+        "tiposGesto": "mock-data.json#/tiposGesto"
+      }
+    },
+    "onboarding": {
+      "reads": [
+        "Tenant[]",
+        "Paciente[]",
+        "DispositivoEdge[]"
+      ],
+      "writes": [
+        "Tenant",
+        "Paciente",
+        "DispositivoEdge",
+        "Cuidador (cria os registros)",
+        "Comando (opcionalmente já cria o primeiro comando do catálogo",
+        "se o condutor preencher na Tela 04 antes de voltar)"
+      ]
+    }
+  }
+}

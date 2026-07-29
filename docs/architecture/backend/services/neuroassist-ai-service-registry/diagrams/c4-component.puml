@@ -1,0 +1,19 @@
+@startuml c4-component-reg
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title REG (neuroassist-ai-service-registry) - Component
+
+Container_Boundary(reg, "neuroassist-ai-service-registry (REG)") {
+  Component(bootstrap, "ServiceRegistryApplication", "@SpringBootApplication + @EnableEurekaServer", "Thin bootstrap; no business code.")
+  Component(registry_core, "Eureka Registry Core", "spring-cloud-netflix-eureka-server", "Registration, lease store, renewal, eviction loop, self-preservation.")
+  Component(dashboard, "Eureka Dashboard", "built-in", "Operator status page.")
+  Component(config, "application.yml config", "declarative", "Server flags, self-preservation/eviction tuning, single-node self-flags.")
+  Component(actuator, "Actuator", "Spring Boot Actuator", "Liveness / readiness / metrics, separate from the Eureka surface.")
+}
+
+Rel(bootstrap, registry_core, "Enables")
+Rel(config, registry_core, "Tunes (self-preservation, eviction, self-flags)")
+Rel(registry_core, dashboard, "Exposes")
+Rel(actuator, registry_core, "Reports readiness from")
+
+@enduml

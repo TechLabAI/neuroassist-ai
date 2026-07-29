@@ -1,0 +1,42 @@
+# generator-config.yml — EVNT (Eventos e Alarmes) — Frontend
+# Schema: libs/internal-nx-plugin/src/generator-config.schema.json
+# Input for the FE scaffold/promote stage (@neuroassist prototype-first, D-493).
+service: evnt
+issue_prefix: EVNT
+shell_route: /eventos
+features:
+  - name: alarm
+    routes: []                       # not routed — global AlarmOutlet (ADR-005)
+    components:
+      - AlarmOverlayComponent
+  - name: routine
+    routes:
+      - /eventos
+      - /eventos/:eventoId
+    components:
+      - EventFeedPageComponent
+      - EventDetailPageComponent
+data_access:
+  - resource: Event
+    base_path: /api/v1/events
+    operations: [list, get, create]
+  - resource: ActiveEvents
+    base_path: /api/v1/events/active
+    operations: [list]
+  - resource: EventStream
+    base_path: /api/v1/events/stream
+    operations: [list]               # SSE subscribe (read-only live channel)
+  - resource: Confirmation
+    base_path: /api/v1/events/{eventoId}/confirmation
+    operations: [create]
+backend_contract: ../../../be-neuroassist-ai/docs/architecture/frontend/modules/evnt/evnt-service/contracts/api-contract.md
+state_management: signals
+ui_libs_used:
+  - '@neuroassist/shared/ui-layout'
+  - '@neuroassist/shared/ui-feedback'
+  - '@neuroassist/shared/ui-tokens'
+  - '@neuroassist/shared/access-http-base'
+  - '@neuroassist/shared/error-model'
+extra_dependencies: []
+e2e:
+  features_path: docs/architecture/frontend/modules/evnt/frontend/e2e/

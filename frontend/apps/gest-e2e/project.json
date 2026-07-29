@@ -1,0 +1,21 @@
+{
+  "name": "gest-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/gest-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:gest",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "gest"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/gest-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

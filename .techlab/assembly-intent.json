@@ -1,0 +1,16 @@
+{
+  "intent_id": "intent_20260726235312_bdd19bf7",
+  "project_id": "neuro-assist-ai",
+  "required_tags": [],
+  "stack": [
+    "java",
+    "spring-boot",
+    "angular"
+  ],
+  "asset_ids": [],
+  "metadata": {
+    "generator": "new-project",
+    "assets_mode": "sibling-clone",
+    "phase": "generation"
+  }
+}

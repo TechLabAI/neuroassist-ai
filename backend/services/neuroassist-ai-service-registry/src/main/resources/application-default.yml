@@ -1,0 +1,6 @@
+# Profile 'default' — CI e dev local sem infraestrutura externa.
+# Eureka client desabilitado (sem registro durante CI).
+eureka:
+  client:
+    enabled: false
+

@@ -1,0 +1,71 @@
+@startuml c4-component-gest
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram — gest-service (hexagonal packages)
+
+Container_Boundary(gest, "gest-service") {
+
+    ' --- API package ---
+    Component(ctrl_tipo, "TipoGestoController", "Spring MVC @RestController", "POST /tipos-gesto, GET /tipos-gesto, POST /transitions")
+    Component(ctrl_elig, "EligibilityController", "Spring MVC @RestController", "POST /eligibility:check")
+    Component(ctrl_prof, "DetectionProfileController", "Spring MVC @RestController", "POST /detection-profiles, GET /active, GET /{version}")
+    Component(ctrl_edge, "EdgeProfileController", "Spring MVC @RestController", "GET /devices/{id}/detection-profile (ETag/304)")
+    Component(ctrl_contract, "DetectionContractController", "Spring MVC @RestController", "GET /detection-contract, POST /recognized-commands")
+    Component(jwt_filter, "JwtTenantFilter", "Spring Security Filter", "Extracts tenant claim from JWT; sets SchemaRoutingContext.")
+
+    ' --- Application package (use cases) ---
+    Component(uc_register, "RegisterPrimitiveUseCase", "Spring @Service", "Validates nome, checks duplicates, creates TipoGesto(state=REGISTERED), raises PrimitiveRegistered.")
+    Component(uc_transition, "TransitionDetectabilityUseCase", "Spring @Service", "Validates arc, enforces invariants #4/#5, appends audit row, raises Primitive* events.")
+    Component(uc_eligibility, "EligibilityCheckUseCase", "Spring @Service", "Read-only state check against primitiveIds; no mutation.")
+    Component(uc_publish, "PublishProfileUseCase", "Spring @Service", "Snapshots supported primitives, allocates version, deactivates prior, raises DetectionProfilePublished.")
+    Component(uc_validate, "ReportValidationUseCase", "Spring @Service", "Validate-only: checks profileVersion and primitive membership; no persistence.")
+
+    ' --- Domain package ---
+    Component(agg_tipo, "TipoGesto", "Domain aggregate", "State machine: REGISTERED->PENDING_TRAINING->SUPPORTED->DEPRECATED. Guards invariants #4/#5.")
+    Component(val_prof, "DetectionProfile", "Domain value object", "Immutable snapshot; version monotonic per tenant.")
+    Component(events, "Domain Events", "POJO event classes", "PrimitiveRegistered, PrimitivePromoted, PrimitiveDeprecated, DetectionProfilePublished.")
+
+    ' --- Infrastructure package ---
+    Component(repo_tipo, "TipoGestoRepository", "JPA Repository", "Schema-routed reads/writes for tipo_gesto.")
+    Component(repo_trans, "TransitionRepository", "JPA Repository (append-only)", "Appends tipo_gesto_transition rows.")
+    Component(repo_prof, "DetectionProfileRepository", "JPA Repository", "Reads/writes detection_profile and detection_profile_primitive.")
+    Component(feign_edge, "EdgePairingClient", "Feign + Resilience4j CB", "GET /edge/devices/{id}/tenant; circuit-breaks to 503.")
+    Component(schema_ds, "SchemaRoutingDataSource", "Spring DataSource wrapper", "Routes JDBC connections to t_<tenantId> schema.")
+
+    ' --- Wiring ---
+    Rel(ctrl_tipo, uc_register, "register()")
+    Rel(ctrl_tipo, uc_transition, "transition()")
+    Rel(ctrl_elig, uc_eligibility, "check()")
+    Rel(ctrl_prof, uc_publish, "publish()")
+    Rel(ctrl_edge, uc_publish, "getActiveForDevice()")
+    Rel(ctrl_contract, uc_validate, "validate()")
+    Rel(jwt_filter, schema_ds, "Sets tenant schema context")
+
+    Rel(uc_register, agg_tipo, "Creates aggregate")
+    Rel(uc_register, repo_tipo, "Saves")
+    Rel(uc_register, events, "Raises PrimitiveRegistered")
+    Rel(uc_transition, agg_tipo, "Drives state machine")
+    Rel(uc_transition, repo_tipo, "Saves updated aggregate")
+    Rel(uc_transition, repo_trans, "Appends audit row")
+    Rel(uc_transition, events, "Raises Primitive* events")
+    Rel(uc_eligibility, repo_tipo, "Reads states")
+    Rel(uc_publish, repo_tipo, "Reads supported primitives")
+    Rel(uc_publish, repo_prof, "Saves profile + snapshot")
+    Rel(uc_publish, events, "Raises DetectionProfilePublished")
+    Rel(uc_validate, repo_prof, "Reads profile membership (read-only)")
+    Rel(feign_edge, schema_ds, "Uses service credential (no schema routing needed)")
+}
+
+ContainerDb(postgres, "PostgreSQL 16", "schema: t_<tenantId>", "GEST tables")
+Container_Ext(edge_svc, "EDGE Service", "REST")
+
+Rel(repo_tipo, postgres, "JDBC/JPA")
+Rel(repo_trans, postgres, "JDBC/JPA (append)")
+Rel(repo_prof, postgres, "JDBC/JPA")
+Rel(schema_ds, postgres, "Routes to tenant schema")
+Rel(feign_edge, edge_svc, "GET /edge/devices/{id}/tenant")
+
+@enduml

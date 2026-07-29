@@ -1,0 +1,75 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": [
+      "ES2022",
+      "dom"
+    ],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@neuroassist/gest": [
+        "libs/gest/src/index.ts"
+      ],
+      "@neuroassist/evnt": [
+        "libs/evnt/src/index.ts"
+      ],
+      "@neuroassist/pac": [
+        "libs/pac/src/index.ts"
+      ],
+      "@neuroassist/acs": [
+        "libs/acs/src/index.ts"
+      ],
+      "@neuroassist/hist": [
+        "libs/hist/src/index.ts"
+      ],
+      "@neuroassist/dash": [
+        "libs/dash/src/index.ts"
+      ],
+      "@neuroassist/edge": [
+        "libs/edge/src/index.ts"
+      ],
+      "@neuroassist/shared/auth-session": [
+        "libs/shared/auth-session/src/index.ts"
+      ],
+      "@neuroassist/shared/empresa-context": [
+        "libs/shared/empresa-context/src/index.ts"
+      ],
+      "@neuroassist/shared/access-decision": [
+        "libs/shared/access-decision/src/index.ts"
+      ],
+      "@neuroassist/shared/access-http-base": [
+        "libs/shared/access-http-base/src/index.ts"
+      ],
+      "@neuroassist/shared/error-model": [
+        "libs/shared/error-model/src/index.ts"
+      ],
+      "@neuroassist/shared/observability": [
+        "libs/shared/observability/src/index.ts"
+      ],
+      "@neuroassist/shared/ui-tokens": [
+        "libs/shared/ui-tokens/src/index.ts"
+      ],
+      "@neuroassist/shared/ui-components": [
+        "libs/shared/ui-components/src/index.ts"
+      ],
+      "@neuroassist/shared/ui-feedback": [
+        "libs/shared/ui-feedback/src/index.ts"
+      ],
+      "@neuroassist/shared/contracts": [
+        "libs/shared/contracts/src/index.ts"
+      ]
+    }
+  },
+  "_TODO_lote_6a": "extend paths as additional libs (feature/data-access/ui) are scaffolded"
+}

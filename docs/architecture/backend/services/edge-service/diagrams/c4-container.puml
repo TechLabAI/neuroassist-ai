@@ -1,0 +1,42 @@
+@startuml c4-container-edge
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram — edge-service (EDGE module)
+
+Person(conductor, "Conductor", "Registers and pairs devices")
+
+System_Boundary(edge_boundary, "edge-service (Spring Boot 3 / Java 21)") {
+    Container(edge_api, "REST API Layer", "Spring MVC / Spring Security", "Exposes /api/v1/edge/**; JWT + device-token validation; anti-spoofing (id from token); schema routing from tenant claim.")
+    Container(edge_app, "Application Layer", "Spring beans (use cases)", "DeviceRegistrationService, PairingService, HeartbeatService, LivenessService, ProfilePointerService.")
+    Container(edge_domain, "Domain Layer", "Plain Java", "DispositivoEdge aggregate, pairing state machine, liveness policy (staleness threshold), domain events.")
+    Container(edge_infra, "Infrastructure Layer", "JPA + Feign + Resilience4j", "Device/enrollment/credential/transition repositories, DetectionProfileClient (Feign->GEST), device-credential verifier, SchemaRoutingDataSource.")
+}
+
+ContainerDb(postgres, "PostgreSQL 16", "per-tenant schema (empresa)", "Tables: dispositivo_edge, dispositivo_enrollment, dispositivo_credential, dispositivo_edge_transition. No biometric data. status is derived, not stored.")
+
+Container_Ext(gwy, "GWY (API Gateway)", "Spring Cloud Gateway", "Routes /api/v1/edge/**; injects X-Correlation-Id.")
+Container_Ext(reg, "REG (Service Registry)", "Eureka Server", "Service discovery.")
+Container_Ext(acs, "ACS", "Keycloak / OAuth2", "Issues JWTs; /oauth2/jwks; device client_credentials token endpoint.")
+Container_Ext(gest_svc, "GEST Service", "Spring Boot", "Active detection-profile version pointer.")
+Container_Ext(pac, "PAC Service", "Spring Boot", "Device-validation consumer.")
+Container_Ext(dash, "DASH Service", "Spring Boot", "Liveness-poll consumer.")
+Container_Ext(edge_agent, "Edge Agent", "Local device process", "Register / enroll / heartbeat client.")
+
+Rel(conductor, gwy, "HTTPS REST")
+Rel(edge_agent, gwy, "HTTPS REST (device credential)")
+Rel(gwy, edge_api, "HTTP REST (routed)")
+Rel(edge_api, edge_app, "Delegates to use cases")
+Rel(edge_app, edge_domain, "Operates on aggregates")
+Rel(edge_app, edge_infra, "Ports (Repository, Feign)")
+Rel(edge_infra, postgres, "JDBC / JPA (schema-routed)")
+Rel(edge_infra, gest_svc, "Feign: GET /gest/detection-profiles/active (profile pointer)")
+Rel(edge_api, acs, "Validates JWT (jwk-set-uri)")
+Rel(edge_infra, reg, "Eureka registration + discovery")
+Rel(gest_svc, edge_api, "GET /devices/{id}/tenant (device->tenant)")
+Rel(pac, edge_api, "GET /patients/{id}/device (validation)")
+Rel(dash, edge_api, "GET /devices/{id}/liveness (poll)")
+
+@enduml

@@ -1,0 +1,21 @@
+{
+  "name": "pac-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/pac-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:pac",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "pac"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/pac-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+service: gest-service
+type: standard
+port: 8084
+
+domain:
+  aggregates:
+    - TipoGesto
+    - DetectionProfile
+  entities:
+    - TipoGestoTransition
+    - DetectionProfilePrimitive
+
+enums:
+  DetectabilityState:
+    - registered
+    - pending_training
+    - supported
+    - deprecated
+
+application_services:
+  - name: TipoGestoService
+    operations:
+      - listAll
+      - findById
+      - register
+      - transition
+  - name: EligibilityService
+    operations:
+      - check
+  - name: DetectionProfileService
+    operations:
+      - publish
+      - getActive
+      - findByVersion
+      - pullByDevice
+  - name: DetectionContractService
+    operations:
+      - getContractDescriptor
+      - validateReport
+
+feign_clients:
+  - name: EdgePairingClient
+    service: edge-service
+    url_prop: neuroassist.edge.url
+
+consumed_events: []
+
+events:
+  published:
+    - com.neuroassist.gest.event.PrimitiveRegistered
+    - com.neuroassist.gest.event.PrimitivePromoted
+    - com.neuroassist.gest.event.PrimitiveDeprecated
+    - com.neuroassist.gest.event.DetectionProfilePublished
+
+outbound_ports:
+  - EdgePairingPort

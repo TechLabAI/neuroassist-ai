@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: edge-service
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: false  # Migrations gerenciadas pelo neuroassist-ai-migrations (V7+)
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/edge_dev}
+    username: ${DB_USER:edge}
+    password: ${DB_PASS:edge_dev_pass}
+    hikari:
+      maximum-pool-size: 10
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
+
+server:
+  port: 8087
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"
+  level:
+    com.neuroassist.edge: INFO

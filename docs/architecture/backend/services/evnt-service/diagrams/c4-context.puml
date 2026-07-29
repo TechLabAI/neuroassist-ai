@@ -1,0 +1,37 @@
+@startuml evnt-c4-context
+' C4 Context — EVNT (Eventos e Alarmes)
+!define RECTANGLE class
+
+title EVNT — System Context (evnt-service)
+
+actor "Edge agent\n(device)" as Edge
+actor "Jamilly\n(family caregiver)" as Caregiver
+
+rectangle "evnt-service\n[Eventos e Alarmes]\nSystem of record for Evento;\nurgency-tiered notification" as EVNT #LightBlue
+
+rectangle "GEST\n(gest-service)\nvalidates recognized report" as GEST
+rectangle "PAC\n(pac-service)\nComando + Paciente" as PAC
+rectangle "ACS\n(acs-service)\nCuidador + routing" as ACS
+rectangle "DASH\n(dash-service)\npanel render + confirm callback" as DASH
+rectangle "HIST\n(hist-service)\nimmutable audit trail" as HIST
+rectangle "GWY / REG\ngateway + discovery" as GWY
+
+Edge --> GWY : POST RecognizedCommandReport\n(REST/HTTPS, device token)
+GWY --> EVNT : routes /reports
+Caregiver --> DASH : sees alarm, confirms
+DASH --> EVNT : confirmation callback\n(real | falso_positivo)
+Caregiver ..> EVNT : SSE /events/stream\n+ /events/active (poll fallback)
+
+EVNT --> GEST : validate report (REST)
+EVNT --> PAC : resolve Comando/urgencia (REST)
+EVNT --> ACS : resolve responsible caregiver (REST)
+EVNT --> DASH : dispatch notification (REST)
+EVNT --> HIST : append audit facts (REST)
+
+note bottom of EVNT
+  No broker (messaging disabled).
+  No AI/Hub dependency (ai.hasAi=false).
+  No video/frame/landmark ever enters EVNT (LGPD).
+end note
+
+@enduml

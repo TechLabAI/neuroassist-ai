@@ -1,0 +1,78 @@
+# generator-config.yml — GEST (Frontend) — NeuroAssist AI
+# Canonical schema: libs/internal-nx-plugin/src/generators/module/generator-config.schema.json
+# Required: module, issue_prefix, type, libs
+
+module: gest
+issue_prefix: GEST
+type: standard
+shell_route: /gest            # thin host only (apps/gest); NOT a shell nav item (showInNav:false)
+shell_app: web                # composition happens at scope:web (ADR-005; PAC/onboarding host pages)
+nx_scope: gest
+
+libs:
+  - name: gest/shell-entry
+    type: feature             # lazy entry (@neuroassist/gest); barrel + descriptor  [nx: type:app tag]
+  - name: gest/data-access
+    type: data-access         # EdgeDetectionClient (localhost bridge) + GestureTestFacade (signals)
+  - name: gest/feature-live-test
+    type: feature             # GestureLiveTestComponent (preview + verdict)
+  - name: gest/access
+    type: domain              # gestDeviceOnlineGuard (paired online device -> degraded, non-blocking)
+  - name: gest/integration
+    type: domain              # GestShellIntegrationService (composition slot for scope:web)
+  - name: gest/navigation
+    type: domain              # breadcrumb/menu state (thin host only)
+  - name: gest/ui
+    type: ui                  # TestStateBadge, PreviewFrame (presentational)
+
+features:
+  - name: live-test
+    routes:
+      - /gest                 # thin host only
+    components:
+      - GestureLiveTestComponent
+      - PreviewFrameComponent
+      - TestStateBadgeComponent
+      - CompositeStepIndicatorComponent
+      - DegradedBannerComponent
+      - LiveTestControlsComponent
+
+data_access:
+  - resource: EdgeRecognitionSignal
+    base_path: localhost-bridge   # FE<->edge WS/SSE (ADR-005); NOT served by gest-service
+    operations: [openStream, mockStream, close]
+  - resource: Eligibility
+    base_path: /api/v1/gest/eligibility:check
+    operations: [check]
+  - resource: DetectionContract
+    base_path: /api/v1/gest/detection-contract
+    operations: [getContract]
+
+shell_surfaces:
+  - pac.calibracao            # composed into PAC command editor
+  - onboarding.gesto          # composed into onboarding gesture step
+
+feature_flags:
+  - key: edgeLiveBridge
+    default: "on"             # real edge stream; off => forced honest degraded/mock
+
+shared_deps:
+  - "@neuroassist/shared/access-http-base"
+  - "@neuroassist/shared/empresa-context"
+  - "@neuroassist/shared/access-decision"
+  - "@neuroassist/shared/auth-session"
+  - "@neuroassist/shared/contracts"
+  - "@neuroassist/shared/error-model"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+
+backend_contract: ../../../../../backend/services/gest-service/contracts/api-contract.md
+state_management: signals
+extra_dependencies: []
+
+e2e:
+  features_path: docs/architecture/frontend/modules/gest/frontend/e2e/
+  e2e_project: gest-e2e

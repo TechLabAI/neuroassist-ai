@@ -1,0 +1,77 @@
+@startuml c4-component-edge
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram — edge-service (hexagonal packages)
+
+Container_Boundary(edge, "edge-service") {
+
+    ' --- API package ---
+    Component(ctrl_device, "DeviceController", "Spring MVC @RestController", "POST /devices, POST /devices/{id}:retire, GET /devices/{id}")
+    Component(ctrl_enroll, "EnrollmentController", "Spring MVC @RestController", "POST /devices/enroll (enrollment-token guarded)")
+    Component(ctrl_pairing, "PairingController", "Spring MVC @RestController", "POST /devices/{id}/pairings, DELETE /pairings/current")
+    Component(ctrl_heartbeat, "HeartbeatController", "Spring MVC @RestController", "POST /heartbeat (device credential; id from token)")
+    Component(ctrl_liveness, "LivenessController", "Spring MVC @RestController", "GET /devices/{id}/liveness, GET /devices/{id}/tenant, GET /patients/{id}/device (ETag/304)")
+    Component(dev_auth_filter, "DeviceAuthFilter", "Spring Security Filter", "Resolves deviceId + tenant from token claims; sets SchemaRoutingContext; rejects body id mismatch.")
+
+    ' --- Application package (use cases) ---
+    Component(uc_register, "DeviceRegistrationService", "Spring @Service", "Registers device (state=registered), mints one-time enrollment token; enroll -> issue credential; retire -> revoke.")
+    Component(uc_pairing, "PairingService", "Spring @Service", "Pairs/unpairs; enforces exclusivity invariant #1; appends pairing audit.")
+    Component(uc_heartbeat, "HeartbeatService", "Spring @Service", "Server-stamps ultima_sincronizacao; records versao/runningProfileVersion; triggers profile-pointer + drift.")
+    Component(uc_liveness, "LivenessService", "Spring @Service", "Derives online/offline; resolveDeviceForPatient; resolveTenant; audits crossings.")
+    Component(uc_pointer, "ProfilePointerService", "Spring @Service", "Fetches active profile version pointer from GEST; computes drift.")
+
+    ' --- Domain package ---
+    Component(agg_device, "DispositivoEdge", "Domain aggregate", "Pairing state machine registered->paired->unpaired->retired; guards invariants #1/#4.")
+    Component(pol_liveness, "LivenessPolicy", "Domain policy", "status = f(now - ultimaSincronizacao, stalenessThreshold); pure function (invariant #3).")
+    Component(events, "Domain Events", "POJO event classes", "DispositivoRegistrado/Pareado/Despareado, HeartbeatRecebido, DispositivoFicouOffline/VoltouOnline, ProfileDriftDetected.")
+
+    ' --- Infrastructure package ---
+    Component(repo_device, "DispositivoEdgeRepository", "JPA Repository", "Schema-routed reads/writes; partial-unique active pairing.")
+    Component(repo_enroll, "EnrollmentRepository", "JPA Repository", "One-time enrollment tokens (hash only).")
+    Component(repo_cred, "CredentialRepository", "JPA Repository", "Per-device credential (hash only), one active.")
+    Component(repo_trans, "TransitionRepository", "JPA Repository (append-only)", "Appends dispositivo_edge_transition rows.")
+    Component(feign_gest, "DetectionProfileClient", "Feign + Resilience4j CB", "GET /gest/detection-profiles/active; degrades to profilePointerDegraded on failure.")
+    Component(schema_ds, "SchemaRoutingDataSource", "Spring DataSource wrapper", "Routes JDBC connections to t_<tenantId> schema.")
+
+    ' --- Wiring ---
+    Rel(ctrl_device, uc_register, "register()/retire()")
+    Rel(ctrl_enroll, uc_register, "enroll()")
+    Rel(ctrl_pairing, uc_pairing, "pair()/unpair()")
+    Rel(ctrl_heartbeat, uc_heartbeat, "recordHeartbeat()")
+    Rel(ctrl_liveness, uc_liveness, "evaluate()/resolveDeviceForPatient()/resolveTenant()")
+    Rel(dev_auth_filter, schema_ds, "Sets tenant schema context")
+
+    Rel(uc_register, agg_device, "Creates/updates aggregate")
+    Rel(uc_register, repo_device, "Saves")
+    Rel(uc_register, repo_enroll, "Mints/consumes token")
+    Rel(uc_register, repo_cred, "Issues/revokes credential")
+    Rel(uc_register, events, "Raises DispositivoRegistrado")
+    Rel(uc_pairing, agg_device, "Drives pairing state machine")
+    Rel(uc_pairing, repo_device, "Saves updated aggregate")
+    Rel(uc_pairing, repo_trans, "Appends pairing audit")
+    Rel(uc_pairing, events, "Raises DispositivoPareado/Despareado")
+    Rel(uc_heartbeat, agg_device, "Refreshes liveness inputs")
+    Rel(uc_heartbeat, repo_device, "Saves (server-stamped)")
+    Rel(uc_heartbeat, uc_pointer, "Fetches profile pointer")
+    Rel(uc_heartbeat, events, "Raises HeartbeatRecebido / VoltouOnline / ProfileDriftDetected")
+    Rel(uc_liveness, pol_liveness, "Derives status")
+    Rel(uc_liveness, repo_device, "Reads")
+    Rel(uc_liveness, repo_trans, "Appends liveness crossing")
+    Rel(uc_liveness, events, "Raises DispositivoFicouOffline")
+    Rel(uc_pointer, feign_gest, "GET active profile version")
+}
+
+ContainerDb(postgres, "PostgreSQL 16", "schema: t_<tenantId>", "EDGE tables")
+Container_Ext(gest_svc, "GEST Service", "REST")
+
+Rel(repo_device, postgres, "JDBC/JPA")
+Rel(repo_enroll, postgres, "JDBC/JPA")
+Rel(repo_cred, postgres, "JDBC/JPA")
+Rel(repo_trans, postgres, "JDBC/JPA (append)")
+Rel(schema_ds, postgres, "Routes to tenant schema")
+Rel(feign_gest, gest_svc, "GET /gest/detection-profiles/active")
+
+@enduml

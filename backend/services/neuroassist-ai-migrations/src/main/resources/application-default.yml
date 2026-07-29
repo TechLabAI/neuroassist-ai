@@ -1,0 +1,4 @@
+# Profile 'default' — local dev without infrastructure.
+spring:
+  flyway:
+    enabled: false

@@ -1,0 +1,4 @@
+# Profile 'test' — flyway disabled; no datasource needed.
+spring:
+  flyway:
+    enabled: false

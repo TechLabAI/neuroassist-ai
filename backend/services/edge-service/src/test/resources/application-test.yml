@@ -1,0 +1,23 @@
+# Profile 'test' — Testcontainers (PostgreSQL) + Artemis embedded.
+# DataSource sobrescrito via @DynamicPropertySource em BaseIntegrationTest.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  artemis:
+    mode: embedded
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+eureka:
+  client:
+    enabled: false
+# D-532 pitfall fix: stub Feign client URLs so Spring context loads without malformed-URL error
+# neuroassist.gest.url is used by DetectionProfileClient (declared in generator-config.yml feign_clients)
+neuroassist:
+  gest:
+    url: http://localhost:8080

@@ -1,0 +1,3 @@
+service: neuroassist-ai-api-gateway
+type: gateway
+port: 8080

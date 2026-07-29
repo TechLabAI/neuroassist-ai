@@ -1,0 +1,64 @@
+service: pac-service
+type: standard
+port: 8082
+
+domain:
+  aggregates:
+    - Paciente         # system-of-record root (data-model §2.1)
+    - TipoGestoRef     # read-model / reference cache (data-model §2.4 — optional MVP)
+  entities:
+    - Comando          # lifecycle state machine (drafted→validated→published→retired; FK paciente_id)
+    - PacienteCuidador # junction table (many-to-many Paciente↔ACS Cuidador refs)
+
+application_services:
+  - name: PacienteService         # api-contract §3 — patient resource
+    operations:
+      - create
+      - findById
+      - listAll
+      - update
+  - name: ComandoAuthoringService  # api-contract §4.1/§4.4 — draft authoring
+    operations:
+      - createDraft
+      - editDraft
+  - name: ComandoLifecycleService  # api-contract §4.5–§4.8 — lifecycle transitions
+    operations:
+      - validate
+      - publish
+      - recalibrate
+      - retire
+  - name: CatalogoAtivoService    # api-contract §5 — read surface for GEST
+    operations:
+      - getCatalogoAtivo
+
+enums:
+  Sensibilidade:
+    - baixa
+    - media
+    - alta
+  Urgencia:
+    - emergencia
+    - rotina
+  EstadoComando:
+    - drafted
+    - validated
+    - published
+    - retired
+
+feign_clients:
+  - name: GestDetectabilityClient   # port: GestDetectabilityPort (SPEC-10 §4)
+    service: gest-service
+    url_prop: neuroassist.integration.gest.url
+  - name: AcsDirectoryClient        # port: AcsDirectoryPort (SPEC-10 §5)
+    service: acs-service
+    url_prop: neuroassist.integration.acs.url
+  - name: EdgeDeviceClient          # port: EdgeDevicePort (SPEC-10 §6)
+    service: edge-service
+    url_prop: neuroassist.integration.edge.url
+  - name: HistFactClient            # port: HistFactPort (SPEC-10 §7)
+    service: hist-service
+    url_prop: neuroassist.integration.hist.url
+
+outbound_ports:
+  - EmergencyEligibilityGate       # application component wrapping GestDetectabilityPort (SPEC-03 §9)
+  - PacienteVersionBumper          # atomic catalogoVersao increment (SPEC-02 §6)

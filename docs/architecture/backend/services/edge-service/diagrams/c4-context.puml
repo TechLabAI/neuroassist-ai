@@ -1,0 +1,36 @@
+@startuml c4-context-edge
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context — edge-service (EDGE: Integração de Dispositivo Edge)
+
+Person(conductor, "Conductor (Danilo)", "Registers edge devices and pairs them to patients during onboarding.")
+Person(caregiver, "Caregiver (Jamilly)", "Never touches EDGE directly; via DASH depends on EDGE to know if monitoring is live.")
+
+System(edge, "edge-service", "Backend device authority. Owns device identity, exclusive pairing, and heartbeat-derived liveness; delivers the detection-profile version pointer.")
+
+System_Ext(edge_agent, "Edge Agent", "Separate deployable on the patient's device. Registers, enrolls, and heartbeats. Pulls detection profile content directly from GEST.")
+System_Ext(gest, "GEST (gest-service)", "Cloud-side detection authority. EDGE pulls the active detection-profile version pointer from GEST; GEST resolves device->tenant via EDGE.")
+System_Ext(pac, "PAC (pac-service)", "Validates paciente.dispositivo_edge_id against EDGE at write time (cross-service ref, not FK).")
+System_Ext(dash, "DASH (dash-service)", "Polls EDGE liveness to render caregiver monitoring status and stale-device warning (no push, MVP).")
+System_Ext(acs, "ACS (Auth & User Mgmt)", "Issues OAuth2 JWTs (human, service) and device client_credentials tokens; provides /oauth2/jwks and /oauth2/token.")
+System_Ext(gwy, "GWY (API Gateway)", "Routes /api/v1/edge/** to edge-service; injects X-Correlation-Id.")
+System_Ext(reg, "REG (Service Registry)", "Eureka — EDGE registers and discovers GEST.")
+System_Ext(mig, "MIG (Migration Service)", "Applies Flyway V0700 DDL for EDGE tables to each tenant schema.")
+
+Rel(conductor, gwy, "Registers / pairs devices", "HTTPS / REST (OAuth2 JWT)")
+Rel(caregiver, dash, "Views monitoring status", "HTTPS")
+Rel(edge_agent, gwy, "Register / enroll / heartbeat", "HTTPS REST (device credential)")
+Rel(gwy, edge, "Routes /api/v1/edge/**", "HTTP REST (internal)")
+Rel(edge, acs, "Validates JWT via jwk-set-uri", "HTTP REST")
+Rel(edge, reg, "Registers as Eureka client", "Eureka HTTP")
+Rel(edge, gest, "Pulls active profile version pointer (GET /detection-profiles/active)", "HTTP REST (service credential)")
+Rel(gest, edge, "Resolves device->tenant (GET /devices/{id}/tenant)", "HTTP REST (service credential)")
+Rel(pac, edge, "Validates device for patient (GET /patients/{id}/device)", "HTTP REST")
+Rel(dash, edge, "Polls liveness (GET /devices/{id}/liveness, ETag/304)", "HTTP REST")
+Rel(edge_agent, acs, "Obtains device token (client_credentials)", "HTTPS REST")
+Rel(mig, edge, "Applies EDGE DDL to tenant schemas (V0700)", "PostgreSQL")
+
+@enduml

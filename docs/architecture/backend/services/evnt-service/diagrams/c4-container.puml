@@ -1,0 +1,43 @@
+@startuml evnt-c4-container
+' C4 Container — EVNT (evnt-service)
+title EVNT — Container View (evnt-service)
+
+rectangle "evnt-service (Spring Boot 3.5 / Java 21)" as EVNT #LightBlue {
+  rectangle "REST API\n(ingress, confirmation,\n/events, SSE stream)" as API
+  rectangle "Application\n(use cases + ports)" as APP
+  rectangle "Domain\n(Evento, NotificationDispatch)" as DOM
+  rectangle "Infrastructure\n(JPA repos, Feign clients,\nidempotency ledger, SSE emitter)" as INFRA
+}
+
+database "PostgreSQL\nt_<empresa> schema\n(evento, notification_dispatch,\nreport_idempotency)" as PG
+
+rectangle "GEST (Feign)" as GEST
+rectangle "PAC (Feign)" as PAC
+rectangle "ACS (Feign)" as ACS
+rectangle "DASH (Feign)" as DASH
+rectangle "HIST (Feign)" as HIST
+rectangle "Eureka (REG)" as REG
+rectangle "Spring Cloud Gateway (GWY)" as GWY
+
+GWY --> API : routed requests
+API --> APP
+APP --> DOM
+APP --> INFRA
+INFRA --> PG : JPA (schema-scoped)
+INFRA --> GEST
+INFRA --> PAC
+INFRA --> ACS
+INFRA --> DASH
+INFRA --> HIST
+EVNT ..> REG : register / discover
+
+note right of INFRA
+  No broker client.
+  SSE emitter fans out
+  in-process domain events
+  to open caregiver streams.
+  Retry sweep re-queues
+  failed dispatches on boot.
+end note
+
+@enduml

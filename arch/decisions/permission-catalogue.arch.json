@@ -1,0 +1,88 @@
+{
+  "_schema_version": 1,
+  "version": "1.0.0",
+  "last_changed": "2026-07-29",
+  "convention": {
+    "format": "<module>.<resource>.<action>",
+    "note": "Snake/kebab case, lowercase. Wildcards prohibited in production seeds â€” individual rows per permission for auditing. Some 4-part codes are intentional (e.g. cad.vendedor.comissao.config) when a resource has natural sub-resources."
+  },
+  "modules": [
+    {
+      "prefix": "gest",
+      "name": "DetecÃ§Ã£o de Gesto (Edge)",
+      "description": "Captura de webcam, extraÃ§Ã£o de landmarks faciais e classificaÃ§Ã£o multi-classe do comando ativo (gesto simples ou composto por mÃºltiplos primitivos), executado localmente no dispositivo do paciente.",
+      "permissions": [
+        "gest.tipo-gesto.read",
+        "gest.tipo-gesto.criar",
+        "gest.tipo-gesto.editar",
+        "gest.eligibility.read",
+        "gest.detection-profile.publicar",
+        "gest.detection-profile.read",
+        "gest.detection-contract.read"
+      ]
+    },
+    {
+      "prefix": "evnt",
+      "name": "Eventos e Alarmes",
+      "description": "GeraÃ§Ã£o do evento estruturado correspondente ao comando reconhecido, orquestraÃ§Ã£o de notificaÃ§Ã£o por nÃ­vel de urgÃªncia (alarme full-screen para emergÃªncia; discreta para rotina) e roteamento para o responsÃ¡vel.",
+      "permissions": [
+        "evnt.report-ingress.ingerir",
+        "evnt.event-query.read",
+        "evnt.event-confirmation.confirmar",
+        "evnt.notification-orchestration.processar",
+        "evnt.notification-orchestration.reprocessar"
+      ]
+    },
+    {
+      "prefix": "pac",
+      "name": "Pacientes e CatÃ¡logo de Comandos",
+      "description": "Cadastro de paciente e catÃ¡logo de comandos (gesto -> aÃ§Ã£o, rÃ³tulo livre definido pela famÃ­lia, sensibilidade, tempo mÃ­nimo/mÃ¡ximo de gesto e nÃ­vel de urgÃªncia), calibrÃ¡veis independentemente por comando.",
+      "permissions": [
+        "pac.paciente.criar",
+        "pac.paciente.read",
+        "pac.paciente.editar",
+        "pac.comando-authoring.criar",
+        "pac.comando-authoring.editar",
+        "pac.comando-lifecycle.read",
+        "pac.comando-lifecycle.publicar",
+        "pac.comando-lifecycle.recalibrar",
+        "pac.comando-lifecycle.aposentar",
+        "pac.catalogo-ativo.read"
+      ]
+    },
+    {
+      "prefix": "acs",
+      "name": "Cuidadores e Acesso",
+      "description": "GestÃ£o de cuidadores/usuÃ¡rios, papÃ©is e vÃ­nculo com paciente(s); base do multi-tenant (tenant = famÃ­lia ou clÃ­nica).",
+      "permissions": []
+    },
+    {
+      "prefix": "hist",
+      "name": "HistÃ³rico e Auditoria",
+      "description": "Registro imutÃ¡vel de eventos, alarmes e aÃ§Ãµes de confirmaÃ§Ã£o/ediÃ§Ã£o, com trilha de auditoria.",
+      "permissions": []
+    },
+    {
+      "prefix": "dash",
+      "name": "Dashboard e NotificaÃ§Ãµes",
+      "description": "Painel web (Angular) para cuidador consultar histÃ³rico, calibrar sensibilidade e receber notificaÃ§Ãµes.",
+      "permissions": []
+    },
+    {
+      "prefix": "edge",
+      "name": "IntegraÃ§Ã£o de Dispositivo Edge",
+      "description": "Registro, pareamento e monitoramento de heartbeat do agente local (edge) que roda a detecção de gesto. D-533.",
+      "permissions": [
+        "edge.device-registration.criar",
+        "edge.device-registration.aposentar",
+        "edge.pairing.criar",
+        "edge.pairing.excluir",
+        "edge.heartbeat.criar",
+        "edge.liveness.read",
+        "edge.liveness.resolver",
+        "edge.profile-pointer.read"
+      ]
+    }
+  ],
+  "$comment": "Workspace ships with empty modules (D-103, Gap B). See _examples/eerripe-permission-catalogue.partial.json for the BOSQ-ERP starting catalogue. New projects: declare your modules via arch/overrides/permission-catalogue.partial.json. D-518: COMM module added. D-525: GROW (gro.*) module added â€” 18 permissions for TenantService/BillingService/PlatformMetricsService/ExpansionOpportunityService/GlobalWhiteLabelService."
+}

@@ -1,0 +1,44 @@
+@startuml c4-component-gwy
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+title Component — GWY internal filter pipeline & ports (com.neuroassist.gateway)
+
+Container_Boundary(gw, "neuroassist-ai-api-gateway") {
+
+  Component(routes, "RouteLocator config", "config/", "Declarative predicate -> lb://<service> + per-route filter set")
+
+  Component(cors, "CorsWebFilter", "filter/", "Admits configured dashboard origins; answers OPTIONS pre-flight")
+  Component(corr, "CorrelationIdFilter", "filter/", "Honour/generate X-Correlation-Id; echo on response")
+  Component(jwt, "JwtAuthenticationFilter", "filter/", "Validate caregiver JWT vs ACS JWK")
+  Component(dev, "DeviceCredentialFilter", "filter/", "Validate edge device token (ADR-005, swappable scheme)")
+  Component(tenant, "TenantContextPropagationFilter", "filter/", "Strip inbound X-Empresa-Id; set from principal (INV-2)")
+  Component(rl, "RequestRateLimiter", "filter/", "Token-bucket per route/principal; 429 + Retry-After")
+  Component(err, "ProblemDetailErrorFilter", "filter/", "Shape all gateway errors as RFC 7807")
+
+  Component(sec, "Reactive security wiring", "security/", "JWK/issuer resolution, resource-server config")
+  Component(jwkclient, "JwkClient (cache)", "support/", "Fetch + TTL-cache ACS keys (stale-while-revalidate)")
+  Component(disc, "Discovery client", "support/", "Eureka lb:// resolution")
+  Component(rlstore, "RateLimitStore", "support/", "In-memory buckets (Redis = future)")
+  Component(log, "StructuredAccessLogger", "support/", "request.routed / request.rejected signals (no bodies, LGPD)")
+}
+
+System_Ext(acs, "ACS", "JWK set")
+System_Ext(reg, "Eureka", "registry")
+System_Ext(up, "Downstream services", "EVNT/PAC/HIST/DASH/EDGE")
+
+Rel(cors, corr, "then")
+Rel(corr, jwt, "then")
+Rel(jwt, dev, "if not caregiver")
+Rel(dev, tenant, "then")
+Rel(tenant, rl, "then")
+Rel(rl, routes, "then route")
+Rel(routes, up, "forward (lb://)", "HTTP")
+
+Rel(jwt, sec, "uses")
+Rel(sec, jwkclient, "resolve keys")
+Rel(jwkclient, acs, "GET JWK", "HTTPS")
+Rel(routes, disc, "resolve instance")
+Rel(disc, reg, "fetch", "Eureka")
+Rel(rl, rlstore, "check/consume")
+Rel(err, log, "record rejection")
+Rel(routes, log, "record routed")
+@enduml

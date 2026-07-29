@@ -1,0 +1,95 @@
+# generator-config.yml — EDGE (Frontend) — NeuroAssist AI
+# Canonical schema: libs/internal-nx-plugin/src/generators/module/generator-config.schema.json
+# Required: module, issue_prefix, type, libs
+
+module: edge
+issue_prefix: EDGE
+type: standard
+shell_route: /edge            # thin host only (apps/edge); NOT a shell nav item (showInNav:false)
+shell_app: web                # composition happens at scope:web (topbar chip + onboarding step 3 host page)
+nx_scope: edge
+
+libs:
+  - name: edge/shell-entry
+    type: feature             # lazy entry (@neuroassist/edge); barrel + EDGE_MODULE_DESCRIPTOR  [nx: type:app tag]
+  - name: edge/data-access
+    type: data-access         # EdgeHttpService + DeviceFacade / PairingFacade (signals + polling timer)
+  - name: edge/feature-pairing
+    type: feature             # DevicePairingPageComponent (register -> claim -> first heartbeat -> paired)
+  - name: edge/feature-device-detail
+    type: feature             # DeviceDetailPageComponent (last-sync, version, derived state, re-pair/unpair)
+  - name: edge/access
+    type: domain              # edgeConductorGuard (pair/unpair/register/retire = conductor entitlement)
+  - name: edge/integration
+    type: domain              # EdgeShellIntegrationService + connectivity read-model port (topbar/Home)
+  - name: edge/navigation
+    type: domain              # breadcrumb/menu state (thin host only)
+  - name: edge/ui
+    type: ui                  # ConnectivityChipComponent, PairingCodeCardComponent (presentational)
+
+features:
+  - name: pairing
+    routes:
+      - /edge/pairing         # thin host + composed into onboarding step 3 at scope:web
+    components:
+      - DevicePairingPageComponent
+      - PairingCodeCardComponent
+      - PairingProgressComponent
+      - PairingResultComponent
+  - name: device-detail
+    routes:
+      - /edge/device
+      - /edge/device/:deviceId
+    components:
+      - DeviceDetailPageComponent
+      - ConnectivityStatusCardComponent
+      - DeviceMetaListComponent
+      - DeviceActionsComponent
+
+data_access:
+  - resource: Device
+    base_path: /api/v1/edge/devices
+    operations: [register, get, pair, unpair, retire]
+  - resource: Liveness
+    base_path: /api/v1/edge/patients/:pacienteId/liveness
+    operations: [poll]
+  - resource: DeviceLiveness
+    base_path: /api/v1/edge/devices/:deviceId/liveness
+    operations: [poll]
+
+shell_surfaces:
+  - shell.topbar-connectivity-chip   # always-visible connectivity chip (read-model)
+  - onboarding.dispositivo-edge       # onboarding step 3 pairing host page
+
+feature_flags:
+  - key: pollingEnabled
+    default: "on"             # derived-connectivity polling; off => single fetch, no cadence
+  - key: pollIntervalMs
+    default: "15000"          # matches BE liveness.poll-hint-seconds (api-contract §5)
+  - key: stalenessThresholdMs
+    default: "45000"          # FE "stale" band entry (earlier, non-alarming than BE 90s offline)
+  - key: offlineWindowMs
+    default: "90000"          # aligns with BE stalenessThreshold (api-contract §5)
+  - key: rePairEnabled
+    default: "on"             # exposes re-pair/unpair actions in device detail
+
+shared_deps:
+  - "@neuroassist/shared/access-http-base"
+  - "@neuroassist/shared/empresa-context"
+  - "@neuroassist/shared/access-decision"
+  - "@neuroassist/shared/auth-session"
+  - "@neuroassist/shared/contracts"
+  - "@neuroassist/shared/error-model"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+
+backend_contract: ../../../../../backend/services/edge-service/contracts/api-contract.md
+state_management: signals
+extra_dependencies: []
+
+e2e:
+  features_path: docs/architecture/frontend/modules/edge/frontend/e2e/
+  e2e_project: edge-e2e

@@ -1,0 +1,25 @@
+@startuml c4-context-gwy
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+title System Context — GWY (API Gateway), NeuroAssist AI
+
+Person(caregiver, "Caregiver", "Uses the Angular dashboard; bears an ACS-issued JWT")
+System_Ext(edge, "Edge agent (device)", "Headless client on the patient device; pushes structured events with a signed device token + local retry outbox")
+Person(sre, "Operator / SRE", "Observes routing health, correlation traces, rate-limit rejections")
+
+System_Boundary(nb, "NeuroAssist AI backend") {
+  System(gwy, "API Gateway (GWY)", "Spring Cloud Gateway — single secure ingress: auth, tenant + correlation propagation, rate limiting, CORS, typed errors. Stateless, no DB.")
+  System(reg, "Service Registry (REG)", "Eureka — routable service instances")
+  System(acs, "Cuidadores e Acesso (ACS)", "Identity authority — JWK set / issuer; device-token authority (with EDGE)")
+  System(services, "Domain services", "EVNT, PAC, HIST, DASH, EDGE — trust X-Empresa-Id / X-Correlation-Id")
+}
+
+System_Ext(lb, "External LB / DNS", "Fronts N gateway replicas; may terminate TLS")
+
+Rel(caregiver, lb, "HTTPS + Bearer JWT")
+Rel(edge, lb, "HTTPS + device token")
+Rel(lb, gwy, "Forwards; liveness probe /actuator/health")
+Rel(gwy, reg, "Registers + resolves lb:// routes", "Eureka")
+Rel(gwy, acs, "Validates JWT/device token against JWK set", "HTTPS")
+Rel(gwy, services, "Routes authenticated, tenant-scoped requests", "HTTP via discovery")
+Rel(sre, gwy, "Reads access logs / metrics")
+@enduml

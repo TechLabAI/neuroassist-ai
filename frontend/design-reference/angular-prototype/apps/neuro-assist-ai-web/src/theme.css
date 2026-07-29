@@ -1,0 +1,188 @@
+/* theme.css — NeuroAssist AI — Tailwind v4 @theme.
+ *
+ * EXCEÇÃO DOCUMENTADA ao DS canônico (dark-only) do framework: este produto
+ * roda para uma cuidadora não-técnica em ambiente doméstico — tema CLARO é o
+ * padrão ("guardião silencioso": calmo, discreto na maior parte do tempo).
+ * Tema escuro existe como toggle (topbar), nunca como default.
+ *
+ * Identidade cromática:
+ *   Marca      #1B2F5C  → brand/produto/navegação (cor base do projeto)
+ *   Amarelo    #fde047  → IA, insight, advisory (identidade — ink ajustado por tema p/ contraste)
+ *   Âmbar      #F5A524  → destaque, warning, kpi
+ *   Blue info  #3B82F6  → apoio/tecnologia
+ *
+ * Sidebar é sempre escura em ambos os temas (convenção do framework).
+ */
+
+@theme {
+  /* ── Superfícies (claro — padrão) ───────────────────────────────────────── */
+  --color-base:      #F7F9FC;
+  --color-surface:   #FFFFFF;
+  --color-surface-2: #F0F3F8;
+  --color-elevated:  #FFFFFF;
+
+  /* ── Glass system — light defaults ──────────────────────────────────────── */
+  --glass-rgb:          16 32 62;
+  --glass-fill:          0.035;
+  --glass-fill-fallback: 0.06;
+  --glass-blur:         16px;
+  --glass-sat:          1.1;
+  --glass-border:       rgba(16,32,62,.10);
+  --glass-highlight:    rgba(255,255,255,.70);
+  --glass-shadow:       0 8px 24px rgba(16,32,62,.08);
+  --hero-tint:      linear-gradient(135deg, rgba(27,47,92,.10), transparent 70%);
+  --hero-glow:      0 8px 32px rgba(27,47,92,.14);
+  --hero-highlight: rgba(255,255,255,.70);
+
+  /* ── Content area gradient mesh — light ──────────────────────────────────── */
+  --content-bg: #F7F9FC;
+  --content-mesh:
+    radial-gradient(60% 70% at 18% 10%, rgba(27,47,92,.06), transparent 60%),
+    radial-gradient(55% 65% at 88%  6%, rgba(245,165,36,.05), transparent 60%),
+    radial-gradient(75% 85% at 55% 100%, rgba(59,130,246,.05), transparent 62%);
+
+  /* ── Texto ──────────────────────────────────────────────────────────────── */
+  --color-ink:       #10203E;
+  --color-ink-soft:  #4A5A78;
+  --color-ink-faint: #8C9AB5;
+
+  /* ── Bordas & campos ────────────────────────────────────────────────────── */
+  --color-line:        #E2E8F0;
+  --color-line-strong: #CBD5E1;
+  --color-field:       #FFFFFF;
+  --color-field-line:  #D7DEEA;
+
+  /* ── Marca — cor base do projeto (ÚNICA variável; rampa derivada do hex) ─── */
+  --color-brand:        #1B2F5C;
+  --color-brand-strong: #142343;            /* hover / pressed (mais escuro no claro) */
+  --color-brand-active: rgba(27,47,92,.12);  /* bg estado ativo         */
+  --color-brand-ink:    #FFFFFF;             /* texto sobre brand sólido*/
+  --color-brand-subtle: rgba(27,47,92,.10);  /* bg badges, highlights   */
+  --color-brand-line:   rgba(27,47,92,.35);  /* borda glass / glow      */
+
+  /* ── Accent — Amber #F5A524 ─────────────────────────────────────────────── */
+  --color-accent: #F5A524;
+
+  /* ── Semânticas (ink escurecido p/ contraste em fundo claro) ─────────────── */
+  --color-success: #16A34A; --color-success-bg: rgba(22,163,74,.10);   --color-success-ink: #15803D;
+  --color-warning: #D97706; --color-warning-bg: rgba(217,119,6,.12);  --color-warning-ink: #92400E;
+  --color-danger:  #DC2626; --color-danger-bg:  rgba(220,38,38,.10);  --color-danger-ink:  #991B1B;
+  --color-info:    #2563EB; --color-info-bg:    rgba(37,99,235,.10);  --color-info-ink:    #1D4ED8;
+
+  /* ── IA / Advisory — identidade âmbar/dourado (ink escurecido p/ contraste) ── */
+  --color-ai:       #A16207;              /* identidade: texto, ícone, borda (legível no claro) */
+  --color-ai-bg:    rgba(202,138,4,.12);  /* badge background                  */
+  --color-ai-ink:   #A16207;              /* badge text (= identidade)          */
+  --color-ai-panel: rgba(202,138,4,.08);  /* card tint                         */
+  --color-ai-fill:  #F5C518;              /* botão preenchido                   */
+  --color-ai-strong:#EAB308;              /* hover do botão                     */
+  --color-ai-on:    #2b1d00;              /* texto sobre fill — escuro, AAA     */
+
+  /* ── Painel IA — superfície azul-glass, escopo fixo (não herda tema) ────── */
+  --color-panel-text:   #14243A;
+  --color-panel-muted:  #64748B;
+  --color-panel-border: rgba(37,99,235,.22);
+  --color-panel-ident:  #A16207;
+  --color-panel-bubble: rgba(37,99,235,.06);
+  --color-panel-field:  rgba(37,99,235,.05);
+  --color-panel-code:   rgba(37,99,235,.10);
+
+  /* ── Sidebar (sempre escura, em ambos os temas) ──────────────────────────── */
+  --color-sidebar:               #07172A;
+  --color-sidebar-hover:         rgba(255,255,255,.07);
+  --color-sidebar-ink:           rgba(255,255,255,.92);
+  --color-sidebar-muted:         rgba(255,255,255,.52);
+  --color-sidebar-active:        rgba(27,47,92,.16);
+  --color-sidebar-active-border: rgba(27,47,92,.30);
+  --color-sidebar-active-ink:    #93C5FD;
+  --color-sidebar-accent:        #1B2F5C;
+  --color-sidebar-line:          rgba(255,255,255,.10);
+
+  /* ── Tipografia ─────────────────────────────────────────────────────────── */
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-body:    "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans:    var(--font-body);
+  --font-mono:    "JetBrains Mono", ui-monospace, monospace;
+  --text-2xs: 10px; --text-xs: 11px; --text-sm: 12.5px; --text-base: 14px;
+  --text-md: 15px;  --text-lg: 18px; --text-xl: 20px;   --text-2xl: 24px;
+  --text-3xl: 28px; --text-4xl: 36px;
+
+  /* ── Raio ───────────────────────────────────────────────────────────────── */
+  --radius-xs: 4px; --radius-sm: 6px;  --radius-md: 8px;  --radius-lg: 12px;
+  --radius-xl: 16px; --radius-2xl: 20px;
+  --radius-card: var(--radius-lg);
+
+  /* ── Sombra ─────────────────────────────────────────────────────────────── */
+  --shadow-sm:   0 1px 3px rgba(16,32,62,.08), 0 1px 2px rgba(16,32,62,.05);
+  --shadow-md:   0 4px 12px rgba(16,32,62,.10), 0 2px 4px rgba(16,32,62,.06);
+  --shadow-lg:   0 10px 25px rgba(16,32,62,.12), 0 3px 6px rgba(16,32,62,.07);
+  --shadow-card: var(--shadow-sm);
+  --shadow-ai-glow: 0 8px 40px rgba(202,138,4,.12);
+}
+
+/* ── TEMA ESCURO (toggle) ────────────────────────────────────────────────────
+ * Fora do @theme: overrides de tema são custom properties de escopo normal,
+ * não tokens de design — @theme só aceita declarações diretas de propriedade.
+ * Sidebar/tipografia/raio não são sobrescritos aqui: não mudam com o tema.
+ */
+[data-theme="dark"] {
+  --color-base:      #061423;
+  --color-surface:   #0F1D30;
+  --color-surface-2: #0B1A2C;
+  --color-elevated:  #14243A;
+
+  --glass-rgb:          255 255 255;
+  --glass-fill:          0.08;
+  --glass-fill-fallback: 0.12;
+  --glass-sat:          1.3;
+  --glass-border:       rgba(255,255,255,.12);
+  --glass-highlight:    rgba(255,255,255,.10);
+  --glass-shadow:       0 10px 34px rgba(0,0,0,.48);
+  --hero-tint:      linear-gradient(135deg, rgba(59,130,246,.30), transparent 70%);
+  --hero-glow:      0 8px 44px rgba(37,99,235,.30);
+  --hero-highlight: rgba(255,255,255,.14);
+
+  --content-bg: #080b14;
+  --content-mesh:
+    radial-gradient(60% 70% at 18% 10%, rgba(59,130,246,.30), transparent 60%),
+    radial-gradient(55% 65% at 88%  6%, rgba(99,102,241,.24), transparent 60%),
+    radial-gradient(75% 85% at 55% 100%, rgba(14,165,233,.20), transparent 62%);
+
+  --color-ink:       #F6F8FC;
+  --color-ink-soft:  #9FB1C7;
+  --color-ink-faint: #5E7896;
+
+  --color-line:        #223650;
+  --color-line-strong: #2D4769;
+  --color-field:       #0A1828;
+  --color-field-line:  #1E3248;
+
+  --color-brand-strong: #3B4C73;
+  --color-brand-active: rgba(27,47,92,.18);
+  --color-brand-subtle: rgba(27,47,92,.14);
+  --color-brand-line:   rgba(27,47,92,.42);
+
+  --color-success-ink: #86EFAC;
+  --color-warning-ink: #FBD07A;
+  --color-danger-bg:   rgba(229,72,77,.15);
+  --color-danger-ink:  #F38389;
+  --color-info-ink:    #93C5FD;
+
+  --color-ai:       #fde047;
+  --color-ai-bg:    rgba(250,204,21,.16);
+  --color-ai-ink:   #fde047;
+  --color-ai-panel: rgba(250,204,21,.10);
+
+  --color-panel-text:   #d2deef;
+  --color-panel-muted:  #7488ac;
+  --color-panel-border: rgba(59,130,246,.28);
+  --color-panel-ident:  #fde047;
+  --color-panel-bubble: rgba(59,130,246,.10);
+  --color-panel-field:  rgba(59,130,246,.07);
+  --color-panel-code:   rgba(59,130,246,.16);
+
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.20);
+  --shadow-md:   0 4px 12px rgba(0,0,0,.38), 0 2px 4px rgba(0,0,0,.24);
+  --shadow-lg:   0 10px 25px rgba(0,0,0,.44), 0 3px 6px rgba(0,0,0,.28);
+  --shadow-ai-glow: 0 8px 40px rgba(180,140,8,.16);
+}

@@ -1,0 +1,91 @@
+/* Global styles — Tailwind v4 + Design System CANÔNICO (dark-only).
+   theme.css traz o @theme (tokens). Componentes usam utilitários derivados
+   dos tokens (bg-base, font-display…) + as classes glass abaixo. */
+@import "tailwindcss";
+@import "./theme.css";
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    background: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Material Symbols (R4) — set completo via Google Fonts no index.html */
+  .material-symbols-outlined {
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    line-height: 1;
+    user-select: none;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+    border: 2px solid var(--color-base);
+  }
+}
+
+/* ── Glass card system (token-driven) ────────────────────────────────────────
+   Tokens em theme.css: --glass-*, --hero-*. Duas classes canônicas:
+   .glass (base) + .glass--hero (KPI destacado). card-glass* = aliases.
+   ─────────────────────────────────────────────────────────────────────────── */
+.glass,
+.card-glass,
+.card-glass-elevated,
+.card-glass-inset,
+.card-glass-hero {
+  background: rgba(var(--glass-rgb) / var(--glass-fill));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* hero: tint colorido + glow — sem borda própria, herda hairline do .glass */
+.glass--hero,
+.card-glass-hero {
+  background-image: var(--hero-tint);
+  box-shadow: var(--hero-glow), var(--glass-shadow), inset 0 1px 0 var(--hero-highlight);
+}
+
+/* fallback sem backdrop-filter (Firefox < 103, etc.) */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass,
+  .card-glass,
+  .card-glass-elevated,
+  .card-glass-inset,
+  .card-glass-hero {
+    background: rgba(var(--glass-rgb) / var(--glass-fill-fallback));
+  }
+}
+
+/* respeitar preferência do usuário por menos transparência */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .card-glass,
+  .card-glass-elevated,
+  .card-glass-inset,
+  .card-glass-hero {
+    background: rgba(var(--glass-rgb) / var(--glass-fill-fallback));
+    backdrop-filter: blur(4px) saturate(1);
+    -webkit-backdrop-filter: blur(4px) saturate(1);
+  }
+}
+
+/* ── Painel IA — superfície azul-glass independente do tema ─────────────────
+   Base navy opaca (#0b1322) + tint azul translúcido → o painel permanece
+   azul-escuro em qualquer tema do app. box-shadow inset = glow azul na borda. */
+.panel-ai-surface {
+  background: linear-gradient(180deg, rgba(59,130,246,.14), rgba(59,130,246,.04)), #0b1322;
+  color: var(--color-panel-text);
+  box-shadow: inset 8px 0 32px rgba(37,99,235,.14);
+}
+
+/* valores monetários — tipografia tabular unificada */
+.currency {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+}

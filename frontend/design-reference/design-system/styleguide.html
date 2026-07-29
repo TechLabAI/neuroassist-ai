@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroAssist AI — Design System Styleguide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --bg-base:            oklch(98% 0.004 260);
+    --bg-surface:         oklch(96% 0.006 260);
+    --bg-surface-hover:   oklch(93% 0.008 260);
+    --bg-sidebar:         oklch(19% 0.06 265);
+    --bg-sidebar-hover:   oklch(25% 0.06 265);
+
+    --color-brand:        oklch(60% 0.19 250);
+    --color-brand-strong: oklch(50% 0.19 250);
+    --color-brand-subtle: oklch(60% 0.19 250 / 0.12);
+
+    --color-ink:          oklch(21% 0.08 265);
+    --color-ink-subtle:   oklch(48% 0.05 265);
+
+    --text-primary:       oklch(21% 0.08 265);
+    --text-secondary:     oklch(45% 0.05 265);
+    --text-tertiary:      oklch(65% 0.03 265);
+    --text-on-dark:       oklch(96% 0.005 265);
+
+    --color-success:      oklch(60% 0.16 160);
+    --color-success-bg:   oklch(60% 0.16 160 / 0.10);
+    --color-warning:      oklch(72% 0.17 60);
+    --color-warning-bg:   oklch(72% 0.17 60 / 0.12);
+    --color-alarm:        oklch(55% 0.24 25);
+    --color-alarm-bg:     oklch(55% 0.24 25 / 0.12);
+    --color-error:        oklch(58% 0.18 30);
+    --color-error-bg:     oklch(58% 0.18 30 / 0.10);
+    --color-ai:           oklch(55% 0.20 290);
+    --color-ai-bg:        oklch(55% 0.20 290 / 0.08);
+
+    --border-subtle:      oklch(88% 0.007 260);
+    --border-default:     oklch(81% 0.010 260);
+
+    --font-display: 'Nunito', system-ui, sans-serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+
+    --shadow-md: 0 4px 12px oklch(21% 0.08 265 / 0.10);
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+  }
+
+  body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4 { font-family: var(--font-display); }
+
+  .token-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+  }
+
+  .swatch {
+    width: 64px; height: 64px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-md);
+  }
+
+  .sidebar-demo {
+    background: var(--bg-sidebar);
+    color: var(--text-on-dark);
+    font-family: var(--font-body);
+  }
+
+  .icon { font-family: 'Material Symbols Outlined'; font-size: 24px; }
+
+  .toggle-btn {
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    padding: 0.4rem 1rem;
+    border-radius: 9999px;
+    border: 1px solid var(--border-default);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .toggle-btn.active {
+    background: var(--color-brand);
+    color: white;
+    border-color: transparent;
+  }
+
+  [data-theme="dark"] body { background: oklch(13% 0.03 265); color: oklch(95% 0.008 265); }
+  [data-theme="dark"] { --bg-base: oklch(13% 0.03 265); --bg-surface: oklch(17% 0.04 265);
+    --text-primary: oklch(95% 0.008 265); --text-secondary: oklch(70% 0.015 265);
+    --border-subtle: oklch(23% 0.04 265); --border-default: oklch(31% 0.05 265); }
+</style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 1 — Cabeçalho + Direção Estética                         ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<div style="background: var(--bg-sidebar); padding: 3rem 4rem; display: flex; align-items: center; gap: 3rem;">
+  <div>
+    <div style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; color: oklch(96% 0.005 265); letter-spacing: -0.01em;">neuroassist</div>
+    <div style="font-size: 0.875rem; color: oklch(65% 0.04 265); margin-top: 0.25rem;">Design System — v1.0 · 2026-07-27</div>
+  </div>
+  <div style="flex: 1; border-left: 1px solid oklch(31% 0.05 265); padding-left: 3rem;">
+    <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: oklch(85% 0.01 265); margin-bottom: 0.5rem;">Direção estética</div>
+    <p style="font-size: 0.9rem; color: oklch(65% 0.04 265); line-height: 1.6; max-width: 520px; margin: 0;">
+      <em>"Guardião silencioso"</em> — tema claro, calmo e discreto na maior parte do tempo.
+      A cor de alarme (vermelho) é deliberadamente ausente da paleta de marca e reservada
+      exclusivamente para o evento HELP_REQUESTED — nunca usada para erro genérico de formulário.
+      Inspiração: Apple Health · apps de alarme residencial (estado normal discreto, alerta inconfundível).
+    </p>
+  </div>
+  <div style="margin-left: auto;">
+    <button class="toggle-btn active" onclick="setTheme('light')" id="btn-light">Claro</button>
+    <button class="toggle-btn" onclick="setTheme('dark')" id="btn-dark" style="margin-left: 0.5rem;">Escuro</button>
+  </div>
+</div>
+
+<div style="max-width: 1100px; margin: 0 auto; padding: 4rem 2rem;">
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 2 — Cores                                                 ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section style="margin-bottom: 4rem;">
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    2. Cores
+  </h2>
+
+  <div style="margin-bottom: 1.5rem; display: flex; gap: 2rem; align-items: center; flex-wrap: wrap;">
+    <div style="background: var(--bg-base); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+      <img src="../../assets/logo.png" alt="Logo NeuroAssist AI (fundo claro)" style="max-width: 280px; height: auto;">
+      <div class="token-label" style="margin-top: 0.5rem;">logo.png — fundo claro</div>
+    </div>
+    <div style="background: var(--bg-sidebar); padding: 1rem; border-radius: var(--radius-md);">
+      <img src="../../assets/logo-white.png" alt="Logo NeuroAssist AI (fundo escuro)" style="max-width: 280px; height: auto;">
+      <div class="token-label" style="margin-top: 0.5rem; color: oklch(65% 0.04 265);">logo-white.png — fundo escuro (sidebar)</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 2rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Marca (extraída do logo)</h3>
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(21% 0.08 265);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-ink</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">navy wordmark</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(60% 0.19 250);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-brand</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">azul (figura topo)</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(60% 0.16 160);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-success</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">verde (figura esquerda)</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(72% 0.17 60);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-warning</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">âmbar (figura direita)</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 2rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">⚠ Alarme — cor reservada, fora da paleta do logo</h3>
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(55% 0.24 25);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-alarm</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">EXCLUSIVO p/ HELP_REQUESTED</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(58% 0.18 30);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-error</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">erro genérico de UI (distinto)</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(55% 0.20 290);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--color-ai</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">reservado (sem uso no MVP)</div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Superfícies</h3>
+    <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: flex-start;">
+      <div style="text-align: center;">
+        <div class="swatch" style="background: var(--bg-base); border: 1px solid var(--border-default);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--bg-base</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: var(--bg-surface);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--bg-surface</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="swatch" style="background: oklch(19% 0.06 265);"></div>
+        <div class="token-label" style="margin-top: 0.5rem;">--bg-sidebar</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary);">sempre escuro</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 3 — Tipografia                                            ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section style="margin-bottom: 4rem;">
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    3. Tipografia
+  </h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem;">
+    <div>
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 1rem;">Display — Nunito</div>
+      <div style="font-family: 'Nunito', sans-serif; font-size: 2.25rem; font-weight: 800; color: var(--text-primary); line-height: 1.15;">Márcio está bem.</div>
+      <div style="font-family: 'Nunito', sans-serif; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-top: 1rem;">Última verificação: 08h12</div>
+      <div class="token-label" style="margin-top: 1rem;">--font-display · Nunito 400/500/600/700/800</div>
+    </div>
+    <div>
+      <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 1rem;">Body — Inter</div>
+      <div style="font-family: 'Inter', sans-serif; font-size: 1rem; color: var(--text-primary); line-height: 1.7; max-width: 380px;">
+        Márcio levantou a sobrancelha às 14h32. Você confirmou o atendimento às 14h33.
+      </div>
+      <div style="font-family: 'Inter', sans-serif; font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.75rem;">
+        Texto secundário, histórico, metadados.
+      </div>
+      <div class="token-label" style="margin-top: 1rem;">--font-body · Inter 400/500/600</div>
+    </div>
+  </div>
+
+  <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
+    <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-tertiary); margin-bottom: 0.75rem;">Mono — JetBrains Mono</div>
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--color-brand);">device_id: edge-marcio-01 · last_sync: 2026-07-27T14:33:02Z</div>
+    <div class="token-label" style="margin-top: 0.5rem;">--font-mono · uso mínimo — apenas metadados técnicos de dispositivo</div>
+  </div>
+</section>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 4 — Ícones                                                ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section style="margin-bottom: 4rem;">
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    4. Ícones
+  </h2>
+  <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Material Symbols Outlined (fixo). Tamanhos: 18px (sm), 24px (md), 32px (lg).</p>
+  <div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: center;">
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--color-success);">check_circle</span>
+      <div class="token-label" style="margin-top: 0.5rem;">check_circle</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--color-alarm);">emergency</span>
+      <div class="token-label" style="margin-top: 0.5rem;">emergency</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--text-primary);">wifi</span>
+      <div class="token-label" style="margin-top: 0.5rem;">wifi (online)</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--color-warning);">wifi_off</span>
+      <div class="token-label" style="margin-top: 0.5rem;">wifi_off (offline)</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--text-primary);">visibility</span>
+      <div class="token-label" style="margin-top: 0.5rem;">visibility (monitorando)</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--text-primary);">tune</span>
+      <div class="token-label" style="margin-top: 0.5rem;">tune (calibração)</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--text-primary);">history</span>
+      <div class="token-label" style="margin-top: 0.5rem;">history</div>
+    </div>
+    <div style="text-align: center;">
+      <span class="icon" style="color: var(--text-primary);">person</span>
+      <div class="token-label" style="margin-top: 0.5rem;">person (paciente)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 5 — Componentes                                           ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section style="margin-bottom: 4rem;">
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    5. Componentes
+  </h2>
+
+  <!-- Card de status normal -->
+  <div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Card de status — normal (princípio 2.1)</h3>
+    <div style="max-width: 420px; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-md); text-align: center;">
+      <span class="icon" style="color: var(--color-success); font-size: 48px;">check_circle</span>
+      <div style="font-family: var(--font-display); font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-top: 1rem;">Márcio está bem</div>
+      <div style="font-size: 0.875rem; color: var(--text-tertiary); margin-top: 0.5rem;">Última verificação: 08h12 · Dispositivo online</div>
+    </div>
+  </div>
+
+  <!-- Tela de alarme full-bleed -->
+  <div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Tela de alarme — inconfundível (princípio 2.2)</h3>
+    <div style="max-width: 420px; background: var(--color-alarm); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-lg); text-align: center;">
+      <span class="icon" style="color: var(--color-alarm-ink, white); font-size: 56px;">emergency</span>
+      <div style="font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; color: white; margin-top: 1rem;">Márcio precisa de ajuda</div>
+      <div style="font-size: 0.9rem; color: oklch(97% 0.01 25 / 0.9); margin-top: 0.5rem;">Gesto detectado às 14h32</div>
+      <button style="margin-top: 1.5rem; background: white; color: var(--color-alarm); font-family: var(--font-display); font-size: 1rem; font-weight: 700; padding: 0.875rem 2rem; border-radius: 9999px; border: none; cursor: pointer;">
+        Confirmar que atendi Márcio
+      </button>
+    </div>
+  </div>
+
+  <!-- Status badges -->
+  <div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Badges de status do dispositivo</h3>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+      <span style="display: inline-flex; align-items: center; gap: 0.375rem; background: var(--color-success-bg); color: var(--color-success); font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 9999px;">
+        <span class="icon" style="font-size: 16px;">wifi</span> Dispositivo online
+      </span>
+      <span style="display: inline-flex; align-items: center; gap: 0.375rem; background: var(--color-warning-bg); color: oklch(45% 0.15 60); font-family: var(--font-body); font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.75rem; border-radius: 9999px;">
+        <span class="icon" style="font-size: 16px;">wifi_off</span> Sincronização pendente
+      </span>
+    </div>
+  </div>
+
+  <!-- Shell de navegação -->
+  <div style="margin-bottom: 2.5rem;">
+    <h3 style="font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); margin-bottom: 1rem;">Shell de navegação (sidebar escura)</h3>
+    <div style="display: flex; max-width: 600px; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); border: 1px solid var(--border-subtle); height: 260px;">
+      <div class="sidebar-demo" style="width: 200px; padding: 1rem 0; display: flex; flex-direction: column; gap: 0.25rem; flex-shrink: 0;">
+        <div style="padding: 0.5rem 1.25rem; margin-bottom: 0.5rem;">
+          <div style="font-family: var(--font-display); font-weight: 800; font-size: 1rem; color: white;">neuroassist</div>
+        </div>
+        <div style="padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.625rem; background: oklch(60% 0.19 250 / 0.20); border-left: 3px solid oklch(67% 0.19 250); cursor: pointer;">
+          <span class="icon" style="font-size: 18px; color: oklch(80% 0.14 250);">visibility</span>
+          <span style="font-size: 0.825rem; font-weight: 600; color: oklch(95% 0.005 265);">Status</span>
+        </div>
+        <div style="padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.625rem; cursor: pointer;">
+          <span class="icon" style="font-size: 18px; color: oklch(55% 0.04 265);">history</span>
+          <span style="font-size: 0.825rem; color: oklch(65% 0.03 265);">Histórico</span>
+        </div>
+        <div style="padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.625rem; cursor: pointer;">
+          <span class="icon" style="font-size: 18px; color: oklch(55% 0.04 265);">tune</span>
+          <span style="font-size: 0.825rem; color: oklch(65% 0.03 265);">Calibração</span>
+        </div>
+      </div>
+      <div style="flex: 1; background: var(--bg-base); padding: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+        <span class="icon" style="color: var(--color-success); font-size: 40px;">check_circle</span>
+        <div style="font-family: var(--font-display); font-size: 1.125rem; font-weight: 800; color: var(--text-primary); margin-top: 0.5rem;">Márcio está bem</div>
+        <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 0.25rem;">Última verificação: 08h12</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 6 — Momento de Marca                                      ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section style="margin-bottom: 4rem;">
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    6. Momento de marca
+  </h2>
+  <div style="border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-sidebar); padding: 4rem 3rem; display: flex; flex-direction: column; align-items: center; text-align: center; min-height: 300px; justify-content: center;">
+    <img src="../../assets/logo-white.png" alt="NeuroAssist AI" style="max-width: 280px; height: auto; margin-bottom: 2rem;">
+    <h1 style="font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: white; line-height: 1.2; max-width: 480px; margin-bottom: 1rem;">
+      Um gesto que você não vai perder.
+    </h1>
+    <p style="color: oklch(65% 0.04 265); font-size: 1rem; max-width: 420px; line-height: 1.6;">
+      Webcam comum, alarme confiável, sem hardware caro.
+    </p>
+  </div>
+  <p style="font-size: 0.8rem; color: var(--text-tertiary); margin-top: 0.75rem;">↑ Tela de entrada — tratamento full-bleed, fora do shell de navegação (momento-marca: true no wireframe)</p>
+</section>
+
+<!-- ╔══════════════════════════════════════════════════════════════════╗ -->
+<!-- ║  SEÇÃO 7 — Tokens de referência                                  ║ -->
+<!-- ╚══════════════════════════════════════════════════════════════════╝ -->
+<section>
+  <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-subtle);">
+    7. Tokens de referência
+  </h2>
+  <div style="background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.78rem;">
+      <thead>
+        <tr style="background: var(--bg-surface-hover, oklch(93% 0.008 260));">
+          <th style="padding: 0.75rem 1.25rem; text-align: left; color: var(--text-tertiary); font-weight: 700; border-bottom: 1px solid var(--border-subtle);">Token</th>
+          <th style="padding: 0.75rem 1.25rem; text-align: left; color: var(--text-tertiary); font-weight: 700; border-bottom: 1px solid var(--border-subtle);">Valor oklch</th>
+          <th style="padding: 0.75rem 1.25rem; text-align: left; color: var(--text-tertiary); font-weight: 700; border-bottom: 1px solid var(--border-subtle);">Uso</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--color-brand</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(60% 0.19 250)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">CTAs primários, links, foco</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--color-alarm</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(55% 0.24 25)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">EXCLUSIVO: evento HELP_REQUESTED</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--color-ink</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(21% 0.08 265)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Texto primário, headings, navy wordmark</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--bg-sidebar</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(19% 0.06 265)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Sidebar — sempre escuro (ambos os temas)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--color-success</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(60% 0.16 160)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Paciente bem, dispositivo online</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--color-warning</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">oklch(72% 0.17 60)</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Sincronização pendente, offline</td>
+        </tr>
+        <tr style="border-bottom: 1px solid var(--border-subtle);">
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--font-display</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">Nunito</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Estado do paciente, headings</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.625rem 1.25rem; color: var(--color-brand);">--font-body</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-secondary);">Inter</td>
+          <td style="padding: 0.625rem 1.25rem; color: var(--text-tertiary);">Histórico, labels, corpo de texto</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+</div><!-- /max-width -->
+
+<script>
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('btn-light').classList.toggle('active', theme === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', theme === 'dark');
+}
+</script>
+</body>
+</html>
