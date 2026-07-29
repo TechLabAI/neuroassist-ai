@@ -11,7 +11,7 @@ include(":services:neuroassist-ai-migrations")  // scaffold 2026-07-27
 include(":services:gest-service")  // D-530 scaffold 2026-07-28
 include(":services:evnt-service")  // D-531 scaffold 2026-07-28
 include(":services:pac-service")  // D-532 scaffold 2026-07-29
-// include(":services:acs-service")
+include(":services:acs-service")  // D-535 scaffold 2026-07-30
 // include(":services:hist-service")
 // include(":services:dash-service")
 include(":services:edge-service")  // D-533 scaffold 2026-07-29

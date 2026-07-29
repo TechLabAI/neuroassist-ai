@@ -13,7 +13,7 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | EVNT | evnt | OK | OK | OK | OK | OK | 2026-07-28 |
 | PAC | pac | OK | OK | OK | OK | OK | 2026-07-29 |
 | EDGE | edge | OK | OK | OK | OK | OK | 2026-07-29 |
-| ACS | acs | OK | OK | OK | pendente | pendente | 2026-07-30 |
+| ACS | acs | OK | OK | OK | OK | pendente | 2026-07-30 |
 
 ## Ledger de gates diferidos
 
@@ -46,3 +46,4 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-07-29T18:44:11 -- EDGE -- M7 FE E2E-Validate -- OK (pending) -- 17 specs em 8 files; nx e2e edge-e2e --list 0 erros
 - 2026-07-29T20:14:35 -- ACS -- M3 -- FE Specs OK -- SPEC-01..08 + generator-config.yml + backend-api-cross-link + design-tokens + 3 e2e features; EARS 55/55 clauses; onboarding wizard scope:web (ACS owner)
 - 2026-07-30T00:22:11 -- ACS -- M4 Specs-Validate -- OK (skip: EARS PASS 55/55 concluído em M3)
+- 2026-07-30T00:52:00 -- ACS -- M5 FE Backlog -- OK -- 31 issues funcionais + 5 integração = 36 issues; plan-FE-ACS.md gerado

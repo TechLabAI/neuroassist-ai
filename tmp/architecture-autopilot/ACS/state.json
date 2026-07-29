@@ -1,0 +1,22 @@
+{
+  "id": "ACS",
+  "pipeline": "architecture-fullstack",
+  "modulo": "ACS",
+  "service": "acs-service",
+  "module": "acs",
+  "type": "standard",
+  "mode": "full",
+  "beStep": "scaffold",
+  "feStep": "scaffold",
+  "currentPhase": "M5",
+  "nextPhase": "M6",
+  "timestamp": "2026-07-30T14:50:00Z",
+  "notes": "M5 concluído. FE Backlog ACS gerado: 31 issues funcionais + 5 integração = 36 issues; plan-FE-ACS.md no workspace hub. Próxima fase M6: FE Scaffold + BE Scaffold (paralelo).",
+  "handoff": {
+    "M1": {"status": "OK", "key_decisions": ["ACS = auth authority + tenant provisioning + linkage routing source", "Coverage invariant: blocks last caregiver removal", "Onboarding wizard scope:web owned by ACS"]},
+    "M2": {"status": "OK", "key_decisions": ["3 API surfaces: Auth/Admin/Directory", "4 tables: tenant+signing_key (global), cuidador+caregiver_patient_link (empresa)", "MigProvisioningPort fail-closed 5s + PacPatientResolvePort fail-closed 2s + HistAuditPort best-effort"], "warnings": ["service-credential shape pendente scaffold", "JWT residual window 900s MVP gap"]},
+    "M3": {"status": "OK", "ears_gate_be": "PASS 94 clauses", "ears_gate_fe": "PASS 55/55", "bdd_scenarios_be": 40, "bdd_gradle": "DIFERIDO", "warnings": ["coverage-eligibility contract a congelar com EVNT no backlog", "links per-patient via client-side join no FE"]},
+    "M4": {"status": "OK (skip)", "artifacts": [], "key_decisions": ["BE Backlog skip: plan-ACS.md já existia", "FE Specs-Validate skip: EARS PASS 55/55 concluído em M3"], "warnings": []},
+    "M5": {"status": "OK", "artifacts": ["docs/architecture/frontend/modules/acs/frontend/issues/FE-ACS-001..031.md", "docs/architecture/frontend/modules/acs/frontend/issues/INT-FE-ACS-001..005.md", "docs/architecture/frontend/modules/acs/frontend/issues/issues_map.md", "docs/architecture/frontend/modules/acs/frontend/plans/plan-FE-ACS.md", "clients/neuroassist-ai/plans/plan-FE-ACS.md"], "key_decisions": ["31 functional + 5 integration = 36 issues total", "ADR-005 coverage invariant enforced in 3 layers: facade guard + BE 409/422 + blocking modal", "ACS sole writer of empresa-context (never cleared on destroy)", "Client-side join for listForPatient (no direct per-patient link endpoint on admin surface)", "Scope isolation: scope:acs MUST NOT import scope:pac/edge/gest — enforced by Nx lint boundaries"], "warnings": ["Coverage-eligibility contract not frozen with EVNT — safety-critical gap (CoverageFacade derives from active link ⋈ active caregiver for MVP)", "JWT residual window on deactivate (900s TTL) — known gap, out of FE scope for MVP", "Shared ui-feedback modal API may not support fail-closed modals — verify before FE-ACS-027"]}
+  }
+}

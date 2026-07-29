@@ -16,7 +16,7 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | EVNT | evnt-service | OK | OK | OK | OK | OK | 2026-07-28 |
 | PAC | pac-service | OK | OK | OK | OK | OK | 2026-07-29 |
 | EDGE | edge-service | OK | OK | OK | OK | OK | 2026-07-29 |
-| ACS | acs-service | OK | OK | OK | OK | pendente | 2026-07-30 |
+| ACS | acs-service | OK | OK | OK | OK | OK | 2026-07-30 |
 
 ## Ledger de gates diferidos
 
@@ -56,3 +56,4 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 |---|---|---|---|---|
 | PEA (Python Edge Agent) | `neuroassist-edge-agent/` (futuro) | OK 2026-07-30 | D-534 | Python 3.11+, MediaPipe+ONNX; co-located; docs em docs/architecture/edge-agent/python-edge-agent/ |
 - 2026-07-30T00:22:06 -- ACS -- M4 Backlog -- OK (skip: plan-ACS.md já existia)
+- 2026-07-30T00:45:17 -- ACS -- M5 BE Scaffold -- OK -- compileJava OK, ArchUnit OK, BDD gate DIFERIDO (Testcontainers/PostgreSQL)

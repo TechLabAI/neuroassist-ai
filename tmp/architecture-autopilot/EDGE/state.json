@@ -1,0 +1,84 @@
+{
+  "id": "EDGE",
+  "pipeline": "architecture-fullstack",
+  "modulo": "EDGE",
+  "service": "edge-service",
+  "module": "edge",
+  "type": "standard",
+  "mode": "full",
+  "beStep": "scaffold",
+  "feStep": "promote",
+  "currentPhase": "M6",
+  "nextPhase": "M7",
+  "timestamp": "2026-07-29T08:39:37Z",
+  "traceId": "tr_580919960de8",
+  "notes": "M6 done: FE Promote OK (Track D). Full data layer from scratch (DevicePort+PairingPort+Mock+HTTP stubs), DeviceFacade (signals, liveness poll, deriveState server-relative ADR-005), PairingFacade (pairing state machine), ConnectivityChipComponent, DeviceDetailPageComponent, DevicePairingPageComponent, EdgeShellIntegrationService, EDGE_ROUTES, EDGE_MODULE_DESCRIPTOR. Shell: EDGE route wired + EDGE descriptor + topbar connectivity chip. Nx: project.json + tsconfig + barrel. e2e: edge-e2e 8 specs. Next: M7 FE e2e-validate.",
+  "handoff": {
+    "M1": { "status": "OK", "key_decisions": ["EDGE=device authority; ADR-005 exclusive pairing; ADR-006 heartbeat-derived liveness"], "warnings": [] },
+    "M2": { "status": "OK", "key_decisions": ["OAuth2 client_credentials per device; heartbeat=30s; staleness=90s; port=8087; V0700-V0799"], "warnings": [] },
+    "M3": { "status": "OK", "key_decisions": ["BE EARS Gate1 PASS; FE 5-state connectivity from server-relative age; 8 e2e features; BDD scaffold"], "warnings": ["Gradle BDD gate: ambiguous @PostMapping + {string} vs {int} - FIXED inline in M5"] },
+    "M4": { "status": "OK", "key_decisions": ["FE Gate1 PASS 35/41; BE 28 issues; serverTime in LivenessView declared mandatory (EDGE-004)"], "warnings": ["EDGE hasUi/frontendLib FIXED in project-context.json"] },
+    "M5": {
+      "status": "OK",
+      "artifacts": [
+        "backend/services/edge-service/ (full skeleton, compileJava OK, ArchUnit OK)",
+        "docs/architecture/frontend/modules/edge/frontend/issues/FE-EDGE-001..027.md (27 issues)",
+        "docs/architecture/frontend/modules/edge/frontend/issues/INT-FE-EDGE-001..006.md (6 INT issues)",
+        "docs/architecture/frontend/modules/edge/frontend/plans/plan-FE-EDGE.md"
+      ],
+      "key_decisions": [
+        "D-533: EDGE verbs (enroll/pair/unpair/record) added to generator + permission catalogue",
+        "FE Backlog: 9 waves ~16.5 dev-days; G6 retry-backoff HIGH at P7 (FE-EDGE-019)"
+      ],
+      "warnings": [
+        "ACS<->EDGE dynamic client registration still open (EDGE-INT-002, P5)",
+        "Migration V1 pgcrypto block - manual review recommended before first db run"
+      ]
+    },
+    "M6": {
+      "status": "OK",
+      "track": "D",
+      "shell": "done",
+      "artifacts": [
+        "frontend/libs/edge/src/lib/api/device.port.ts",
+        "frontend/libs/edge/src/lib/api/device-mock.adapter.ts",
+        "frontend/libs/edge/src/lib/api/device-http.adapter.ts",
+        "frontend/libs/edge/src/lib/api/pairing.port.ts",
+        "frontend/libs/edge/src/lib/api/pairing-mock.adapter.ts",
+        "frontend/libs/edge/src/lib/api/pairing-http.adapter.ts",
+        "frontend/libs/edge/src/lib/edge.facade.ts (DeviceFacade)",
+        "frontend/libs/edge/src/lib/edge-pairing.facade.ts (PairingFacade)",
+        "frontend/libs/edge/src/lib/edge.providers.ts (provideEdge)",
+        "frontend/libs/edge/src/lib/feature-connectivity/connectivity-chip.component.ts",
+        "frontend/libs/edge/src/lib/feature-device-detail/device-detail-page.component.ts",
+        "frontend/libs/edge/src/lib/feature-pairing/device-pairing-page.component.ts",
+        "frontend/libs/edge/src/lib/access/edge-conductor.guard.ts",
+        "frontend/libs/edge/src/lib/integration/edge-shell-integration.service.ts",
+        "frontend/libs/edge/src/lib/edge.routes.ts",
+        "frontend/libs/edge/src/lib/edge.descriptor.ts",
+        "frontend/libs/edge/src/lib/edge.bootstrap.ts",
+        "frontend/libs/edge/src/index.ts",
+        "frontend/libs/edge/project.json",
+        "frontend/libs/shared/contracts/src/lib/edge-contracts.ts (EDGE DTOs added)",
+        "frontend/apps/neuroassist-ai-web/src/app/app.routes.ts (EDGE route wired)",
+        "frontend/apps/neuroassist-ai-web/src/app/config/tool-descriptors.ts (EDGE descriptor)",
+        "frontend/apps/neuroassist-ai-web/src/app/shell/topbar.component.ts (connectivity chip)",
+        "frontend/apps/edge-e2e/ (8 Playwright specs)"
+      ],
+      "key_decisions": [
+        "Track D: full data layer from scratch (no prototype screen for EDGE)",
+        "DeviceFacade: liveness poll uses RxJS timer+switchMap; Page Visibility aware; server-relative age for deriveState (ADR-005)",
+        "PairingFacade: state machine idle→registering→awaiting-claim→awaiting-first-heartbeat→paired; TTL watch; no premature paired (ADR-005)",
+        "ConnectivityChipComponent composed into topbar via EdgeShellIntegrationService (nx-boundary preserved)",
+        "EDGE_ROUTES wired in app.routes.ts; showInNav:false (no sidebar entry)"
+      ],
+      "warnings": [
+        "edgeConductorGuard is pass-through stub (TODO[FE-EDGE-003]: wire real RBAC)",
+        "EmpresaContextService pacienteId is hardcoded placeholder 'pac-marcio' (TODO[FE-EDGE-001])",
+        "FE-EDGE-019 retry-backoff HIGH at P7 still open (G6 gap)",
+        "INT-FE-EDGE-002: ACS<->EDGE dynamic client registration still open (P5)",
+        "edge-e2e specs are scaffold stubs: 8 specs for Layer 2 implementation via /fe-validator"
+      ]
+    }
+  }
+}

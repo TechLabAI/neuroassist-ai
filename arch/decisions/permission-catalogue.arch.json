@@ -54,7 +54,20 @@
       "prefix": "acs",
       "name": "Cuidadores e Acesso",
       "description": "GestÃ£o de cuidadores/usuÃ¡rios, papÃ©is e vÃ­nculo com paciente(s); base do multi-tenant (tenant = famÃ­lia ou clÃ­nica).",
-      "permissions": []
+      "permissions": [
+        "acs.autenticacao.autenticar",
+        "acs.jwk-set.read",
+        "acs.tenant.provisionar",
+        "acs.tenant.read",
+        "acs.tenant.reprocessar",
+        "acs.caregiver.criar",
+        "acs.caregiver.read",
+        "acs.caregiver.desativar",
+        "acs.caregiver-patient-link.vincular",
+        "acs.caregiver-patient-link.read",
+        "acs.caregiver-patient-link.cancelar",
+        "acs.directory.read"
+      ]
     },
     {
       "prefix": "hist",
