@@ -1,0 +1,117 @@
+% =============================================================================
+% Section 2 — Related Work
+% =============================================================================
+
+\section{Related Work}
+\label{sec:related}
+
+\subsection{AAC Systems for Neurodegenerative Disease}
+
+Augmentative and alternative communication (AAC) for people with MND/ALS has been
+studied extensively since the 1990s~\cite{beukelman2013aac}. Commercial solutions
+dominate clinical practice: high-end eye-tracking devices such as Tobii Dynavox PCEye
+and Eyegaze Edge offer gaze-to-grid selection with accuracy exceeding 98\,\% under
+laboratory conditions, but carry hardware costs upward of USD~3{,}000 and require
+periodic re-calibration by trained practitioners~\cite{beukelman2013aac}. These systems
+presuppose sufficient residual oculomotor control, which deteriorates as MND progresses
+toward ophthalmoplegia. Software AAC packages such as Grid~3 depend on stable Bluetooth
+or Wi-Fi connectivity to synchronise symbol sets and user profiles, creating a~barrier
+for home users without reliable broadband.
+
+A survey by Clarke et al.~\cite{clarke2021aac} identified that AAC provision for
+people with ALS is characterised by late referral, rapid device transitions as motor
+function declines, and a~persistent gap in low-cost, adaptable solutions suitable for
+the home environment. Brain-computer interfaces (BCI) via electroencephalography offer
+an alternative pathway that bypasses the motor system entirely, but current non-invasive
+BCI headsets achieve typical information transfer rates of 5--25 bits per minute in
+optimal conditions, require trained operators, and are poorly suited to the home care
+setting~\cite{zander2011passive}. Implanted cortical BCIs achieve higher rates but
+carry surgical risk. NeuroAssist AI targets the intermediate stage — after limb and
+speech function is lost but while a~degree of voluntary facial movement persists — for
+which no low-cost, network-independent solution currently exists in the literature.
+
+\subsection{Facial Gesture Detection via Computer Vision}
+
+Three generations of camera-based facial analysis are relevant to this work.
+
+\emph{First generation — cascade classifiers.} Viola and Jones~\cite{violajones2004}
+introduced real-time face detection using Haar feature cascades, enabling deployment on
+consumer hardware. These detectors localise the face but do not provide sub-facial
+landmark coordinates; detecting blink requires additional heuristics applied to the
+detected eye region and is highly sensitive to illumination variation.
+
+\emph{Second generation — facial landmark regression.} King's Dlib library~\cite{king2009dlib}
+popularised 68-point facial landmark detection via an ensemble of regression trees, enabling
+reliable EAR computation~\cite{soukupova2016} without deep learning. Soukupov{\'a} and
+{\v{C}}ech~\cite{soukupova2016} formalised EAR as a~single scalar for blink detection,
+demonstrating frame-level detection accuracy above 99\,\% on controlled datasets. The
+central limitation of this generation is the absence of a~WebAssembly-compatible
+runtime, making client-side browser deployment impractical.
+
+\emph{Third generation — deep landmark models on device.} MediaPipe
+FaceLandmarker~\cite{lugaresi2019mediapipe} provides 468 normalised facial landmarks and
+52 blendshape coefficients at approximately 30\,fps in a~browser WebAssembly context
+using only a~CPU delegate. It subsumes and extends the Dlib approach: the denser
+landmark set provides better coverage of the periorbital region, and the blendshape
+scores offer a~calibrated signal for partial facial movements that EAR alone does not
+capture. NeuroAssist AI builds on this generation, retaining EAR for the double-blink
+state machine (where its simplicity aids interpretability) while using blendshape scores
+for single-eye blink and eyebrow gestures.
+
+\subsection{Deliberate Gesture Recognition and False-Positive Suppression}
+
+A fundamental challenge in gesture-triggered AAC is distinguishing intentional
+activations from the involuntary facial activity that continuously occurs during normal
+behaviour. The spontaneous blink rate in healthy adults is 15--20 blinks per
+minute~\cite{bentivoglio1997}; in MND patients, rates may be lower due to motor neuron
+loss but remain non-zero. Any threshold-based approach applied at the single-frame level
+therefore produces false-positive rates in the range of several per minute under natural
+conditions, rendering unattended monitoring infeasible.
+
+The two main strategies in the literature for suppressing false positives in facial AAC
+are \emph{dwell time} and \emph{intentionality modelling}. Dwell-time selection — widely
+used in gaze-based AAC — requires the user to fixate a~target region for a~fixed
+duration (typically 0.5--1\,s)~\cite{majaranta2002eyetyping}. This approach is
+inapplicable to blink-based input, as a~blink by definition closes the eye and disrupts
+fixation. Intentionality modelling via state machines has been proposed in the broader
+human-computer interaction literature~\cite{zander2011passive}, but its application to
+blink-based AAC for MND has not been systematically described. The six-state machine
+introduced in this paper (Section~\ref{sec:statemachine}) applies intentionality
+constraints specific to the double-blink gesture: minimum closure duration per blink,
+confirmed inter-blink opening, and a~temporal window — a~combination not found, to the
+authors' knowledge, in prior AAC literature.
+
+\subsection{Edge Computing and Privacy for Health Applications}
+
+Processing health-related sensor data on-device rather than in the cloud has received
+increasing attention following the enforcement of GDPR in 2018 and LGPD in
+2020~\cite{edpb2020privacy}. Facial video is explicitly categorised as biometric data
+under both frameworks, attracting the highest regulatory obligations for processing.
+Local execution via WebAssembly provides a~practical privacy guarantee: the
+specification's memory-isolated execution model prevents a~loaded module from accessing
+any browser state outside its linear memory, and no network call is required to execute
+the landmarker inference~\cite{haas2017wasm}. TensorFlow.js, ONNX Runtime Web, and
+MediaPipe Tasks all leverage this runtime for on-device inference at speeds comparable
+to native code on modern CPUs. Deployment latency of WebAssembly models for face
+analysis has been reported at 20--40\,ms per frame on consumer hardware without GPU
+acceleration~\cite{lugaresi2019mediapipe}, consistent with the 30\,fps operation
+observed in our PoC.
+
+\subsection{Software Architecture for Health Systems}
+
+Hexagonal (Ports and Adapters) architecture~\cite{cockburn2005hexagonal} has been
+proposed as a~structural pattern for health information systems where the domain model
+must remain isolated from technology changes — a~recurring requirement in regulated
+healthcare software where audit requirements, data schemas, and integration standards
+evolve independently~\cite{richardson2018microservices}. The pattern's explicit separation
+of inbound and outbound ports facilitates incremental extension without modifying core
+clinical logic, a~property particularly valuable in assistive technology where new
+gesture modalities are added as patients' motor capabilities change.
+
+Microservice decomposition of AAC platforms has not been reported in the literature, to
+the authors' knowledge; most existing systems are monolithic desktop or firmware
+applications. The NeuroAssist AI architecture demonstrates that decomposing a
+gesture-to-alert pipeline into independently deployable services (GEST, EVNT, and planned
+PAC, ACS, HIST, DASH services) is viable at PoC scale, and that compile-time boundary
+enforcement via ArchUnit provides a~practical mechanism for maintaining hexagonal
+discipline in a~team-developed Java codebase.
