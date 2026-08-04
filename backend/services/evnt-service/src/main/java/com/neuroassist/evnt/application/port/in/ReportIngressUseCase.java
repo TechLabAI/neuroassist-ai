@@ -1,10 +1,28 @@
 package com.neuroassist.evnt.application.port.in;
 
-/**
- * Inbound port — ReportIngressUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
 public interface ReportIngressUseCase {
 
-    void ingestReport(); // TODO: define parameters and return type
+    ReportIngressResponse ingest(ReportIngressRequest request);
+
+    record ReportIngressRequest(
+            String reportId,
+            String pacienteId,
+            String commandRef,
+            List<PrimitiveEntry> primitives,
+            double confidence,
+            int profileVersion,
+            Instant recognizedAt,
+            String deviceId) {
+
+        public record PrimitiveEntry(String tipoGestoId, double confidence) {}
+    }
+
+    record ReportIngressResponse(UUID eventoId, String status, NotificationInfo notification, Instant createdAt) {
+
+        public record NotificationInfo(String tier, String caregiverId) {}
+    }
 }
