@@ -1,0 +1,20 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px'}}}%%
+stateDiagram-v2
+    direction LR
+
+    [*] --> WAITING_BLINK1
+
+    WAITING_BLINK1 --> IN_BLINK1 : EAR < θc (0.20)
+    IN_BLINK1 --> WAITING_BLINK1 : EAR ≥ θo AND frames < fmin\n[rejected — too short]
+    IN_BLINK1 --> WAITING_OPEN1  : EAR ≥ θo AND frames ≥ fmin(3)\nrecord t₁
+
+    WAITING_OPEN1  --> WAITING_BLINK2 : open frames ≥ fopen(3)
+    WAITING_OPEN1  --> WAITING_OPEN1  : EAR < θc [still closing]
+
+    WAITING_BLINK2 --> WAITING_BLINK1 : now − t₁ > Tw (1800 ms)\n[timeout]
+    WAITING_BLINK2 --> IN_BLINK2      : EAR < θc
+
+    IN_BLINK2 --> WAITING_BLINK1 : EAR ≥ θo AND (frames < fmin OR Δt > Tw)\n[rejected]
+    IN_BLINK2 --> DONE           : EAR ≥ θo AND frames ≥ fmin AND Δt ≤ Tw\n🔥 FIRE + 4 s cooldown
+
+    DONE --> WAITING_BLINK1 : reset after cooldown

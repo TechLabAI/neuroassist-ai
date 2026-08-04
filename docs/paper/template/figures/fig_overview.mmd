@@ -1,0 +1,30 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '14px'}}}%%
+sequenceDiagram
+    participant W as Webcam<br/>(browser)
+    participant SM as State Machine<br/>(WASM / JS)
+    participant EA as Edge Agent<br/>(Python / Angular)
+    participant ES as evnt-service<br/>:8083
+    participant GS as gest-service<br/>:8082
+    participant CG as Caregiver UI<br/>(Angular polling)
+
+    W->>SM: frame (~30 fps)
+    SM->>SM: EAR < 0.20 → IN_BLINK1
+    SM->>SM: EAR ≥ 0.27, frames ≥ 3 → WAITING_OPEN1
+    SM->>SM: open frames ≥ 3 → WAITING_BLINK2
+    SM->>SM: second blink confirmed → DONE
+    SM->>EA: onGesture("tg-piscar-duplo-001")
+
+    EA->>ES: POST /api/v1/reports {reportId, gestureType, profileVersion}
+    ES->>GS: GET /gest-service/validation {profileVersion, tipoGestoIds}
+    GS-->>ES: 200 valid
+    ES->>ES: Create Evento + NotificationDispatch (atomic)
+    ES-->>EA: 201 {eventoId, tier: FULL_SCREEN_ALARM, createdAt}
+
+    loop every 5 s
+        CG->>ES: GET /api/v1/events/active
+        ES-->>CG: {activeEvent: {id, urgencia, comandoRef}}
+    end
+
+    CG->>CG: Render full-screen alarm overlay
+    CG->>ES: POST /api/v1/events/{id}/confirmation {verdict: "real"}
+    ES-->>CG: 200 confirmed
