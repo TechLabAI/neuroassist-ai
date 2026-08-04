@@ -1,0 +1,103 @@
+% =============================================================================
+% Section 5 — Discussion
+% =============================================================================
+
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Hardware Accessibility and Deployment Context}
+
+A central design constraint of NeuroAssist AI was deployability on commodity hardware
+already present in most homes. The detection pipeline requires only a~standard webcam
+(720p or higher) and a~modern browser; no GPU, dedicated sensing hardware, or
+proprietary dongle is needed. This stands in contrast to commercial eye-tracking AAC
+devices, whose cost typically exceeds USD~3{,}000~\cite{beukelman2013aac} and whose
+setup requires clinical technician involvement. A~webcam adequate for the pipeline costs
+approximately BRL~100--500 (USD~20--100) and is widely available in low- and
+middle-income countries (LMICs), including Brazil, where approximately 30{,}000
+individuals live with MND~\cite{mehta2018mnd}. The offline-first design further
+eliminates dependency on stable broadband — a~significant barrier in rural and
+peri-urban settings in LMICs — since no internet connectivity is required during gesture
+detection or alarm delivery on a~local network.
+
+\subsection{Privacy-by-Design}
+
+Facial video is classified as biometric data under both the General Data Protection
+Regulation (GDPR) and Brazil's Lei Geral de Prote\c{c}\~{a}o de Dados Pessoais
+(LGPD), attracting the highest level of regulatory protection for health
+contexts~\cite{edpb2020privacy}. NeuroAssist AI satisfies a~strict
+privacy-by-design principle: the WebAssembly runtime and the face landmarker model
+execute entirely within the browser's sandboxed execution environment, and no video
+frame or facial landmark coordinate is transmitted over the network. The only data that
+crosses the network boundary is a~structured JSON payload containing the detected
+gesture type, a~confidence score, and a~patient identifier — none of which constitutes
+biometric data under current regulatory definitions. This architecture makes NeuroAssist
+AI suitable for direct home deployment without requiring institutional data processing
+agreements.
+
+One honest caveat applies: the MediaPipe face landmarker model (\texttt{float16},
+approximately 30\,MB) is downloaded from Google Cloud Storage on first use and
+thereafter served from the browser cache. While subsequent executions require no
+network access, the initial model download does involve a~third-party server. A fully
+air-gapped deployment would require pre-bundling the model with the application, which
+is technically straightforward but was not implemented in the current PoC.
+
+\subsection{Extensibility via the \texttt{engineFeatureRef} Plug-in Mechanism}
+
+The \texttt{engineFeatureRef} field in the \texttt{DetectionProfile} primitive was
+designed explicitly for future gesture expansion. Each supported gesture type carries a
+string token that identifies which detection algorithm the edge agent should activate
+(e.g.\ \texttt{"mp.blink.double.v1"}, \texttt{"mp.brow.dual.v1"}). Adding a~new
+gesture type — such as lip-corner raise, sustained eye closure, or head-nod via pose
+estimation — requires only: (i) inserting a~new \texttt{TipoGesto} row with a~new
+\texttt{engineFeatureRef} value, (ii) implementing the corresponding detector module in
+the edge agent, and (iii) publishing a~new \texttt{DetectionProfile}. No existing
+domain model, use case, or ArchUnit rule requires modification. The compile-time
+enforcement of \textsc{rule-01} and \textsc{rule-02} (Table~\ref{tab:archunit})
+guarantees that future contributors cannot inadvertently couple new detectors to the
+domain layer.
+
+\subsection{Limitations}
+
+Several limitations constrain the current work and should be acknowledged explicitly.
+
+\textbf{Illumination dependence.} EAR is computed from pixel-space landmark
+coordinates; its reliability degrades in low-illumination environments where the
+infrared shadow of the nasolabial fold obscures the lower eyelid landmarks. Practical
+testing documented cases where the default $\theta_\text{close}=0.20$ required
+manual downward adjustment to 0.17--0.18 under dim artificial lighting. Future work
+should incorporate automatic illumination-adaptive threshold adjustment, for example
+by normalising EAR against a~rolling baseline computed during an idle period at
+session start.
+
+\textbf{No evaluation with MND patients.} All experiments reported in this paper
+were conducted with healthy adult volunteers following a~naturalistic-movement protocol.
+The residual motor capability, blink frequency, and eyelid morphology of advanced-stage
+MND patients differ substantially from those of healthy controls. A~study with MND
+participants would require human research ethics committee (HREC) approval and
+specialised recruitment through neurological clinics. This is identified as the primary
+direction for future work.
+
+\textbf{Polling latency overhead.} The caregiver application detects active events
+by polling the \texttt{evnt-service} every five seconds. This introduces a~fixed
+worst-case overhead of 5\,s to the event-to-alarm visible latency, independent of
+network speed. The polling interval is a~PoC simplification; production deployment
+should replace polling with server-sent events (SSE) or WebSocket push, which would
+reduce this overhead to the order of tens of milliseconds.
+
+\textbf{Stub adapters for peripheral modules.} The command catalogue (PAC service),
+audit trail (HIST service), and caregiver enrolment (ACS service) are represented by
+hardcoded stub adapters in the PoC. The hexagonal port interfaces are defined and
+ArchUnit-enforced, but the real implementations are outside the scope of this paper.
+Latency and reliability results therefore reflect only the GEST and EVNT subsystems.
+
+\subsection{Future Work}
+
+The most impactful next steps, in order of clinical priority, are: (i)~a~clinical
+study with MND participants under HREC approval, using the protocol outlined in
+Section~\ref{sec:evaluation} adapted for residual motor capability; (ii)~replacement
+of the polling transport with SSE to eliminate the 5\,s alarm latency ceiling;
+(iii)~integration of the full PAC command catalogue to support multi-command
+communication (beyond the single emergency alert demonstrated here); and
+(iv)~evaluation of additional gesture types, particularly for patients who retain
+unilateral brow control after bilateral blink control is lost.

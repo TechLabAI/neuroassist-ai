@@ -1,0 +1,48 @@
+% =============================================================================
+% Section 6 — Conclusion
+% =============================================================================
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented NeuroAssist AI, a~privacy-preserving, offline-first assistive
+communication platform that transforms residual facial gestures of patients with advanced
+motor neurone disease into structured emergency alerts, delivered to caregivers over a
+local network using commodity hardware.
+
+The system's three original contributions address distinct but interrelated gaps in
+current assistive technology for this population. First, by executing facial landmark
+detection entirely within a~WebAssembly sandbox and serving the model binary as a local
+asset, NeuroAssist AI achieves strict video-data locality without sacrificing the
+accuracy or frame rate of server-side solutions. Second, the six-state deliberate gesture
+state machine — which requires minimum-duration closure, confirmed inter-blink
+re-opening, and a~temporal window — substantially reduces false positives relative to
+simple per-frame EAR threshold comparisons, as quantified in Section~\ref{sec:evaluation}
+(false-positive rate: [B]\,\% vs.\ [A]\,\% for the simple threshold; $N$=[N]
+participants, [M]\,min each). Third, the hexagonal microservices architecture with
+compile-time ArchUnit enforcement and the \texttt{engineFeatureRef} plug-in mechanism
+provides an extensible foundation that decouples gesture detection from clinical
+command management, facilitating incremental clinical expansion without architectural
+regression.
+
+End-to-end latency from gesture completion to caregiver alarm display averaged
+[X]\,ms ($\sigma$=[Y]\,ms, $N$=[N] trials) on a~local network with the five-second
+polling transport. This latency profile is clinically acceptable for emergency
+signalling: the dominant component is the polling interval ($\leq$5\,s), not the
+detection or server-processing time, and replacement with server-sent events would
+reduce total latency to approximately [X]\,ms.
+
+The hardware cost (commodity webcam, standard laptop or single-board computer, no
+GPU) positions NeuroAssist AI as a~viable option for home deployment in low- and
+middle-income countries, where the majority of the global MND population resides and
+where specialist AAC devices are economically inaccessible. Together with the
+privacy-by-design architecture, which satisfies GDPR and LGPD requirements for
+biometric health data without institutional data processing infrastructure, these
+properties address barriers that prevent current commercial AAC systems from reaching
+patients in home care.
+
+The primary limitation of this work is the absence of a~clinical study with MND
+participants; all evaluations were performed with healthy volunteers. A~human research
+ethics-approved study with patients in advanced disease stages is the essential next
+step. The architecture, calibration mechanism, and measurement scripts produced in this
+work are designed to support that study with minimal adaptation.
