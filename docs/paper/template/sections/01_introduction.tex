@@ -1,0 +1,78 @@
+% =============================================================================
+% Section 1 — Introduction
+% =============================================================================
+
+\section{Introduction}
+\label{sec:introduction}
+
+Motor neurone disease (MND), also known as amyotrophic lateral sclerosis (ALS), is a
+progressive neurodegenerative condition that destroys upper and lower motor neurons,
+resulting in loss of voluntary movement, speech, and ultimately respiratory function.
+Global incidence is approximately 2--3 per 100{,}000 person-years, affecting an
+estimated 41{,}000 individuals in Australia and 30{,}000 in Brazil~\cite{mehta2018mnd}.
+Median survival after diagnosis is 2--5 years; respiratory failure, typically managed
+with non-invasive ventilation (NIV), is the leading cause of death. Notably, NIV has
+been shown to extend survival by a~factor of approximately three compared with best
+pharmacological care alone~\cite{berlowitz2021niv}, making the period of NIV use
+clinically significant and prolonged. During this phase, patients remain cognitively
+intact while becoming progressively unable to speak or gesture in ways that standard
+communication technologies can detect.
+
+In advanced stages, a~substantial proportion of patients experience a~locked-in-like
+condition in which voluntary control is limited to subtle residual facial movements:
+small eyelid contractions, brow raises, or microexpressions that persist after limb and
+orofacial motor function is lost. These residual gestures represent the last available
+voluntary channel for communication. Without a~reliable means to detect and act on them,
+patients cannot signal distress, discomfort, or needs to caregivers — with direct
+consequences for quality of life and patient safety during unassisted periods.
+
+Existing augmentative and alternative communication (AAC) systems do not adequately
+address this population. High-end eye-tracking devices (e.g.\ Tobii Dynavox) and
+dedicated AAC software (e.g.\ Grid~3) deliver high accuracy but require stable wireless
+connectivity, dedicated hardware costing upwards of USD~3{,}000, and factory-calibrated
+setups that cannot adapt to the degrading motor profile of an individual
+patient~\cite{beukelman2013aac}. Brain-computer interfaces (BCI) via EEG offer an
+alternative, but involve invasive or cumbersome hardware inappropriate for home
+deployment~\cite{zander2011passive}. Low-cost camera-based approaches exist in
+research~\cite{soukupova2016}, but rely on simple per-frame threshold comparisons that
+generate unacceptably high false-positive rates when applied to the involuntary facial
+activity present in MND patients during NIV.
+
+We present \textbf{NeuroAssist AI}, a~privacy-preserving, offline-first assistive
+communication platform designed for home deployment with a~commodity webcam. The system
+transforms residual facial gestures into structured emergency requests using a~locally
+executed WebAssembly computer vision pipeline, a~deliberate-gesture state machine, and
+a~patient-calibratable detection profile — without transmitting any video off-device.
+
+This paper makes three original contributions:
+\begin{enumerate}
+  \item \textbf{An offline-first, privacy-preserving detection pipeline.}
+    The MediaPipe FaceLandmarker model and its WebAssembly runtime are served from
+    local assets; no video frame or biometric data leaves the patient's device.
+    The CPU delegate ensures compatibility with commodity hardware regardless of GPU
+    availability.
+
+  \item \textbf{A six-state deliberate gesture state machine with patient-specific
+    calibration.}
+    Rather than a~single EAR threshold, the state machine requires minimum closure
+    duration ($\geq$3 frames, ${\approx}$100\,ms) in each of two sequential blinks,
+    confirmed re-opening between them, and a~configurable time window. Thresholds are
+    stored in a~versioned \texttt{DetectionProfile} and adapted per patient. This design
+    specifically targets the false-positive sources relevant to MND: involuntary blinks,
+    partial ptosis artefacts, and slow threshold drift.
+
+  \item \textbf{An extensible hexagonal microservices architecture with plug-in gesture
+    types.}
+    The \texttt{engineFeatureRef} field in the detection profile decouples the gesture
+    recognition engine from the command catalogue, allowing new gestures (brow raise,
+    single-eye blink) to be registered without modifying existing domain code.
+    ArchUnit rules enforced at compile time guarantee that this separation persists as
+    the system evolves.
+\end{enumerate}
+
+The remainder of the paper is organised as follows. Section~\ref{sec:related} reviews
+related work in AAC, facial gesture detection, and edge computing for health.
+Section~\ref{sec:architecture} describes the system architecture in detail.
+Section~\ref{sec:evaluation} reports the experimental evaluation.
+Section~\ref{sec:discussion} discusses limitations and future work, and
+Section~\ref{sec:conclusion} concludes.
