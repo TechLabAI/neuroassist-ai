@@ -31,14 +31,13 @@ the backend every five seconds; upon detecting an active event it renders a~full
 alarm overlay. The caregiver confirms attendance, which writes a~\texttt{verdict} back
 to the event record and clears the alarm.
 
-\begin{figure}[htbp]
+\begin{figure*}[!t]
   \centering
-  % Replace with exported PDF from fig_sequence.mmd
-  \includegraphics[width=\columnwidth]{figures/fig_overview}
+  \includegraphics[width=\textwidth]{figures/fig_overview}
   \caption{End-to-end data flow. Video is processed entirely in the browser
     (WASM); only structured JSON reports cross the network boundary.}
   \label{fig:overview}
-\end{figure}
+\end{figure*}
 
 % ─── 3.2 Offline-First Gesture Detection ──────────────────────────────────────
 \subsection{Offline-First Gesture Detection}
@@ -131,8 +130,7 @@ through the \emph{DetectionProfile}: a~versioned, immutable configuration record
 binds the set of active gesture types (\texttt{TipoGesto}) to the patient-facing edge
 agent.
 
-Publishing a~profile (Figure~\ref{fig:calibration}) executes the following steps in the
-\texttt{gest-service}:
+Publishing a~profile executes the following steps in the \texttt{gest-service}:
 \begin{enumerate}
   \item Query all gesture types with state \texttt{SUPPORTED} from the catalogue.
   \item Determine the next version number by incrementing the current active profile's
