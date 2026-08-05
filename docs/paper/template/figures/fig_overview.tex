@@ -1,0 +1,57 @@
+\documentclass[border=4pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{pgf-umlsd}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\setlength{\unitlength}{0.85cm}
+
+\begin{document}
+\begin{sequencediagram}
+
+  \tikzstyle{inststyle}=[rectangle, draw, anchor=west,
+    minimum height=0.7cm, minimum width=2.1cm,
+    fill=white, font=\scriptsize\sffamily]
+
+  \newthread[white]{W}{Webcam (browser)}
+  \newthread[white]{SM}{State Machine (WASM)}
+  \newthread[white]{EA}{Edge Agent (Python)}
+  \newthread[white]{ES}{evnt-service :8083}
+  \newthread[white]{GS}{gest-service :8082}
+  \newthread[white]{CG}{Caregiver UI (Angular)}
+
+  \mess{W}{frame 30 fps}{SM}
+  \postlevel
+  \mess{SM}{double-blink DONE}{EA}
+
+  \begin{call}{EA}
+    {POST /report-ingest}
+    {ES}
+    {201 eventoId, createdAt}
+    \begin{call}{ES}
+      {GET /validation}
+      {GS}
+      {200 valid}
+    \end{call}
+  \end{call}
+
+  \begin{sdblock}{every 5 s}{}
+    \begin{call}{CG}
+      {GET /events/active}
+      {ES}
+      {activeEvent}
+    \end{call}
+  \end{sdblock}
+
+  \mess{CG}{alarm overlay rendered}{EA}
+
+  \begin{call}{CG}
+    {POST /confirmation}
+    {ES}
+    {200 confirmed}
+  \end{call}
+
+\end{sequencediagram}
+\end{document}

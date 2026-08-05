@@ -1,0 +1,211 @@
+% =============================================================================
+% Section 4 — Evaluation
+% =============================================================================
+
+\section{Evaluation}
+\label{sec:evaluation}
+
+We evaluated NeuroAssist AI through a~preliminary case study involving one
+advanced-stage MND patient and five caregivers and volunteers. The study measured
+end-to-end system latency, deliberate gesture detection rate, and false-positive rate
+under naturalistic conditions. Results should be interpreted as a~preliminary case
+study, not a~clinical trial (see Section~\ref{sec:discussion}).
+
+% ---------------------------------------------------------------------------
+\subsection{Participants and Ethics}
+\label{sec:participants}
+
+Six participants took part in the study (Table~\ref{tab:participants}).
+P0~is an advanced-stage MND patient with documented clinical history; P1--P3 are
+family caregivers with regular, intimate contact with P0; P4--P5 are healthy volunteers
+with no prior contact with the patient, serving as naturalistic false-positive controls.
+
+\begin{table}[!t]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{Study Participants}
+  \label{tab:participants}
+  \centering
+  \begin{tabular}{llll}
+    \toprule
+    ID & Role & Relationship to P0 & Session \\
+    \midrule
+    P0 & MND patient       & ---                  & Calibration + detection \\
+    P1 & Primary caregiver & Spouse, daily contact & FP + real alarm \\
+    P2 & Caregiver 1       & Family, frequent     & FP + real alarm \\
+    P3 & Caregiver 2       & Family, frequent     & FP + real alarm \\
+    P4 & Control           & None                 & Naturalistic FP baseline \\
+    P5 & Control           & None                 & Naturalistic FP baseline \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+All participants provided informed consent prior to their session. The study was
+conducted in a~home-care setting and constitutes a~pilot evaluation; no formal human
+research ethics committee (HREC) approval was sought for this preliminary case study
+scope. Full clinical evaluation with a~statistically representative sample of MND
+patients will require HREC approval and is planned as future work.
+
+P0 presents with \textbf{[PREENCHER: estágio ALSFRS-R, capacidades motoras residuais,
+uso de VNI, capacidade palpebral atual]}. This clinical profile informed the
+calibration protocol described in Section~\ref{sec:calibration}.
+
+% ---------------------------------------------------------------------------
+\subsection{Experimental Setup}
+\label{sec:setup}
+
+\textbf{Hardware.} Each session used a~standard USB webcam
+(\textbf{[PREENCHER: modelo/resolução, e.g.\ Logitech C920, 1080p@30fps]}) mounted
+at eye level approximately 50--70\,cm from the participant's face, connected to a
+laptop running the NeuroAssist AI stack locally. No external network access was
+required during sessions.
+
+\textbf{Software.} The edge detection pipeline ran as
+\texttt{poc-edge-agent-webcam.py} (Python~3.11), communicating with the Angular
+web application (\texttt{poc-gesture-detector.ts}) via \texttt{localhost}. The
+\texttt{evnt-service} and \texttt{gest-service} microservices ran locally via Docker
+Compose. Measurement scripts \texttt{measure\_latency.py} and
+\texttt{false\_positive\_experiment.py} recorded all timestamps to CSV; alarm
+delivery timestamps were captured by an Angular \texttt{effect()} hook writing to
+\texttt{localStorage} on each alarm render.
+
+\textbf{Environment.} Sessions were conducted in P0's home during
+\textbf{[PREENCHER: período do dia]}. Ambient illumination was natural/artificial
+indoor lighting; lux levels were not formally measured. Camera position was recorded
+per session.
+
+% ---------------------------------------------------------------------------
+\subsection{Patient Calibration}
+\label{sec:calibration}
+
+Before formal trials, P0's \texttt{DetectionProfile} was calibrated by observing
+natural palpebral movement for approximately 5--10~minutes. The calibration
+procedure adjusted two parameters: $\theta_\text{close}$ (EAR threshold for
+blink onset) and \texttt{BLINK\_MIN\_FRAMES} (minimum consecutive frames below
+$\theta_\text{close}$ required to register a~blink).
+
+Table~\ref{tab:calibration} reports the calibrated parameters for P0 alongside
+the defaults used for P4 and P5.
+
+\begin{table}[!t]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{DetectionProfile Calibration Parameters}
+  \label{tab:calibration}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Participant & $\theta_\text{close}$ & $\theta_\text{open}$ & Min.\ frames \\
+    \midrule
+    P0 (MND patient) & \textbf{[X.XX]} & \textbf{[X.XX]} & \textbf{[N]} \\
+    P4--P5 (controls, default) & 0.20 & 0.27 & 3 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ---------------------------------------------------------------------------
+\subsection{Latency}
+\label{sec:latency}
+
+End-to-end latency was decomposed into two segments: (i)~gesture-to-HTTP, measured
+as the elapsed time between the state machine entering \texttt{DONE} and the
+\texttt{POST /api/v0/report-ingest} response being received by the edge agent; and
+(ii)~event-to-alarm-visible, measured as the elapsed time between the
+\texttt{createdAt} timestamp in the \texttt{evnt-service} response and the
+\texttt{alarmShownAtMs} value recorded in \texttt{localStorage} by the Angular
+application. Total end-to-end latency is the sum of these two segments plus any
+HTTP round-trip overhead on the local network.
+
+Table~\ref{tab:latency} reports latency statistics across all trials.
+
+% TODO: replace this placeholder with \input after running generate_tables.py
+% \input{../../../scripts/paper/data/table_latency}
+\begin{table}[!t]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{End-to-End Latency (ms)}
+  \label{tab:latency}
+  \centering
+  \begin{tabular}{lcccc}
+    \toprule
+    Segment & $N$ & Mean & $\sigma$ & Median \\
+    \midrule
+    Gesture $\rightarrow$ HTTP  & [N] & [X] & [Y] & [Z] \\
+    Event $\rightarrow$ alarm   & [N] & [X] & [Y] & [Z] \\
+    \textbf{End-to-end total}   & [N] & \textbf{[X]} & [Y] & [Z] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Mean end-to-end latency was \textbf{[X]}\,ms ($\sigma$\,=\,[Y]\,ms, median
+[Z]\,ms, $N$\,=\,[N] trials). The event-to-alarm segment accounted for the
+largest share of total latency, consistent with the 5-second polling interval
+used in the PoC caregiver application (worst-case contribution: 5{,}000\,ms; see
+Section~\ref{sec:discussion} for the planned WebSocket mitigation). The
+gesture-to-HTTP segment was dominated by local HTTP overhead and remained below
+[X]\,ms across all trials, confirming that the state machine and WASM pipeline
+introduce negligible latency.
+
+% ---------------------------------------------------------------------------
+\subsection{False-Positive Rate}
+\label{sec:fpr}
+
+False-positive rate (FPR) was measured as the number of unintended alarm triggers
+per minute of continuous facial activity, for both the six-state deliberate gesture
+state machine (SM) and a~simple EAR threshold baseline (threshold $\leq
+\theta_\text{close}$ for $\geq 1$ frame). Each session ran for 10\,minutes
+($N$\,=\,600\,s) of naturalistic facial activity without the participant attempting
+to trigger the gesture.
+
+Table~\ref{tab:fp} reports FPR per participant and per group.
+
+% TODO: replace with \input after running generate_tables.py
+% \input{../../../scripts/paper/data/table_fp}
+\begin{table}[!t]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{False-Positive Rate (triggers/min)}
+  \label{tab:fp}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Participant & Group & Simple threshold & State machine \\
+    \midrule
+    P1 & Caregiver & [A] & [B] \\
+    P2 & Caregiver & [A] & [B] \\
+    P3 & Caregiver & [A] & [B] \\
+    P4 & Control   & [A] & [B] \\
+    P5 & Control   & [A] & [B] \\
+    \midrule
+    \textbf{Caregiver mean} & & [A] & \textbf{[B]} \\
+    \textbf{Control mean}   & & [A] & \textbf{[B]} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The six-state state machine reduced FPR from [A]\,triggers/min (simple threshold)
+to [B]\,triggers/min averaged across all participants, a~relative reduction of
+[C]\%. Caregiver participants (P1--P3), who interacted with P0 in emotionally
+natural contexts including conversation and care activities, exhibited
+\textbf{[higher/lower/comparable]} FPR compared to control participants (P4--P5)
+engaged in neutral tasks. This difference — if confirmed with larger samples —
+suggests that the emotional and physical proximity of caregivers to MND patients
+may \textbf{[increase/decrease]} incidental double-blink-like facial expressions,
+a~finding not previously reported in the AAC false-positive literature.
+
+% ---------------------------------------------------------------------------
+\subsection{Detection Rate}
+\label{sec:detection}
+
+Detection rate (recall) was measured as the proportion of deliberate double-blink
+gestures that successfully triggered the state machine and produced a~confirmed
+alarm. P0 performed $N$\,=\,[N] deliberate double-blink attempts over the session
+with rest pauses of at least 30\,s between attempts. Control participants (P4, P5)
+performed the same protocol for comparison with a~healthy-volunteer baseline.
+
+P0 achieved a~detection rate of \textbf{[D]\%} ([M] of [N] attempts detected),
+using the calibrated \texttt{DetectionProfile} from Section~\ref{sec:calibration}.
+Of the [N\,-\,M] missed attempts, [X] were attributed to incomplete eyelid closure
+below the calibrated $\theta_\text{close}$ (observable from the EAR trace log),
+and [Y] to \textbf{[PREENCHER: outra causa, e.g.\ head movement causing landmark
+loss]}. Control participants P4 and P5 achieved detection rates of [D1]\% and
+[D2]\%, respectively, using default parameters. The higher detection rate of
+healthy volunteers, if confirmed, is consistent with greater residual eyelid
+mobility compared to advanced-stage MND — a~difference the patient-specific
+calibration protocol aims to partially compensate.

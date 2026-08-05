@@ -6,6 +6,47 @@
 
 ---
 
+## 0. Progresso atual (atualizado em 2026-08-05)
+
+### Seções escritas
+
+| Arquivo | Status | Observações |
+|---|---|---|
+| `template/sections/01_introduction.tex` | ✅ completa | 3 contribuições, fatos clínicos, estrutura do paper |
+| `template/sections/02_related_work.tex` | ✅ completa | 5 clusters, 12 referências, gap claims honestos |
+| `template/sections/03_architecture.tex` | ✅ completa | extraída do código-fonte, 7 subseções, 2 tabelas |
+| `template/sections/04_evaluation.tex`   | 🟡 esqueleto completo | estrutura + placeholders; preencher após experimentos |
+| `template/sections/05_discussion.tex`   | ✅ completa | limitações honestas, trabalho futuro |
+| `template/sections/06_conclusion.tex`   | ✅ completa | placeholders [X]/[Y]/[A]/[B]/[N] para resultados |
+| `template/main.tex`                     | ✅ esqueleto | IEEEtran, \input de todas as seções |
+| `template/references.bib`              | ✅ 17 entradas | clínica, AAC, CV, BCI, WASM, arq. software |
+
+### Infraestrutura de medição criada
+
+| Script | Status | O que faz |
+|---|---|---|
+| `scripts/paper/measure_latency.py` | ✅ pronto | loop de detecção com timestamps → CSV |
+| `scripts/paper/false_positive_experiment.py` | ✅ pronto | SM vs. threshold simples → CSV |
+| `scripts/paper/generate_tables.py` | ✅ pronto | CSV + alarm log → LaTeX e Markdown |
+
+### Instrumentação feita no PoC
+
+| Mudança | Onde | Para quê |
+|---|---|---|
+| `createdAt` no `ReportIngressResponse` | `evnt-service` | Python captura timestamp server-side |
+| `effect()` no `ShellComponent` | Angular | grava `{eventId, alarmShownAtMs}` no localStorage |
+
+### O que falta
+
+1. **Rodar os experimentos** (Seções 4.2 e 4.3 abaixo) — dados reais para preencher [X]/[Y]/[A]/[B]/[N]
+2. **Escrever Section 4** (Evaluation) — após os dados
+3. **Related Work bibliográfico** — confirmar Clarke 2021 DOI; verificar `mehta2018mnd` volume/páginas
+4. **Diagramas** — exportar `fig_overview.mmd` e `fig_statemachine.mmd` como PDF para LaTeX
+5. **Verificar deadline BIOSTEC/HEALTHINF 2027** — site `biostec.scitevents.org`
+6. **Preprint arXiv** — submeter antes do deadline formal
+
+---
+
 ## 1. Visão geral e posicionamento
 
 ### O que existe hoje (base do paper)
@@ -21,7 +62,7 @@ Sistema funcional validado end-to-end com:
 
 > **"NeuroAssist AI: Privacy-Preserving, Offline-First Assistive Communication Using Calibratable Residual Facial Gestures and Hexagonal Microservices"**
 
-É um **system paper** — a contribuição é a arquitetura e o sistema, não um novo modelo de ML. Em venues de saúde digital e tecnologia assistiva, isso é uma contribuição legítima e valorizada.
+É um **system paper** com **caso de estudo real (paciente MND)**. A contribuição combina arquitetura e sistema com validação preliminar em contexto clínico real — um nível de evidência raro em papers de AAC de engenharia.
 
 ### Três contribuições originais (para o abstract e introdução)
 
@@ -51,379 +92,293 @@ requests using a locally-executed WebAssembly-based computer vision pipeline.
 
 [MÉTODO] The system combines a six-state deliberate gesture recognition state machine 
 with patient-specific EAR threshold calibration, deployed over a hexagonal microservices 
-architecture that decouples gesture type detection from command catalog management.
+architecture. We evaluate the system with one advanced-stage MND patient and five 
+caregivers/volunteers in a preliminary case study.
 
 [RESULTADOS] End-to-end latency from gesture completion to caregiver alarm display 
 averaged [X] ms (σ=[Y]) across [N] trials. The deliberate gesture state machine reduced 
-false-positive rate from [A]% (simple EAR threshold) to [B]% ([N] healthy volunteers, 
-[M] minutes of naturalistic facial movement each).
+false-positive rate from [A]% (simple EAR threshold) to [B]% across participants.
 
 [CONCLUSÃO] NeuroAssist AI demonstrates that high-accuracy, privacy-preserving 
 residual gesture detection is achievable on commodity hardware without network 
-dependency, using a calibratable, extensible architecture suitable for home deployment.
+dependency, using a calibratable, extensible architecture validated in a real MND 
+home-care context.
 ```
 
 ---
 
-### Section 1 — Introduction
+## 3. Caso de Estudo — Márcio Amaral e Participantes
 
-**Parágrafos a cobrir:**
-1. O problema: MND/ALS destrói o controle motor, deixando apenas microgestos faciais. É a fase mais devastadora — e mais negligenciada em AAC.
-2. O gap: sistemas existentes (Tobii, Grid 3) exigem rede, hardware especializado ou calibração de fábrica não adaptável.
-3. Nossa proposta: detecção offline-first com webcam comum, calibração por paciente, arquitetura extensível.
-4. Contribuições (listar as 3 do item 1).
-5. Estrutura do paper.
+### Perfil dos participantes
 
-**Fatos clínicos para a introdução (com fonte):**
-- MND afeta ~41.000 australianos e ~30.000 brasileiros; incidência global ~2–3/100.000/ano
-- Sobrevida média: 2–5 anos após diagnóstico; falência respiratória é a principal causa de morte
-- Em estágios avançados, up to 30% dos pacientes desenvolve *locked-in-like syndrome* com comunicação dependente de microgestos
-- NIV estende sobrevida 3x vs. melhor medicação (Berlowitz & Sheers, 2021) — contexto de por que comunicação com cuidadores durante NIV importa
+| ID | Nome | Papel | Relação com Márcio | Sessão experimental |
+|---|---|---|---|---|
+| P0 | Márcio Amaral | **Paciente MND** | — | Calibração + detecção intencional |
+| P1 | Jamilly | Esposa / cuidadora principal | Íntima, diária | Alarme real + FP durante cuidado |
+| P2 | Haron | Cuidador 1 | Familiar, frequente | FP durante interação, confirmação |
+| P3 | Giordano | Cuidador 2 | Familiar, frequente | FP durante interação, confirmação |
+| P4 | Karuzo | Controle (sem contato) | Desconhecido | FP puro — baseline naturístico |
+| P5 | Thiago | Controle (sem contato) | Desconhecido | FP puro — baseline naturístico |
 
----
+### Por que este grupo é significativo para o paper
 
-### Section 2 — Related Work
+- **P0 (Márcio)** é um **paciente real com MND** — eleva o paper de "PoC com voluntários saudáveis" para "estudo de caso preliminar em contexto clínico real". Isso é raro em papers de engenharia de AAC e aumenta substancialmente a relevância clínica.
+- **P1–P3** (familiares/cuidadores) permitem medir FP em condições realistas de uso: conversação com Márcio, atividades de cuidado, expressões emocionais naturais. Estas condições são mais exigentes do que o protocolo de voluntário neutro.
+- **P4–P5** (controles sem contato) fornecem a linha de base de FP puramente naturístico, comparável à literatura.
+- A **separação P1-P3 vs. P4-P5** permite analisar se a proximidade emocional e contextual com o paciente afeta a taxa de FP dos cuidadores — uma pergunta nova na literatura de AAC.
 
-**Clusters de literatura a cobrir:**
+### Histórico clínico de Márcio (a integrar no paper)
 
-**2.1 AAC e doenças neurodegenerativas**
-- Eye-tracking AAC (Tobii Dynavox, EyeGaze): alta precisão, alto custo, requer controle ocular razoável
-- BNCI/BCI (interface cérebro-computador via EEG): invasivo ou de baixa portabilidade
-- Surveys de AAC em MND/ALS: Beukelman & Mirenda (2013); Clarke et al. (2021) — gap em sistemas domiciliares de baixo custo
+Márcio Amaral tem histórico documentado de MND disponível para o estudo.  
+**Claude Code CLI:** ao escrever a Section 4 (Evaluation), solicitar ao usuário os dados clínicos relevantes:
+- Estágio da doença (ALSFRS-R score se disponível)
+- Capacidade motora residual atual (quais movimentos voluntários estão preservados)
+- Uso de NIV (ventilação não-invasiva)
+- Capacidade ocular e palpebral atual
+- Qualquer limitação específica para o protocolo de experimento
 
-**2.2 Detecção de gesto facial via CV**
-- OpenCV + Haar Cascades (primeira geração) — baixa robustez a variações de iluminação
-- Dlib + 68 landmarks — precisão, mas sem suporte a WASM
-- MediaPipe Face Mesh (468 landmarks) — estado da arte em client-side, suporte WASM nativo (Lugaresi et al., 2019; Google, 2023)
-- EAR (Eye Aspect Ratio) para detecção de piscada: Soukupová & Čech (2016) — o método usado
-
-**2.3 Detecção de gesto deliberado (anti-falso-positivo)**
-- Problema de involuntary blink: freq. natural 15–20 blinks/min — qualquer threshold simples de EAR produz falsos-positivos
-- State-machine approaches para gesto intencional: raro na literatura de AAC; mais comum em HCI (Zander & Kothe, 2011)
-- Dwell time vs. state machine: dwell time exige fixação — inadequado para piscada
-
-**2.4 Edge computing e privacidade em saúde**
-- GDPR/LGPD e dados de saúde: vídeo facial é dado sensível; processamento local é princípio de privacy-by-design (European Data Protection Board, 2020)
-- WebAssembly como runtime de edge ML: TensorFlow.js, ONNX Runtime Web, MediaPipe Tasks — velocidade comparável a nativo com isolamento de segurança
-
-**2.5 Arquitetura de software para sistemas de saúde**
-- Hexagonal architecture (Cockburn, 2005) em health IT: aplicações em EHR e dispositivos médicos (Kumar et al., 2022)
-- Microservices em AAC: não encontrado na literatura — contribuição de engenharia
-
-**Papers prioritários para encontrar e citar:**
-- Soukupová, T. & Čech, J. (2016). Real-Time Eye Blink Detection using Facial Landmarks. CVWW.
-- Lugaresi, C. et al. (2019). MediaPipe: A Framework for Building Perception Pipelines. arXiv:1906.08172.
-- Clarke, M. et al. (2021). AAC provision for people with ALS: an update. Disability and Rehabilitation: AAC, 35(1).
-- Zander, T.O. & Kothe, C. (2011). Towards passive brain-computer interfaces. Journal of Neural Engineering, 8(2).
-- Beukelman, D. & Mirenda, P. (2013). Augmentative and Alternative Communication (4th ed.).
+Estes dados permitem contextualizar os thresholds de calibração e a taxa de detecção de Márcio em relação às capacidades motoras preservadas.
 
 ---
 
-### Section 3 — System Architecture
+## 4. Protocolo de Experimento Atualizado (Section 4)
 
-**3.1 Visão geral**
-```
-[Webcam] → [Browser: MediaPipe WASM] → [EAR state machine]
-              ↓ gesture detected
-          [Edge Agent: POST /api/v1/reports]
-              ↓
-          [evnt-service: 12-step ingestion]
-              ↓
-          [Caregiver UI: polling → FULL_SCREEN_ALARM]
-              ↓
-          [Confirmation: verdict=real/falso_positivo]
-```
-
-**3.2 Detecção offline-first (GEST)**
-- MediaPipe FaceLandmarker via WebAssembly, servido de `/assets/mediapipe-wasm/`
-- CPU delegate (100% compatível sem GPU)
-- EAR calculado em 6 pontos por olho (índices MediaPipe: {33,160,158,133,153,144})
-- Máquina de estados: descrever as 6 transições e critérios
-
-**3.3 Calibração por paciente (DetectionProfile)**
-- `engineFeatureRef`: identificador plugável do tipo de gesto (`mp.blink.double.v1`)
-- Thresholds: `EAR_CLOSE`, `EAR_OPEN`, `BLINK_MIN_FRAMES`, `OPEN_MIN_FRAMES`, `DOUBLE_BLINK_WINDOW_MS`
-- Profile versioning: cada publicação cria nova versão imutável
-
-**3.4 Arquitetura hexagonal (diagrama de dependências)**
-- Mostrar: api/ → application/port/in → application/service → domain/ ← infrastructure/ → application/port/out
-- ArchUnit rules RULE-01 a RULE-09
-- `engineFeatureRef` como ponto de extensão para novos detectores
-
-**3.5 Fluxo de ingestão (12 passos do ReportIngressService)**
-- Descrever os 12 passos; destacar: idempotência via `reportId`, validação via Feign para gest-service, NotificationDispatch tier hierárquico
-
-**3.6 O que o PoC prova vs. o que é arquitetura futura**
-- Tabela clara: o que está implementado vs. o que usa stub/no-op (JWT, multi-tenancy, push, HIST, SSE)
-- Justificativa: PoC valida o fluxo ponta a ponta sem os módulos periféricos
-
----
-
-### Section 4 — Evaluation
-
-**4.1 Métricas a medir**
+### 4.1 Métricas a medir
 
 | Métrica | Como medir | Ferramenta |
 |---|---|---|
-| Latência end-to-end (gesto → alarme) | Timestamp no edge agent + timestamp no polling do Angular | `performance.now()` + log do evnt-service |
-| Taxa de falso-positivo | N minutos de movimento facial naturístico, sem intenção de disparar | Voluntários saudáveis |
-| Taxa de detecção (recall) | N tentativas intencionais de piscar duplo | Voluntários saudáveis |
-| Tempo de inicialização do WASM | Primeiro load do FaceLandmarker | `performance.now()` |
-| Taxa de frames do detector | FPS real no loop requestAnimationFrame | Contador no detector |
-| Comparativo: threshold simples vs. máquina de estados | Mesmo dataset, dois algoritmos | Script offline sobre frames gravados |
+| Latência gesture→HTTP | `time.time()` no Python edge agent | `measure_latency.py` |
+| Latência event→alarme visível | `Date.now()` no Angular (localStorage) | `ShellComponent` effect |
+| Taxa de falso-positivo (SM) | N min. de atividade facial naturística | `false_positive_experiment.py` |
+| Taxa de falso-positivo (threshold simples) | Mesmo dataset, algoritmo baseline | `false_positive_experiment.py` |
+| Taxa de detecção (recall) de Márcio | N tentativas intencionais de piscar duplo | `measure_latency.py` (modo paciente) |
+| Taxa de detecção de voluntários saudáveis | Idem para P4/P5 | `measure_latency.py` |
+| Tempo de calibração por participante | Registro manual durante sessão | Planilha |
 
-**4.2 Protocolo de experimento mínimo (solo)**
+### 4.2 Sessão de Márcio (P0) — Paciente MND
 
-Para um paper de conferência tier B/C, 5–10 participantes saudáveis são suficientes para prova de conceito. Protocolo:
+Adaptar para as capacidades motoras atuais de Márcio. Protocolo base:
 
 ```
-Participantes: 5–10 voluntários (amigos, família)
-Hardware: webcam comum (720p), laptop Windows/macOS/Linux
-Condições: iluminação normal de interior, câmera a ~50cm do rosto
+Duração estimada: 20-30 min (com pausas)
+Hardware: webcam comum, laptop, tela visível para Márcio
 
-Sessão por participante (~15 min):
-1. Calibração (3 min): ajustar EAR_CLOSE para o participante
-2. Baseline falso-positivo (5 min): conversa natural, leitura — sem tentar disparar
-   → Registrar quantos alarmes falsos
-3. Detecção intencional (5 min): 20 tentativas de piscar duplo deliberado
-   → Registrar quantas dispararam com sucesso
-4. Comparativo (opcional): repetir com threshold simples (sem state machine)
+1. Calibração (5-10 min):
+   → Observar movimento palpebral natural de Márcio
+   → Ajustar EAR_CLOSE e BLINK_MIN_FRAMES ao seu perfil
+   → Publicar DetectionProfile personalizado
+
+2. Detecção intencional (10-15 min, com pausas):
+   → N=20 tentativas de piscar duplo deliberado
+   → Registrar: quantas dispararam, quantas falharam, motivo
+   → Registrar latência gesture→alarme para cada trial
+
+3. Observação naturística (5 min, opcional):
+   → Márcio em repouso/conversa, sem tentar disparar
+   → Contar FP com seus thresholds calibrados
 ```
 
-**4.3 Dados do PoC já existentes**
+**Dados adicionais a registrar por sessão:**
+- Hora do dia (fadiga ocular é maior à tarde em MND)
+- Iluminação do ambiente (lux, se possível)
+- Posição da câmera em relação ao rosto
+- Thresholds finais do DetectionProfile publicado
+
+### 4.3 Sessão de Cuidadores Familiares (P1 Jamilly, P2 Haron, P3 Giordano)
+
+```
+Duração: ~15 min por participante
+Contexto: interação natural com Márcio (conversa, cuidado)
+
+1. FP durante interação (10 min):
+   py -3.11 scripts/paper/false_positive_experiment.py \
+     --duration 600 --participant <P1|P2|P3>
+   → Participante interage normalmente com Márcio
+   → Registrar FP SM e FP simples
+
+2. Alarme real (5 min):
+   → Márcio dispara o gesto propositalmente
+   → Participante confirma na tela de alarme
+   → Registrar event→alarme visível e tempo até confirmação
+```
+
+### 4.4 Sessão de Controles (P4 Karuzo, P5 Thiago)
+
+```
+Duração: ~10 min por participante
+Contexto: neutro, sem Márcio presente
+
+py -3.11 scripts/paper/false_positive_experiment.py \
+  --duration 600 --participant <P4|P5>
+
+→ Participante fala, lê, olha para os lados normalmente
+→ Sem instruções sobre os gestos
+→ Baseline de FP naturístico puro
+```
+
+### 4.5 Exportar alarm log após cada sessão
+
+Após cada sessão onde o Angular estava aberto:
+```
+# No browser, F12 → Console:
+JSON.stringify(JSON.parse(localStorage.getItem('_neuroassist_alarm_log')||'[]'),null,2)
+# Salvar em: scripts/paper/data/alarm_log_<participante>_<data>.json
+```
+
+### 4.6 Gerar tabelas finais
+
+```bash
+py -3.11 scripts/paper/generate_tables.py
+# → scripts/paper/data/table_latency.tex
+# → scripts/paper/data/table_fp.tex
+```
+
+### 4.7 Dados do PoC já existentes
+
 - 9 critérios de sucesso documentados no `poc-run.md` — todos validados (✅)
-- Sessões 1–4 do `PoC-update.md` documentam problemas reais e soluções reais — isso é contribuição de engenharia documentada
+- Sessões 1–4 do `PoC-update.md` documentam problemas reais e soluções reais
 
 ---
 
-### Section 5 — Discussion
+## 5. Estrutura IMRaD — Seção 4 (Evaluation) a escrever
 
-**Pontos a cobrir:**
-1. **Acessibilidade de hardware:** webcam comum de ~R$ 50–200 vs. Tobii (~USD 3.000+). Implicação para LMIC (Low and Middle Income Countries) — Brasil, países em desenvolvimento.
-2. **Privacy-by-design:** vídeo nunca sai do dispositivo. Implicação para LGPD/GDPR em contexto de dado de saúde facial.
-3. **Extensibilidade:** `engineFeatureRef` permite adicionar detecção de sobrancelha, sorriso, direção do olhar sem alterar o domínio — demonstrar com exemplo fictício.
-4. **Limitações honestas:**
-   - Pixel-density dependente: iluminação muito baixa afeta EAR (documentado no troubleshooting)
-   - GPU delegate fallback aumenta latência (documentado nas sessões do PoC)
-   - Sem avaliação com usuários com MND real (ética/HREC necessários)
-   - Stub adapters: módulos reais (PAC, HIST, DASH) não avaliados
-5. **Trabalho futuro:** SSE em vez de polling, módulo PAC com catálogo real, estudo com pacientes (protocolo ético), detecção de gestos adicionais.
+Após os dados, escrever `sections/04_evaluation.tex` cobrindo:
+
+**5.1 Participants and Ethics**
+- Declarar que P0 é paciente MND com consentimento informado
+- Declarar que P1–P5 são adultos voluntários com consentimento
+- Notar que não há aprovação HREC formal (escopo de PoC/estudo piloto)
+
+**5.2 Experimental Setup**
+- Hardware: webcam comum (especificar modelo/resolução usada)
+- Software: poc-gesture-detector.ts, poc-edge-agent-webcam.py
+- Ambiente: domiciliar, iluminação de interior
+
+**5.3 Calibration (P0 — Márcio)**
+- Reportar os thresholds calibrados para Márcio
+- Comparar com defaults usados para P4/P5
+
+**5.4 Latency Results**
+- Table: gesture→HTTP e event→alarm para todos os trials
+- Separar: Márcio vs. voluntários saudáveis
+
+**5.5 False Positive Rate**
+- Table: SM vs. threshold simples, por participante
+- Análise: P1-P3 (cuidadores, contexto emocional) vs. P4-P5 (controles neutros)
+- Destaque: diferença entre grupos como achado novo
+
+**5.6 Detection Rate (Recall)**
+- P0 (Márcio): N tentativas, quantas detectadas
+- P4/P5: mesma métrica para comparação com paciente
 
 ---
 
-### Section 6 — Conclusion
+## 6. Ordem de execução — próximas semanas
 
-- Reafirmar as 3 contribuições
-- Resultado principal (latência, FP rate)
-- Impacto esperado: comunicação domiciliar de baixo custo para pacientes em fase avançada de MND
-
----
-
-## 3. O que o Claude Code CLI deve extrair do repositório
-
-Quando tu rodares o Claude Code CLI com este documento como contexto, ele deve:
-
-### Para a seção de arquitetura (Section 3):
 ```
-Ler e extrair:
-- backend/services/gest-service/src/main/java/com/neuroassist/gest/application/service/DetectionProfileService.java
-  → Lógica de publicação do perfil, versionamento
-- backend/services/evnt-service/src/main/java/com/neuroassist/evnt/application/service/ReportIngressService.java
-  → Os 12 passos do fluxo de ingestão
-- frontend/design-reference/angular-prototype/src/app/core/poc-gesture-detector.ts
-  → Máquina de estados, constantes EAR, lógica de detecção
-- backend/services/gest-service/src/main/resources/db/migration/V1__gest_poc_schema.sql
-  → Schema do domínio
-- backend/services/evnt-service/src/main/resources/db/migration/poc/V1__evnt_poc_schema.sql
-  → Schema de eventos
-```
+Semana atual:
+  → Coletar histórico clínico de Márcio (dados para contextualizar Section 4)
+  → Agendar sessões com todos os 6 participantes
 
-### Para os diagramas (Section 3):
-```
-Gerar em Mermaid ou PlantUML:
-1. Diagrama de sequência: edge agent → gest-service → evnt-service → Angular → confirmação
-2. Diagrama de componentes: hexagonal por microserviço (api/application/domain/infrastructure)
-3. State machine diagram: máquina de estados do poc-gesture-detector.ts
-4. Diagrama C4 nível 2: containers do sistema
-```
+Sessão P0 (Márcio):
+  → Calibração → measure_latency.py → observação naturística
 
-### Para a seção de avaliação (Section 4):
-```
-Criar scripts de instrumentação:
-- scripts/paper/measure_latency.py
-  → Adicionar timestamps no poc-edge-agent-webcam.py (gesture_completed_ts, report_sent_ts, event_created_ts)
-  → Medir: gesture_to_report_ms, report_to_event_ms, event_to_alarm_visible_ms
-- scripts/paper/false_positive_experiment.py
-  → Rodar detector por N minutos sem intenção, contar alarmes falsos
-  → Comparar: state_machine vs. simples threshold crossing
-  → Output: CSV com timestamp, ear_left, ear_right, state, triggered
-- scripts/paper/generate_tables.py
-  → Ler CSVs dos experimentos → gerar tabelas LaTeX/Markdown
-```
+Sessões P1-P3 (cuidadores):
+  → false_positive_experiment.py --duration 600 --participant <P1|P2|P3>
+  → alarme real + confirmação
 
-### Para a escrita do paper:
-```
-Usar template:
-- docs/paper/template/ (criar se não existir)
-  - main.tex (IEEE ou ACM two-column)
-  - sections/
-    - 01_introduction.tex
-    - 02_related_work.tex
-    - 03_architecture.tex
-    - 04_evaluation.tex
-    - 05_discussion.tex
-    - 06_conclusion.tex
-  - figures/
-    - fig1_system_overview.pdf
-    - fig2_state_machine.pdf
-    - fig3_hexagonal.pdf
-    - fig4_latency_boxplot.pdf
-  - references.bib
+Sessões P4-P5 (controles):
+  → false_positive_experiment.py --duration 600 --participant P4 P5
+
+Após coleta:
+  → generate_tables.py → copiar tabelas para 04_evaluation.tex
+  → Escrever 04_evaluation.tex com os dados
+  → Preencher placeholders [X]/[Y]/[A]/[B]/[N] em 06_conclusion.tex e abstract
+
+Revisão e preprint:
+  → Submeter arXiv (cs.CV + cs.HC)
+  → Submeter BIOSTEC/HEALTHINF 2027
 ```
 
 ---
 
-## 4. Venues e calendário de submissão
+## 7. Venues e calendário
 
-### Alvo primário (recomendado para primeira publicação)
+### Alvo primário (recomendado)
 
 **BIOSTEC / HEALTHINF 2027**
-- Venue: onde o Stell 2024 foi publicado; aceita system papers de saúde digital e engenharia
-- Deadline típico: **setembro/outubro 2026** (edição 2027)
+- Venue onde o Stell 2024 foi publicado; aceita system papers + case studies
+- Deadline típico: **setembro/outubro 2026**
 - Pages: 8–12 páginas two-column
-- Acceptance rate: ~30%
-- URL: `biostec.scitevents.org`
-
-**Ação imediata:** verificar o site agora para confirmar o deadline 2027.
+- URL: `biostec.scitevents.org` — **verificar deadline 2027 agora**
 
 ### Alvo secundário
 
 **ICCHP 2026** (International Conference on Computers Helping People with Special Needs)
-- Específico de acessibilidade e tecnologia assistiva
-- Biennial; próxima edição: 2026 (julho, Europa)
-- **Verificar se ainda há submissão aberta**
-- URL: `icchp.org`
+- Específico de acessibilidade — case study com paciente real é forte neste venue
+- Biennial; verificar se há submissão aberta: `icchp.org`
 
-**IEEE EMBC 2027**
-- Papers de 4 páginas (short papers aceitos)
-- Deadline típico: novembro/dezembro 2026
-- Maior conferência de engenharia biomédica do mundo
+**IEEE EMBC 2027** — short paper (4 páginas); deadline novembro/dezembro 2026
 
 ### Estratégia de preprint
-
-**Antes de qualquer submissão formal:**
-1. Submeter ao **arXiv** (cs.CV + cs.HC) — estabelece prioridade, é citável, gratuito
-2. URL permanente com DOI: permite mencionar na candidatura de bolsa mesmo antes de peer review
+1. Submeter ao **arXiv** (cs.CV + cs.HC) antes de qualquer submissão formal
+2. URL permanente: citável na candidatura de bolsa UniMelb
 
 ---
 
-## 5. Ordem de execução recomendada
+## 8. O que o Claude Code CLI deve extrair do repositório
 
+### Para a seção de arquitetura (Section 3 — já completa):
+- `backend/services/gest-service/.../DetectionProfileService.java` ✅ extraído
+- `backend/services/evnt-service/.../ReportIngressService.java` ✅ extraído
+- `frontend/.../poc-gesture-detector.ts` ✅ extraído
+- `backend/services/gest-service/.../V1__gest_poc_schema.sql` ✅ extraído
+- `backend/services/evnt-service/.../poc/V1__evnt_poc_schema.sql` ✅ extraído
+
+### Para a seção de avaliação (Section 4 — a fazer):
 ```
-Semana 1–2: Instrumentação de latência
-  → Adicionar timestamps no edge agent e no evnt-service
-  → Rodar N=50 testes, coletar CSV
+Ler e integrar:
+- scripts/paper/data/latency_*.csv           → métricas de latência
+- scripts/paper/data/fp_*.csv                → taxas de FP por participante
+- scripts/paper/data/alarm_log_*.json        → event→alarm latency
+- scripts/paper/data/table_latency.tex       → tabela gerada por generate_tables.py
+- scripts/paper/data/table_fp.tex            → tabela FP gerada
+- Dados clínicos de Márcio (fornecidos pelo usuário)
+```
 
-Semana 2–3: Experimento de falso-positivo
-  → 5 voluntários, protocolo da Section 4.2
-  → Comparar state machine vs. threshold simples
+### Para os diagramas (Section 3 — a exportar):
+```
+Converter para PDF (para incluir no LaTeX):
+- docs/paper/template/figures/fig_overview.mmd     → fig_overview.pdf
+- docs/paper/template/figures/fig_statemachine.mmd → fig_statemachine.pdf
 
-Semana 3–4: Escrever draft
-  → Section 3 (arquitetura) — o Claude Code extrai do repo
-  → Section 4 (resultados) — dos CSVs dos experimentos
-  → Section 2 (related work) — pesquisa bibliográfica
-
-Semana 4–5: Diagramas e figuras
-  → State machine (já documentado no PoC-update.md)
-  → Diagrama de sequência end-to-end
-  → Boxplot de latência
-
-Semana 5–6: Revisão, preprint no arXiv, submissão ao venue alvo
+Ferramentas: mmdc (Mermaid CLI) ou exportar via mermaid.live
+  npx -p @mermaid-js/mermaid-cli mmdc -i fig_overview.mmd -o fig_overview.pdf -t neutral
 ```
 
 ---
 
-## 6. Conexão com a bolsa UniMelb
+## 9. Honestidade — O que declarar claramente (seções Discussion e Conclusion)
+
+- **Estudo de caso com N=1 paciente MND** — não é ensaio clínico; não generaliza para a população de MND. Declarar como "preliminary case study" no abstract e na Section 4.
+- **Márcio não está em estágio terminal locked-in** — declarar o estágio real de doença; a calibração pode ser mais fácil para ele do que para pacientes em estágio mais avançado.
+- **Sem aprovação HREC** — deixar claro que é um estudo piloto informal com consentimento dos participantes, não um ensaio clínico aprovado.
+- **Módulos stub** — PAC, HIST, DASH, ACS não avaliados (Section 3.7 já cobre isso).
+- **Modelo MediaPipe** — download inicial do Google Storage (Section 5.2 já cobre isso).
+- **Polling 5s** — contribui para latência event→alarm; já declarado em Section 5.4.
+
+---
+
+## 10. Conexão com a bolsa UniMelb
 
 Este paper contribui para a candidatura de duas formas:
 
-**Demonstra capacidade de pesquisa autônoma.** Um paper solo publicado (mesmo que preprint + aceito em conferência) mostra ao comitê de bolsas que tu sabes formular um problema, conduzir avaliação e escrever para peer review — independentemente da colaboração com o BEST.
+**Demonstra capacidade de pesquisa autônoma.** Um paper com case study real + preprint + submissão em conferência mostra ao comitê que o candidato sabe formular problema, conduzir avaliação e escrever para peer review.
 
-**Conecta ao universo da pesquisa de destino.** MND é o contexto tanto do NeuroAssist AI quanto do grupo BEST. Um paper sobre tecnologia assistiva para MND, com citações do trabalho do Berlowitz, cria uma narrativa coerente: "este candidato já publica sobre MND antes de entrar no programa".
+**Conecta ao universo da pesquisa de destino.** MND é o contexto tanto do NeuroAssist AI quanto do grupo BEST (Berlowitz, Yang et al.). Um paper sobre AAC para MND com dados de paciente real, citando Berlowitz & Yang, cria narrativa coerente.
 
-**Para a carta de motivação da bolsa:**
-> "In addition to my industry experience, I have published work on assistive technology for patients with MND [citar o paper], which aligns directly with the BEST group's mission and demonstrates my ability to produce independent research contributions."
-
----
-
-## 7. O que NÃO colocar no paper (honestidade)
-
-- **Não afirmar** que o sistema foi testado em pacientes com MND real — foi testado em voluntários saudáveis no PoC
-- **Não afirmar** que os módulos PAC, HIST, DASH, ACS, EDGE estão implementados — são stubs/no-op no PoC; apresentar como trabalho futuro
-- **Não afirmar** que a máquina de estados foi comparada formalmente com outros métodos da literatura — apenas com o threshold simples do próprio sistema
-- **Não afirmar** privacidade absoluta — o modelo de face landmarker é baixado do Google Storage no primeiro uso (cacheable); ser honesto sobre isso na seção de discussão
-
----
-
-## 8. Referências já identificadas (a adicionar ao .bib)
-
-```bibtex
-@inproceedings{soukupova2016,
-  author={Soukupová, Tereza and Čech, Jan},
-  title={Real-Time Eye Blink Detection using Facial Landmarks},
-  booktitle={21st Computer Vision Winter Workshop (CVWW)},
-  year={2016}
-}
-
-@article{lugaresi2019mediapipe,
-  author={Lugaresi, Camillo and others},
-  title={MediaPipe: A Framework for Building Perception Pipelines},
-  journal={arXiv preprint arXiv:1906.08172},
-  year={2019}
-}
-
-@inproceedings{stell2024pva,
-  author={Stell, Anthony J. and others},
-  title={Identification of Patient Ventilator Asynchrony in Physiological Data Through Integrating Machine-Learning},
-  booktitle={BIOSTEC/HEALTHINF},
-  pages={436--443},
-  year={2024},
-  doi={10.5220/0012366700003657}
-}
-
-@article{berlowitz2021niv,
-  author={Berlowitz, David J. and Sheers, Nicole},
-  title={Not Only about the Drugs},
-  journal={Annals of the American Thoracic Society},
-  volume={18},
-  number={3},
-  pages={419--420},
-  year={2021}
-}
-
-@article{yang2026pva,
-  author={Yang, Joel and others},
-  title={Using Machine Learning to Identify Patient-Ventilator Asynchrony during Non-Invasive Ventilation in Patients with Motor Neurone Disease},
-  journal={Sleep Medicine},
-  year={2026},
-  doi={10.1016/j.sleep.2025.108637}
-}
-
-@book{beukelman2013aac,
-  author={Beukelman, David R. and Mirenda, Pat},
-  title={Augmentative and Alternative Communication},
-  edition={4},
-  publisher={Brookes Publishing},
-  year={2013}
-}
-
-@article{cockburn2005hexagonal,
-  author={Cockburn, Alistair},
-  title={Hexagonal Architecture},
-  year={2005},
-  note={Available at: alistair.cockburn.us/hexagonal-architecture}
-}
-```
+**Para a carta de motivação:**
+> "In addition to my industry experience, I have published work on assistive technology for patients with MND, including a preliminary case study with an advanced-stage patient [citar o paper], which aligns directly with the BEST group's mission and demonstrates my ability to produce independent research contributions in the clinical technology space."
 
 ---
 

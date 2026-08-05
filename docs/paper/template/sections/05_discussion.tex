@@ -70,13 +70,15 @@ should incorporate automatic illumination-adaptive threshold adjustment, for exa
 by normalising EAR against a~rolling baseline computed during an idle period at
 session start.
 
-\textbf{No evaluation with MND patients.} All experiments reported in this paper
-were conducted with healthy adult volunteers following a~naturalistic-movement protocol.
-The residual motor capability, blink frequency, and eyelid morphology of advanced-stage
-MND patients differ substantially from those of healthy controls. A~study with MND
-participants would require human research ethics committee (HREC) approval and
-specialised recruitment through neurological clinics. This is identified as the primary
-direction for future work.
+\textbf{Preliminary case study scope.} The evaluation reported in this paper
+includes one advanced-stage MND patient (the primary case) and five caregivers and
+volunteers, and should be interpreted as a~preliminary case study rather than a~clinical
+trial. The residual motor capability, blink frequency, and eyelid morphology of
+advanced-stage MND patients differ substantially from those of healthy controls, and the
+patient-specific calibration protocol described in Section~\ref{sec:evaluation} was
+designed explicitly to accommodate this variability. Generalisation to the broader MND
+population will require a~multi-site study with a~statistically representative sample
+under human research ethics committee (HREC) approval.
 
 \textbf{Polling latency overhead.} The caregiver application detects active events
 by polling the \texttt{evnt-service} every five seconds. This introduces a~fixed
