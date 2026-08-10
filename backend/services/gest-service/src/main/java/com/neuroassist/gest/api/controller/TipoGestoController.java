@@ -1,16 +1,19 @@
 package com.neuroassist.gest.api.controller;
 
+import com.neuroassist.gest.api.dto.TipoGestoRequest;
+import com.neuroassist.gest.api.dto.TipoGestoResponse;
+import com.neuroassist.gest.api.dto.TipoGestoTransitionRequest;
 import com.neuroassist.gest.application.port.in.TipoGestoUseCase;
+import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.shared.audit.AuditAction;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-// Security: @PreAuthorize derived from rbac.arch.json via the module generator.
-// To change which permission gates a method, edit rbac.arch.json and re-run
-// be-module-generator.py; do not patch the annotation by hand.
 @Slf4j
 @RestController
 @RequestMapping("/gest-service/tipo-gesto")
@@ -21,31 +24,42 @@ public class TipoGestoController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('gest.tipo-gesto.read')")
-    public ResponseEntity<Void> listAll() {
-        // TODO: delegate to TipoGestoUseCase
-        throw new UnsupportedOperationException("listAll not implemented");
+    public ResponseEntity<List<TipoGestoResponse>> listAll() {
+        List<TipoGestoResponse> result = tipoGestoUseCase.listAll()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
 
-    @GetMapping
+    @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('gest.tipo-gesto.read')")
-    public ResponseEntity<Void> findById() {
-        // TODO: delegate to TipoGestoUseCase
-        throw new UnsupportedOperationException("findById not implemented");
+    public ResponseEntity<TipoGestoResponse> findById(@PathVariable String id) {
+        return ResponseEntity.ok(toResponse(tipoGestoUseCase.findById(id)));
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('gest.tipo-gesto.criar')")
     @AuditAction("CREATE_TIPO_GESTO")
-    public ResponseEntity<Void> register() {
-        // TODO: delegate to TipoGestoUseCase
-        throw new UnsupportedOperationException("register not implemented");
+    public ResponseEntity<TipoGestoResponse> register(@RequestBody TipoGestoRequest request) {
+        TipoGesto created = tipoGestoUseCase.register(request.nome());
+        return ResponseEntity.status(201).body(toResponse(created));
     }
 
     @PutMapping("/{id}/transition")
     @PreAuthorize("hasAuthority('gest.tipo-gesto.editar')")
     @AuditAction("UPDATE_TIPO_GESTO")
-    public ResponseEntity<Void> transition() {
-        // TODO: delegate to TipoGestoUseCase
-        throw new UnsupportedOperationException("transition not implemented");
+    public ResponseEntity<TipoGestoResponse> transition(
+            @PathVariable String id,
+            @RequestBody TipoGestoTransitionRequest request) {
+        TipoGesto updated = tipoGestoUseCase.transition(
+                id, request.toState(), request.engineFeatureRef(), request.reason());
+        return ResponseEntity.ok(toResponse(updated));
+    }
+
+    private TipoGestoResponse toResponse(TipoGesto tg) {
+        return new TipoGestoResponse(
+                tg.id(), tg.nome(), tg.detectabilityState(),
+                tg.engineFeatureRef(), tg.createdAt(), tg.updatedAt());
     }
 }

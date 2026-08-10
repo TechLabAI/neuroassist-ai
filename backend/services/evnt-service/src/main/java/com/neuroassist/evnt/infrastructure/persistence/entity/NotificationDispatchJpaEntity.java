@@ -7,7 +7,6 @@ import lombok.*;
 
 @Entity
 @Table(name = "notification_dispatch")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +15,26 @@ import lombok.*;
 public class NotificationDispatchJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "notification_dispatch_id")
+    @Column(name = "id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "evento_id", nullable = false)
+    private UUID eventoId;
 
-    @Column(name = "status")
-    private String status;
+    @Column(name = "tier", nullable = false, length = 50)
+    private String tier;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    @Column(name = "target_caregiver_id", length = 255)
+    private String targetCaregiverId;
 
-    // TODO: complete fields from data-model.md
+    @Column(name = "status", nullable = false, length = 50)
+    @Builder.Default
+    private String status = "QUEUED";
+
+    @Column(name = "attempts", nullable = false)
+    @Builder.Default
+    private int attempts = 0;
+
+    @Column(name = "last_attempt_at")
+    private Instant lastAttemptAt;
 }

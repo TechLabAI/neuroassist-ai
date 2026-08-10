@@ -7,7 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EventoJpaRepository extends JpaRepository<EventoJpaEntity, UUID> {
 
-    List<EventoJpaEntity> findByTenantId(String tenantId);
-
-    // TODO: add domain-specific query methods
+    List<EventoJpaEntity> findByFeedback(String feedback);
 }

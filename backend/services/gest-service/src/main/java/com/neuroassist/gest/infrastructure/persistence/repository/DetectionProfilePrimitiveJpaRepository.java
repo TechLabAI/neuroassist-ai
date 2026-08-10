@@ -8,7 +8,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DetectionProfilePrimitiveJpaRepository
         extends JpaRepository<DetectionProfilePrimitiveJpaEntity, UUID> {
 
-    List<DetectionProfilePrimitiveJpaEntity> findByTenantId(String tenantId);
-
-    // TODO: add domain-specific query methods
+    List<DetectionProfilePrimitiveJpaEntity> findByProfileId(UUID profileId);
 }

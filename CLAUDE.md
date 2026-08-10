@@ -34,6 +34,11 @@
   frontend/{adr,libs,standards,issues,plans}/
   shared/{modelo-dados,contratos,rbac}/
 
+/docs/
+  architecture/...
+  paper/
+    PAPER-PLAN.md        # Plano completo do paper acadêmico
+
 ```
 
 ---
@@ -290,7 +295,7 @@ the command above is unchanged.
 | `docs/architecture/frontend/standards/nx-boundaries.md` | Nx tags, allowed directions, ESLint config |
 | `docs/architecture/frontend/standards/access-layer-contracts.md` | AuthSession, AccessDecision |
 | `docs/architecture/shared/blueprint-core.md` | Mental model: app + modules + shared, golden rules |
-
+| `docs/paper/PAPER-PLAN.md` | Paper acadêmico do NeuroAssist AI — contribuições, IMRaD, experimentos, venues, instruções para o Claude Code CLI |
 ---
 
 ## Never do this

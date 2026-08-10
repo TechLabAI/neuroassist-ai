@@ -7,54 +7,26 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Reads tenantId from JWT claim ("tenant_id") and binds it to TenantContextHolder for the duration
- * of the request. Validates X-Tenant-Id header (if present) matches.
+ * PoC stub: sets a fixed tenant "poc" for every request.
+ * JWT-based tenant extraction disabled for PoC phase (P0).
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 50)
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private static final String JWT_CLAIM_TENANT_ID = "tenant_id";
-    private static final String HEADER_TENANT_ID = "X-Tenant-Id";
-
     @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String tenantId = extractTenantIdFromJwt();
-        if (tenantId != null) {
-            String headerTenant = request.getHeader(HEADER_TENANT_ID);
-            if (headerTenant != null && !headerTenant.isBlank() && !headerTenant.equals(tenantId)) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-                response.getWriter().write("{\"error\":\"tenant_mismatch\"}");
-                return;
-            }
-            TenantContextHolder.set(tenantId);
-        }
+        TenantContextHolder.set("poc");
         try {
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
         }
-    }
-
-    private String extractTenantIdFromJwt() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            Jwt jwt = jwtAuth.getToken();
-            if (jwt != null) {
-                Object claim = jwt.getClaim(JWT_CLAIM_TENANT_ID);
-                return claim == null ? null : claim.toString();
-            }
-        }
-        return null;
     }
 }

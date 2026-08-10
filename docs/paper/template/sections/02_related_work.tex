@@ -115,3 +115,7 @@ gesture-to-alert pipeline into independently deployable services (GEST, EVNT, an
 PAC, ACS, HIST, DASH services) is viable at PoC scale, and that compile-time boundary
 enforcement via ArchUnit provides a~practical mechanism for maintaining hexagonal
 discipline in a~team-developed Java codebase.
+
+\subsection{Communication and Safety During NIV Use in MND}
+
+Non-invasive ventilation adherence in MND is consistently below clinical targets, with patient-reported discomfort and device-patient asynchrony identified as primary contributing factors~\cite{berlowitz2021niv, yang2026pva}. Home polysomnography in 23 ALS patients consistently using nocturnal NIV documented a mean asynchrony index of 69 events per hour (range 15--146) — far exceeding thresholds associated with clinically significant sleep disruption~\cite{atkeson2011pva}. The 3TLA randomised controlled trial~\cite{berlowitz2025tla} is currently investigating whether polysomnography-guided titration improves NIV usage rates; its primary endpoint — NIV use exceeding four hours per day — reflects the challenge of sustaining adherence in home environments. A complementary but underexplored dimension is the patient's ability to signal discomfort or distress to caregivers during unsupervised NIV use, particularly at night. To the authors' knowledge, no published system provides a network-independent, low-cost mechanism for this purpose; NeuroAssist AI is designed to fill this gap.

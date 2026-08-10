@@ -34,11 +34,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-    // Persistence (schema gerenciado pelo neuroassist-ai-migrations)
+    // Persistence (schema gerenciado pelo neuroassist-ai-migrations; Flyway local para perfil poc)
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     runtimeOnly("org.postgresql:postgresql")
+    implementation("org.flywaydb:flyway-core")
+    runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
     // Messaging (D-490: spring-boot-starter-kafka does not exist; correct artifact is spring-kafka)
+    // P0-PoC: Artemis desabilitado via @Profile("!poc") em ArtemisConfig; dependência mantida para
+    // compilação dos producers que importam JMS. Remover quando producers forem stubados (P1+).
     implementation("org.springframework.boot:spring-boot-starter-artemis")
 
     // Service Discovery + HTTP Clients

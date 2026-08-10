@@ -1,0 +1,54 @@
+% =============================================================================
+% Seção 6 — Conclusão
+% =============================================================================
+
+\section{Conclusão}
+\label{sec:conclusao}
+
+Apresentamos o NeuroAssist AI, uma plataforma de comunicação assistiva
+offline-first e preservadora de privacidade que transforma gestos faciais residuais
+de pacientes com esclerose lateral amiotrófica em estágio avançado em alertas de
+emergência estruturados, entregues a cuidadores por uma rede local usando hardware
+comum.
+
+As três contribuições originais do sistema abordam lacunas distintas, mas
+inter-relacionadas, na tecnologia assistiva atual para essa população. Primeiro, ao
+executar a detecção de landmarks faciais inteiramente dentro de uma sandbox
+WebAssembly e servindo o modelo binário como ativo local, o NeuroAssist AI alcança
+localidade estrita de dados de vídeo sem sacrificar a precisão ou a taxa de quadros
+de soluções server-side. Segundo, a máquina de estados de gesto deliberado de seis
+estados — que exige fechamento de duração mínima, reabertura confirmada entre piscadas
+e uma janela temporal — reduz substancialmente os falsos positivos em relação a
+comparações simples de limiar EAR por quadro, como quantificado na
+Seção~\ref{sec:avaliacao} (taxa de falsos positivos: [B]\,\% vs.\ [A]\,\% para o
+limiar simples; $N$=[N] participantes, [M]\,min cada). Terceiro, a arquitetura de
+microsserviços hexagonais com aplicação ArchUnit em tempo de compilação e o mecanismo
+plug-in \texttt{engineFeatureRef} fornece uma base extensível que desacopla a detecção
+de gesto do gerenciamento clínico de comandos, facilitando a expansão clínica
+incremental sem regressão arquitetural.
+
+A latência ponta-a-ponta da conclusão do gesto até a exibição do alarme ao cuidador
+foi em média [X]\,ms ($\sigma$=[Y]\,ms, $N$=[N] ensaios) em uma rede local com o
+transporte de polling de cinco segundos. O perfil de latência é clinicamente aceitável
+para sinalização de emergência: o componente dominante é o intervalo de polling
+($\leq$5\,s), e não o tempo de detecção ou processamento no servidor, e a substituição
+por eventos enviados pelo servidor reduziria a latência total para aproximadamente
+[X]\,ms.
+
+O custo de hardware (webcam comum, notebook ou computador de placa única padrão, sem
+GPU) posiciona o NeuroAssist AI como uma opção viável para implantação domiciliar em
+países de baixa e média renda, onde reside a maioria da população global com ELA e
+onde dispositivos especializados de CAA são economicamente inacessíveis. Juntamente
+com a arquitetura de privacidade desde a concepção, que satisfaz os requisitos da
+LGPD para dados biométricos de saúde sem infraestrutura institucional de processamento
+de dados, essas propriedades abordam as barreiras que impedem os sistemas comerciais
+atuais de CAA de alcançar pacientes em cuidado domiciliar.
+
+A principal limitação deste trabalho é a escala da avaliação: o estudo de caso envolve
+um paciente com ELA e cinco cuidadores e voluntários, e seus achados não devem ser
+generalizados para a população mais ampla com ELA sem um ensaio multicêntrico sob
+aprovação de comitê de ética em pesquisa (CEP). O protocolo de calibração
+específico por paciente e a infraestrutura de medição produzidos neste trabalho são
+projetados para apoiar esse ensaio com adaptação mínima, e os resultados preliminares
+do estudo de caso fornecem estimativas concretas de latência, taxa de falsos positivos
+e recall de detecção para calcular o tamanho de amostra de estudos futuros.

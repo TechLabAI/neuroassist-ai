@@ -1,0 +1,120 @@
+% NeuroAssist AI — Versão pt-BR
+% Venue alvo: SBCAS 2027 (Simpósio Brasileiro de Computação Aplicada à Saúde)
+% Template: SBC — baixar sbc-template.sty em https://www.sbc.org.br/documentos-da-sbc/summary/169-templates-para-artigos-e-capitulos-de-livros/878-modelosparapublicaodeartigos
+% Compile: pdflatex main-ptbr.tex && bibtex main-ptbr && pdflatex main-ptbr.tex && pdflatex main-ptbr.tex
+%
+% ATENÇÃO — submissão SBCAS é CEGA (blind review):
+%   Remover autoria, afiliação e agradecimentos pessoais antes de submeter.
+%   Verificar se alguma referência interna identifica os autores.
+%   Declarar uso de IA generativa no momento da submissão (conforme regra SBCAS 2026).
+
+\documentclass[12pt]{article}
+
+% ── Template SBC ──────────────────────────────────────────────────────────────
+% O arquivo sbc-template.sty deve ser colocado neste diretório.
+% Download: https://www.sbc.org.br/documentos-da-sbc/send/169-templates-para-artigos-e-capitulos-de-livros/878-modelosparapublicaodeartigos
+\usepackage{sbc-template}
+
+% Compatibilidade: sbc-template 2017 + LaTeX 2020+.
+% \normalsfcodes é chamada no hook begindocument/before do babel mas não está
+% inicializada. Registrar o fix no hook ANTES de carregar o babel garante FIFO.
+\makeatletter
+\AddToHook{begindocument/before}{%
+  \def\normalsfcodes{\sfcode`\.\@m\sfcode`\?\@m\sfcode`\!\@m\sfcode`\:\@m\sfcode`\;\@m\sfcode`\,\@m}%
+}
+% Patch em \@outputpage para segurança nas páginas seguintes
+\let\sbc@orig@outputpage\@outputpage
+\def\@outputpage{%
+  \def\normalsfcodes{\sfcode`\.\@m\sfcode`\?\@m\sfcode`\!\@m\sfcode`\:\@m\sfcode`\;\@m\sfcode`\,\@m}%
+  \sbc@orig@outputpage}
+\makeatother
+
+% ── Pacotes ───────────────────────────────────────────────────────────────────
+\usepackage[brazilian]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath,amssymb}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+
+\lstset{basicstyle=\ttfamily\footnotesize, breaklines=true}
+
+% Placeholder de rascunho — remover antes da submissão
+\newcommand{\fillme}[1]{\textcolor{red}{\textsf{[#1]}}}
+
+% ── Título e autores ──────────────────────────────────────────────────────────
+% REMOVER autoria para submissão cega
+\title{NeuroAssist AI: Uma Plataforma Offline-First e Preservadora de Privacidade
+para Comunicação Assistiva Baseada em Gestos Faciais Residuais
+em Doenças Neurodegenerativas}
+
+\author{Danilo Amaral\inst{1}}
+
+\address{TechLab AI\\
+  cybernautta@gmail.com}
+
+% Chamar \normalsize para inicializar \normalsfcodes antes do hook begindocument/before do babel
+\normalsize
+
+\begin{document}
+
+\maketitle
+
+% ── Resumo ────────────────────────────────────────────────────────────────────
+\begin{resumo}
+Pacientes com doença do neurônio motor (DNM/ELA) perdem progressivamente o controle
+motor voluntário, frequentemente retendo apenas movimentos faciais sutis como último
+canal de comunicação. Os sistemas de comunicação aumentativa e alternativa (CAA)
+existentes requerem conectividade de rede estável e não se adaptam ao perfil motor
+residual individual do paciente. Apresentamos o NeuroAssist AI, uma plataforma de
+comunicação assistiva offline-first e preservadora de privacidade que transforma
+gestos faciais residuais em solicitações de emergência estruturadas, utilizando um
+pipeline de visão computacional baseado em WebAssembly executado localmente. O
+sistema combina uma máquina de estados de seis estados para reconhecimento de gesto
+deliberado com calibração de limiar EAR específica por paciente, implantado sobre
+uma arquitetura de microsserviços hexagonal. Avaliamos o sistema com um paciente
+DNM em estágio avançado e cinco cuidadores e voluntários em um estudo de caso
+preliminar. A latência ponta-a-ponta da conclusão do gesto até a exibição do alarme
+ao cuidador foi em média \textbf{[X]}\,ms ($\sigma$\,=\,[Y]\,ms) em [N] tentativas.
+A máquina de estados de gesto deliberado reduziu a taxa de falsos positivos de
+[A]\,\% (limiar EAR simples) para [B]\,\% ([N] participantes). O NeuroAssist AI
+demonstra que a detecção precisa e preservadora de privacidade de gestos residuais
+é alcançável em hardware comum sem dependência de rede, usando uma arquitetura
+calibrável e extensível validada em contexto real de cuidado domiciliar de DNM.
+\end{resumo}
+
+% ── Abstract (inglês) ─────────────────────────────────────────────────────────
+\begin{abstract}
+Patients with motor neurone disease (MND/ALS) progressively lose voluntary motor
+control, often retaining only subtle facial movements as their last communication
+channel. Existing augmentative and alternative communication (AAC) systems require
+reliable network connectivity and do not adapt to the residual motor profile of
+individual patients. We present NeuroAssist AI, a privacy-preserving, offline-first
+assistive communication platform that transforms residual facial gestures into
+structured emergency requests using a locally executed WebAssembly-based computer
+vision pipeline. The system combines a six-state deliberate gesture recognition
+state machine with patient-specific EAR threshold calibration, deployed over a
+hexagonal microservices architecture. End-to-end latency averaged [X]\,ms
+($\sigma$\,=\,[Y]) across [N] trials. The state machine reduced the false-positive
+rate from [A]\,\% to [B]\,\%. NeuroAssist AI demonstrates that high-accuracy,
+privacy-preserving residual gesture detection is achievable on commodity hardware
+without network dependency.
+\end{abstract}
+
+% ── Seções ────────────────────────────────────────────────────────────────────
+\input{sections/01_introducao}
+\input{sections/02_trabalhos_relacionados}
+\input{sections/03_arquitetura}
+\input{sections/04_avaliacao}
+\input{sections/05_discussao}
+\input{sections/06_conclusao}
+
+\bibliographystyle{sbc}
+\bibliography{../template/references}
+
+\end{document}

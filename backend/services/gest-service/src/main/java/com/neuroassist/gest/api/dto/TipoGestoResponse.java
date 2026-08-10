@@ -1,6 +1,11 @@
 package com.neuroassist.gest.api.dto;
 
-import java.util.UUID;
+import java.time.Instant;
 
-// TODO: define fields from api-contract.md
-public record TipoGestoResponse(UUID id, String status /* TODO: add fields */) {}
+public record TipoGestoResponse(
+        String id,
+        String nome,
+        String detectabilityState,
+        String engineFeatureRef,
+        Instant createdAt,
+        Instant updatedAt) {}

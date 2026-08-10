@@ -2,10 +2,8 @@ package com.neuroassist.evnt.infrastructure.persistence.adapter;
 
 import com.neuroassist.evnt.application.port.out.NotificationDispatchRepositoryPort;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
+import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.NotificationDispatchJpaRepository;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,20 +14,32 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
     private final NotificationDispatchJpaRepository repository;
 
     @Override
-    public NotificationDispatch save(NotificationDispatch entity) {
-        // TODO: map domain model → JPA entity → save → map back
-        throw new UnsupportedOperationException("not implemented");
+    public NotificationDispatch save(NotificationDispatch dispatch) {
+        NotificationDispatchJpaEntity entity = toEntity(dispatch);
+        NotificationDispatchJpaEntity saved = repository.save(entity);
+        return toDomain(saved);
     }
 
-    @Override
-    public Optional<NotificationDispatch> findById(UUID id) {
-        // TODO: map JPA entity → domain model
-        throw new UnsupportedOperationException("not implemented");
+    private NotificationDispatchJpaEntity toEntity(NotificationDispatch d) {
+        return NotificationDispatchJpaEntity.builder()
+                .id(d.id())
+                .eventoId(d.eventoId())
+                .tier(d.tier())
+                .targetCaregiverId(d.caregiverId())
+                .status(d.status())
+                .attempts(d.attempts())
+                .lastAttemptAt(d.lastAttemptAt())
+                .build();
     }
 
-    @Override
-    public List<NotificationDispatch> findByTenantId(String tenantId) {
-        // TODO: map JPA entities → domain models
-        throw new UnsupportedOperationException("not implemented");
+    private NotificationDispatch toDomain(NotificationDispatchJpaEntity e) {
+        return new NotificationDispatch(
+                e.getId(),
+                e.getEventoId(),
+                e.getTier(),
+                e.getTargetCaregiverId(),
+                e.getStatus(),
+                e.getAttempts(),
+                e.getLastAttemptAt());
     }
 }

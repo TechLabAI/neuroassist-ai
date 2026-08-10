@@ -255,7 +255,7 @@ any step rolls back all three writes atomically.
 \label{sec:scope}
 
 Table~\ref{tab:scope} distinguishes the components evaluated in this work from those
-present in the full architecture but outside the scope of this paper. The PoC
+present in the full architecture but outside the scope of this paper.\footnote{The gesture-confirmed alarm events produced by the NeuroAssist AI pipeline are structurally compatible with event timestamp formats used in NIV monitoring research~\cite{stell2024pva, yang2026pva}, suggesting a potential future integration path in which distress events are correlated with ventilator data streams.} The PoC
 intentionally excludes multi-tenancy, authentication, and asynchronous messaging in
 order to isolate and validate the core gesture-to-alarm latency and false-positive
 behaviour.

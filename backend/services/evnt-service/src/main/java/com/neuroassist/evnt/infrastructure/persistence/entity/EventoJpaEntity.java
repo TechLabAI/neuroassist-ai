@@ -7,7 +7,6 @@ import lombok.*;
 
 @Entity
 @Table(name = "evento")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +15,34 @@ import lombok.*;
 public class EventoJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "evento_id")
+    @Column(name = "id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "paciente_id", nullable = false, length = 64)
+    private String pacienteId;
 
-    @Column(name = "status")
-    private String status;
+    @Column(name = "comando_ref", length = 255)
+    private String comandoRef;
+
+    @Column(name = "command_label_snapshot", length = 255)
+    private String commandLabelSnapshot;
+
+    @Column(name = "urgencia_snapshot", nullable = false, length = 50)
+    private String urgenciaSnapshot;
+
+    @Column(name = "feedback", nullable = false, length = 50)
+    @Builder.Default
+    private String feedback = "NAO_AVALIADO";
+
+    @Column(name = "confirmado_por", length = 255)
+    private String confirmadoPor;
+
+    @Column(name = "confirmado_at")
+    private Instant confirmadoAt;
+
+    @Column(name = "recognized_at")
+    private Instant recognizedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
-    // TODO: complete fields from data-model.md
 }

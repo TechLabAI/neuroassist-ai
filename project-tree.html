@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuroAssist AI — Estrutura do Projeto</title>
+<style>
+  :root {
+    --bg:        #0D1117;
+    --surface:   #161B22;
+    --border:    #21262D;
+    --muted:     #8B949E;
+    --text:      #C9D1D9;
+    --heading:   #E6EDF3;
+    --accent:    #58A6FF;
+    --accent-dim:#1F6FEB22;
+    --c-java:    #F0883E;
+    --c-ts:      #3178C6;
+    --c-md:      #A371F7;
+    --c-yaml:    #56D364;
+    --c-py:      #FFD43B;
+    --c-json:    #E3B341;
+    --c-sql:     #F85149;
+    --c-gradle:  #02B4E0;
+    --c-folder:  #58A6FF;
+    --c-other:   #8B949E;
+    --radius:    6px;
+    --mono:      'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+    --sans:      system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg:#F6F8FA;--surface:#FFFFFF;--border:#D0D7DE;--muted:#656D76;
+      --text:#24292F;--heading:#1F2328;--accent:#0969DA;--accent-dim:#0969DA14;
+      --c-java:#D4522A;--c-ts:#0550AE;--c-md:#7C3AED;--c-yaml:#1A7F37;
+      --c-py:#B45309;--c-json:#953800;--c-sql:#CF222E;--c-gradle:#0078A8;
+      --c-folder:#0969DA;--c-other:#656D76;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0D1117;--surface:#161B22;--border:#21262D;--muted:#8B949E;
+    --text:#C9D1D9;--heading:#E6EDF3;--accent:#58A6FF;--accent-dim:#1F6FEB22;
+    --c-java:#F0883E;--c-ts:#3178C6;--c-md:#A371F7;--c-yaml:#56D364;
+    --c-py:#FFD43B;--c-json:#E3B341;--c-sql:#F85149;--c-gradle:#02B4E0;
+    --c-folder:#58A6FF;--c-other:#8B949E;
+  }
+  :root[data-theme="light"] {
+    --bg:#F6F8FA;--surface:#FFFFFF;--border:#D0D7DE;--muted:#656D76;
+    --text:#24292F;--heading:#1F2328;--accent:#0969DA;--accent-dim:#0969DA14;
+    --c-java:#D4522A;--c-ts:#0550AE;--c-md:#7C3AED;--c-yaml:#1A7F37;
+    --c-py:#B45309;--c-json:#953800;--c-sql:#CF222E;--c-gradle:#0078A8;
+    --c-folder:#0969DA;--c-other:#656D76;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .header-brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 200px; }
+  .logo-mark {
+    width: 30px; height: 30px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .project-name { font-size: 14px; font-weight: 600; color: var(--heading); }
+  .project-sub  { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 1px; }
+  .header-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+  .stat {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 3px 9px;
+    font-size: 11px; font-family: var(--mono); color: var(--muted);
+  }
+  .stat b { color: var(--heading); }
+  .header-controls { display: flex; gap: 8px; align-items: center; }
+  .search-wrap { position: relative; }
+  .search-wrap svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  #search {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--mono); font-size: 12px;
+    padding: 5px 10px 5px 29px; width: 210px; outline: none;
+    transition: border-color .15s;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--muted); }
+  .btn {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--muted);
+    cursor: pointer; font-size: 11px; font-family: var(--sans);
+    padding: 5px 10px; transition: color .15s, border-color .15s;
+  }
+  .btn:hover { color: var(--heading); border-color: var(--accent); }
+  .theme-btn { padding: 5px 8px; font-size: 13px; }
+
+  .legend {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 7px 24px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .legend-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-family: var(--mono); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  .tree-panel { padding: 14px 24px 40px; flex: 1; overflow-x: auto; }
+  .tree-root { font-family: var(--mono); font-size: 12.5px; line-height: 1; min-width: max-content; }
+
+  .node { display: flex; flex-direction: column; }
+  .node-row {
+    display: flex; align-items: center; height: 23px;
+    cursor: default; border-radius: 4px; padding-right: 8px;
+    user-select: none; transition: background .1s;
+  }
+  .node-row:hover { background: var(--accent-dim); }
+  .node-row.highlighted { background: var(--accent-dim); outline: 1px solid var(--accent); }
+
+  .indent { display: flex; align-items: stretch; flex-shrink: 0; }
+  .guide { width: 16px; flex-shrink: 0; display: flex; align-items: stretch; justify-content: center; }
+  .guide-line { width: 1px; background: var(--border); margin: 0 auto; }
+  .connector { width: 16px; height: 23px; flex-shrink: 0; position: relative; }
+  .connector::before { content:''; position:absolute; left:0; top:0; bottom:50%; width:1px; background:var(--border); }
+  .connector::after  { content:''; position:absolute; left:0; top:50%; width:10px; height:1px; background:var(--border); }
+
+  .toggle-btn {
+    width: 18px; height: 18px; border: none; background: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    border-radius: 3px; color: var(--muted); flex-shrink: 0;
+    transition: color .1s, background .1s; padding: 0;
+  }
+  .toggle-btn:hover { color: var(--heading); background: var(--border); }
+  .toggle-btn svg { display: block; transition: transform .15s; }
+  .toggle-btn.open svg { transform: rotate(90deg); }
+
+  .file-icon { width: 16px; margin: 0 5px 0 3px; flex-shrink: 0; text-align: center; font-size: 11px; }
+
+  .node-name { color: var(--text); white-space: nowrap; }
+  .node-name.is-folder { color: var(--heading); font-weight: 500; }
+  .node-name.java   { color: var(--c-java); }
+  .node-name.ts     { color: var(--c-ts); }
+  .node-name.md     { color: var(--c-md); }
+  .node-name.yaml   { color: var(--c-yaml); }
+  .node-name.py     { color: var(--c-py); }
+  .node-name.json   { color: var(--c-json); }
+  .node-name.sql    { color: var(--c-sql); }
+  .node-name.gradle { color: var(--c-gradle); }
+
+  .node-children { display: flex; flex-direction: column; }
+  .node-children.collapsed { display: none; }
+
+  .no-results { font-family: var(--mono); font-size: 13px; color: var(--muted); padding: 32px 0; text-align: center; display: none; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <div class="logo-mark">🧠</div>
+    <div>
+      <div class="project-name">NeuroAssist AI</div>
+      <div class="project-sub">neuroassist-ai/ — monorepo</div>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat"><b>8</b> serviços BE</div>
+    <div class="stat"><b>7</b> módulos</div>
+    <div class="stat"><b>Java 21</b> · Spring Boot 3.5</div>
+    <div class="stat"><b>Angular 18</b> · Nx 19</div>
+    <div class="stat"><b>Python</b> edge agent</div>
+  </div>
+  <div class="header-controls">
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <input type="text" id="search" placeholder="filtrar arquivos…" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="btn" id="expandAll">+ expandir</button>
+    <button class="btn" id="collapseAll">− recolher</button>
+    <button class="btn theme-btn" id="themeToggle" title="alternar tema">🌓</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span class="legend-label">tipos</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-java)"></span>.java</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-ts)"></span>.ts</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-md)"></span>.md</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-yaml)"></span>.yml</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-gradle)"></span>.gradle.kts</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-py)"></span>.py</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-json)"></span>.json</span>
+  <span class="legend-item"><span class="dot" style="background:var(--c-sql)"></span>.sql</span>
+</div>
+
+<div class="tree-panel">
+  <div class="tree-root" id="treeRoot"></div>
+  <div class="no-results" id="noResults">nenhum resultado para "<span id="noQuery"></span>"</div>
+</div>
+
+<script>
+// ── Tree data ────────────────────────────────────────────
+function svc(name, hasDocker = true) {
+  return { name, type:'folder', children: [
+    { name:'scripts', type:'folder', children:[{name:'init-db.sql'}] },
+    src(),
+    {name:'build.gradle.kts'},
+    ...(hasDocker ? [{name:'docker-compose.yml'},{name:'Dockerfile'}] : [{name:'Dockerfile'}]),
+    {name:'README.md'},{name:'settings.gradle.kts'}
+  ]};
+}
+function src() {
+  return { name:'src', type:'folder', children: [
+    { name:'main', type:'folder', children: [
+      { name:'java/com/neuroassist/<module>', type:'folder', children: [
+        { name:'api', type:'folder', children: [
+          {name:'controller', type:'folder'},{name:'dto', type:'folder'},{name:'exception', type:'folder'}
+        ]},
+        { name:'application', type:'folder', children: [
+          {name:'service', type:'folder'},{name:'port', type:'folder', children:[{name:'in', type:'folder'},{name:'out', type:'folder'}]}
+        ]},
+        { name:'domain', type:'folder', children: [
+          {name:'model', type:'folder'},{name:'service', type:'folder'}
+        ]},
+        { name:'infrastructure', type:'folder', children: [
+          {name:'clients', type:'folder'},{name:'config', type:'folder'},{name:'messaging', type:'folder'},
+          {name:'persistence', type:'folder'},{name:'security', type:'folder'}
+        ]}
+      ]},
+      { name:'resources', type:'folder', children: [
+        {name:'db', type:'folder'},
+        {name:'application.yml'},{name:'application-local.yml'},{name:'application-default.yml'}
+      ]}
+    ]},
+    { name:'test', type:'folder', children: [
+      { name:'java', type:'folder', children:[{name:'architecture', type:'folder'},{name:'integration', type:'folder'},{name:'unit', type:'folder'}] },
+      { name:'resources', type:'folder', children:[
+        {name:'features', type:'folder'},{name:'application-test.yml'},{name:'archunit.properties'},{name:'init-schema.sql'}
+      ]}
+    ]}
+  ]};
+}
+function svcDocs(name) {
+  return { name, type:'folder', children: [
+    {name:'adr', type:'folder'},{name:'contracts', type:'folder', children:[{name:'api-contract.md'},{name:'data-model.md'},{name:'event-contracts.md'}]},
+    {name:'diagrams', type:'folder'},{name:'events', type:'folder'},{name:'spec', type:'folder'},{name:'tests', type:'folder'},
+    {name:'01-architectural-vision.md'},{name:'02-architecture-blueprint.md'},
+    {name:'03-initial-domain-framing.md'},{name:'04-backend-architecture-direction.md'},
+    {name:'05-persistence-model.md'},{name:'06-risks-gaps-assumptions.md'},
+    {name:`${name}-spec.md`},{name:'generator-config.yml'},{name:'setup-local.md'},{name:'_brief.md'}
+  ]};
+}
+function feMod(name) {
+  return { name, type:'folder', children:[
+    { name:'frontend', type:'folder', children:[
+      {name:'adr', type:'folder'},{name:'contracts', type:'folder'},{name:'e2e', type:'folder'},
+      {name:'frontend-spec', type:'folder'},{name:'issues', type:'folder'},{name:'plans', type:'folder'},
+      {name:'01-architectural-vision.md'},{name:'02-architecture-blueprint.md'},
+      {name:'03-domain-framing-frontend.md'},{name:'04-frontend-architecture-direction.md'},
+      {name:'05-state-and-data-flow.md'},{name:'06-risks-gaps-assumptions.md'}
+    ]},
+    {name:'_brief.md'}
+  ]};
+}
+function feLib(name, features) {
+  return { name, type:'folder', children:[
+    { name:'src/lib', type:'folder', children: features.map(f => ({name:f, type:'folder'})) },
+    {name:'index.ts'},{name:'project.json'},{name:'ng-package.json'},{name:'tsconfig.json'},{name:'vite.config.mts'},{name:'README.md'}
+  ]};
+}
+function issues(prefix, n) {
+  const arr = [];
+  for (let i = 1; i <= n; i++) arr.push({name:`${prefix}-${String(i).padStart(3,'0')}.md`});
+  return arr;
+}
+
+const TREE = {
+  name:'neuroassist-ai', type:'folder', open:true, children:[
+    { name:'arch', type:'folder', children:[
+      { name:'decisions', type:'folder', children:[
+        { name:'_schema', type:'folder', children:[
+          {name:'entity-scope.schema.json'},{name:'error-model.schema.json'},{name:'events.schema.json'},
+          {name:'multi-tenancy.schema.json'},{name:'permission-catalogue.schema.json'},
+          {name:'persistence.schema.json'},{name:'rbac.schema.json'}
+        ]},
+        {name:'entity-scope.arch.json'},{name:'error-model.arch.json'},{name:'events.arch.json'},
+        {name:'multi-tenancy.arch.json'},{name:'permission-catalogue.arch.json'},
+        {name:'persistence.arch.json'},{name:'rbac.arch.json'}
+      ]},
+      { name:'overrides', type:'folder', children:[{name:'rbac.partial.json'}] }
+    ]},
+    { name:'backend', type:'folder', open:true, children:[
+      { name:'services', type:'folder', open:true, children:[
+        svc('acs-service'),
+        svc('edge-service'),
+        svc('evnt-service'),
+        svc('gest-service'),
+        { name:'neuroassist-ai-api-gateway', type:'folder', children:[src(),{name:'build.gradle.kts'},{name:'Dockerfile'},{name:'README.md'},{name:'settings.gradle.kts'}] },
+        { name:'neuroassist-ai-migrations',  type:'folder', children:[src(),{name:'build.gradle.kts'},{name:'Dockerfile'},{name:'README.md'},{name:'settings.gradle.kts'}] },
+        { name:'neuroassist-ai-service-registry', type:'folder', children:[src(),{name:'build.gradle.kts'},{name:'Dockerfile'},{name:'README.md'},{name:'settings.gradle.kts'}] },
+        svc('pac-service'),
+      ]},
+      {name:'build.gradle.kts'},{name:'docker-compose.poc.yml'},{name:'gradlew'},{name:'gradlew.bat'},
+      {name:'poc-alarm-screen.html'},{name:'poc-edge-agent.py'},{name:'poc-edge-agent-webcam.py'},
+      {name:'poc-run.md'},{name:'poc-seed.sql'},{name:'PoC-update.md'},{name:'settings.gradle.kts'}
+    ]},
+    { name:'docs', type:'folder', children:[
+      { name:'architecture', type:'folder', children:[
+        { name:'backend', type:'folder', children:[
+          { name:'adr', type:'folder', children:[
+            {name:'ADR-001-hexagonal-architecture.md'},{name:'ADR-002-independent-microservices.md'},
+            {name:'ADR-003-multi-tenancy.md'},{name:'README.md'}
+          ]},
+          { name:'issues', type:'folder', children:[
+            ...issues('ACS',25),...issues('EDGE',21),
+            {name:'EDGE-INT-001.md'},{name:'EDGE-INT-002.md'},{name:'EDGE-INT-003.md'},{name:'EDGE-INT-004.md'},{name:'EDGE-INT-005.md'},{name:'EDGE-INT-006.md'},{name:'EDGE-INT-007.md'},
+            {name:'EDGE-PY-001.md'},
+            ...issues('EVNT',25),...issues('GEST',25),...issues('GWY',21),
+            {name:'INT-ACS-001.md'},{name:'INT-ACS-002.md'},{name:'INT-ACS-003.md'},{name:'INT-ACS-004.md'},{name:'INT-ACS-005.md'},
+            {name:'INT-EVNT-001.md'},{name:'INT-EVNT-002.md'},{name:'INT-EVNT-003.md'},{name:'INT-EVNT-004.md'},{name:'INT-EVNT-005.md'},{name:'INT-EVNT-006.md'},{name:'INT-EVNT-007.md'},
+            {name:'INT-GEST-001.md'},{name:'INT-GEST-002.md'},{name:'INT-GEST-003.md'},{name:'INT-GEST-004.md'},{name:'INT-GEST-005.md'},{name:'INT-GEST-006.md'},{name:'INT-GEST-007.md'},
+            {name:'INT-GWY-001.md'},{name:'INT-GWY-002.md'},{name:'INT-GWY-003.md'},{name:'INT-GWY-004.md'},{name:'INT-GWY-005.md'},
+            {name:'INT-MIG-001.md'},{name:'INT-MIG-002.md'},{name:'INT-MIG-003.md'},{name:'INT-MIG-004.md'},{name:'INT-MIG-005.md'},
+            {name:'INT-REG-001.md'},{name:'INT-REG-002.md'},{name:'INT-REG-003.md'},
+            ...issues('MIG',20),...issues('PAC',25),
+            {name:'PAC-INT-001.md'},{name:'PAC-INT-002.md'},{name:'PAC-INT-003.md'},{name:'PAC-INT-004.md'},{name:'PAC-INT-005.md'},{name:'PAC-INT-006.md'},
+            {name:'PEA-001.md'},{name:'PEA-002.md'},{name:'PEA-003.md'},{name:'PEA-004.md'},{name:'PEA-005.md'},{name:'PEA-006.md'},{name:'PEA-007.md'},{name:'PEA-008.md'},{name:'PEA-009.md'},
+            ...issues('REG',10),
+            {name:'issues-map.md'},{name:'issues_map-EDGE.md'},{name:'issues_map-EVNT.md'},
+            {name:'issues_map-GEST.md'},{name:'issues_map-GWY.md'},{name:'issues_map-MIG.md'},
+            {name:'issues_map-PAC.md'},{name:'issues_map-REG.md'},{name:'README.md'}
+          ]},
+          { name:'plans', type:'folder', children:[
+            {name:'architecture-master-plan.md'},
+            {name:'plan-EDGE.md'},{name:'plan-EVNT.md'},{name:'plan-GEST.md'},{name:'plan-GWY.md'},
+            {name:'plan-MIG.md'},{name:'plan-PAC.md'},{name:'plan-REG.md'},{name:'README.md'}
+          ]},
+          { name:'services', type:'folder', children:[
+            svcDocs('acs-service'),svcDocs('edge-service'),svcDocs('evnt-service'),svcDocs('gest-service'),
+            svcDocs('neuroassist-ai-api-gateway'),svcDocs('neuroassist-ai-migrations'),
+            svcDocs('neuroassist-ai-service-registry'),svcDocs('pac-service'),{name:'README.md'}
+          ]},
+          { name:'standards', type:'folder', children:[
+            {name:'api-mock-convention.md'},{name:'ears-notation.md'},{name:'hexagonal-patterns.md'},
+            {name:'java-conventions.md'},{name:'platform-patterns.md'},{name:'rbac.md'},
+            {name:'service-spec-authoring.md'},{name:'services-catalog.md'},{name:'snippets.md'},
+            {name:'testing-conventions.md'}
+          ]},
+          {name:'README.md'}
+        ]},
+        { name:'edge-agent', type:'folder', children:[
+          { name:'python-edge-agent', type:'folder', children:[
+            { name:'adr', type:'folder', children:[
+              {name:'ADR-001-python-asyncio-runtime.md'},{name:'ADR-002-mediapipe-landmark-extraction.md'},
+              {name:'ADR-003-onnx-classifier-format.md'},{name:'ADR-004-sqlite-local-persistence.md'},
+              {name:'ADR-005-collocated-http-localhost.md'}
+            ]},
+            { name:'bdd', type:'folder', children:[
+              {name:'authentication.feature'},{name:'capture_pipeline.feature'},
+              {name:'classification_matching.feature'},{name:'enrollment_heartbeat.feature'},
+              {name:'event_publication.feature'},{name:'vocabulary_management.feature'}
+            ]},
+            { name:'contracts', type:'folder', children:[{name:'api-consumed.md'},{name:'data-model.md'},{name:'events-published.md'}] },
+            { name:'spec', type:'folder', children:[
+              {name:'SPEC-01-capture-pipeline.md'},{name:'SPEC-02-classification-matching.md'},
+              {name:'SPEC-03-event-publication-outbox.md'},{name:'SPEC-04-authentication-token-management.md'},
+              {name:'SPEC-05-detection-profile-vocabulary.md'},{name:'SPEC-06-device-enrollment-heartbeat.md'},
+              {name:'SPEC-07-observability-lgpd.md'},{name:'SPEC-08-bdd-summary.md'}
+            ]},
+            {name:'01-architectural-vision.md'},{name:'02-architecture-blueprint.md'},
+            {name:'03-initial-domain-framing.md'},{name:'04-agent-architecture-direction.md'},
+            {name:'05-persistence-model.md'},{name:'06-risks-gaps-assumptions.md'},{name:'_brief.md'}
+          ]}
+        ]},
+        { name:'frontend', type:'folder', children:[
+          { name:'adr', type:'folder', children:[{name:'ADR-006-module-entry-as-library.md'},{name:'README.md'}] },
+          {name:'issues', type:'folder'},{name:'libs', type:'folder'},
+          { name:'modules', type:'folder', children:[
+            feMod('acs'),feMod('edge'),feMod('evnt'),feMod('gest'),feMod('pac')
+          ]},
+          { name:'plans', type:'folder', children:[{name:'architecture-master-plan.md'}] },
+          { name:'standards', type:'folder', children:[
+            {name:'access-layer-contracts.md'},{name:'asset-driven-ui.md'},{name:'bootstrap-flow.md'},
+            {name:'data-model-driven-ui.md'},{name:'design-system-tokens.md'},{name:'ears-notation.md'},
+            {name:'feature-architect-workflow.md'},{name:'module-pattern.md'},{name:'nx-boundaries.md'}
+          ]},
+          {name:'README.md'}
+        ]},
+        { name:'shared', type:'folder', children:[
+          { name:'contratos', type:'folder', children:[
+            {name:'openapi', type:'folder', children:[{name:'README.md'}]},
+            {name:'error-model.md'},{name:'event-catalog.md'},{name:'README.md'}
+          ]},
+          { name:'etl-legado', type:'folder', children:[{name:'README.md'},{name:'status-por-entidade.md'}] },
+          { name:'modelo-dados', type:'folder', children:[
+            {name:'empresa.md'},{name:'global-schema.md'},{name:'persistence-conventions.md'},{name:'relacionamentos.md'},{name:'README.md'}
+          ]},
+          { name:'rbac', type:'folder', children:[
+            {name:'approval-workflow.md'},{name:'data-scope.md'},{name:'enforcement.md'},
+            {name:'modelo.md'},{name:'papeis.md'},{name:'permissoes.md'},{name:'session-policy.md'},{name:'README.md'}
+          ]},
+          {name:'blueprint-core.md'},{name:'distributed-architecture.md'},{name:'multi-empresa.md'},{name:'README.md'}
+        ]},
+        {name:'constitution.md'}
+      ]},
+      { name:'paper', type:'folder', children:[
+        {name:'PAPER-PLAN.md'}
+      ]},
+      {name:'plan-POC.md'}
+    ]},
+    { name:'frontend', type:'folder', children:[
+      { name:'apps', type:'folder', children:[
+        { name:'neuroassist-ai-web', type:'folder', children:[
+          { name:'src', type:'folder', children:[
+            { name:'app', type:'folder', children:[
+              { name:'config', type:'folder', children:[{name:'tool-descriptors.ts'}] },
+              { name:'shell', type:'folder', children:[{name:'app-shell.component.ts'},{name:'sidebar.component.ts'},{name:'topbar.component.ts'}] },
+              {name:'app.routes.ts'}
+            ]},
+            {name:'fonts.html'},{name:'styles.css'},{name:'theme.css'}
+          ]},
+          {name:'README.md'}
+        ]},
+        { name:'edge-e2e', type:'folder', children:[
+          { name:'src', type:'folder', children:[
+            {name:'backend-error-handling.spec.ts'},{name:'connectivity-derived-freshness.spec.ts'},
+            {name:'connectivity-poll-failure-unknown.spec.ts'},{name:'device-repair-unpair.spec.ts'},
+            {name:'pairing-claim-no-heartbeat.spec.ts'},{name:'pairing-code-expired.spec.ts'},
+            {name:'pairing-happy-path.spec.ts'},{name:'shell-chip-composition.spec.ts'}
+          ]},
+          {name:'playwright.config.ts'},{name:'project.json'}
+        ]},
+        { name:'evnt-e2e', type:'folder', children:[
+          { name:'src', type:'folder', children:[
+            {name:'alarme-emergencia-preempcao.spec.ts'},{name:'confirmacao-concorrente.spec.ts'},
+            {name:'confirmar-atendimento.spec.ts'},{name:'entrega-degradada.spec.ts'},{name:'notificacao-rotina.spec.ts'}
+          ]},
+          {name:'playwright.config.ts'},{name:'project.json'}
+        ]},
+        { name:'gest-e2e', type:'folder', children:[
+          { name:'src', type:'folder', children:[
+            {name:'backend-error-handling.spec.ts'},{name:'camera-lifecycle-teardown.spec.ts'},
+            {name:'camera-permission-error.spec.ts'},{name:'composition-boundary.spec.ts'},
+            {name:'live-test-composite.spec.ts'},{name:'live-test-degraded-offline.spec.ts'},
+            {name:'live-test-simple-recognized.spec.ts'},{name:'live-test-timeout-not-recognized.spec.ts'},
+            {name:'stream-no-cache-between-runs.spec.ts'}
+          ]},
+          {name:'playwright.config.ts'},{name:'project.json'}
+        ]},
+        { name:'pac-e2e', type:'folder', children:[
+          { name:'src', type:'folder', children:[{name:'command-catalog.spec.ts'},{name:'command-editor.spec.ts'},{name:'patient-register.spec.ts'}] },
+          {name:'playwright.config.ts'},{name:'project.json'}
+        ]}
+      ]},
+      { name:'libs', type:'folder', children:[
+        feLib('edge',['access','api','feature-connectivity','feature-device-detail','feature-pairing','integration']),
+        feLib('evnt',['access','api','feature-alarm','feature-routine','integration']),
+        feLib('gest',['access','api','feature-live-test','integration']),
+        feLib('pac', ['access','api','feature-command-catalog','feature-command-editor','feature-patient-register','ui']),
+        { name:'shared', type:'folder', children:[
+          {name:'access-decision', type:'folder', children:[{name:'src/lib/access-decision.ts'},{name:'project.json'}]},
+          {name:'access-http-base', type:'folder', children:[{name:'src/lib/access-http-base.ts'},{name:'project.json'}]},
+          {name:'auth-session', type:'folder', children:[{name:'src/lib/auth-session.ts'},{name:'project.json'}]},
+          {name:'contracts', type:'folder', children:[{name:'src/lib/contracts.ts'},{name:'src/lib/edge-contracts.ts'},{name:'project.json'}]},
+          {name:'empresa-context', type:'folder', children:[{name:'src/lib/empresa-context.ts'},{name:'project.json'}]},
+          {name:'error-model', type:'folder', children:[{name:'src/lib/error-model.ts'},{name:'project.json'}]},
+          {name:'observability', type:'folder', children:[{name:'src/lib/observability.ts'},{name:'project.json'}]},
+          {name:'ui-components', type:'folder', children:[{name:'src/lib/ui-components.ts'},{name:'project.json'}]},
+          {name:'ui-feedback', type:'folder', children:[{name:'src/lib/ui-feedback.ts'},{name:'project.json'}]},
+          {name:'ui-tokens', type:'folder', children:[{name:'src/lib/ui-tokens.ts'},{name:'project.json'}]}
+        ]},
+        {name:'acs', type:'folder', children:[{name:'README.md'}]},
+        {name:'dash', type:'folder', children:[{name:'README.md'}]},
+        {name:'hist', type:'folder', children:[{name:'README.md'}]}
+      ]},
+      { name:'design-reference', type:'folder', children:[
+        {name:'angular-prototype', type:'folder'},{name:'design-system', type:'folder'},
+        {name:'data-model.json'},{name:'mock-data.json'},{name:'ui-concept.md'},{name:'wireframe.md'}
+      ]},
+      {name:'nx.json'},{name:'package.json'},{name:'package-lock.json'},{name:'tsconfig.base.json'},{name:'postcss.config.js'}
+    ]},
+    { name:'scripts', type:'folder', children:[
+      { name:'be_spec_drift_lib', type:'folder', children:[
+        {name:'comparator.py'},{name:'ears_parser.py'},{name:'java_ast.py'},{name:'reverser.py'},{name:'__init__.py'}
+      ]},
+      {name:'arch-conformance.py'},{name:'autopilot-state.py'},{name:'be-spec-drift.py'},
+      {name:'cli_utils.py'},{name:'code_inventory.py'},{name:'doc-scaffold.py'},{name:'embeddings.py'},
+      {name:'es_mappings.py'},{name:'gates-run.py'},{name:'issues-mirror.py'},{name:'issue_state.py'},
+      {name:'pipeline-context.py'},{name:'pipeline_events.py'},{name:'plan-state-extractor.py'},
+      {name:'pole-position-split.py'},{name:'render.py'},{name:'validator-decide.py'},
+      {name:'validator-score.py'},{name:'__init__.py'}
+    ]},
+    { name:'templates/operational/code', type:'folder', children:[
+      {name:'docker', type:'folder', children:[{name:'Dockerfile.j2'}]},
+      { name:'java', type:'folder', children:[
+        {name:'access-context-holder.java.j2'},{name:'aggregate-model.java.j2'},{name:'application-service-stub.java.j2'},
+        {name:'architecture-test.java.j2'},{name:'artemis-config.java.j2'},{name:'audit-action-annotation.java.j2'},
+        {name:'audit-aspect.java.j2'},{name:'base-integration-test.java.j2'},{name:'coded-exception.java.j2'},
+        {name:'context-loads-it.java.j2'},{name:'controller.java.j2'},{name:'correlation-interceptor.java.j2'},
+        {name:'cross-aspect-arch-test.java.j2'},{name:'data-scope-filter-aspect.java.j2'},
+        {name:'data-scope.java.j2'},{name:'domain-service-config.java.j2'},{name:'domain-service-pojo.java.j2'},
+        {name:'entity-model.java.j2'},{name:'enum-class.java.j2'},{name:'event-producer.java.j2'},
+        {name:'feign-client-config.java.j2'},{name:'feign-client-stub.java.j2'},
+        {name:'global-exception-handler.java.j2'},{name:'hibernate-multi-tenancy-config.java.j2'},
+        {name:'jms-consumer.java.j2'},{name:'jpa-entity.java.j2'},{name:'jpa-repository.java.j2'},
+        {name:'persistence-adapter.java.j2'},{name:'problem-detail-factory.java.j2'},
+        {name:'security-config.java.j2'},{name:'spring-application.java.j2'},
+        {name:'tenant-context-filter.java.j2'},{name:'use-case-interface.java.j2'},{name:'webmvc-config.java.j2'}
+      ]},
+      {name:'markdown', type:'folder', children:[{name:'service-readme.md.j2'}]},
+      {name:'sql', type:'folder', children:[{name:'init-db.sql.j2'},{name:'init-schema.sql.j2'}]},
+      { name:'typescript', type:'folder', children:[
+        {name:'feature-lib', type:'folder', children:[{name:'index.ts.j2'},{name:'lib.routes.ts.j2'}]},
+        {name:'shell', type:'folder', children:[{name:'app-shell.component.ts.j2'},{name:'sidebar.component.ts.j2'},{name:'topbar.component.ts.j2'}]},
+        {name:'app.routes.ts.j2'}
+      ]},
+      { name:'yaml', type:'folder', children:[
+        {name:'application-default.yml.j2'},{name:'application-gateway.yml.j2'},{name:'application-local.yml.j2'},
+        {name:'application-migrations.yml.j2'},{name:'application-registry.yml.j2'},
+        {name:'application-standard.yml.j2'},{name:'application-test.yml.j2'},{name:'docker-compose.yml.j2'}
+      ]},
+      {name:'checklist-production-readiness.md.j2'},{name:'spec-drift-report.md.j2'}
+    ]},
+    { name:'tmp', type:'folder', children:[
+      { name:'architecture-autopilot', type:'folder', children:[
+        {name:'ACS', type:'folder', children:[{name:'state.json'}]},
+        {name:'EDGE', type:'folder', children:[{name:'state.json'}]},
+        {name:'EVNT', type:'folder', children:[{name:'state.json'}]},
+        {name:'GEST', type:'folder', children:[{name:'state.json'}]},
+        {name:'PAC',  type:'folder', children:[{name:'state.json'}]}
+      ]},
+      {name:'prints', type:'folder'},{name:'README.md'}
+    ]},
+    { name:'_inbox', type:'folder', children:[
+      { name:'adr', type:'folder', children:[
+        {name:'ADR-001-backend-jvm-java.md'},{name:'ADR-002-ia-embarcada-edge.md'},
+        {name:'ADR-003-multi-tenancy-schema-per-empresa.md'},{name:'ADR-004-arquitetura-hexagonal.md'},
+        {name:'ADR-005-frontend-angular-nx.md'},{name:'ADR-006-arquitetura-hibrida-edge-cloud.md'},
+        {name:'ADR-007-tema-claro-padrao-excecao-ds.md'},{name:'ADR-008-evento-tipado-via-comando.md'},
+        {name:'ADR-009-catalogo-tipo-gesto-extensivel.md'},{name:'ADR-010-evento-unico-sem-tabela-ativo-separada.md'}
+      ]},
+      {name:'UNRESOLVED_QUESTIONS.md'}
+    ]},
+    { name:'.claude', type:'folder', children:[
+      { name:'commands', type:'folder', children:[
+        {name:'be-autopilot.md'},{name:'be-implement.md'},{name:'be-planner.md'},{name:'be-validator.md'},
+        {name:'fe-autopilot.md'},{name:'fe-implement.md'},{name:'fe-planner.md'},{name:'fe-validator.md'}
+      ]},
+      { name:'agents', type:'folder', children:[
+        {name:'fe-implementer-agent.md'},{name:'fe-planner-agent.md'},{name:'fe-validator-agent.md'},
+        {name:'implementer-agent.md'},{name:'planner-agent.md'},{name:'validator-agent.md'}
+      ]},
+      { name:'hooks', type:'folder', children:[{name:'stop_token_capture.py'}] },
+      {name:'settings.json'},{name:'settings.local.json'},{name:'command-registry.json'}
+    ]},
+    { name:'.techlab', type:'folder', children:[
+      {name:'assembly-intent.json'},{name:'assembly-manifest.json'},{name:'assembly-plan.json'},
+      {name:'token-delta.json'},{name:'trace-context.json'},
+      {name:'learning', type:'folder', children:[{name:'signals.jsonl'}]}
+    ]},
+    {name:'CLAUDE.md'},{name:'project-checklist.md'},{name:'project-context.json'},
+    {name:'project-journal.md'},{name:'architecture.lock'},{name:'README.md'}
+  ]
+};
+
+// ── File type detection ──────────────────────────────────
+function fileClass(name) {
+  if (!name) return '';
+  if (/\.(java|java\.j2)$/.test(name)) return 'java';
+  if (/\.(ts|tsx)$/.test(name)) return 'ts';
+  if (/\.md$/.test(name)) return 'md';
+  if (/\.(yml|yaml)$/.test(name)) return 'yaml';
+  if (/\.py$/.test(name)) return 'py';
+  if (/\.json(l)?$/.test(name)) return 'json';
+  if (/\.sql$/.test(name)) return 'sql';
+  if (/\.(gradle\.kts|gradle)$/.test(name)) return 'gradle';
+  return '';
+}
+function fileIcon(node) {
+  const isFolder = node.type === 'folder' || (node.children && node.children.length);
+  if (isFolder) return '▸';
+  const n = node.name || '';
+  if (/\.(java|java\.j2)$/.test(n)) return '☕';
+  if (/\.(ts|tsx)$/.test(n)) return 'TS';
+  if (/\.md$/.test(n)) return '¶';
+  if (/\.(yml|yaml)$/.test(n)) return '⚙';
+  if (/\.py$/.test(n)) return 'Py';
+  if (/\.json(l)?$/.test(n)) return '{}';
+  if (/\.sql$/.test(n)) return 'DB';
+  if (/\.gradle\.kts$/.test(n)) return 'GR';
+  if (/\.feature$/.test(n)) return 'BDD';
+  if (/\.html$/.test(n)) return '◇';
+  if (n === 'gradlew' || n === 'gradlew.bat') return '$_';
+  if (/\.j2$/.test(n)) return '◻';
+  return '·';
+}
+
+// ── Build DOM ────────────────────────────────────────────
+function buildNode(node, depth, isLast, guides) {
+  const isFolder = node.type === 'folder' || (node.children && node.children.length > 0);
+  const open = node.open !== false;
+
+  const el = document.createElement('div');
+  el.className = 'node';
+  el.dataset.name = (node.name || '').toLowerCase();
+
+  const row = document.createElement('div');
+  row.className = 'node-row';
+
+  if (depth > 0) {
+    const indent = document.createElement('div');
+    indent.className = 'indent';
+    for (let i = 0; i < depth - 1; i++) {
+      const g = document.createElement('div');
+      g.className = 'guide';
+      if (guides && guides[i]) {
+        const l = document.createElement('div');
+        l.className = 'guide-line';
+        g.appendChild(l);
+      }
+      indent.appendChild(g);
+    }
+    const conn = document.createElement('div');
+    conn.className = 'connector' + (isLast ? ' last' : '');
+    indent.appendChild(conn);
+    row.appendChild(indent);
+  }
+
+  if (isFolder) {
+    const btn = document.createElement('button');
+    btn.className = 'toggle-btn' + (open ? ' open' : '');
+    btn.setAttribute('aria-label', open ? 'recolher' : 'expandir');
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 10 10"><path d="M3 1.5l4 3.5-4 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const ch = el.querySelector('.node-children');
+      const isOpen = btn.classList.toggle('open');
+      ch.classList.toggle('collapsed', !isOpen);
+    });
+    row.appendChild(btn);
+  } else {
+    const sp = document.createElement('div');
+    sp.style.cssText = 'width:18px;flex-shrink:0';
+    row.appendChild(sp);
+  }
+
+  const icon = document.createElement('div');
+  icon.className = 'file-icon';
+  icon.textContent = fileIcon(node);
+  if (isFolder) icon.style.color = 'var(--c-folder)';
+  row.appendChild(icon);
+
+  const nameEl = document.createElement('span');
+  const fc = fileClass(node.name);
+  nameEl.className = 'node-name' + (isFolder ? ' is-folder' : '') + (fc ? ' ' + fc : '');
+  nameEl.textContent = node.name || '';
+  row.appendChild(nameEl);
+  el.appendChild(row);
+
+  if (isFolder && node.children && node.children.length) {
+    const ch = document.createElement('div');
+    ch.className = 'node-children' + (!open ? ' collapsed' : '');
+    const g2 = [...(guides || [])];
+    g2.push(!isLast);
+    node.children.forEach((child, i) => {
+      ch.appendChild(buildNode(child, depth + 1, i === node.children.length - 1, g2));
+    });
+    el.appendChild(ch);
+  }
+  return el;
+}
+
+document.getElementById('treeRoot').appendChild(buildNode(TREE, 0, true, []));
+
+// ── Search ───────────────────────────────────────────────
+document.getElementById('search').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  const noResults = document.getElementById('noResults');
+  noResults.style.display = 'none';
+  document.querySelectorAll('.node-row').forEach(r => r.classList.remove('highlighted'));
+
+  if (!q) {
+    document.querySelectorAll('.node').forEach(n => n.style.display = '');
+    return;
+  }
+  let found = 0;
+  document.querySelectorAll('.node').forEach(n => {
+    const name = n.dataset.name || '';
+    if (name.includes(q)) {
+      n.style.display = '';
+      n.querySelector('.node-row').classList.add('highlighted');
+      found++;
+      let p = n.parentElement;
+      while (p && p.id !== 'treeRoot') {
+        if (p.classList.contains('node-children')) p.classList.remove('collapsed');
+        if (p.classList.contains('node')) p.style.display = '';
+        p = p.parentElement;
+      }
+    } else {
+      n.style.display = 'none';
+    }
+  });
+  if (!found) {
+    noResults.style.display = 'block';
+    document.getElementById('noQuery').textContent = q;
+  }
+});
+
+// ── Expand / Collapse all ────────────────────────────────
+document.getElementById('expandAll').addEventListener('click', () => {
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.add('open');
+    b.closest('.node').querySelector('.node-children')?.classList.remove('collapsed');
+  });
+});
+document.getElementById('collapseAll').addEventListener('click', () => {
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.remove('open');
+    b.closest('.node').querySelector('.node-children')?.classList.add('collapsed');
+  });
+});
+
+// ── Theme toggle ─────────────────────────────────────────
+(function() {
+  const root = document.documentElement;
+  const btn = document.getElementById('themeToggle');
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  let current = mq.matches ? 'dark' : 'light';
+  root.dataset.theme = current;
+  btn.addEventListener('click', () => {
+    current = current === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = current;
+  });
+})();
+</script>
+</body>
+</html>

@@ -7,7 +7,6 @@ import lombok.*;
 
 @Entity
 @Table(name = "report_idempotency")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +15,12 @@ import lombok.*;
 public class ReportIdempotencyJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "report_idempotency_id")
-    private UUID id;
+    @Column(name = "report_id", length = 64)
+    private String reportId;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "evento_id", nullable = false)
+    private UUID eventoId;
 
-    @Column(name = "status")
-    private String status;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
-    // TODO: complete fields from data-model.md
+    @Column(name = "processed_at", nullable = false)
+    private Instant processedAt;
 }

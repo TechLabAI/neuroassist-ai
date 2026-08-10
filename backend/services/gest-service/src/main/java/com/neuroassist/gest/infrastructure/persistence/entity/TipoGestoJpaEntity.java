@@ -2,12 +2,10 @@ package com.neuroassist.gest.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.UUID;
 import lombok.*;
 
 @Entity
 @Table(name = "tipo_gesto")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +14,21 @@ import lombok.*;
 public class TipoGestoJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "tipo_gesto_id")
-    private UUID id;
+    @Column(name = "id")
+    private String id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "nome", nullable = false)
+    private String nome;
 
-    @Column(name = "status")
-    private String status;
+    @Column(name = "detectability_state", nullable = false)
+    private String detectabilityState;
+
+    @Column(name = "engine_feature_ref")
+    private String engineFeatureRef;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    // TODO: complete fields from data-model.md
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 }

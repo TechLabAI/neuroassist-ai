@@ -4,30 +4,45 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.*;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "detection_profile")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DetectionProfileJpaEntity {
+public class DetectionProfileJpaEntity implements Persistable<UUID> {
 
     @Id
-    @GeneratedValue
-    @Column(name = "detection_profile_id")
+    @Column(name = "id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "version", nullable = false)
+    private int version;
 
-    @Column(name = "status")
-    private String status;
+    @Column(name = "active", nullable = false)
+    private boolean active;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    @Column(name = "contract_version", nullable = false)
+    private String contractVersion;
 
-    // TODO: complete fields from data-model.md
+    @Column(name = "published_at", nullable = false)
+    private Instant publishedAt;
+
+    @Transient
+    @Builder.Default
+    private boolean isNew = true;
+
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        this.isNew = false;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
 }

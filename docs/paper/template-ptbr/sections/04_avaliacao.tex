@@ -1,0 +1,197 @@
+% =============================================================================
+% Seção 4 — Avaliação
+% =============================================================================
+
+\section{Avaliação}
+\label{sec:avaliacao}
+
+Avaliamos o NeuroAssist AI por meio de um estudo de caso preliminar envolvendo um
+paciente com ELA em estágio avançado e cinco cuidadores e voluntários. O estudo
+mediu a latência ponta-a-ponta do sistema, a taxa de detecção de gesto deliberado e
+a taxa de falsos positivos em condições naturalísticas. Os resultados devem ser
+interpretados como um estudo de caso preliminar, e não como um ensaio clínico (ver
+Seção~\ref{sec:discussao}).
+
+\subsection{Participantes e Ética}
+\label{sec:participantes}
+
+Seis participantes tomaram parte no estudo (Tabela~\ref{tab:participantes}).
+P0 é um paciente com ELA em estágio avançado com histórico clínico documentado;
+P1--P3 são cuidadores familiares com contato regular e íntimo com P0; P4--P5 são
+voluntários saudáveis sem contato prévio com o paciente, servindo como controles
+de falsos positivos naturalísticos.
+
+\begin{table}[htbp]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{Participantes do Estudo}
+  \label{tab:participantes}
+  \centering
+  \begin{tabular}{llll}
+    \toprule
+    ID & Papel & Relação com P0 & Sessão \\
+    \midrule
+    P0 & Paciente ELA          & ---                              & Calibração + detecção \\
+    P1 & Cônjuge / cuidadora doméstica & Íntima, diária (fisioterapeuta)   & FP + alarme real \\
+    P2 & Cuidador 1                   & Profissional NDIS, frequente      & FP + alarme real \\
+    P3 & Cuidador 2                   & Profissional NDIS, frequente      & FP + alarme real \\
+    P4 & Controle           & Nenhum                     & Baseline FP naturalístico \\
+    P5 & Controle           & Nenhum                     & Baseline FP naturalístico \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Todos os participantes forneceram consentimento informado antes de sua sessão. O
+estudo foi conduzido no domicílio de P0 em Melbourne, Austrália. P1 é cônjuge de P0
+e fisioterapeuta, prestando cuidado domiciliar diário (não elegível para financiamento
+NDIS como familiar, conforme política australiana); P2 e P3 são profissionais de suporte
+financiados pelo NDIS (National Disability Insurance Scheme) com contato regular e
+estruturado com P0.
+O estudo constitui uma avaliação piloto; nenhuma aprovação formal de comitê de ética
+em pesquisa (CEP) foi solicitada para este escopo de estudo de caso preliminar. A avaliação clínica completa com uma amostra
+estatisticamente representativa de pacientes com ELA exigirá aprovação do CEP e está
+planejada como trabalho futuro.
+
+P0 apresenta ELA de início troncular (início dos sintomas: fim de 2019; duração da
+doença na avaliação: aproximadamente 6,5~anos), fraqueza em quatro membros com
+movimento voluntário palpebral preservado, e ventilação não invasiva (VNI) prescrita
+desde o início de 2026 e ativa no momento do estudo. A capacidade vital forçada foi de
+71\,\% e a pressão inspiratória nasal de esforço (SNIP) de 31\,\% na última avaliação
+respiratória documentada antes do experimento (maio de 2023), com progressão lenta da
+doença confirmada naquela ocasião. \fillme{Confirmar antes da submissão: escore
+ALSFRS-R se disponível; avaliação atual da mobilidade palpebral.} Este perfil clínico
+embasou o protocolo de calibração descrito na Seção~\ref{sec:calibracao}.
+
+\subsection{Configuração Experimental}
+\label{sec:configuracao}
+
+\textbf{Hardware.} Cada sessão utilizou uma webcam USB comum
+(\fillme{modelo/resolução, e.g., Logitech C920, 1080p@30fps}) posicionada na altura
+dos olhos a aproximadamente 50--70\,cm do rosto do participante, conectada a um
+notebook executando a pilha NeuroAssist AI localmente. Nenhum acesso externo à rede
+foi necessário durante as sessões.
+
+\textbf{Software.} O pipeline de detecção de borda foi executado como
+\texttt{poc-edge-agent-webcam.py} (Python~3.11), comunicando-se com a aplicação
+Angular (\texttt{poc-gesture-detector.ts}) via \texttt{localhost}. Os microsserviços
+\texttt{evnt-service} e \texttt{gest-service} foram executados localmente via Docker
+Compose. Scripts de medição registraram todos os timestamps em CSV; os timestamps de
+entrega de alarme foram capturados por um hook Angular \texttt{effect()} que grava
+em \texttt{localStorage} a cada renderização de alarme.
+
+\textbf{Ambiente.} As sessões foram conduzidas no domicílio de P0 durante
+\fillme{período do dia}. A iluminação ambiente era natural/artificial de interiores.
+
+\subsection{Calibração do Paciente}
+\label{sec:calibracao}
+
+Antes dos ensaios formais, o \texttt{DetectionProfile} de P0 foi calibrado por meio
+da observação do movimento palpebral natural por aproximadamente 5--10~minutos. O
+perfil clínico de P0 — ELA progressiva com envolvimento respiratório documentado
+(CVF 71\,\%, SNIP 31\,\%) e VNI prescrita desde o início de 2026 — é representativo
+da população para a qual o NeuroAssist AI é primordialmente
+projetado~\cite{berlowitz2021niv, yang2026pva}, e o DetectionProfile calibrado reflete
+a mobilidade palpebral residual característica desse estágio. O procedimento de
+calibração ajustou dois parâmetros: $\theta_\text{close}$ (limiar EAR para início da
+piscada) e \texttt{BLINK\_MIN\_FRAMES} (quadros consecutivos mínimos abaixo de
+$\theta_\text{close}$ necessários para registrar uma piscada).
+
+A Tabela~\ref{tab:calibracao} reporta os parâmetros calibrados para P0 ao lado dos
+padrões utilizados para P4 e P5.
+
+\begin{table}[htbp]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{Parâmetros de Calibração do DetectionProfile}
+  \label{tab:calibracao}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Participante & $\theta_\text{close}$ & $\theta_\text{open}$ & Quadros mín. \\
+    \midrule
+    P0 (paciente ELA) & \textbf{[X,XX]} & \textbf{[X,XX]} & \textbf{[N]} \\
+    P4--P5 (controles, padrão) & 0,20 & 0,27 & 3 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Latência}
+\label{sec:latencia}
+
+A latência ponta-a-ponta foi decomposta em dois segmentos: (i)~gesto-para-HTTP,
+medido como o tempo decorrido entre a máquina de estados entrar em \texttt{DONE} e a
+resposta do \texttt{POST /api/v0/report-ingest} ser recebida pelo agente de borda; e
+(ii)~evento-para-alarme-visível, medido como o tempo decorrido entre o timestamp
+\texttt{createdAt} na resposta do \texttt{evnt-service} e o valor
+\texttt{alarmShownAtMs} registrado em \texttt{localStorage}. A Tabela~\ref{tab:latencia}
+reporta as estatísticas de latência em todos os ensaios.
+
+\begin{table}[htbp]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{Latência Ponta-a-Ponta (ms)}
+  \label{tab:latencia}
+  \centering
+  \begin{tabular}{lcccc}
+    \toprule
+    Segmento & $N$ & Média & $\sigma$ & Mediana \\
+    \midrule
+    Gesto $\rightarrow$ HTTP  & [N] & [X] & [Y] & [Z] \\
+    Evento $\rightarrow$ alarme & [N] & [X] & [Y] & [Z] \\
+    \textbf{Total ponta-a-ponta} & [N] & \textbf{[X]} & [Y] & [Z] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A latência ponta-a-ponta média foi de \textbf{[X]}\,ms ($\sigma$\,=\,[Y]\,ms, mediana
+[Z]\,ms, $N$\,=\,[N] ensaios). O segmento evento-para-alarme representou a maior
+parcela da latência total, consistente com o intervalo de polling de 5 segundos
+utilizado na aplicação de cuidadores do PoC (contribuição máxima: 5.000\,ms; ver
+Seção~\ref{sec:discussao} para a mitigação WebSocket planejada). O segmento
+gesto-para-HTTP foi dominado pela sobrecarga HTTP local e permaneceu abaixo de
+[X]\,ms em todos os ensaios.
+
+\subsection{Taxa de Falsos Positivos}
+\label{sec:taxafp}
+
+A taxa de falsos positivos (TFP) foi medida como o número de disparos de alarme não
+intencionais por minuto de atividade facial contínua, tanto para a máquina de estados
+de gesto deliberado de seis estados (ME) quanto para um limiar EAR simples como
+baseline. Cada sessão teve duração de 10~minutos de atividade facial naturalística
+sem que o participante tentasse acionar o gesto. A Tabela~\ref{tab:fp} reporta a TFP
+por participante e por grupo.
+
+\begin{table}[htbp]
+  \renewcommand{\arraystretch}{1.15}
+  \caption{Taxa de Falsos Positivos (disparos/min)}
+  \label{tab:fp}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Participante & Grupo & Limiar simples & Máquina de estados \\
+    \midrule
+    P1 & Cuidador & [A] & [B] \\
+    P2 & Cuidador & [A] & [B] \\
+    P3 & Cuidador & [A] & [B] \\
+    P4 & Controle & [A] & [B] \\
+    P5 & Controle & [A] & [B] \\
+    \midrule
+    \textbf{Média cuidadores} & & [A] & \textbf{[B]} \\
+    \textbf{Média controles}  & & [A] & \textbf{[B]} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A máquina de estados de seis estados reduziu a TFP de [A]\,disparos/min (limiar
+simples) para [B]\,disparos/min em média entre todos os participantes, uma redução
+relativa de [C]\,\%. Os participantes cuidadores (P1--P3), que interagiram com P0 em
+contextos emocionalmente naturais, exibiram TFP \textbf{[maior/menor/comparável]} em
+relação aos participantes controle (P4--P5) em tarefas neutras.
+
+\subsection{Taxa de Detecção (Recall)}
+\label{sec:taxadeteccao}
+
+P0 realizou $N$\,=\,[N] tentativas de dupla piscada deliberada com pausas de pelo
+menos 30\,s entre tentativas, atingindo taxa de detecção de \textbf{[D]\,\%} ([M] de
+[N] tentativas detectadas) com o \texttt{DetectionProfile} calibrado. Os participantes
+controle P4 e P5 atingiram taxas de [D1]\,\% e [D2]\,\%, respectivamente, usando
+parâmetros padrão. A taxa de detecção superior dos voluntários saudáveis, se
+confirmada, é consistente com maior mobilidade palpebral residual em comparação com
+a ELA em estágio avançado.

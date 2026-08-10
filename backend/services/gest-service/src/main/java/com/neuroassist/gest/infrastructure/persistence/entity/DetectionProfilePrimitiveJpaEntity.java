@@ -1,13 +1,11 @@
 package com.neuroassist.gest.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
-import java.time.Instant;
 import java.util.UUID;
 import lombok.*;
 
 @Entity
 @Table(name = "detection_profile_primitive")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +14,19 @@ import lombok.*;
 public class DetectionProfilePrimitiveJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "detection_profile_primitive_id")
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "profile_id", nullable = false)
+    private UUID profileId;
 
-    @Column(name = "status")
-    private String status;
+    @Column(name = "tipo_gesto_id", nullable = false)
+    private String tipoGestoId;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    @Column(name = "nome", nullable = false)
+    private String nome;
 
-    // TODO: complete fields from data-model.md
+    @Column(name = "engine_feature_ref")
+    private String engineFeatureRef;
 }

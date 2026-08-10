@@ -1,9 +1,9 @@
 package com.neuroassist.evnt.infrastructure.persistence.adapter;
 
 import com.neuroassist.evnt.application.port.out.ReportIdempotencyRepositoryPort;
-import com.neuroassist.evnt.domain.model.ReportIdempotency;
+import com.neuroassist.evnt.infrastructure.persistence.entity.ReportIdempotencyJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.ReportIdempotencyJpaRepository;
-import java.util.List;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -16,20 +16,22 @@ public class ReportIdempotencyRepositoryAdapter implements ReportIdempotencyRepo
     private final ReportIdempotencyJpaRepository repository;
 
     @Override
-    public ReportIdempotency save(ReportIdempotency entity) {
-        // TODO: map domain model → JPA entity → save → map back
-        throw new UnsupportedOperationException("not implemented");
+    public boolean exists(String reportId) {
+        return repository.existsById(reportId);
     }
 
     @Override
-    public Optional<ReportIdempotency> findById(UUID id) {
-        // TODO: map JPA entity → domain model
-        throw new UnsupportedOperationException("not implemented");
+    public Optional<UUID> findEventoId(String reportId) {
+        return repository.findById(reportId).map(ReportIdempotencyJpaEntity::getEventoId);
     }
 
     @Override
-    public List<ReportIdempotency> findByTenantId(String tenantId) {
-        // TODO: map JPA entities → domain models
-        throw new UnsupportedOperationException("not implemented");
+    public void save(String reportId, UUID eventoId) {
+        repository.save(
+                ReportIdempotencyJpaEntity.builder()
+                        .reportId(reportId)
+                        .eventoId(eventoId)
+                        .processedAt(Instant.now())
+                        .build());
     }
 }

@@ -1,0 +1,38 @@
+services:
+
+  gest-service:
+    image: eclipse-temurin:21-jre-jammy
+    container_name: neuroassist-gest-service
+    command: java -jar /app/app.jar
+    volumes:
+      - ./services/gest-service/build/libs/gest-service-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: poc
+      SPRING_DATASOURCE_URL: jdbc:postgresql://techlab-framework-pgvector:5432/neuroassist_poc
+    ports:
+      - "8082:8082"
+    networks:
+      - techlab-infra_techlab
+    restart: unless-stopped
+
+  evnt-service:
+    image: eclipse-temurin:21-jre-jammy
+    container_name: neuroassist-evnt-service
+    command: java -jar /app/app.jar
+    volumes:
+      - ./services/evnt-service/build/libs/evnt-service-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: poc
+      SPRING_DATASOURCE_URL: jdbc:postgresql://techlab-framework-pgvector:5432/neuroassist_poc
+      EVNT_GEST_BASEURL: http://neuroassist-gest-service:8082
+    ports:
+      - "8083:8083"
+    depends_on:
+      - gest-service
+    networks:
+      - techlab-infra_techlab
+    restart: unless-stopped
+
+networks:
+  techlab-infra_techlab:
+    external: true

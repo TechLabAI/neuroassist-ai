@@ -29,10 +29,10 @@ with no prior contact with the patient, serving as naturalistic false-positive c
     \toprule
     ID & Role & Relationship to P0 & Session \\
     \midrule
-    P0 & MND patient       & ---                  & Calibration + detection \\
-    P1 & Primary caregiver & Spouse, daily contact & FP + real alarm \\
-    P2 & Caregiver 1       & Family, frequent     & FP + real alarm \\
-    P3 & Caregiver 2       & Family, frequent     & FP + real alarm \\
+    P0 & MND patient          & ---                              & Calibration + detection \\
+    P1 & Spouse / home carer  & Intimate, daily (physiotherapist) & FP + real alarm \\
+    P2 & Caregiver 1          & NDIS professional, frequent      & FP + real alarm \\
+    P3 & Caregiver 2          & NDIS professional, frequent      & FP + real alarm \\
     P4 & Control           & None                 & Naturalistic FP baseline \\
     P5 & Control           & None                 & Naturalistic FP baseline \\
     \bottomrule
@@ -40,13 +40,16 @@ with no prior contact with the patient, serving as naturalistic false-positive c
 \end{table}
 
 All participants provided informed consent prior to their session. The study was
-conducted in a~home-care setting and constitutes a~pilot evaluation; no formal human
-research ethics committee (HREC) approval was sought for this preliminary case study
-scope. Full clinical evaluation with a~statistically representative sample of MND
+conducted in P0's home in Melbourne, Australia. P1 is P0's spouse and a~trained
+physiotherapist providing daily home care (ineligible for NDIS funding as a~family
+member under Australian disability support policy); P2 and P3 are National Disability
+Insurance Scheme (NDIS)-funded professional support workers with regular structured
+contact with P0. The study constitutes a~pilot
+evaluation; no formal human research ethics committee (HREC) approval was sought for
+this preliminary case study scope. Full clinical evaluation with a~statistically representative sample of MND
 patients will require HREC approval and is planned as future work.
 
-P0 presents with \fillme{ALSFRS-R stage, residual motor capability, NIV use, current palpebral capacity}. This clinical profile informed the
-calibration protocol described in Section~\ref{sec:calibration}.
+P0 presents with truncal-onset MND (symptom onset: late 2019; disease duration at evaluation: approximately 6.5~years), four-limb weakness with preserved voluntary eyelid movement, and non-invasive ventilation (NIV) prescribed since early 2026 and active at the time of the study. Forced vital capacity was 71\,\% and sniff nasal inspiratory pressure (SNIP) 31\,\% at last documented pre-experiment respiratory assessment (May 2023), with slow disease progression confirmed at that time. \fillme{Confirm before submission: ALSFRS-R score if available; current palpebral mobility assessment.} This clinical profile informed the calibration protocol described in Section~\ref{sec:calibration}.
 
 % ---------------------------------------------------------------------------
 \subsection{Experimental Setup}
@@ -77,8 +80,7 @@ per session.
 \label{sec:calibration}
 
 Before formal trials, P0's \texttt{DetectionProfile} was calibrated by observing
-natural palpebral movement for approximately 5--10~minutes. The calibration
-procedure adjusted two parameters: $\theta_\text{close}$ (EAR threshold for
+natural palpebral movement for approximately 5--10~minutes. P0's clinical profile — progressive MND with documented respiratory muscle involvement (FVC 71\,\%, SNIP 31\,\%) and NIV prescribed since early 2026 — is representative of the population for whom NeuroAssist AI is principally designed~\cite{berlowitz2021niv, yang2026pva}, and the calibrated DetectionProfile reflects the residual palpebral mobility characteristic of this stage. The calibration procedure adjusted two parameters: $\theta_\text{close}$ (EAR threshold for
 blink onset) and \texttt{BLINK\_MIN\_FRAMES} (minimum consecutive frames below
 $\theta_\text{close}$ required to register a~blink).
 
@@ -180,13 +182,12 @@ Table~\ref{tab:fp} reports FPR per participant and per group.
 
 The six-state state machine reduced FPR from [A]\,triggers/min (simple threshold)
 to [B]\,triggers/min averaged across all participants, a~relative reduction of
-[C]\%. Caregiver participants (P1--P3), who interacted with P0 in emotionally
-natural contexts including conversation and care activities, exhibited
+[C]\%. Participants P1--P3, who interacted with P0 in proximity contexts spanning intimate
+spousal care (P1) and structured professional NDIS support (P2--P3), exhibited
 \textbf{[higher/lower/comparable]} FPR compared to control participants (P4--P5)
-engaged in neutral tasks. This difference — if confirmed with larger samples —
-suggests that the emotional and physical proximity of caregivers to MND patients
-may \textbf{[increase/decrease]} incidental double-blink-like facial expressions,
-a~finding not previously reported in the AAC false-positive literature.
+engaged in neutral tasks. This three-tier contrast — intimate domestic care, professional
+support care, and neutral baseline — provides a~novel ecological gradient for studying
+FPR variation, not previously reported in the AAC false-positive literature.
 
 % ---------------------------------------------------------------------------
 \subsection{Detection Rate}

@@ -27,23 +27,25 @@ export const dispositivos: DispositivoEdge[] = [
   { id: 'edge-marcio-01', pacienteId: 'pac-marcio', status: 'online', ultimaSincronizacao: '2026-07-27T17:40:00', versao: '1.4.2' }
 ];
 
-// Catálogo extensível de tipos de gesto (Emenda 2) — seed inicial, não teto.
-// "Leitura labial" ilustra um tipo cadastrado pela família além dos 6 originais.
+// Catálogo de tipos de gesto — espelha neuroassist_poc.tipo_gesto no banco.
 export const tiposGesto: TipoGesto[] = [
-  { id: 'tg-sobrancelha', nome: 'Levantar sobrancelha' },
-  { id: 'tg-piscar-duplo', nome: 'Piscar duas vezes' },
-  { id: 'tg-piscar-rapido', nome: 'Piscar rápido' },
-  { id: 'tg-piscar-devagar', nome: 'Piscar devagar' },
-  { id: 'tg-fechar-olhos', nome: 'Fechar os olhos' },
-  { id: 'tg-mover-nariz', nome: 'Mover o nariz' },
-  { id: 'tg-leitura-labial', nome: 'Leitura labial' },
+  { id: 'tg-piscar-duplo-001',      nome: 'Piscar duas vezes' },
+  { id: 'tg-piscar-esquerdo',       nome: 'Piscar olho esquerdo' },
+  { id: 'tg-piscar-direito',        nome: 'Piscar olho direito' },
+  { id: 'tg-sobrancelha-dupla',     nome: 'Levantar duas sobrancelhas' },
+  { id: 'tg-sobrancelha-direita',   nome: 'Levantar sobrancelha direita' },
+  { id: 'tg-sobrancelha-esquerda',  nome: 'Levantar sobrancelha esquerda' },
 ];
 
-export const comandos: Comando[] = [
-  { id: 'cmd-ajuda', pacienteId: 'pac-marcio', rotulo: 'Ajuda', urgencia: 'emergencia', primitivoPrincipal: 'tg-sobrancelha', primitivoSecundario: null, sensibilidade: 'media', tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1500 },
-  { id: 'cmd-agua', pacienteId: 'pac-marcio', rotulo: 'água', urgencia: 'rotina', primitivoPrincipal: 'tg-sobrancelha', primitivoSecundario: 'tg-piscar-duplo', sensibilidade: 'alta', tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1800 },
-  { id: 'cmd-sapo', pacienteId: 'pac-marcio', rotulo: 'Sapo', urgencia: 'rotina', primitivoPrincipal: 'tg-piscar-rapido', primitivoSecundario: 'tg-piscar-devagar', sensibilidade: 'media', tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1800 }
+// Comandos padrão — cada um usa um gesto diferente para cobrir todos os tipos no PoC.
+// Alterações feitas na tela de Calibração são persistidas em localStorage e têm precedência.
+export const comandosDefault: Comando[] = [
+  { id: 'cmd-ajuda', pacienteId: 'pac-marcio', rotulo: 'Ajuda',  urgencia: 'emergencia', primitivoPrincipal: 'tg-piscar-duplo-001',    primitivoSecundario: null, sensibilidade: 'media', tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1500 },
+  { id: 'cmd-agua',  pacienteId: 'pac-marcio', rotulo: 'Água',   urgencia: 'rotina',     primitivoPrincipal: 'tg-sobrancelha-dupla',    primitivoSecundario: null, sensibilidade: 'alta',  tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1800 },
+  { id: 'cmd-sapo',  pacienteId: 'pac-marcio', rotulo: 'Sapo',   urgencia: 'rotina',     primitivoPrincipal: 'tg-piscar-esquerdo',      primitivoSecundario: null, sensibilidade: 'media', tempoMinimoGestoMs: 400, tempoMaximoGestoMs: 1800 },
 ];
+
+export const comandos: Comando[] = comandosDefault;
 
 // Coleção única de eventos (não há mais "evento_ativo" separado — Evento é uma entidade
 // só, como seria numa tabela real; "evento ativo" é apenas o último evento de urgência

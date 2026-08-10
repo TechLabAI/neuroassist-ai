@@ -1,14 +1,20 @@
 package com.neuroassist.evnt.application.port.in;
 
-/**
- * Inbound port — EventQueryUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import java.time.Instant;
+import java.util.UUID;
+
 public interface EventQueryUseCase {
 
-    void findById(); // TODO: define parameters and return type
+    ActiveEventsResponse listActive();
 
-    void listActive(); // TODO: define parameters and return type
+    record ActiveEventsResponse(EventoSummary activeEvent) {
 
-    void listAll(); // TODO: define parameters and return type
+        public record EventoSummary(
+                UUID id,
+                String urgencia,
+                String tier,
+                String feedback,
+                Instant recognizedAt,
+                String comandoRef) {}
+    }
 }

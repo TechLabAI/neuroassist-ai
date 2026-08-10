@@ -1,0 +1,98 @@
+% =============================================================================
+% Seção 1 — Introdução
+% =============================================================================
+
+\section{Introdução}
+\label{sec:introducao}
+
+A esclerose lateral amiotrófica (ELA), internacionalmente denominada motor neurone disease
+(MND) ou amyotrophic lateral sclerosis (ALS), é uma condição neurodegenerativa progressiva que destrói os neurônios motores
+superiores e inferiores, resultando em perda de movimento voluntário, fala e, por fim,
+função respiratória. A incidência global é de aproximadamente 2--3 casos por
+100.000 pessoas-ano, afetando cerca de 41.000 indivíduos na Austrália e 30.000 no
+Brasil~\cite{mehta2018mnd}. A sobrevida mediana após o diagnóstico é de 2--5 anos; a
+insuficiência respiratória, tipicamente tratada com ventilação não invasiva (VNI), é
+a principal causa de morte. Notavelmente, a VNI demonstrou prolongar a sobrevida por
+um fator de aproximadamente três em comparação ao melhor tratamento farmacológico
+disponível~\cite{berlowitz2021niv}, tornando o período de uso da VNI clinicamente
+significativo e prolongado. Durante essa fase, os pacientes permanecem cognitivamente
+intactos enquanto se tornam progressivamente incapazes de falar ou gesticular de
+formas que as tecnologias de comunicação padrão consigam detectar.
+
+Trabalhos recentes demonstraram que a assincronia paciente-ventilador (PVA) — uma
+incompatibilidade entre os ciclos do ventilador e o esforço respiratório do paciente
+— é um contribuinte significativo para a não adesão à VNI na ELA, causando
+desconforto, fragmentação do sono e potencialmente desfechos clínicos
+adversos~\cite{atkeson2011pva, yang2026pva, berlowitz2025tla}. Pacientes que
+experimentam desconforto relacionado à PVA durante o uso noturno da VNI não
+conseguem sinalizar angústia facilmente aos cuidadores usando as tecnologias de CAA
+existentes, que requerem conectividade de rede ou hardware dedicado inadequado para
+o ambiente domiciliar. O NeuroAssist AI aborda diretamente essa lacuna: ao fornecer
+um canal de sinalização local e sempre disponível que requer apenas uma webcam comum,
+permite que os pacientes alertem os cuidadores durante períodos sem supervisão —
+incluindo enquanto utilizam a VNI à noite.
+
+Em estágios avançados, uma proporção substancial de pacientes experimenta uma condição
+semelhante ao locked-in, na qual o controle voluntário se limita a movimentos faciais
+residuais sutis: pequenas contrações palpebrais, elevações de sobrancelha ou
+microexpressões que persistem após a perda da função motora dos membros e orofacial.
+Esses gestos residuais representam o último canal voluntário disponível para
+comunicação. Sem um meio confiável de detectá-los e agir sobre eles, os pacientes não
+conseguem sinalizar angústia, desconforto ou necessidades aos cuidadores — com
+consequências diretas para a qualidade de vida e a segurança do paciente durante
+períodos sem assistência.
+
+Os sistemas de comunicação aumentativa e alternativa (CAA) existentes não atendem
+adequadamente essa população. Dispositivos de rastreamento ocular de ponta (e.g.,
+Tobii Dynavox) e softwares de CAA dedicados (e.g., Grid~3) oferecem alta precisão,
+mas requerem conectividade sem fio estável, hardware dedicado custando mais de
+USD~3.000, e configurações calibradas em fábrica que não conseguem se adaptar ao
+perfil motor em declínio de um paciente individual~\cite{beukelman2013aac}.
+Interfaces cérebro-computador (BCI) via EEG oferecem uma alternativa, mas envolvem
+hardware invasivo ou volumoso inadequado para implantação domiciliar~\cite{zander2011passive}.
+Abordagens baseadas em câmera de baixo custo existem na literatura~\cite{soukupova2016},
+mas dependem de comparações simples de limiar por quadro que geram taxas de falsos
+positivos inaceitavelmente altas quando aplicadas à atividade facial involuntária
+presente em pacientes com ELA durante a VNI.
+
+Apresentamos o \textbf{NeuroAssist AI}, uma plataforma de comunicação assistiva
+offline-first e preservadora de privacidade projetada para implantação domiciliar com
+uma webcam comum. O sistema transforma gestos faciais residuais em solicitações de
+emergência estruturadas usando um pipeline de visão computacional WebAssembly
+executado localmente, uma máquina de estados de gesto deliberado e um perfil de
+detecção calibrável por paciente — sem transmitir nenhum vídeo para fora do
+dispositivo.
+
+Este artigo apresenta três contribuições originais:
+\begin{enumerate}
+  \item \textbf{Um pipeline de detecção offline-first e preservador de privacidade.}
+    O modelo MediaPipe FaceLandmarker e seu runtime WebAssembly são servidos a partir
+    de ativos locais; nenhum quadro de vídeo ou dado biométrico sai do dispositivo
+    do paciente. O delegate de CPU garante compatibilidade com hardware comum,
+    independentemente da disponibilidade de GPU.
+
+  \item \textbf{Uma máquina de estados de gesto deliberado de seis estados com
+    calibração específica por paciente.}
+    Em vez de um único limiar EAR, a máquina de estados exige duração mínima de
+    fechamento ($\geq$3 quadros, ${\approx}$100\,ms) em cada uma de duas piscadas
+    sequenciais, reabertura confirmada entre elas, e uma janela de tempo configurável.
+    Os limiares são armazenados em um \texttt{DetectionProfile} versionado e adaptados
+    por paciente. Esse design aborda especificamente as fontes de falsos positivos
+    relevantes para a ELA: piscadas involuntárias, artefatos de ptose parcial e
+    deriva lenta de limiar.
+
+  \item \textbf{Uma arquitetura extensível de microsserviços hexagonais com tipos de
+    gesto plug-in.}
+    O campo \texttt{engineFeatureRef} no perfil de detecção desacopla o motor de
+    reconhecimento de gesto do catálogo de comandos, permitindo que novos gestos
+    (elevação de sobrancelha, piscada de um olho) sejam registrados sem modificar o
+    código de domínio existente. Regras ArchUnit aplicadas em tempo de compilação
+    garantem que essa separação persista à medida que o sistema evolui.
+\end{enumerate}
+
+O restante do artigo está organizado da seguinte forma. A Seção~\ref{sec:relacionados}
+revisa os trabalhos relacionados em CAA, detecção de gesto facial e computação de
+borda para saúde. A Seção~\ref{sec:arquitetura} descreve a arquitetura do sistema em
+detalhe. A Seção~\ref{sec:avaliacao} relata a avaliação experimental. A
+Seção~\ref{sec:discussao} discute limitações e trabalhos futuros, e a
+Seção~\ref{sec:conclusao} conclui o artigo.

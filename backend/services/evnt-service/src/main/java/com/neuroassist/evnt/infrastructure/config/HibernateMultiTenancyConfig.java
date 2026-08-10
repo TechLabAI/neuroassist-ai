@@ -8,12 +8,14 @@ import org.hibernate.cfg.AvailableSettings;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 /**
  * Wires Hibernate multi-tenancy beans into Spring's JPA auto-config (D-071). Strategy comes from
  * multi-tenancy.arch.json isolation_strategies[?id=schema-per-tenant].hibernate_strategy (D-063).
  */
 @Configuration
+@Profile("!poc")
 @RequiredArgsConstructor
 public class HibernateMultiTenancyConfig {
 

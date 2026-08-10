@@ -159,7 +159,7 @@ def build_fp_table(fp_csvs: list[Path]) -> tuple[str, str]:
               "naturalistic facial movement per participant (no intentional gestures). "
               "\\emph{SM} = six-state deliberate gesture state machine. "
               "\\emph{Simple} = single-frame EAR average below threshold "
-              f"(\\texttt{{EAR\\_CLOSE}}\\,=\\,{_agent_ear_close()}).}\n")
+              f"(\\texttt{{EAR\\_CLOSE}}\\,=\\,{_agent_ear_close()}).}}\n")
     latex += "\\label{tab:fp}\n"
     latex += "\\begin{tabular}{lrrrrrr}\n\\toprule\n"
     latex += "Participant & Duration (min) & SM triggers & SM/min & Simple triggers & Simple/min \\\\\n"

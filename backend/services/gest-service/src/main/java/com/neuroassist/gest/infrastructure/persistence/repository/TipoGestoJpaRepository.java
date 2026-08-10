@@ -2,12 +2,12 @@ package com.neuroassist.gest.infrastructure.persistence.repository;
 
 import com.neuroassist.gest.infrastructure.persistence.entity.TipoGestoJpaEntity;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface TipoGestoJpaRepository extends JpaRepository<TipoGestoJpaEntity, UUID> {
+public interface TipoGestoJpaRepository extends JpaRepository<TipoGestoJpaEntity, String> {
 
-    List<TipoGestoJpaEntity> findByTenantId(String tenantId);
+    List<TipoGestoJpaEntity> findByDetectabilityState(String detectabilityState);
 
-    // TODO: add domain-specific query methods
+    Optional<TipoGestoJpaEntity> findByIdAndDetectabilityState(String id, String detectabilityState);
 }

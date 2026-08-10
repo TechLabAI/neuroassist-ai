@@ -1,0 +1,134 @@
+% =============================================================================
+% Seção 2 — Trabalhos Relacionados
+% =============================================================================
+
+\section{Trabalhos Relacionados}
+\label{sec:relacionados}
+
+\subsection{Sistemas de CAA para Doenças Neurodegenerativas}
+
+A comunicação aumentativa e alternativa (CAA) para pessoas com ELA tem sido
+estudada extensivamente desde a década de 1990~\cite{beukelman2013aac}. Soluções
+comerciais dominam a prática clínica: dispositivos de rastreamento ocular de ponta,
+como o Tobii Dynavox PCEye e o Eyegaze Edge, oferecem seleção por olhar com precisão
+superior a 98\,\% em condições laboratoriais, mas apresentam custos de hardware acima
+de USD~3.000 e requerem recalibração periódica por profissionais treinados~\cite{beukelman2013aac}.
+Esses sistemas pressupõem controle oculomotor residual suficiente, que se deteriora
+à medida que a ELA progride em direção à oftalmoplegia. Pacotes de software de CAA
+como o Grid~3 dependem de conectividade Bluetooth ou Wi-Fi estável para sincronizar
+conjuntos de símbolos e perfis de usuário, criando uma barreira para usuários
+domiciliares sem banda larga confiável.
+
+Uma pesquisa de Clarke et al.~\cite{clarke2021aac} identificou que a provisão de CAA
+para pessoas com ELA é caracterizada por encaminhamento tardio, transições rápidas de
+dispositivos à medida que a função motora declina, e uma lacuna persistente em soluções
+de baixo custo e adaptáveis adequadas para o ambiente domiciliar. As interfaces
+cérebro-computador (BCI) via eletroencefalografia oferecem um caminho alternativo que
+contorna o sistema motor por completo, mas os headsets de BCI não invasivos atuais
+atingem taxas típicas de transferência de informação de 5--25 bits por minuto em
+condições ótimas, requerem operadores treinados e são inadequados para o contexto de
+cuidado domiciliar~\cite{zander2011passive}. BCIs corticais implantadas atingem taxas
+maiores, mas apresentam risco cirúrgico. O NeuroAssist AI visa o estágio intermediário
+— após a perda da função dos membros e da fala, mas enquanto persiste algum grau de
+movimento facial voluntário — para o qual não existe atualmente nenhuma solução de
+baixo custo e independente de rede na literatura.
+
+\subsection{Detecção de Gesto Facial via Visão Computacional}
+
+Três gerações de análise facial baseada em câmera são relevantes para este trabalho.
+
+\emph{Primeira geração — classificadores em cascata.} Viola e Jones~\cite{violajones2004}
+introduziram a detecção de faces em tempo real usando cascatas de características Haar,
+permitindo a implantação em hardware de consumo. Esses detectores localizam o rosto,
+mas não fornecem coordenadas de marcos sub-faciais; a detecção de piscadas requer
+heurísticas adicionais aplicadas à região do olho detectada e é altamente sensível a
+variações de iluminação.
+
+\emph{Segunda geração — regressão de marcos faciais.} A biblioteca Dlib de King~\cite{king2009dlib}
+popularizou a detecção de 68 marcos faciais por meio de um conjunto de árvores de
+regressão, permitindo o cálculo confiável do EAR~\cite{soukupova2016} sem aprendizado
+profundo. Soukupová e Čech~\cite{soukupova2016} formalizaram o EAR como um escalar
+único para detecção de piscadas, demonstrando precisão de detecção em nível de quadro
+acima de 99\,\% em conjuntos de dados controlados. A principal limitação dessa geração
+é a ausência de um runtime compatível com WebAssembly, tornando a implantação no
+navegador do lado do cliente impraticável.
+
+\emph{Terceira geração — modelos de marcos profundos no dispositivo.} O MediaPipe
+FaceLandmarker~\cite{lugaresi2019mediapipe} fornece 468 marcos faciais normalizados e
+52 coeficientes de blendshape a aproximadamente 30\,fps em um contexto de navegador
+WebAssembly usando apenas um delegate de CPU. O NeuroAssist AI se baseia nessa
+geração, retendo o EAR para a máquina de estados de dupla piscada (onde sua
+simplicidade auxilia a interpretabilidade) enquanto usa pontuações de blendshape para
+gestos de piscada de um olho e sobrancelha.
+
+\subsection{Reconhecimento de Gesto Deliberado e Supressão de Falsos Positivos}
+
+Um desafio fundamental em CAA acionada por gesto é distinguir ativações intencionais
+da atividade facial involuntária que ocorre continuamente durante o comportamento normal.
+A taxa de piscadas espontâneas em adultos saudáveis é de 15--20 piscadas por
+minuto~\cite{bentivoglio1997}; em pacientes com ELA, as taxas podem ser menores devido
+à perda de neurônios motores, mas permanecem diferentes de zero. Qualquer abordagem
+baseada em limiar aplicada no nível de quadro único produz taxas de falsos positivos
+da ordem de vários por minuto em condições naturais, tornando o monitoramento sem
+supervisão inviável.
+
+As duas principais estratégias na literatura para suprimir falsos positivos em CAA
+facial são \emph{tempo de permanência} (\emph{dwell time}) e \emph{modelagem de
+intencionalidade}. A seleção por tempo de permanência — amplamente usada em CAA
+baseada em olhar — exige que o usuário fixe uma região-alvo por uma duração fixa
+(tipicamente 0,5--1\,s)~\cite{majaranta2002eyetyping}. Essa abordagem é inaplicável
+à entrada baseada em piscada, pois uma piscada por definição fecha o olho e interrompe
+a fixação. A modelagem de intencionalidade via máquinas de estados foi proposta na
+literatura mais ampla de interação humano-computador~\cite{zander2011passive}, mas sua
+aplicação à CAA baseada em piscada para ELA não foi sistematicamente descrita. A
+máquina de seis estados introduzida neste artigo (Seção~\ref{sec:maquinadeestados})
+aplica restrições de intencionalidade específicas ao gesto de dupla piscada: duração
+mínima de fechamento por piscada, abertura confirmada entre piscadas, e uma janela
+temporal — combinação não encontrada, ao conhecimento dos autores, na literatura
+anterior de CAA.
+
+\subsection{Computação de Borda e Privacidade para Aplicações de Saúde}
+
+O processamento de dados de sensores relacionados à saúde no dispositivo, em vez de
+na nuvem, tem recebido atenção crescente após a aplicação do GDPR em 2018 e da LGPD
+em 2020~\cite{edpb2020privacy}. O vídeo facial é classificado explicitamente como dado
+biométrico sob ambos os marcos regulatórios, atraindo as maiores obrigações regulatórias
+de processamento. A execução local via WebAssembly fornece uma garantia prática de
+privacidade: o modelo de execução com memória isolada da especificação impede que um
+módulo carregado acesse qualquer estado do navegador fora de sua memória linear, e
+nenhuma chamada de rede é necessária para executar a inferência do marcador de
+landmark~\cite{haas2017wasm}. A latência de implantação de modelos WebAssembly para
+análise facial foi relatada em 20--40\,ms por quadro em hardware de consumo sem
+aceleração por GPU~\cite{lugaresi2019mediapipe}, consistente com a operação a 30\,fps
+observada em nosso PoC.
+
+\subsection{Arquitetura de Software para Sistemas de Saúde}
+
+A arquitetura Hexagonal (Portas e Adaptadores)~\cite{cockburn2005hexagonal} foi
+proposta como um padrão estrutural para sistemas de informação em saúde onde o modelo
+de domínio deve permanecer isolado de mudanças tecnológicas — um requisito recorrente
+em software de saúde regulamentado onde requisitos de auditoria, esquemas de dados e
+padrões de integração evoluem de forma independente~\cite{richardson2018microservices}.
+A decomposição em microsserviços de plataformas de CAA não foi relatada na literatura,
+ao conhecimento dos autores; a maioria dos sistemas existentes são aplicações
+monolíticas de desktop ou firmware. A arquitetura do NeuroAssist AI demonstra que
+decompor um pipeline de gesto-para-alarme em serviços independentemente implantáveis
+é viável em escala de PoC, e que a aplicação de limites em tempo de compilação via
+ArchUnit fornece um mecanismo prático para manter a disciplina hexagonal.
+
+\subsection{Comunicação e Segurança Durante o Uso de VNI na ELA}
+
+A adesão à ventilação não invasiva na ELA está consistentemente abaixo das metas
+clínicas, com desconforto relatado pelo paciente e assincronia dispositivo-paciente
+identificados como principais fatores contribuintes~\cite{berlowitz2021niv, yang2026pva}.
+A polissonografia domiciliar em 23 pacientes com ELA utilizando VNI noturna documentou
+um índice de assincronia médio de 69 eventos por hora (intervalo 15--146) — muito
+acima dos limiares associados à perturbação clinicamente significativa do
+sono~\cite{atkeson2011pva}. O ensaio clínico randomizado 3TLA~\cite{berlowitz2025tla}
+investiga atualmente se a titulação da VNI guiada por polissonografia melhora as taxas
+de uso; seu desfecho primário — uso de VNI superior a quatro horas por dia — reflete
+o desafio de manter a adesão em ambientes domiciliares. Uma dimensão complementar e
+pouco explorada é a capacidade do paciente de sinalizar desconforto ou angústia aos
+cuidadores durante o uso de VNI sem supervisão, particularmente à noite. Ao conhecimento
+dos autores, nenhum sistema publicado fornece um mecanismo independente de rede e de
+baixo custo para esse fim; o NeuroAssist AI foi projetado para preencher essa lacuna.

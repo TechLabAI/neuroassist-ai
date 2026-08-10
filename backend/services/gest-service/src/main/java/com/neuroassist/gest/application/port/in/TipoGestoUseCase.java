@@ -1,16 +1,15 @@
 package com.neuroassist.gest.application.port.in;
 
-/**
- * Inbound port — TipoGestoUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import com.neuroassist.gest.domain.model.TipoGesto;
+import java.util.List;
+
 public interface TipoGestoUseCase {
 
-    void listAll(); // TODO: define parameters and return type
+    List<TipoGesto> listAll();
 
-    void findById(); // TODO: define parameters and return type
+    TipoGesto findById(String id);
 
-    void register(); // TODO: define parameters and return type
+    TipoGesto register(String nome);
 
-    void transition(); // TODO: define parameters and return type
+    TipoGesto transition(String id, String toState, String engineFeatureRef, String reason);
 }

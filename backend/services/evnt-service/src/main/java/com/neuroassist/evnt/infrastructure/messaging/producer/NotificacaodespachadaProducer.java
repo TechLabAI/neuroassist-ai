@@ -2,11 +2,13 @@ package com.neuroassist.evnt.infrastructure.messaging.producer;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
+@Profile("!poc")
 @RequiredArgsConstructor
 public class NotificacaodespachadaProducer {
 

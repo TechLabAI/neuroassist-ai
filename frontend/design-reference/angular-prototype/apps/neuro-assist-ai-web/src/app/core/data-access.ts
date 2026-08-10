@@ -5,7 +5,7 @@
 // =============================================================================
 import { Injectable, signal, inject } from '@angular/core';
 import { Comando, DispositivoEdge, Evento, Paciente, TipoGesto, Tenant, Cuidador } from '../shared/data-model';
-import { pacientes, dispositivos, comandos, eventos, tiposGesto, tenants, cuidadores } from '../shared/mock-data';
+import { pacientes, dispositivos, comandosDefault, eventos, tiposGesto, tenants, cuidadores } from '../shared/mock-data';
 
 // Arquitetura hexagonal de frontend — para cada coleção/agregado:
 //   Port (interface)  <-  MockAdapter (Estágio 0)  |  HttpAdapter (fe-autopilot do cliente)
@@ -39,9 +39,19 @@ export class DispositivosFacade {
   // TODO[fe-autopilot]: casos de uso reais (filtros, comandos, paginação) sobre a porta
 }
 
+const COMANDOS_STORAGE_KEY = 'neuroassist_poc_comandos';
+
 export abstract class ComandosPort { abstract list(): Promise<Comando[]>; }
 @Injectable()
-export class ComandosMockAdapter extends ComandosPort { async list(): Promise<Comando[]> { return comandos; } }
+export class ComandosMockAdapter extends ComandosPort {
+  async list(): Promise<Comando[]> {
+    try {
+      const raw = localStorage.getItem(COMANDOS_STORAGE_KEY);
+      if (raw) return JSON.parse(raw) as Comando[];
+    } catch { /* ignora JSON inválido e usa default */ }
+    return comandosDefault;
+  }
+}
 @Injectable({ providedIn: 'root' })
 export class ComandosFacade {
   private readonly port = inject(ComandosPort);
@@ -49,6 +59,10 @@ export class ComandosFacade {
   readonly loading = signal(false);
   constructor() { void this.load(); }
   async load(): Promise<void> { this.loading.set(true); this.items.set(await this.port.list()); this.loading.set(false); }
+  /** Persiste o estado atual dos comandos em localStorage (PoC — substitui escrita no BD). */
+  persistir(): void {
+    try { localStorage.setItem(COMANDOS_STORAGE_KEY, JSON.stringify(this.items())); } catch { /* ignora */ }
+  }
   // TODO[fe-autopilot]: casos de uso reais (filtros, comandos, paginação) sobre a porta
 }
 
@@ -108,7 +122,23 @@ export class EventosFacade {
   readonly items = signal<Evento[]>([]);
   readonly loading = signal(false);
   constructor() { void this.load(); }
-  async load(): Promise<void> { this.loading.set(true); this.items.set(await this.port.list()); this.loading.set(false); }
+
+  // `silent: true` suprime os updates em loading (uso: polling de background)
+  async load(opts?: { silent?: boolean }): Promise<void> {
+    if (!opts?.silent) this.loading.set(true);
+    const incoming = await this.port.list();
+    this.mergeIncoming(incoming);
+    if (!opts?.silent) this.loading.set(false);
+  }
+
+  // Adiciona apenas eventos com IDs ainda não presentes na lista local.
+  // Eventos confirmados localmente são preservados — nunca removidos pelo polling.
+  private mergeIncoming(incoming: Evento[]): void {
+    const current    = this.items();
+    const currentIds = new Set(current.map(e => e.id));
+    const novos      = incoming.filter(e => !currentIds.has(e.id));
+    if (novos.length > 0) this.items.update(list => [...list, ...novos]);
+  }
   // TODO[fe-autopilot]: casos de uso reais (filtros, comandos, paginação) sobre a porta
 }
 

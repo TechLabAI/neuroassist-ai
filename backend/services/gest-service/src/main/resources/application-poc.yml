@@ -1,0 +1,27 @@
+server:
+  port: 8082
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/neuroassist_poc
+    username: neuroassist
+    password: poc123
+  flyway:
+    enabled: true
+    schemas: neuroassist_poc
+    default-schema: neuroassist_poc
+    table: flyway_gest_history
+  jpa:
+    properties:
+      hibernate:
+        default_schema: neuroassist_poc
+    hibernate:
+      ddl-auto: validate
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jms.artemis.ArtemisAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.jms.JmsHealthContributorAutoConfiguration
+
+eureka:
+  client:
+    enabled: false

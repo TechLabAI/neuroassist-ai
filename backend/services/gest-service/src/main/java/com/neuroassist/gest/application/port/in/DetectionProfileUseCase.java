@@ -1,16 +1,19 @@
 package com.neuroassist.gest.application.port.in;
 
-/**
- * Inbound port — DetectionProfileUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import com.neuroassist.gest.domain.model.DetectionProfile;
+import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import java.util.List;
+import java.util.Optional;
+
 public interface DetectionProfileUseCase {
 
-    void publish(); // TODO: define parameters and return type
+    DetectionProfile publish();
 
-    void getActive(); // TODO: define parameters and return type
+    Optional<DetectionProfile> getActive();
 
-    void findByVersion(); // TODO: define parameters and return type
+    Optional<DetectionProfile> findByVersion(int version);
 
-    void pullByDevice(); // TODO: define parameters and return type
+    Optional<ActiveWithPrimitives> getActiveWithPrimitives();
+
+    record ActiveWithPrimitives(DetectionProfile profile, List<DetectionProfilePrimitive> primitives) {}
 }

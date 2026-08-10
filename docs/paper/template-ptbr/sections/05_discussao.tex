@@ -1,0 +1,92 @@
+% =============================================================================
+% Seção 5 — Discussão
+% =============================================================================
+
+\section{Discussão}
+\label{sec:discussao}
+
+\subsection{Acessibilidade de Hardware e Contexto de Implantação}
+
+Uma restrição central de design do NeuroAssist AI foi a implantabilidade em hardware
+comum já presente na maioria dos domicílios. O pipeline de detecção requer apenas
+uma webcam padrão (720p ou superior) e um navegador moderno; não são necessárias GPU,
+hardware de sensoriamento dedicado ou dongle proprietário. Isso contrasta com os
+dispositivos comerciais de CAA por rastreamento ocular, cujo custo tipicamente excede
+USD~3.000~\cite{beukelman2013aac} e cujo setup requer envolvimento de técnico clínico.
+Uma webcam adequada para o pipeline custa aproximadamente BRL~100--500 e está
+amplamente disponível em países de baixa e média renda (LMICs), incluindo o Brasil,
+onde aproximadamente 30.000 indivíduos vivem com ELA~\cite{mehta2018mnd}. O design
+offline-first elimina adicionalmente a dependência de banda larga estável — uma
+barreira significativa em contextos rurais e periurbanos em LMICs — uma vez que
+nenhuma conectividade à internet é necessária durante a detecção de gestos ou a
+entrega de alarmes em uma rede local.
+
+\subsection{Privacidade desde a Concepção}
+
+O vídeo facial é classificado como dado biométrico tanto pelo Regulamento Geral de
+Proteção de Dados (GDPR) quanto pela Lei Geral de Proteção de Dados Pessoais (LGPD),
+atraindo o mais alto nível de proteção regulatória para contextos de
+saúde~\cite{edpb2020privacy}. O NeuroAssist AI satisfaz um princípio estrito de
+privacidade desde a concepção: o runtime WebAssembly e o modelo de landmarks faciais
+são executados inteiramente dentro do ambiente de execução em sandbox do navegador, e
+nenhum quadro de vídeo ou coordenada de landmark facial é transmitida pela rede. O
+único dado que cruza a fronteira de rede é um payload JSON estruturado contendo o tipo
+de gesto detectado, uma pontuação de confiança e um identificador de paciente — nenhum
+deles constitui dado biométrico segundo as definições regulatórias atuais. Essa
+arquitetura torna o NeuroAssist AI adequado para implantação domiciliar direta sem
+exigir acordos institucionais de processamento de dados.
+
+\subsection{Extensibilidade via Mecanismo Plug-in \texttt{engineFeatureRef}}
+
+O campo \texttt{engineFeatureRef} no \texttt{DetectionProfile} foi projetado
+explicitamente para expansão futura de gestos. Adicionar um novo tipo de gesto —
+como elevação de canto labial, fechamento ocular sustentado, ou aceno de cabeça via
+estimativa de pose — requer apenas: (i) inserir uma nova linha \texttt{TipoGesto}
+com um novo valor \texttt{engineFeatureRef}; (ii) implementar o módulo detector
+correspondente no agente de borda; e (iii) publicar um novo \texttt{DetectionProfile}.
+Nenhum modelo de domínio, caso de uso ou regra ArchUnit existente requer modificação.
+
+\subsection{Limitações}
+
+\textbf{Dependência de iluminação.} O EAR é calculado a partir de coordenadas de
+marcos no espaço de pixels; sua confiabilidade se deteriora em ambientes com pouca
+iluminação. Testes práticos documentaram casos onde o $\theta_\text{close}$ padrão de
+0,20 exigiu ajuste manual para 0,17--0,18 sob iluminação artificial fraca. Trabalhos
+futuros devem incorporar ajuste automático de limiar adaptativo à iluminação.
+
+\textbf{Escopo do estudo de caso preliminar.} A avaliação inclui um paciente com ELA
+em estágio avançado e cinco cuidadores e voluntários, e deve ser interpretada como
+estudo de caso preliminar, e não como ensaio clínico. A generalização para a população
+mais ampla de ELA exigirá um estudo multicêntrico com amostra estatisticamente
+representativa sob aprovação de CEP.
+
+\textbf{Sobrecarga de latência por polling.} A aplicação do cuidador detecta eventos
+ativos consultando o \texttt{evnt-service} a cada cinco segundos. Isso introduz uma
+sobrecarga máxima fixa de 5\,s na latência evento-para-alarme visível. O intervalo de
+polling é uma simplificação do PoC; a implantação em produção deve substituir o polling
+por eventos enviados pelo servidor (SSE) ou push WebSocket.
+
+\textbf{Adaptadores stub para módulos periféricos.} O catálogo de comandos (serviço
+PAC), a trilha de auditoria (serviço HIST) e o cadastro de cuidadores (serviço ACS)
+são representados por adaptadores stub com valores fixos no PoC. Os resultados de
+latência e confiabilidade refletem apenas os subsistemas GEST e EVNT.
+
+\subsection{Trabalhos Futuros}
+
+Os próximos passos mais impactantes, em ordem de prioridade clínica, são: (i)~um
+estudo clínico com participantes com ELA sob aprovação de CEP; (ii)~substituição do
+transporte de polling por SSE para eliminar o teto de latência de alarme de 5\,s;
+(iii)~integração do catálogo completo de comandos PAC para suportar comunicação
+multi-comandos; e (iv)~avaliação de tipos de gesto adicionais, particularmente para
+pacientes que retêm controle unilateral de sobrancelha após a perda do controle
+bilateral de piscada.
+
+Um caminho de integração de alta prioridade é o acoplamento dos eventos de angústia
+do NeuroAssist AI com fluxos de dados de ventiladores VNI. Grupos de pesquisa que
+estudam PVA na ELA~\cite{stell2024pva, yang2026pva} trabalham com sinais fisiológicos
+multicanais em formato EDF, com precisão temporal de segundos. O \texttt{eventoId}
+do NeuroAssist AI carrega um timestamp \texttt{createdAt} do servidor e um timestamp
+\texttt{recognizedAt} do dispositivo; correlacionar esses dados com a linha temporal
+de monitoramento da VNI permitiria a um estudo futuro testar se eventos de angústia
+confirmados pelo cuidador co-ocorrem com índices elevados de PVA — uma hipótese
+clinicamente significativa que nenhum dos dois sistemas pode testar isoladamente.

@@ -1,12 +1,12 @@
 package com.neuroassist.gest.application.port.in;
 
-/**
- * Inbound port — DetectionContractUseCase. Generated stub; define parameters and return types
- * before implementing.
- */
+import java.util.List;
+
 public interface DetectionContractUseCase {
 
-    void getContractDescriptor(); // TODO: define parameters and return type
+    ValidationResult validateReport(ValidateReportCommand command);
 
-    void validateReport(); // TODO: define parameters and return type
+    record ValidateReportCommand(int profileVersion, List<String> tipoGestoIds) {}
+
+    record ValidationResult(boolean valid, String contractVersion) {}
 }

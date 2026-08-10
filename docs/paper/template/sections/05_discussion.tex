@@ -103,3 +103,5 @@ of the polling transport with SSE to eliminate the 5\,s alarm latency ceiling;
 communication (beyond the single emergency alert demonstrated here); and
 (iv)~evaluation of additional gesture types, particularly for patients who retain
 unilateral brow control after bilateral blink control is lost.
+
+A high-priority integration pathway is coupling NeuroAssist AI distress events with NIV ventilator data streams. Research groups studying PVA in MND~\cite{stell2024pva, yang2026pva} work with multichannel physiological signals in EDF format, timestamped to second precision. NeuroAssist AI's \texttt{eventoId} carries a server-side \texttt{createdAt} timestamp and a device-side \texttt{recognizedAt} timestamp; correlating these with the NIV monitoring timeline would allow a future study to test whether caregiver-confirmed distress events co-occur with elevated PVA indices — a clinically meaningful hypothesis that neither system can test alone.

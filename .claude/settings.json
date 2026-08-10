@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/hooks/stop_token_capture.py"
+            "command": "python \"D:\\01_Trabalho\\Cybersoft\\TechLab IA\\neuroassist-ai\\.claude\\hooks\\stop_token_capture.py\""
           }
         ]
       }
