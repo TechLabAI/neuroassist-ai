@@ -1,58 +1,31 @@
 import { Injectable, Type } from '@angular/core';
-import { GestureLiveTestComponent } from '../feature-live-test/gesture-live-test.component';
+import { GEST_MODULE_DESCRIPTOR } from '../gest.descriptor';
 
 // ---------------------------------------------------------------------------
-// GestShellIntegrationService — SPEC-06 §3, GEST-INT-001
-// The ONLY sanctioned path for scope:web host pages (PAC calibracao, onboarding)
-// to obtain GestureLiveTestComponent.
-//
-// nx-boundary rule (GEST-INT-002): scope:pac and scope:acs MUST NOT import
-// scope:gest directly. They use this service (provided at scope:web level) to
-// resolve the component type, preserving the boundary.
-//
-// Composition pattern (SPEC-06 §5):
-//   scope:web host page
-//     → resolveLiveTestSlot()
-//       → GestShellIntegrationService
-//         → Type<GestureLiveTestComponent>
-//     → renders <gest-live-test [commandDraft]=... (testCompleted)=.../>
+// GestShellIntegrationService — GEST-INT-001
+// The ONLY sanctioned way for scope:web host pages (PAC calibracao page,
+// onboarding gesto step) to obtain GestureLiveTestComponent. scope:pac and
+// scope:acs must never import @neuroassist/gest directly (GEST-INT-002
+// nx-boundary) — they expose an ng-content slot; the host page injects this
+// service and projects the resolved component into it.
 // ---------------------------------------------------------------------------
-
-/** Registry entry contributed by GEST to the shell. */
-export interface GestModuleRegistration {
-  readonly key: string;
-  readonly showInNav: false; // GEST never appears in sidebar navigation
-  readonly liveTestComponent: Type<GestureLiveTestComponent>;
-}
 
 @Injectable({ providedIn: 'root' })
 export class GestShellIntegrationService {
   private registered = false;
-  private readonly registration: GestModuleRegistration = {
-    key: 'gest',
-    showInNav: false,
-    liveTestComponent: GestureLiveTestComponent,
-  };
 
-  /** Register the GEST module descriptor with the shell registry.
-   * Called from gestBootstrap.init() (SPEC-06 §4). */
+  /** Called by gestBootstrap.init() when the GEST module is first loaded. */
   registerWithShell(): void {
-    if (this.registered) return;
     this.registered = true;
-    // TODO[GEST-INT-001]: wire to shell module registry when the registry service
-    // is implemented (scope:web shell bootstrap). For now, this service is self-contained.
   }
 
-  /** Returns the GestureLiveTestComponent type so scope:web host pages can render it
-   * without importing scope:gest directly (preserves nx-boundary, GEST-INT-002). */
-  resolveLiveTestSlot(): Promise<Type<GestureLiveTestComponent>> {
-    // Sync in the current implementation — async signature preserved for forward
-    // compatibility with remote-entry dynamic loading (post-MVP).
-    return Promise.resolve(this.registration.liveTestComponent);
-  }
-
-  /** Check whether GEST has been registered with the shell. */
-  isRegistered(): boolean {
+  get isRegistered(): boolean {
     return this.registered;
+  }
+
+  /** Resolves the live-test component for content-projection into a host
+   * page's [slot=live-test] outlet (e.g. pac-command-editor). */
+  resolveLiveTestSlot(): Promise<Type<unknown>> {
+    return GEST_MODULE_DESCRIPTOR.liveTestComponent();
   }
 }

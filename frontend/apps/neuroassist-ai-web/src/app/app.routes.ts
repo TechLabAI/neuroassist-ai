@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AppShellComponent } from './shell/app-shell.component';
+import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
 
 export const appRoutes: Routes = [
   {
@@ -25,10 +26,40 @@ export const appRoutes: Routes = [
       },
 
       // PAC — Pacientes e Catálogo de Comandos (Calibração)
+      // Catalog delegates to PAC_ROUTES as-is; the two comando-editor paths are
+      // overridden here (not via PAC_ROUTES) because the live-test composition
+      // — GestureLiveTestComponent projected into [slot=live-test] — must live
+      // at scope:web (PAC never imports scope:gest, GEST-INT-005/ADR-002).
+      // Guards are reused verbatim from PAC's own route definitions.
       {
         path: 'pac',
-        loadChildren: () =>
-          import('@neuroassist/pac').then((m) => m.PAC_ROUTES),
+        children: [
+          // These two MUST come before the catalog's loadChildren below —
+          // Angular tries children in array order, and PAC_ROUTES (nested
+          // under path:'') would otherwise greedily match these same URLs
+          // first via its own internal (unwrapped) editor routes.
+          {
+            path: 'comandos/novo',
+            canActivate: [pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard],
+            loadComponent: () =>
+              import('./pages/pac-comando-editor-page.component').then(
+                (m) => m.PacComandoEditorPageComponent,
+              ),
+          },
+          {
+            path: 'comandos/:comandoId/editar',
+            canActivate: [pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard],
+            loadComponent: () =>
+              import('./pages/pac-comando-editor-page.component').then(
+                (m) => m.PacComandoEditorPageComponent,
+              ),
+          },
+          {
+            path: '',
+            loadChildren: () =>
+              import('@neuroassist/pac').then((m) => m.PAC_ROUTES),
+          },
+        ],
       },
 
       // EDGE — Integração de Dispositivo Edge (showInNav:false)

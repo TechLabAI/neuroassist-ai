@@ -1,29 +1,25 @@
 import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
-import { EdgeRecognitionSignal, ComandoDraft } from '@neuroassist/shared/contracts';
+import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 
 // ---------------------------------------------------------------------------
-// EdgeDetectionPort — SPEC-04 §2
-// Abstraction over the localhost WS/SSE bridge to the same-device edge agent.
-// The browser never owns the classifier; it streams a result (ADR-005).
+// EdgeDetectionPort — SPEC-04 §2 (GEST-FE-007)
+// Wraps the localhost WS/SSE bridge to the local edge agent. GestureTestFacade
+// is the only consumer; it decides real vs mock based on deviceOnline/degraded.
 // ---------------------------------------------------------------------------
 
 export interface EdgeDetectionPort {
-  /** Open a real stream to the edge agent for the given command draft.
-   * Negotiates contractVersion on channel open.
-   * IF the agent advertises an incompatible contractVersion, switches transparently
-   * to mockStream (degraded, reason 'version-mismatch'). */
+  /** Open a real bridge session for the given draft. Transparently falls back
+   * to an honest degraded stream (never a fake "recognized") if the bridge is
+   * unreachable or the negotiated contractVersion is incompatible. */
   openStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal>;
 
-  /** Fallback stream emitting degraded:true signals for every tick.
-   * Used when the edge agent is offline, unreachable, or on a version mismatch.
-   * Never emits a real recognized verdict — honest degraded invariant (ADR-005). */
+  /** Explicit degraded/simulated stream — used directly when deviceOnline is
+   * already known false, or as the fallback path from openStream(). */
   mockStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal>;
 
-  /** Unsubscribe and release the bridge connection. */
+  /** Close the active bridge session, if any. Idempotent. */
   close(): void;
 }
 
-export const EDGE_DETECTION_PORT = new InjectionToken<EdgeDetectionPort>(
-  'EdgeDetectionPort',
-);
+export const EDGE_DETECTION_PORT = new InjectionToken<EdgeDetectionPort>('EDGE_DETECTION_PORT');

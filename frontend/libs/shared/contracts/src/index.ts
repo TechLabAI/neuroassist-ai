@@ -1,4 +1,4 @@
-export {
+export type {
   EdgeRecognitionSignal,
   ComandoDraft,
   GestureTestVM,
@@ -11,7 +11,7 @@ export {
   Urgencia,
 } from './lib/contracts';
 
-export {
+export type {
   PairingState,
   WireStatus,
   DispositivoEdgeView,
