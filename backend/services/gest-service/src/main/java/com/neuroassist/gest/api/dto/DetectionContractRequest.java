@@ -1,10 +1,9 @@
 package com.neuroassist.gest.api.dto;
 
-import java.util.List;
+import java.util.Map;
 
-public record DetectionContractRequest(
-        int profileVersion,
-        List<PrimitiveRef> primitives) {
-
-    public record PrimitiveRef(String tipoGestoId) {}
-}
+/**
+ * Request payload for POST /recognized-commands — validate a RecognizedCommandReport against the
+ * frozen detection contract. Stateless; nothing is persisted.
+ */
+public record DetectionContractRequest(Map<String, Object> report) {}

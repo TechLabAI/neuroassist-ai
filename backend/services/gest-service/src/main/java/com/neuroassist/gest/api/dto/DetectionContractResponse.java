@@ -1,3 +1,6 @@
 package com.neuroassist.gest.api.dto;
 
-public record DetectionContractResponse(boolean valid, String contractVersion) {}
+import java.util.List;
+
+/** Response for the recognition report validation. */
+public record DetectionContractResponse(boolean valid, List<String> errors) {}

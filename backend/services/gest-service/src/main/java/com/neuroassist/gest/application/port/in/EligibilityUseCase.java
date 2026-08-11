@@ -1,10 +1,10 @@
 package com.neuroassist.gest.application.port.in;
 
-/**
- * Inbound port — EligibilityUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import com.neuroassist.gest.api.dto.EligibilityRequest;
+import com.neuroassist.gest.api.dto.EligibilityResponse;
+
+/** Inbound port — emergency-command eligibility guard. */
 public interface EligibilityUseCase {
 
-    void check(); // TODO: define parameters and return type
+    EligibilityResponse check(EligibilityRequest request);
 }

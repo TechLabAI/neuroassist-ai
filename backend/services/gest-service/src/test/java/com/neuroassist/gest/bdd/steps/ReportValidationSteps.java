@@ -157,8 +157,8 @@ public class ReportValidationSteps {
         throw new io.cucumber.java.PendingException();
     }
 
-    @When("the edge posts a report with primitive confidence {string}")
-    public void whenTheEdgePostsAReportWithPrimitiveConfidence(String confidence) {
+    @When("the edge posts a report with primitive confidence {double}")
+    public void whenTheEdgePostsAReportWithPrimitiveConfidence(double confidence) {
         // TODO: implement step
         throw new io.cucumber.java.PendingException();
     }

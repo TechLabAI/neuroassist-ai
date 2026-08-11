@@ -1,0 +1,113 @@
+{
+  "issue": "GEST-002",
+  "layer": "be",
+  "computedAt": "2026-08-10T13:33:00",
+  "checklist": {
+    "total": 10,
+    "done": 3,
+    "partial": 0,
+    "missing": 7,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/TipoGesto.java` (JPA `@Entity`, UUID pk gen_random_uuid, `detectabilityState` enum, `engineFeatureRef` nullable, `@Check` constraints, audit fields created_by/updated_by)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/TipoGesto.java"
+      },
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/TipoGestoTransition.java` (JPA `@Entity`, append-only, FK para TipoGesto ON DELETE RESTRICT, campos from_state/to_state/actor/reason/at)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/TipoGestoTransition.java"
+      },
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectabilityState.java` (enum: REGISTERED, PENDING_TRAINING, SUPPORTED, DEPRECATED)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectabilityState.java"
+      },
+      {
+        "text": "adicionar metodo `isTransitionAllowed(DetectabilityState to)` em `TipoGesto` (allowed set do ADR-006)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "adicionar metodo factory `TipoGesto.register(String nome)` retornando instancia em REGISTERED",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "cobertura de testes unitarios para todas as 5 transicoes permitidas e 3+ proibidas",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`TipoGesto.isTransitionAllowed(DEPRECATED)` retorna false quando estado atual e REGISTERED (sem transicao direta)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`TipoGesto` com estado SUPPORTED e `engineFeatureRef=null` e rejeitado pela constraint JPA antes de persistir (`ck_tipo_gesto_supported_needs_ref`)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "tentativa de `UPDATE` via JPA em `TipoGestoTransition` lanca excecao (imutabilidade verificada em teste)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "testes unitarios cobrem todos os 5 arcos do ADR-006 (permitidos) e pelo menos 3 arcos proibidos",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "unknown",
+    "lint": "skip",
+    "test": "unknown",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 24,
+    "provisional": true,
+    "range": [
+      24,
+      34
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 15,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 9,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 9/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

@@ -1,4 +1,6 @@
 package com.neuroassist.gest.api.dto;
 
-// TODO: define fields from api-contract.md
-public record DetectionProfileRequest(String tenantId /* TODO: add fields */) {}
+import java.util.Map;
+
+/** Request payload for POST /detection-profiles — publish a new versioned detection profile. */
+public record DetectionProfileRequest(Map<String, Object> classificationParams) {}

@@ -6,8 +6,8 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
- * PoC stub for EdgePairingPort — returns a fixed tenant for all devices.
- * Active only when profile "poc" is active.
+ * PoC stub for EdgePairingPort — returns a fixed tenant for all devices. Active only when profile
+ * "poc" is active.
  */
 @Primary
 @Component

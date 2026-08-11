@@ -12,8 +12,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 /**
- * PoC stub: all requests permitted, JWT validation disabled (P0).
- * CORS enabled for Angular prototype access from browser (localhost:4200).
+ * PoC stub: all requests permitted, JWT validation disabled (P0). CORS enabled for Angular
+ * prototype access from browser (localhost:4200).
  */
 @Configuration
 @EnableWebSecurity

@@ -4,14 +4,16 @@ import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveReposi
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
 import com.neuroassist.gest.infrastructure.persistence.entity.DetectionProfilePrimitiveJpaEntity;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfilePrimitiveJpaRepository;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * JPA adapter for {@link DetectionProfilePrimitiveRepositoryPort}. Records are immutable after
+ * creation — {@code saveAll} is the only write operation. Schema routing via search_path is
+ * transparent. Implemented in P3 (GEST-012).
+ */
 @Component
 @RequiredArgsConstructor
 public class DetectionProfilePrimitiveRepositoryAdapter
@@ -20,38 +22,38 @@ public class DetectionProfilePrimitiveRepositoryAdapter
     private final DetectionProfilePrimitiveJpaRepository repository;
 
     @Override
-    public DetectionProfilePrimitive save(DetectionProfilePrimitive entity) {
-        DetectionProfilePrimitiveJpaEntity jpa = DetectionProfilePrimitiveJpaEntity.builder()
-                .profileId(entity.profileId())
-                .tipoGestoId(entity.tipoGestoId())
-                .nome(entity.nome())
-                .engineFeatureRef(entity.engineFeatureRef())
-                .build();
-        return toDomain(repository.save(jpa));
-    }
-
-    @Override
-    public Optional<DetectionProfilePrimitive> findById(UUID id) {
-        return repository.findById(id).map(this::toDomain);
-    }
-
-    @Override
-    public List<DetectionProfilePrimitive> findByTenantId(String tenantId) {
-        return Collections.emptyList();
+    public List<DetectionProfilePrimitive> saveAll(List<DetectionProfilePrimitive> primitives) {
+        List<DetectionProfilePrimitiveJpaEntity> entities =
+                primitives.stream().map(this::toEntity).toList();
+        List<DetectionProfilePrimitiveJpaEntity> saved = repository.saveAll(entities);
+        return saved.stream().map(this::toDomain).toList();
     }
 
     @Override
     public List<DetectionProfilePrimitive> findByProfileId(UUID profileId) {
-        return repository.findByProfileId(profileId)
-                .stream().map(this::toDomain).collect(Collectors.toList());
+        return repository.findByDetectionProfileId(profileId).stream().map(this::toDomain).toList();
     }
 
-    private DetectionProfilePrimitive toDomain(DetectionProfilePrimitiveJpaEntity e) {
+    // ────────────────────────────────────────────────────────────────────────
+    // Mapping helpers — domain ↔ JPA entity
+    // ────────────────────────────────────────────────────────────────────────
+
+    private DetectionProfilePrimitiveJpaEntity toEntity(DetectionProfilePrimitive p) {
+        return DetectionProfilePrimitiveJpaEntity.builder()
+                .id(p.id())
+                .detectionProfileId(p.profileId())
+                .tipoGestoId(p.tipoGestoId())
+                .nomeSnapshot(p.nomeSnapshot())
+                .engineFeatureRef(p.engineFeatureRef())
+                .build();
+    }
+
+    private DetectionProfilePrimitive toDomain(DetectionProfilePrimitiveJpaEntity entity) {
         return new DetectionProfilePrimitive(
-                e.getId(),
-                e.getProfileId(),
-                e.getTipoGestoId(),
-                e.getNome(),
-                e.getEngineFeatureRef());
+                entity.getId(),
+                entity.getDetectionProfileId(),
+                entity.getTipoGestoId(),
+                entity.getNomeSnapshot(),
+                entity.getEngineFeatureRef());
     }
 }

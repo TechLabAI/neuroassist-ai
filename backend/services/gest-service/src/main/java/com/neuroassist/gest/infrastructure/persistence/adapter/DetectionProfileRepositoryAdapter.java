@@ -1,42 +1,39 @@
 package com.neuroassist.gest.infrastructure.persistence.adapter;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.infrastructure.persistence.entity.DetectionProfileJpaEntity;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfileJpaRepository;
-import java.util.Collections;
-import java.util.List;
+import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
+import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+/**
+ * JPA adapter for {@link DetectionProfileRepositoryPort}. Handles the JSONB ↔ {@code
+ * Map<String,Object>} conversion for {@code classificationParams} using Jackson. Schema routing is
+ * transparent via {@link
+ * com.neuroassist.gest.infrastructure.security.MultiTenantConnectionProvider}. Implemented in P3
+ * (GEST-012).
+ */
 @Component
 @RequiredArgsConstructor
 public class DetectionProfileRepositoryAdapter implements DetectionProfileRepositoryPort {
 
     private final DetectionProfileJpaRepository repository;
+    private final ObjectMapper objectMapper;
+
+    private static final TypeReference<Map<String, Object>> PARAMS_TYPE = new TypeReference<>() {};
 
     @Override
-    public DetectionProfile save(DetectionProfile entity) {
-        DetectionProfileJpaEntity jpa = DetectionProfileJpaEntity.builder()
-                .id(entity.id())
-                .version(entity.version())
-                .active(entity.active())
-                .contractVersion(entity.contractVersion())
-                .publishedAt(entity.publishedAt())
-                .build();
-        return toDomain(repository.save(jpa));
-    }
-
-    @Override
-    public Optional<DetectionProfile> findById(UUID id) {
-        return repository.findById(id).map(this::toDomain);
-    }
-
-    @Override
-    public List<DetectionProfile> findByTenantId(String tenantId) {
-        return Collections.emptyList();
+    public DetectionProfile save(DetectionProfile profile) {
+        DetectionProfileJpaEntity entity = toEntity(profile);
+        DetectionProfileJpaEntity saved = repository.save(entity);
+        return toDomain(saved);
     }
 
     @Override
@@ -45,25 +42,54 @@ public class DetectionProfileRepositoryAdapter implements DetectionProfileReposi
     }
 
     @Override
-    public Optional<DetectionProfile> findByVersion(int version) {
-        return repository.findByVersion(version).map(this::toDomain);
+    public long nextVersion() {
+        return repository.nextVersion();
     }
 
     @Override
-    public void deactivateAll() {
-        List<DetectionProfileJpaEntity> active = repository.findAllByActiveTrue();
-        for (DetectionProfileJpaEntity e : active) {
-            e.setActive(false);
-        }
-        repository.saveAll(active);
+    public void deactivateCurrent() {
+        repository.deactivateCurrent();
     }
 
-    private DetectionProfile toDomain(DetectionProfileJpaEntity e) {
+    // ────────────────────────────────────────────────────────────────────────
+    // Mapping helpers — domain ↔ JPA entity
+    // ────────────────────────────────────────────────────────────────────────
+
+    private DetectionProfileJpaEntity toEntity(DetectionProfile profile) {
+        String paramsJson;
+        try {
+            paramsJson = objectMapper.writeValueAsString(profile.classificationParams());
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(
+                    "Failed to serialize classificationParams for profile " + profile.id(), e);
+        }
+        return DetectionProfileJpaEntity.builder()
+                .id(profile.id())
+                .version(profile.version())
+                .active(profile.active())
+                .contractVersion(profile.contractVersion())
+                .classificationParams(paramsJson)
+                .publishedAt(profile.publishedAt())
+                .publishedBy(profile.publishedBy())
+                .build();
+    }
+
+    private DetectionProfile toDomain(DetectionProfileJpaEntity entity) {
+        Map<String, Object> params;
+        try {
+            params = objectMapper.readValue(entity.getClassificationParams(), PARAMS_TYPE);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                    "Failed to deserialize classificationParams for profile " + entity.getId(), e);
+        }
         return new DetectionProfile(
-                e.getId(),
-                e.getVersion(),
-                e.isActive(),
-                e.getContractVersion(),
-                e.getPublishedAt());
+                entity.getId(),
+                entity.getVersion(),
+                Boolean.TRUE.equals(entity.getActive()),
+                entity.getContractVersion(),
+                params,
+                entity.getPublishedAt(),
+                entity.getPublishedBy(),
+                TenantContextHolder.getTenantIdOrNull());
     }
 }

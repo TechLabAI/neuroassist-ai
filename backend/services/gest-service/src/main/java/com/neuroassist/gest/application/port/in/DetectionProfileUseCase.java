@@ -1,19 +1,18 @@
 package com.neuroassist.gest.application.port.in;
 
-import com.neuroassist.gest.domain.model.DetectionProfile;
-import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
-import java.util.List;
+import com.neuroassist.gest.api.dto.DetectionProfileRequest;
+import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import java.util.Optional;
+import java.util.UUID;
 
+/** Inbound port — DetectionProfile use cases. */
 public interface DetectionProfileUseCase {
 
-    DetectionProfile publish();
+    DetectionProfileResponse publish(DetectionProfileRequest request);
 
-    Optional<DetectionProfile> getActive();
+    Optional<DetectionProfileResponse> findActive();
 
-    Optional<DetectionProfile> findByVersion(int version);
+    Optional<DetectionProfileResponse> findByVersion(long version);
 
-    Optional<ActiveWithPrimitives> getActiveWithPrimitives();
-
-    record ActiveWithPrimitives(DetectionProfile profile, List<DetectionProfilePrimitive> primitives) {}
+    Optional<DetectionProfileResponse> findForDevice(UUID deviceId);
 }

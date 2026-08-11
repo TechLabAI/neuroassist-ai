@@ -8,5 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DetectionProfilePrimitiveJpaRepository
         extends JpaRepository<DetectionProfilePrimitiveJpaEntity, UUID> {
 
-    List<DetectionProfilePrimitiveJpaEntity> findByProfileId(UUID profileId);
+    // Multi-tenancy is via schema routing (search_path), not a tenant_id column.
+
+    // TODO P3: query snapshot members by profile
+    List<DetectionProfilePrimitiveJpaEntity> findByDetectionProfileId(UUID detectionProfileId);
 }
