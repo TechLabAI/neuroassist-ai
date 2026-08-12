@@ -13,7 +13,7 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | EVNT | evnt | OK | OK | OK | OK | OK | 2026-07-28 |
 | PAC | pac | OK | OK | OK | OK | OK | 2026-07-29 |
 | EDGE | edge | OK | OK | OK | OK | OK | 2026-07-29 |
-| ACS | acs | OK | OK | OK | OK | pendente | 2026-07-30 |
+| ACS | acs | OK | OK | OK | OK | OK | 2026-08-12 |
 
 ## Ledger de gates diferidos
 
@@ -47,3 +47,4 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-07-29T20:14:35 -- ACS -- M3 -- FE Specs OK -- SPEC-01..08 + generator-config.yml + backend-api-cross-link + design-tokens + 3 e2e features; EARS 55/55 clauses; onboarding wizard scope:web (ACS owner)
 - 2026-07-30T00:22:11 -- ACS -- M4 Specs-Validate -- OK (skip: EARS PASS 55/55 concluído em M3)
 - 2026-07-30T00:52:00 -- ACS -- M5 FE Backlog -- OK -- 31 issues funcionais + 5 integração = 36 issues; plan-FE-ACS.md gerado
+- 2026-08-12T00:00:00 -- ACS -- M6 FE Promote -- OK (Track D) -- 3 Ports (Tenant/Cuidador/Link) + 3 Mocks (ADR-005 last-covering-block enforced no mock) + 3 HTTP stubs; AcsTenantFacade + AcsCaregiverFacade (signals + coverage map derivada); provideAcs(); 4 feature components (CaregiverRoster/CaregiverEditor/PatientLinkage/TenantSetup); AcsShellIntegrationService; ACS_ROUTES (/acs, /acs/cuidadores/novo, /acs/cuidadores/:id/editar, /acs/pacientes/:id/vinculos); rota /onboarding wired (scope:web); ACS_DESCRIPTOR adicionado (showInNav:true); acs-e2e 45 specs; E2E gate OK (pending)

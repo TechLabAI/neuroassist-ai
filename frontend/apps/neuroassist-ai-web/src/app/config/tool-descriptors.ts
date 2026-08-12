@@ -57,12 +57,27 @@ const EDGE_DESCRIPTOR: ModuleDescriptor = {
   requiredPermission: 'edge.device.read',
 };
 
+// ---------------------------------------------------------------------------
+// ACS — Cuidadores e Acesso
+// showInNav:true — coordinator-gated surface (Cuidadores nav entry).
+// Owns the onboarding wizard shell (scope:web /onboarding page).
+// ---------------------------------------------------------------------------
+const ACS_DESCRIPTOR: ModuleDescriptor = {
+  key: 'acs',
+  label: 'Cuidadores',
+  icon: 'manage_accounts',
+  shellRoute: '/acs',
+  showInNav: true,
+  requiredPermission: 'acs.cuidador.read',
+};
+
 // Modules added progressively via /fe-architect-promote
 // (only modules with showInNav:true appear in the sidebar)
 export const MODULE_DESCRIPTORS: ModuleDescriptor[] = [
   GEST_DESCRIPTOR,
   PAC_DESCRIPTOR,
   EDGE_DESCRIPTOR,
+  ACS_DESCRIPTOR,
 ];
 
 /** Convenience: sidebar nav items (modules that contribute a nav entry). */

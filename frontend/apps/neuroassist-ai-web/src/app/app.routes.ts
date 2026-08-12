@@ -3,6 +3,16 @@ import { AppShellComponent } from './shell/app-shell.component';
 import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
 
 export const appRoutes: Routes = [
+  // Onboarding wizard — scope:web page (ACS-owned), outside shell layout
+  {
+    path: 'onboarding',
+    loadComponent: () =>
+      import('./pages/onboarding-wizard-page.component').then(
+        (m) => m.OnboardingWizardPageComponent,
+      ),
+    title: 'Configuração inicial',
+  },
+
   {
     path: '',
     component: AppShellComponent,
@@ -71,10 +81,16 @@ export const appRoutes: Routes = [
           import('@neuroassist/edge').then((m) => m.EDGE_ROUTES),
       },
 
+      // ACS — Cuidadores e Acesso (promoted by /fe-architect-promote ACS)
+      {
+        path: 'acs',
+        loadChildren: () =>
+          import('@neuroassist/acs').then((m) => m.ACS_ROUTES),
+      },
+
       // Additional modules added progressively via /fe-architect-promote:
       // { path: 'hist', loadChildren: () => import('@neuroassist/hist').then(m => m.HIST_ROUTES) },
       // { path: 'dash', loadChildren: () => import('@neuroassist/dash').then(m => m.DASH_ROUTES) },
-      // { path: 'acs', loadChildren: () => import('@neuroassist/acs').then(m => m.ACS_ROUTES) },
 
       { path: '**', redirectTo: '' },
     ],

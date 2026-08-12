@@ -1,0 +1,21 @@
+{
+  "name": "acs-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/acs-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:acs",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "acs"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/acs-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

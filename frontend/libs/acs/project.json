@@ -1,0 +1,9 @@
+{
+  "name": "@neuroassist/acs",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/acs/src",
+  "prefix": "acs",
+  "tags": ["scope:acs", "type:feature"],
+  "targets": {}
+}

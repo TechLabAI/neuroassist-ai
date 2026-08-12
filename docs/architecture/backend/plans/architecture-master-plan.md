@@ -57,3 +57,4 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | PEA (Python Edge Agent) | `neuroassist-edge-agent/` (futuro) | OK 2026-07-30 | D-534 | Python 3.11+, MediaPipe+ONNX; co-located; docs em docs/architecture/edge-agent/python-edge-agent/ |
 - 2026-07-30T00:22:06 -- ACS -- M4 Backlog -- OK (skip: plan-ACS.md já existia)
 - 2026-07-30T00:45:17 -- ACS -- M5 BE Scaffold -- OK -- compileJava OK, ArchUnit OK, BDD gate DIFERIDO (Testcontainers/PostgreSQL)
+- 2026-08-12T03:19:04 -- GEST -- Reconciliação pós-PoC — P1/P2/P3 real implementados (141/143 testes OK); 8 bugs corrigidos; ADR-005-FE aceito; ADR-006-EAR/BRI-interim criado (D-536); EVNT-026 aberta (D-538)

@@ -1,6 +1,6 @@
 # ADR-005 — Live gesture test bridges to the local Edge Agent (no browser ML)
 
-- **Status:** proposed (2026-07-27)
+- **Status:** accepted (2026-08-12) — implemented via `edge-agent-ws.py`; interim detector ratified by ADR-006
 - **Scope:** local (module GEST)
 
 ## Context
