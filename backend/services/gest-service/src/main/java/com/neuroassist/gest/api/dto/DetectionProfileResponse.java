@@ -1,17 +1,15 @@
 package com.neuroassist.gest.api.dto;
 
-import java.util.List;
+import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 
+/** Response shape for a DetectionProfile resource. */
 public record DetectionProfileResponse(
         UUID id,
-        int version,
+        long version,
+        boolean active,
         String contractVersion,
-        List<PrimitiveInfo> primitives) {
-
-    public record PrimitiveInfo(
-            UUID id,
-            String tipoGestoId,
-            String nome,
-            String engineFeatureRef) {}
-}
+        Map<String, Object> classificationParams,
+        Instant publishedAt,
+        String etag) {}

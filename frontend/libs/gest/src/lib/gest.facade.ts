@@ -50,9 +50,16 @@ export class GestureTestFacade {
   private streamSub: Subscription | null = null;
   private mediaStream: MediaStream | null = null;
   private currentDraft: ComandoDraft | null = null;
+  private readonly _previewStream = signal<MediaStream | null>(null);
 
   /** Read-only view of the full VM (SPEC-03 §2). */
   readonly state = this._state.asReadonly();
+
+  /** Cosmetic-only preview stream (browser's own camera) for the caregiver to
+   * see themselves while testing. NOT the detection input — real detection
+   * runs on the edge agent's own camera handle (ADR-005 edge/cloud split);
+   * this stream never leaves the browser tab. */
+  readonly previewStream = this._previewStream.asReadonly();
 
   /** Shortcut signals for component binding. */
   readonly step = computed(() => this._state().step);
@@ -138,6 +145,7 @@ export class GestureTestFacade {
         video: true,
         audio: false,
       });
+      this._previewStream.set(this.mediaStream);
       return true;
     } catch {
       this._state.update((vm) => ({
@@ -153,6 +161,7 @@ export class GestureTestFacade {
   private releaseCamera(): void {
     this.mediaStream?.getTracks().forEach((t) => t.stop());
     this.mediaStream = null;
+    this._previewStream.set(null);
   }
 
   private subscribeToStream(draft: ComandoDraft): void {

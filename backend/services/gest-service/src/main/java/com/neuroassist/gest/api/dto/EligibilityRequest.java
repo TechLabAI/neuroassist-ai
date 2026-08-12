@@ -1,4 +1,6 @@
 package com.neuroassist.gest.api.dto;
 
-// TODO: define fields from api-contract.md
-public record EligibilityRequest(String tenantId /* TODO: add fields */) {}
+import jakarta.validation.constraints.NotBlank;
+
+/** Request payload for POST /eligibility:check — emergency-command guard invoked by PAC. */
+public record EligibilityRequest(@NotBlank String urgencyLevel) {}

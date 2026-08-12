@@ -1,0 +1,6 @@
+{
+  "test": "skip",
+  "build": "skip",
+  "e2e": "skip",
+  "lint": "skip"
+}

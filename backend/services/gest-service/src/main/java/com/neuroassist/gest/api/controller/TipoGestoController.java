@@ -2,18 +2,27 @@ package com.neuroassist.gest.api.controller;
 
 import com.neuroassist.gest.api.dto.TipoGestoRequest;
 import com.neuroassist.gest.api.dto.TipoGestoResponse;
-import com.neuroassist.gest.api.dto.TipoGestoTransitionRequest;
+import com.neuroassist.gest.api.dto.TransitionRequest;
 import com.neuroassist.gest.application.port.in.TipoGestoUseCase;
-import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.shared.audit.AuditAction;
+import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+// Security: @PreAuthorize derived from rbac.arch.json via the module generator.
+// To change which permission gates a method, edit rbac.arch.json and re-run
+// be-module-generator.py; do not patch the annotation by hand.
 @Slf4j
 @RestController
 @RequestMapping("/gest-service/tipo-gesto")
@@ -25,41 +34,37 @@ public class TipoGestoController {
     @GetMapping
     @PreAuthorize("hasAuthority('gest.tipo-gesto.read')")
     public ResponseEntity<List<TipoGestoResponse>> listAll() {
-        List<TipoGestoResponse> result = tipoGestoUseCase.listAll()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(tipoGestoUseCase.listAll());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('gest.tipo-gesto.read')")
-    public ResponseEntity<TipoGestoResponse> findById(@PathVariable String id) {
-        return ResponseEntity.ok(toResponse(tipoGestoUseCase.findById(id)));
+    public ResponseEntity<TipoGestoResponse> findById(@PathVariable UUID id) {
+        TipoGestoResponse response = tipoGestoUseCase.findById(id);
+        if (response == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping
     @PreAuthorize("hasAuthority('gest.tipo-gesto.criar')")
     @AuditAction("CREATE_TIPO_GESTO")
-    public ResponseEntity<TipoGestoResponse> register(@RequestBody TipoGestoRequest request) {
-        TipoGesto created = tipoGestoUseCase.register(request.nome());
-        return ResponseEntity.status(201).body(toResponse(created));
+    public ResponseEntity<TipoGestoResponse> register(
+            @RequestBody @Valid TipoGestoRequest request) {
+        TipoGestoResponse response = tipoGestoUseCase.register(request);
+        if (response == null) {
+            return ResponseEntity.ok().build();
+        }
+        URI location = URI.create("/gest-service/tipo-gesto/" + response.id());
+        return ResponseEntity.created(location).body(response);
     }
 
-    @PutMapping("/{id}/transition")
+    @PostMapping("/{id}/transitions")
     @PreAuthorize("hasAuthority('gest.tipo-gesto.editar')")
     @AuditAction("UPDATE_TIPO_GESTO")
     public ResponseEntity<TipoGestoResponse> transition(
-            @PathVariable String id,
-            @RequestBody TipoGestoTransitionRequest request) {
-        TipoGesto updated = tipoGestoUseCase.transition(
-                id, request.toState(), request.engineFeatureRef(), request.reason());
-        return ResponseEntity.ok(toResponse(updated));
-    }
-
-    private TipoGestoResponse toResponse(TipoGesto tg) {
-        return new TipoGestoResponse(
-                tg.id(), tg.nome(), tg.detectabilityState(),
-                tg.engineFeatureRef(), tg.createdAt(), tg.updatedAt());
+            @PathVariable UUID id, @RequestBody @Valid TransitionRequest request) {
+        return ResponseEntity.ok(tipoGestoUseCase.transition(id, request));
     }
 }

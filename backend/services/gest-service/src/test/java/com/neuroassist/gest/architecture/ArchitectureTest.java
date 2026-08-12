@@ -51,6 +51,17 @@ public class ArchitectureTest {
                     .dependOnClassesThat()
                     .resideInAPackage("..api..");
 
+    // GEST-004: application.* must not depend on infrastructure.*
+    // (hexagonal boundary — application layer only depends on domain + port interfaces)
+    @ArchTest
+    static final ArchRule rule_application_not_depends_infra =
+            ArchRuleDefinition.noClasses()
+                    .that()
+                    .resideInAPackage("..application..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("..infrastructure..");
+
     // RULE-06: @FeignClient only in infrastructure.clients
     @ArchTest
     static final ArchRule rule06_feign_only_in_clients =

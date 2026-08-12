@@ -1,0 +1,108 @@
+{
+  "issue": "GEST-003",
+  "layer": "be",
+  "computedAt": "2026-08-10T13:33:04",
+  "checklist": {
+    "total": 9,
+    "done": 2,
+    "partial": 0,
+    "missing": 7,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectionProfile.java` (JPA `@Entity`, UUID pk, version bigint, active boolean, contract_version, classification_params jsonb via String/jsonb, published_at, published_by; campo `active` pode ser setado apenas para false por update; UNIQUE version, partial UNIQUE active)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectionProfile.java"
+      },
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectionProfilePrimitive.java` (JPA `@Entity`, FK para DetectionProfile ON DELETE CASCADE, FK para TipoGesto ON DELETE RESTRICT, nome_snapshot, engine_feature_ref NOT NULL, UNIQUE profile+tipoGesto)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/domain/model/DetectionProfilePrimitive.java"
+      },
+      {
+        "text": "adicionar metodo factory `DetectionProfile.publish(long version, String contractVersion, String classificationParams, List<TipoGesto> supported)` que popula o snapshot e define `active=true`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "adicionar validacao que `supported` nao pode ser vazio (invariante: `empty-profile`)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "testes unitarios de factory e das invariantes de versao/active",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`DetectionProfile.publish(...)` com lista vazia de suportados lanca `IllegalArgumentException` (guard antes de persistir)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "dois `DetectionProfile` com o mesmo `version` em testes de integracao violam `ux_profile_version` do BD",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`DetectionProfilePrimitive.engineFeatureRef` e obrigatorio (NOT NULL em JPA e SQL)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`DetectionProfile` nao expoe setters que permitam mudar campos de conteudo apos criacao (imutabilidade)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "unknown",
+    "lint": "skip",
+    "test": "unknown",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 22,
+    "provisional": true,
+    "range": [
+      22,
+      32
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 15,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 7,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 7/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

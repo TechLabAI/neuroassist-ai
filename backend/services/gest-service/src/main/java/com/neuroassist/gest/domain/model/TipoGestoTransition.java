@@ -3,12 +3,28 @@ package com.neuroassist.gest.domain.model;
 import java.time.Instant;
 import java.util.UUID;
 
-// No Spring/JPA imports (RULE-01, RULE-02)
+/**
+ * Append-only audit record of a detectability state transition (invariant #4 — no silent
+ * regression). ZERO Spring / ZERO JPA (RULE-01, RULE-02). Records are never updated or deleted by
+ * the application.
+ */
 public record TipoGestoTransition(
         UUID id,
-        String tipoGestoId,
-        String fromState,
-        String toState,
+        UUID tipoGestoId,
+        DetectabilityState fromState,
+        DetectabilityState toState,
         String actor,
         String reason,
-        Instant at) {}
+        Instant at) {
+
+    /** Factory for creating a new transition record. The id and timestamp are auto-generated. */
+    public static TipoGestoTransition of(
+            UUID tipoGestoId,
+            DetectabilityState fromState,
+            DetectabilityState toState,
+            String actor,
+            String reason) {
+        return new TipoGestoTransition(
+                UUID.randomUUID(), tipoGestoId, fromState, toState, actor, reason, Instant.now());
+    }
+}

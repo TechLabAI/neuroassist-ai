@@ -1,201 +1,159 @@
 import {
   Component,
   ChangeDetectionStrategy,
-  inject,
   input,
   output,
+  inject,
+  effect,
   viewChild,
   ElementRef,
-  effect,
   OnDestroy,
 } from '@angular/core';
+import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts';
 import { GestureTestFacade } from '../gest.facade';
-import {
-  ComandoDraft,
-  GestureTestOutcome,
-  GestureTestState,
-} from '@neuroassist/shared/contracts';
 
 // ---------------------------------------------------------------------------
-// GestureLiveTestComponent — SPEC-03 §5, GEST-FE-011
-// The live-test panel: webcam preview + start/stop + recognition result.
-// This is NOT a routed screen — it is an embeddable component composed by host
-// pages (PAC calibracao editor, onboarding gesture step) at scope:web.
-// Composition path: host page → GestShellIntegrationService.resolveLiveTestSlot()
-// nx-boundary: scope:pac/scope:acs MUST NOT import scope:gest directly (GEST-INT-002).
+// GestureLiveTestComponent — GEST-FE-011 (smart container)
+// Composed into PAC's [slot=live-test] and the onboarding gesto step via
+// GestShellIntegrationService.resolveLiveTestSlot() — never imported directly
+// by scope:pac/scope:acs (GEST-INT-002 nx-boundary).
 //
-// Invariants:
-//   - GEST-FE-011: ngOnDestroy MUST call facade.stopTest() (camera lifecycle safety)
-//   - Camera off outside 'testing' state (SPEC-03 §4 invariant 1)
-//   - No raw confidence numbers on screen (SPEC-03 §4 invariant 2)
-//   - degraded:true in outcome => simulated verdict, not real (ADR-005)
+// Consolidates the Wave-3 presentational pieces (preview frame, state badge,
+// composite step indicator, degraded banner, controls) inline for now —
+// pragmatic-first; splitting into separate components (GEST-FE-012..016) is a
+// non-breaking follow-up since this component's @Input/@Output surface won't
+// change.
 // ---------------------------------------------------------------------------
 
 @Component({
-  selector: 'gest-live-test',
+  selector: 'gest-gesture-live-test',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="flex items-center gap-4 rounded-lg bg-surface-2 p-4">
-      <!-- Camera preview -->
-      <div
-        class="relative grid h-20 w-28 flex-shrink-0 place-items-center overflow-hidden rounded-xl bg-surface"
-      >
+    <div class="gest-live-test rounded-lg border border-line p-4">
+      <!-- Degraded banner — always rendered (honest-degraded invariant, ADR-005) -->
+      @if (facade.degraded()) {
+        <div class="mb-3 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+          {{ degradedCopy() }}
+        </div>
+      }
+
+      <!-- Composite step indicator -->
+      @if (draft().composite && facade.testState() === 'testing') {
+        <div class="mb-3 flex items-center gap-2 text-xs text-ink-soft">
+          <span [class.font-bold]="facade.step() === 'principal'">1. Gesto principal</span>
+          <span>→</span>
+          <span [class.font-bold]="facade.step() === 'secundario'">2. Gesto secundário</span>
+        </div>
+      }
+
+      <!-- Preview frame (cosmetic only — real detection runs on the edge agent) -->
+      @if (facade.testState() === 'testing' || facade.testState() === 'recognized') {
         <video
-          #videoPreview
-          class="h-full w-full object-cover"
-          [class.hidden]="facade.testState() !== 'testing'"
+          #previewVideo
+          class="mb-3 w-full max-w-sm rounded-md bg-black"
           autoplay
           muted
           playsinline
         ></video>
-        @if (facade.testState() !== 'testing') {
-          <span
-            class="material-symbols-outlined text-[28px]"
-            [class]="iconClass(facade.testState())"
-          >
-            {{ iconName(facade.testState()) }}
-          </span>
-        }
-      </div>
+      }
 
-      <!-- Status / message -->
-      <div class="flex-1 text-xs">
-        @if (facade.degraded()) {
-          <div class="mb-1 rounded-md bg-warn-bg px-2 py-1 text-xs font-medium text-warn">
-            Modo degradado — agente de detecção indisponível. Resultado simulado.
-          </div>
-        }
-        <span [class]="messageClass(facade.testState())">
-          {{ facade.message() }}
-        </span>
-        @if (facade.testState() === 'testing' && commandDraft().composite && facade.step()) {
-          <div class="mt-1 flex items-center gap-1 text-ink-faint">
-            <span
-              class="material-symbols-outlined text-[14px]"
-              [class]="facade.step() === 'secundario' ? 'text-success' : 'text-ink-faint'"
-            >
-              {{ facade.step() === 'secundario' ? 'check_circle' : 'radio_button_unchecked' }}
-            </span>
-            <span>Gesto principal</span>
-            <span class="mx-1">›</span>
-            <span
-              class="material-symbols-outlined text-[14px]"
-              [class]="'text-ink-faint'"
-            >radio_button_unchecked</span>
-            <span>Gesto secundário</span>
-          </div>
-        }
+      <!-- State badge -->
+      <div
+        class="mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
+        [class]="badgeClass()"
+      >
+        {{ facade.message() }}
       </div>
 
       <!-- Controls -->
-      @if (facade.testState() === 'testing') {
-        <button
-          class="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-surface-2"
-          (click)="onStop()"
-        >
-          Parar
-        </button>
-      } @else if (
-        facade.testState() === 'recognized' ||
-        facade.testState() === 'not-recognized' ||
-        facade.testState() === 'camera-error'
-      ) {
-        <button
-          class="rounded-lg border border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand-subtle"
-          (click)="onRetry()"
-        >
-          Testar de novo
-        </button>
-      } @else {
-        <button
-          class="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft hover:bg-surface-2"
-          (click)="onStart()"
-        >
-          Testar agora
-        </button>
-      }
+      <div class="flex items-center gap-2">
+        @if (facade.testState() === 'idle' || facade.testState() === 'not-recognized' || facade.testState() === 'camera-error') {
+          <button
+            type="button"
+            class="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-white"
+            (click)="start()"
+          >
+            {{ facade.testState() === 'idle' ? 'Testar gesto' : 'Tentar novamente' }}
+          </button>
+        }
+        @if (facade.testState() === 'testing') {
+          <button
+            type="button"
+            class="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink"
+            (click)="stop()"
+          >
+            Parar
+          </button>
+        }
+      </div>
     </div>
   `,
 })
 export class GestureLiveTestComponent implements OnDestroy {
   protected readonly facade = inject(GestureTestFacade);
 
-  /** Input: command draft provided by the host page (PAC editor or onboarding). */
-  readonly commandDraft = input.required<ComandoDraft>();
+  readonly draft = input.required<ComandoDraft>();
+  readonly outcome = output<GestureTestOutcome>();
 
-  /** Output: emitted when the test reaches a terminal state (recognized/not-recognized). */
-  readonly testCompleted = output<GestureTestOutcome>();
-
-  private readonly videoPreview =
-    viewChild<ElementRef<HTMLVideoElement>>('videoPreview');
+  private readonly previewVideo = viewChild<ElementRef<HTMLVideoElement>>('previewVideo');
 
   constructor() {
-    // Wire facade mediaStream → video element (runs after each render cycle)
+    // Bind the cosmetic preview stream to the <video> element whenever both
+    // become available (view child only exists while state is testing/recognized).
     effect(() => {
-      if (this.facade.testState() === 'testing') {
-        // The facade owns the MediaStream; we just display it
-        // Video srcObject is set by the facade via the videoPreview ref
-        this.wireVideo();
+      const video = this.previewVideo()?.nativeElement;
+      const stream = this.facade.previewStream();
+      if (video && stream && video.srcObject !== stream) {
+        video.srcObject = stream;
       }
     });
 
-    // Emit outcome to host page when test reaches terminal state
+    // Forward completed outcomes to the host page (PAC command editor).
     effect(() => {
       const outcome = this.facade.lastOutcome();
-      if (outcome) {
-        this.testCompleted.emit(outcome);
+      if (outcome && outcome.commandDraftRef === this.draft().commandDraftRef) {
+        this.outcome.emit(outcome);
       }
     });
   }
 
-  /** GEST-FE-011 invariant: ngOnDestroy MUST call stopTest() to release camera. */
+  protected start(): void {
+    this.facade.startTest(this.draft());
+  }
+
+  protected stop(): void {
+    this.facade.stopTest();
+  }
+
+  protected badgeClass(): string {
+    switch (this.facade.testState()) {
+      case 'recognized':
+        return 'bg-green-100 text-green-800';
+      case 'not-recognized':
+      case 'camera-error':
+        return 'bg-red-100 text-red-800';
+      case 'testing':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-surface-2 text-ink-soft';
+    }
+  }
+
+  protected degradedCopy(): string {
+    switch (this.facade.state().degradedReason) {
+      case 'device-offline':
+        return 'Dispositivo offline — teste em modo simulado, resultado não é real.';
+      case 'bridge-unreachable':
+        return 'Agente de detecção local não respondeu — teste em modo simulado.';
+      case 'version-mismatch':
+        return 'Versão do agente de detecção incompatível — teste em modo simulado.';
+      default:
+        return 'Modo degradado — resultado do teste é simulado, não real.';
+    }
+  }
+
   ngOnDestroy(): void {
     this.facade.stopTest();
-  }
-
-  protected onStart(): void {
-    this.facade.startTest(this.commandDraft());
-    // Wire video element after camera is acquired (effect handles reactively)
-  }
-
-  protected onStop(): void {
-    this.facade.stopTest();
-  }
-
-  protected onRetry(): void {
-    this.facade.retry();
-  }
-
-  protected iconClass(state: GestureTestState): string {
-    if (state === 'recognized') return 'text-success';
-    if (state === 'not-recognized' || state === 'camera-error') return 'text-danger';
-    return 'text-ink-faint';
-  }
-
-  protected iconName(state: GestureTestState): string {
-    if (state === 'recognized') return 'check_circle';
-    if (state === 'not-recognized') return 'do_not_disturb_on';
-    if (state === 'camera-error') return 'videocam_off';
-    return 'videocam';
-  }
-
-  protected messageClass(state: GestureTestState): string {
-    if (state === 'testing') return 'font-medium text-brand';
-    if (state === 'recognized') return 'font-medium text-success-ink';
-    if (state === 'not-recognized' || state === 'camera-error')
-      return 'font-medium text-danger';
-    return 'text-ink-soft';
-  }
-
-  // Wire the facade's MediaStream (if available) into the video element.
-  // The facade owns the stream; this component is only responsible for display.
-  private wireVideo(): void {
-    const video = this.videoPreview()?.nativeElement;
-    if (!video) return;
-    // TODO[GEST-FE-011]: expose MediaStream ref from facade for component binding
-    // For now, the component acquires its own preview via getUserMedia in the facade.
-    // Layer 2 will refactor this to read facade.mediaStreamRef() signal.
-    video.srcObject = null; // placeholder — Layer 2 wires the real stream ref
   }
 }

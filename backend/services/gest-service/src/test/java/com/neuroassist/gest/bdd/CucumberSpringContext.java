@@ -1,11 +1,13 @@
 package com.neuroassist.gest.bdd;
 
+import com.neuroassist.gest.integration.BaseIntegrationTest;
 import io.cucumber.spring.CucumberContextConfiguration;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
-/** Bootstraps the Spring context for Cucumber step definitions. */
+/**
+ * Bootstraps the Spring context for Cucumber step definitions. Extends {@link BaseIntegrationTest}
+ * for the same singleton Testcontainers PostgreSQL wiring the other integration tests use — without
+ * it, the context falls back to the "test" profile's default datasource (localhost:5432), which
+ * isn't running in CI/dev and fails context load entirely.
+ */
 @CucumberContextConfiguration
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-public class CucumberSpringContext {}
+public class CucumberSpringContext extends BaseIntegrationTest {}

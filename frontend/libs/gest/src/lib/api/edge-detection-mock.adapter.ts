@@ -1,55 +1,55 @@
 import { Injectable } from '@angular/core';
-import { Observable, interval, map, take } from 'rxjs';
+import { Observable } from 'rxjs';
+import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
-import { EdgeRecognitionSignal, ComandoDraft } from '@neuroassist/shared/contracts';
 
-// ---------------------------------------------------------------------------
-// EdgeDetectionMockAdapter — always emits degraded:true signals
-// Used in dev (edgeLiveBridge:off) and as the fallback when the edge agent is
-// unavailable. Follows the honest-degraded invariant: never emits recognized
-// without degraded:true (ADR-005).
-// ---------------------------------------------------------------------------
+const NEGOTIATED_VERSION = '1.0.0';
 
+// Dev/test default (provideGest({ adapter: 'mock' })) — no backend, no edge
+// agent required. Honest-degraded invariant (ADR-005): never emits
+// signalKind:'recognized' — only a liveness ack followed by 'degraded', so the
+// facade's own timeout finalizes the run as not-recognized rather than faking
+// a positive result.
 @Injectable()
 export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
-  private readonly CONTRACT_VERSION = '1.0.0';
-
   openStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal> {
-    // Mock delegate: behave like mockStream (honest degraded)
     return this.mockStream(draft);
   }
 
   mockStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal> {
-    const startMs = Date.now();
-
-    return interval(800).pipe(
-      take(4),
-      map((tick) => {
-        const isSimulatedRecognition = tick === 3;
-        return {
-          contractVersion: this.CONTRACT_VERSION,
-          signalKind: isSimulatedRecognition
-            ? ('recognized' as const)
-            : tick === 0
-              ? ('preview_frame_ack' as const)
-              : ('not_recognized' as const),
+    return new Observable<EdgeRecognitionSignal>((subscriber) => {
+      const ackTimer = setTimeout(() => {
+        subscriber.next({
+          contractVersion: NEGOTIATED_VERSION,
+          signalKind: 'preview_frame_ack',
           commandDraftRef: draft.commandDraftRef,
-          primitives: [
-            { engineFeatureRef: draft.primitivoPrincipal, confidence: 0.0 }, // internal; never exposed
-          ],
-          timingWindow: {
-            startMs,
-            endMs: startMs + (tick + 1) * 800,
-            durationMs: (tick + 1) * 800,
-          },
-          degraded: true, // INVARIANT: mock stream is ALWAYS degraded
+          primitives: [],
+          timingWindow: { startMs: 0, endMs: 0, durationMs: 0 },
+          degraded: true,
           emittedAt: new Date().toISOString(),
-        } satisfies EdgeRecognitionSignal;
-      }),
-    );
+        });
+      }, 300);
+
+      const degradedTimer = setTimeout(() => {
+        subscriber.next({
+          contractVersion: NEGOTIATED_VERSION,
+          signalKind: 'degraded',
+          commandDraftRef: draft.commandDraftRef,
+          primitives: [],
+          timingWindow: { startMs: 0, endMs: 0, durationMs: 0 },
+          degraded: true,
+          emittedAt: new Date().toISOString(),
+        });
+      }, 900);
+
+      return () => {
+        clearTimeout(ackTimer);
+        clearTimeout(degradedTimer);
+      };
+    });
   }
 
   close(): void {
-    // nothing to release — mock stream
+    // Stateless — subscriptions are torn down by the facade's unsubscribe.
   }
 }

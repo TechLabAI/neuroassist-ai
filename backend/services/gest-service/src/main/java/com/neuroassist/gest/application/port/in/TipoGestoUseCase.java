@@ -1,15 +1,19 @@
 package com.neuroassist.gest.application.port.in;
 
-import com.neuroassist.gest.domain.model.TipoGesto;
+import com.neuroassist.gest.api.dto.TipoGestoRequest;
+import com.neuroassist.gest.api.dto.TipoGestoResponse;
+import com.neuroassist.gest.api.dto.TransitionRequest;
 import java.util.List;
+import java.util.UUID;
 
+/** Inbound port — TipoGesto use cases. */
 public interface TipoGestoUseCase {
 
-    List<TipoGesto> listAll();
+    List<TipoGestoResponse> listAll();
 
-    TipoGesto findById(String id);
+    TipoGestoResponse findById(UUID id);
 
-    TipoGesto register(String nome);
+    TipoGestoResponse register(TipoGestoRequest request);
 
-    TipoGesto transition(String id, String toState, String engineFeatureRef, String reason);
+    TipoGestoResponse transition(UUID id, TransitionRequest request);
 }

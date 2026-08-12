@@ -36,3 +36,10 @@ export type { TiposGestoReadPort, TipoGesto } from './lib/api/tipos-gesto-read.p
 export { PatientRegisterComponent } from './lib/feature-patient-register/patient-register.component';
 export { CommandCatalogComponent } from './lib/feature-command-catalog/command-catalog.component';
 export { CommandEditorComponent } from './lib/feature-command-editor/command-editor.component';
+
+// Route guards — exported so scope:web can compose its own route definitions
+// around CommandEditorComponent (e.g. the [slot=live-test] host wrapper) while
+// still enforcing the same access rules PAC_ROUTES applies internally.
+export { pacAuthGuard } from './lib/access/pac-auth.guard';
+export { pacTenantPatientGuard } from './lib/access/pac-tenant-patient.guard';
+export { pacCommandWriteGuard } from './lib/access/pac-command-write.guard';

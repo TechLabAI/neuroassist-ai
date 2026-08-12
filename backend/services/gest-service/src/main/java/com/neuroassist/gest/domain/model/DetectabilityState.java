@@ -1,8 +1,13 @@
 package com.neuroassist.gest.domain.model;
 
+/**
+ * Detectability lifecycle states for a TipoGesto primitive. ADR-006 defines the allowed
+ * transitions: REGISTERED→PENDING_TRAINING, PENDING_TRAINING→SUPPORTED, SUPPORTED→DEPRECATED,
+ * REGISTERED→DEPRECATED, PENDING_TRAINING→DEPRECATED. No regression is permitted.
+ */
 public enum DetectabilityState {
-    registered,
-    pending_training,
-    supported,
-    deprecated
+    REGISTERED,
+    PENDING_TRAINING,
+    SUPPORTED,
+    DEPRECATED
 }

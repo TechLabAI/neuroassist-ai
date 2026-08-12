@@ -1,20 +1,15 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
-import { EligibilityPort, EligibilityCheckRequest } from './eligibility.port';
-import { EligibilityResult } from '@neuroassist/shared/contracts';
+import { EligibilityResult, Urgencia } from '@neuroassist/shared/contracts';
+import { EligibilityPort } from './eligibility.port';
 
-// ---------------------------------------------------------------------------
-// EligibilityMockAdapter — dev/test fallback (always returns eligible)
-// ---------------------------------------------------------------------------
-
+// Dev/test default: always eligible, mirrors gest-service's own guard —
+// "emergencia" is the only urgency level the backend actually checks.
 @Injectable()
 export class EligibilityMockAdapter implements EligibilityPort {
-  check(req: EligibilityCheckRequest): Observable<EligibilityResult> {
-    return of({
-      eligible: true,
-      reason: null,
-      unsupportedPrimitiveIds: [],
-    } satisfies EligibilityResult).pipe(delay(200));
+  async check(urgencia: Urgencia): Promise<EligibilityResult> {
+    if (urgencia !== 'emergencia') {
+      return { eligible: true, reason: null, unsupportedPrimitiveIds: [] };
+    }
+    return { eligible: true, reason: null, unsupportedPrimitiveIds: [] };
   }
 }

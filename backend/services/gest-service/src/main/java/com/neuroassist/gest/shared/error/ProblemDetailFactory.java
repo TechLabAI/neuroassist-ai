@@ -26,10 +26,84 @@ public final class ProblemDetailFactory {
     private static final String MEDIA_TYPE = "application/problem+json";
     private static final String TYPE_URI_TEMPLATE = "https://neuroassist-ai.com/errors/{code}";
 
+    /**
+     * Baked error-code catalogue — 13 error types from api-contract.md §7, plus supplementary codes
+     * used across GEST use cases.
+     */
     private static final Map<String, ErrorMetadata> CODE_METADATA =
             Map.ofEntries(
-                    // (no error-model.arch.json pinned at generation time)
-                    );
+                    // ── validation ─────────────────────────────────────────────────────────────
+                    Map.entry(
+                            "validation", new ErrorMetadata("validation", 400, "Validation Error")),
+                    Map.entry(
+                            "regression-reason-required",
+                            new ErrorMetadata("validation", 400, "Regression Reason Required")),
+                    // ── auth / forbidden ────────────────────────────────────────────────────────
+                    Map.entry(
+                            "tenant-mismatch",
+                            new ErrorMetadata("forbidden", 403, "Tenant Mismatch")),
+                    Map.entry(
+                            "insufficient-scope",
+                            new ErrorMetadata("forbidden", 403, "Insufficient Scope")),
+                    Map.entry(
+                            "device-not-paired",
+                            new ErrorMetadata("forbidden", 403, "Device Not Paired")),
+                    // ── not found ───────────────────────────────────────────────────────────────
+                    Map.entry(
+                            "tipo-gesto-not-found",
+                            new ErrorMetadata("not_found", 404, "Tipo Gesto Not Found")),
+                    Map.entry(
+                            "no-active-profile",
+                            new ErrorMetadata("not_found", 404, "No Active Profile")),
+                    Map.entry(
+                            "profile-not-found",
+                            new ErrorMetadata("not_found", 404, "Detection Profile Not Found")),
+                    // ── conflict ────────────────────────────────────────────────────────────────
+                    Map.entry(
+                            "tipo-gesto-duplicate",
+                            new ErrorMetadata("conflict", 409, "Tipo Gesto Already Exists")),
+                    Map.entry(
+                            "illegal-transition",
+                            new ErrorMetadata("conflict", 409, "Illegal Detectability Transition")),
+                    Map.entry(
+                            "profile-already-active",
+                            new ErrorMetadata("conflict", 409, "Profile Already Active")),
+                    // ── business rule / 422 ─────────────────────────────────────────────────────
+                    Map.entry(
+                            "eligibility-ineligible",
+                            new ErrorMetadata("business_rule", 422, "Eligibility Check Failed")),
+                    Map.entry(
+                            "contract-violation",
+                            new ErrorMetadata("business_rule", 422, "Contract Violation")),
+                    Map.entry(
+                            "engine-feature-ref-required",
+                            new ErrorMetadata("business_rule", 422, "Engine Feature Ref Required")),
+                    Map.entry(
+                            "empty-profile",
+                            new ErrorMetadata(
+                                    "business_rule",
+                                    422,
+                                    "Empty Profile — No Supported Primitives")),
+                    Map.entry(
+                            "unknown-primitive",
+                            new ErrorMetadata("business_rule", 422, "Unknown Primitive")),
+                    Map.entry(
+                            "unknown-profile-version",
+                            new ErrorMetadata("business_rule", 422, "Unknown Profile Version")),
+                    Map.entry(
+                            "primitive-not-in-profile",
+                            new ErrorMetadata("business_rule", 422, "Primitive Not In Profile")),
+                    // ── upstream / 503 ─────────────────────────────────────────────────────────
+                    Map.entry(
+                            "tenant-not-found",
+                            new ErrorMetadata("upstream_error", 503, "Tenant Not Found")),
+                    Map.entry(
+                            "edge-unavailable",
+                            new ErrorMetadata("upstream_error", 503, "Edge Service Unavailable")),
+                    // ── internal ────────────────────────────────────────────────────────────────
+                    Map.entry(
+                            "internal",
+                            new ErrorMetadata("internal_error", 500, "Internal Server Error")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

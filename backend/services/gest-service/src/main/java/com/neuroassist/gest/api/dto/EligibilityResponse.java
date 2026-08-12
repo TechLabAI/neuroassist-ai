@@ -1,6 +1,6 @@
 package com.neuroassist.gest.api.dto;
 
-import java.util.UUID;
+import java.util.List;
 
-// TODO: define fields from api-contract.md
-public record EligibilityResponse(UUID id, String status /* TODO: add fields */) {}
+/** Response for the eligibility check. */
+public record EligibilityResponse(boolean eligible, List<String> missingStates) {}

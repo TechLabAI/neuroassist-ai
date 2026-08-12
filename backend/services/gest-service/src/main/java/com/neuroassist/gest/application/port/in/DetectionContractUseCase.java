@@ -1,12 +1,17 @@
 package com.neuroassist.gest.application.port.in;
 
-import java.util.List;
+import com.neuroassist.gest.api.dto.DetectionContractRequest;
+import com.neuroassist.gest.api.dto.DetectionContractResponse;
 
+/** Inbound port — frozen detection contract (stateless). */
 public interface DetectionContractUseCase {
 
-    ValidationResult validateReport(ValidateReportCommand command);
+    /** Returns the machine-readable descriptor of the current detection contract. */
+    Object getContractDescriptor();
 
-    record ValidateReportCommand(int profileVersion, List<String> tipoGestoIds) {}
-
-    record ValidationResult(boolean valid, String contractVersion) {}
+    /**
+     * Validates a RecognizedCommandReport against the frozen contract. Stateless — nothing is
+     * persisted.
+     */
+    DetectionContractResponse validateReport(DetectionContractRequest request);
 }
