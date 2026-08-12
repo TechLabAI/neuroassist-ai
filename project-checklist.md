@@ -124,9 +124,9 @@
 - **Status atual:** promoted
 
 #### ACS — Cuidadores e Acesso (`acs`)
-- [~] **Arquitetura** — `/fe-architect-vision ACS` → specs → specs-validate → backlog → promote
+- [x] **Arquitetura** — `/fe-architect-vision ACS` → specs → specs-validate → backlog → promote
 - [ ] **Ciclo de desenvolvimento** — `/fe-validator ACS` → planner → implement
-- **Status atual:** backlog-done (promote pendente — lib acs/ está vazia)
+- **Status atual:** promoted (Layer 1 completa — acs-e2e 45 specs, E2E gate OK pending)
 
 #### HIST — Histórico e Auditoria (`hist`)
 - [ ] **Arquitetura** — `/fe-architect-vision HIST` → specs → specs-validate → backlog → promote
