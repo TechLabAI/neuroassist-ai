@@ -14,11 +14,6 @@ import { EventDeliveryFacade } from '../evnt.facade';
 // Confirmation is non-optimistic: activeEvent clears only after POST /confirmation 200.
 // =============================================================================
 
-function hora(iso: string): string {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}h${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 @Component({
   selector: 'evnt-alarm-overlay',
   standalone: true,

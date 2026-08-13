@@ -1,9 +1,30 @@
 {
   "name": "shared-ui-components",
   "projectType": "library",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/shared/ui-components/src",
+  "prefix": "neuroassist",
   "tags": [
     "type:ui",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/shared/ui-components"],
+      "options": {
+        "project": "libs/shared/ui-components/ng-package.json",
+        "tsConfig": "libs/shared/ui-components/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/shared/ui-components/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/shared/ui-components/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    }
+  }
 }

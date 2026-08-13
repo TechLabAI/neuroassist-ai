@@ -5,5 +5,41 @@
   "sourceRoot": "libs/evnt/src",
   "prefix": "evnt",
   "tags": ["scope:evnt", "type:feature"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/evnt"],
+      "options": {
+        "project": "libs/evnt/ng-package.json",
+        "tsConfig": "libs/evnt/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/evnt/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/evnt/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/evnt"],
+      "options": {
+        "jestConfig": "libs/evnt/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/evnt/**/*.ts",
+          "libs/evnt/**/*.html"
+        ]
+      }
+    }
+  }
 }

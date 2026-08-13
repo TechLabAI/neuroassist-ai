@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core';
+import { Injectable, inject, signal, computed, DestroyRef, Signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { lastValueFrom, Subscription, timer, switchMap } from 'rxjs';
 import { AppError } from '@neuroassist/shared/error-model';
@@ -67,6 +67,9 @@ export class EventDeliveryFacade {
   private readonly _confirmError = signal<AppError | null>(null);
   private readonly _alreadyConfirmed = signal(false);
 
+  // Detail-page state
+  private readonly _selectedEvent = signal<EventoVm | null>(null);
+
   // ---------------------------------------------------------------------------
   // Public read-only signals (SPEC-03 §5)
   // ---------------------------------------------------------------------------
@@ -77,6 +80,12 @@ export class EventDeliveryFacade {
   readonly deliveryMode = this._deliveryMode.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+
+  /** Selected event for the detail page (FE-EVNT-016). Null before load or on 404. */
+  readonly selectedEvent: Signal<EventoVm | null> = this._selectedEvent.asReadonly();
+
+  /** Confirmation in flight (CONCUR-01) — drives FeedbackVerdictControl[disabled] in detail page. */
+  readonly confirming = this._confirming.asReadonly();
 
   /** Composite AlarmVm signal (SPEC-03 §2) — drives AlarmOverlayComponent. */
   readonly alarmVm = computed<AlarmVm>(() => ({
@@ -196,11 +205,14 @@ export class EventDeliveryFacade {
     this._routineQueue.update((q) => q.filter((e) => e.eventoId !== eventoId));
   }
 
-  /** Load event detail for the detail page. */
-  async loadDetail(eventoId: string): Promise<EventoVm | null> {
+  /** Load event detail for the detail page (FE-EVNT-016).
+   * On success: sets selectedEvent signal. On error/404: sets selectedEvent to null.
+   * Returns Promise<void> — detail page reads via facade.selectedEvent() signal. */
+  async loadDetail(eventoId: string): Promise<void> {
+    this._loading.set(true);
     try {
       const dto = await lastValueFrom(this.port.get(eventoId));
-      const summary: EventoVm = {
+      this._selectedEvent.set({
         eventoId: dto.eventoId,
         urgencia: dto.urgenciaSnapshot,
         tier: dto.urgenciaSnapshot === 'emergencia' ? 'full_screen_alarm' : 'discreet',
@@ -211,10 +223,11 @@ export class EventDeliveryFacade {
         feedback: dto.feedback,
         confirmadoPor: dto.confirmadoPor ?? null,
         confirmadoAt: dto.confirmadoAt ?? null,
-      };
-      return summary;
+      });
     } catch {
-      return null;
+      this._selectedEvent.set(null);
+    } finally {
+      this._loading.set(false);
     }
   }
 
