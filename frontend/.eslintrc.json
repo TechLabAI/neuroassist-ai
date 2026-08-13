@@ -32,7 +32,8 @@
               },
               {
                 "sourceTag": "scope:pac",
-                "onlyDependOnLibsWithTags": ["scope:pac", "scope:shared"]
+                "onlyDependOnLibsWithTags": ["scope:pac", "scope:shared"],
+                "notDependOnLibsWithTags": ["scope:gest"]
               },
               {
                 "sourceTag": "scope:evnt",

@@ -13,6 +13,10 @@ export const GEST_ROUTES: Routes = [
   {
     path: '',
     canActivate: [gestDeviceOnlineGuard],
+    // GEST-FE-018: breadcrumb metadata consumed by the shell's BreadcrumbComponent
+    // (and any router-aware breadcrumb lib). 'Teste de Gesto' appears in the trail
+    // when the caregiver navigates to /gest in dev/e2e scenarios.
+    data: { breadcrumb: 'Teste de Gesto' },
     loadComponent: () =>
       import('./feature-live-test/gest-dev-host.component').then(
         (m) => m.GestDevHostComponent,

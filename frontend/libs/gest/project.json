@@ -5,5 +5,41 @@
   "sourceRoot": "libs/gest/src",
   "prefix": "gest",
   "tags": ["scope:gest", "type:feature"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/gest"],
+      "options": {
+        "project": "libs/gest/ng-package.json",
+        "tsConfig": "libs/gest/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/gest/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/gest/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/gest"],
+      "options": {
+        "jestConfig": "libs/gest/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/gest/**/*.ts",
+          "libs/gest/**/*.html"
+        ]
+      }
+    }
+  }
 }

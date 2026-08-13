@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
@@ -17,6 +17,10 @@ const HANDSHAKE_TIMEOUT_MS = 2000;
 interface HelloMessage {
   type: 'hello';
   contractVersion: string;
+  /** ADR-006: interim detector type included since handshake protocol v1.
+   * 'ear_bri' = EAR/BRI threshold detector (interim); 'onnx' = production classifier.
+   * Optional for backward compatibility with legacy agents that predate ADR-006. */
+  detectorType?: 'ear_bri' | 'onnx';
 }
 interface StartSessionMessage {
   type: 'start_session';
@@ -39,6 +43,11 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
   private readonly bridgeUrl = inject(EDGE_BRIDGE_WS_URL);
   private readonly fallback = new EdgeDetectionMockAdapter();
   private activeSocket: WebSocket | null = null;
+
+  private readonly _detectorType = signal<'ear_bri' | 'onnx' | null>(null);
+  /** ADR-006: current detector type as reported in the WS handshake. null before
+   * handshake is received or after close(). Drives the interim banner in the component. */
+  readonly detectorType = this._detectorType.asReadonly();
 
   openStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal> {
     return new Observable<EdgeRecognitionSignal>((subscriber) => {
@@ -79,6 +88,11 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
             socket.close();
             this.forwardDegraded(subscriber, draft);
             return;
+          }
+          // ADR-006: capture detectorType from handshake to drive the interim banner.
+          // Optional field — legacy agents that predate ADR-006 omit it (null stays).
+          if (msg.detectorType) {
+            this._detectorType.set(msg.detectorType);
           }
           settled = true;
           const startMsg: StartSessionMessage = {
@@ -142,6 +156,7 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
   close(): void {
     this.activeSocket?.close();
     this.activeSocket = null;
+    this._detectorType.set(null); // ADR-006: reset on close so the banner clears next session
   }
 
   /** Honest fallback: emit a single degraded signal and complete — never a

@@ -4,6 +4,8 @@ import {
   signal,
   computed,
   DestroyRef,
+  effect,
+  untracked,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
@@ -26,6 +28,17 @@ import {
 
 const NEGOTIATED_VERSION = '1.0.0';
 
+// ---------------------------------------------------------------------------
+// Telemetry types (GEST-FE-021) — local to facade; not exported.
+// Integration with backend telemetry is deferred; this contract stub ensures
+// all key transitions are instrumented when the real sink is wired in.
+// ---------------------------------------------------------------------------
+type GestTelemetryEvent =
+  | { type: 'start-test'; comandoDraftRef: string }
+  | { type: 'stop-test'; duration_ms: number }
+  | { type: 'verdict'; outcome: GestureTestOutcome; detectorType: 'ear_bri' | 'onnx' | null }
+  | { type: 'degraded-activated'; reason: DegradedReason };
+
 function initialVm(): GestureTestVM {
   return {
     commandDraftRef: '',
@@ -38,6 +51,7 @@ function initialVm(): GestureTestVM {
     degraded: false,
     degradedReason: null,
     contractVersion: null,
+    detectorType: null, // ADR-006: set from WS handshake; null until handshake received
   };
 }
 
@@ -51,6 +65,8 @@ export class GestureTestFacade {
   private mediaStream: MediaStream | null = null;
   private currentDraft: ComandoDraft | null = null;
   private readonly _previewStream = signal<MediaStream | null>(null);
+  /** Epoch ms when the current test run started; used to compute stop-test duration. */
+  private _testStartMs: number | null = null;
 
   /** Read-only view of the full VM (SPEC-03 §2). */
   readonly state = this._state.asReadonly();
@@ -67,6 +83,20 @@ export class GestureTestFacade {
   readonly degraded = computed(() => this._state().degraded);
   readonly testState = computed(() => this._state().state);
   readonly message = computed(() => this._state().message);
+  /** ADR-006: interim detector type from the edge agent handshake.
+   * 'ear_bri' triggers the interim banner in GestureLiveTestComponent. */
+  readonly detectorType = computed(() => this._state().detectorType);
+
+  constructor() {
+    // ADR-006: sync detectorType from the port's handshake signal into the VM state so
+    // GestureLiveTestComponent can render the interim EAR/BRI banner reactively.
+    // untracked() prevents _state from becoming a reactive dependency of this effect
+    // (write-only reference — only port.detectorType drives re-runs).
+    effect(() => {
+      const dt = this.port.detectorType();
+      untracked(() => this._state.update((vm) => ({ ...vm, detectorType: dt })));
+    });
+  }
 
   /** Update device online status (called by gestDeviceOnlineGuard or shell). */
   setDeviceOnline(online: boolean, reason: DegradedReason = null): void {
@@ -84,6 +114,7 @@ export class GestureTestFacade {
   startTest(draft: ComandoDraft): void {
     this.stopTest(); // ensure clean state
     this.currentDraft = draft;
+    this._testStartMs = Date.now();
 
     this._state.set({
       commandDraftRef: draft.commandDraftRef,
@@ -98,7 +129,10 @@ export class GestureTestFacade {
       degraded: this._state().degraded,
       degradedReason: this._state().degradedReason,
       contractVersion: null,
+      detectorType: null, // ADR-006: reset per test run; re-populated by effect() on new handshake
     });
+
+    this.emitTelemetry({ type: 'start-test', comandoDraftRef: draft.commandDraftRef });
 
     // Acquire camera (privacy-by-default: only open on explicit user action)
     void this.acquireCamera().then((ok) => {
@@ -115,7 +149,12 @@ export class GestureTestFacade {
     this.port.close();
     const current = this._state();
     if (current.state === 'testing') {
-      this._state.update((vm) => ({ ...vm, state: 'idle', step: null }));
+      this.emitTelemetry({
+        type: 'stop-test',
+        duration_ms: this._testStartMs != null ? Date.now() - this._testStartMs : 0,
+      });
+      this._testStartMs = null;
+      this._state.update((vm) => ({ ...vm, state: 'idle', step: null, detectorType: null }));
     }
   }
 
@@ -129,6 +168,17 @@ export class GestureTestFacade {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * GEST-FE-021 telemetry stub.
+   * Emits structured events at key state-machine transitions.
+   * Implementation: console.info is a stub; replace with @neuroassist/shared/observability
+   * when the Telemetry service is elevated from Wave-0 stub.
+   */
+  private emitTelemetry(event: GestTelemetryEvent): void {
+    // eslint-disable-next-line no-console
+    console.info('[GEST-TELEMETRY]', event);
+  }
 
   private async acquireCamera(): Promise<boolean> {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -250,6 +300,10 @@ export class GestureTestFacade {
           message:
             'Agente de detecção indisponível. Teste em modo simulado — resultado não é real.',
         }));
+        this.emitTelemetry({
+          type: 'degraded-activated',
+          reason: this._state().degradedReason,
+        });
         break;
     }
   }
@@ -285,6 +339,12 @@ export class GestureTestFacade {
     this.unsubscribeStream();
     // outcome is stored for host page polling — exposed via lastOutcome signal
     this._lastOutcome.set(outcome);
+
+    this.emitTelemetry({
+      type: 'verdict',
+      outcome,
+      detectorType: this._state().detectorType,
+    });
   }
 
   /** Last completed outcome; host page reads this to decide whether to enable Save. */

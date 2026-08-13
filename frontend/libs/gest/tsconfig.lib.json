@@ -5,7 +5,10 @@
     "declaration": true,
     "declarationMap": true,
     "inlineSources": true,
-    "types": []
+    "types": [],
+    "paths": {
+      "@neuroassist/shared/contracts": ["dist/libs/shared/contracts/index.d.ts"]
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": [
