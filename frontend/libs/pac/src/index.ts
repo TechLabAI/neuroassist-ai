@@ -43,3 +43,36 @@ export { CommandEditorComponent } from './lib/feature-command-editor/command-edi
 export { pacAuthGuard } from './lib/access/pac-auth.guard';
 export { pacTenantPatientGuard } from './lib/access/pac-tenant-patient.guard';
 export { pacCommandWriteGuard } from './lib/access/pac-command-write.guard';
+
+// ---------------------------------------------------------------------------
+// P8 Observability — PAC-FE-022
+// ---------------------------------------------------------------------------
+
+// PacTelemetryService — FE telemetry events for PAC module actions
+export { PacTelemetryService } from './lib/telemetry/pac-telemetry.service';
+export type { PacLifecycleAction } from './lib/telemetry/pac-telemetry.service';
+
+// ---------------------------------------------------------------------------
+// P7 UX Polish — PAC-FE-019, PAC-FE-020, PAC-FE-021
+// ---------------------------------------------------------------------------
+
+// Presentational UI components (PAC-FE-019)
+export { CommandRowComponent } from './lib/ui/command-row.component';
+export { UrgencyBadgeComponent } from './lib/ui/urgency-badge.component';
+export type { UrgenciaType } from './lib/ui/urgency-badge.component';
+export { SensitivitySelectorComponent, SENSIBILIDADE_LABELS } from './lib/ui/sensitivity-selector.component';
+export type { SensibilidadeType } from './lib/ui/sensitivity-selector.component';
+export { SyncStatusBadgeComponent } from './lib/ui/sync-status-badge.component';
+export type { SyncStateDisplay } from './lib/ui/sync-status-badge.component';
+
+// SyncStatusBannerComponent — ADR-005 honest state (PAC-FE-020)
+export { SyncStatusBannerComponent } from './lib/ui/sync-status-banner.component';
+export type { SyncStateBanner } from './lib/ui/sync-status-banner.component';
+
+// Error surface pipeline — 12 ProblemDetail types (PAC-FE-021)
+export { PacErrorHandler } from './lib/error-surface/pac-error.handler';
+export type { ErrorContext } from './lib/error-surface/pac-error.handler';
+export { PacFeedbackService } from './lib/error-surface/pac-feedback.service';
+export type { ToastNotification, BannerNotification, ModalNotification } from './lib/error-surface/pac-feedback.service';
+export { mapProblemDetailToAppError, extractErrorCode } from './lib/error-surface/pac-problem-detail.mapper';
+export type { ProblemDetail } from './lib/error-surface/pac-problem-detail.mapper';

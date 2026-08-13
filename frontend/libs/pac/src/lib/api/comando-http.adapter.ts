@@ -38,7 +38,9 @@ export class ComandoHttpAdapter implements PacComandoPort {
   }
 
   create(pid: string, draft: ComandoCreate, idempotencyKey?: string): Observable<HttpResponse<Comando>> {
-    const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {};
+    const headers: Record<string, string> = idempotencyKey
+      ? { 'Idempotency-Key': idempotencyKey }
+      : {};
     // TODO[PAC-FE-010]: implement
     return this.http.post<Comando>(this.baseUrl(pid), draft, {
       headers,

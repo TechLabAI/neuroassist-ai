@@ -1,1 +1,1 @@
-export * from './lib/observability';
+export { Telemetry, TelemetryEvent, ObservabilityService } from './lib/observability';

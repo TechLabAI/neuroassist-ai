@@ -5,6 +5,9 @@ import {
   computed,
   OnInit,
   signal,
+  Injector,
+  effect,
+  untracked,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -298,6 +301,7 @@ export class CommandEditorComponent implements OnInit {
   private readonly pacienteFacade = inject(PacPacienteFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
 
   protected readonly sensibilidades = SENSIBILIDADES;
   protected readonly novoTipoAberto = signal<NovoTipoAlvo>(null);
@@ -313,16 +317,44 @@ export class CommandEditorComponent implements OnInit {
     const cid = this.route.snapshot.paramMap.get('comandoId');
     const pid = this.pacienteFacade.patient()?.id ?? '';
 
+    // Reset any stale save state from a previous session so the save-navigation
+    // effect (below) does not fire immediately on mount.
+    this.comandoFacade.cancelEdit();
+
     if (cid) {
-      // Edit existing — find the row from catalog
-      const row = this.comandoFacade.catalog().find((r) => r.id === cid);
-      if (row) {
-        this.comandoFacade.openEdit(pid, row);
+      // Edit mode: the catalog may be empty when navigating directly to
+      // /pac/comandos/:id/editar (e.g. fresh page load bypassing the catalog).
+      // Always load the catalog; the effect below opens the editor reactively
+      // once the target comando is available.
+      if (this.comandoFacade.loadState() === 'idle') {
+        this.comandoFacade.load(pid);
       }
+
+      // One-shot reactive open: calls openEdit() once when the catalog has the
+      // target comando. Destroyed immediately after the first successful match.
+      const stopEditInit = effect(() => {
+        const row = this.comandoFacade.catalog().find((r) => r.id === cid);
+        if (row) {
+          untracked(() => {
+            this.comandoFacade.openEdit(pid, row);
+            stopEditInit.destroy();
+          });
+        }
+      }, { injector: this.injector });
     } else {
       // New command
       this.comandoFacade.openNew(pid, this.tiposFacade.firstTipoId());
     }
+
+    // Navigate to catalog on successful save (ADR-005 save-then-navigate).
+    // Must NOT navigate immediately on mount (saveState is 'idle' after cancelEdit above).
+    // On error (422 emergency gate), saveState becomes 'error' — we stay on the editor
+    // so the blocking modal is visible.
+    effect(() => {
+      if (this.editor().saveState === 'saved-pending-sync') {
+        untracked(() => this.router.navigate(['..'], { relativeTo: this.route }));
+      }
+    }, { injector: this.injector });
   }
 
   protected gestoDescricao(): string {
@@ -384,9 +416,10 @@ export class CommandEditorComponent implements OnInit {
 
   protected onSave(): void {
     this.comandoFacade.save();
-    // Navigate back to catalog after save (optimistic UX — re-check via facade state)
-    // Full navigation after saved state is resolved in Layer 2 via effect()
-    this.router.navigate(['..'], { relativeTo: this.route });
+    // Navigation is handled reactively by the effect in ngOnInit() watching
+    // editor().saveState. When save succeeds → 'saved-pending-sync' → navigate to '..'.
+    // When save fails with 422 emergency-not-detectable → 'error' → stay on editor,
+    // blocking modal appears via emergencyGateError() signal.
   }
 
   protected onCancel(): void {
