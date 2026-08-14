@@ -1,9 +1,30 @@
 {
   "name": "shared-error-model",
   "projectType": "library",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/shared/error-model/src",
+  "prefix": "neuroassist",
   "tags": [
     "type:domain",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/shared/error-model"],
+      "options": {
+        "project": "libs/shared/error-model/ng-package.json",
+        "tsConfig": "libs/shared/error-model/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/shared/error-model/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/shared/error-model/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    }
+  }
 }

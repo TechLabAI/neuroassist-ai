@@ -1,5 +1,6 @@
 import { EVNT_ROUTES } from './evnt.routes';
 import { evntBootstrap } from './evnt.bootstrap';
+import { EVNT_NAV_CONFIG } from './evnt.nav-config';
 
 // =============================================================================
 // EVNT_MODULE_DESCRIPTOR — SPEC-05 §1 (tool-contract)
@@ -10,13 +11,7 @@ import { evntBootstrap } from './evnt.bootstrap';
 export const EVNT_MODULE_DESCRIPTOR = {
   key: 'evnt',
   routes: EVNT_ROUTES,
-  menu: {
-    showInNav: true as const,
-    label: 'Eventos',
-    icon: 'notifications_active',
-    route: '/eventos',
-    order: 20,
-  },
+  menu: EVNT_NAV_CONFIG,
   permissions: {
     view: 'evnt:eventos:read',
     confirm: 'evnt:confirm:write',

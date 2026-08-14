@@ -1,8 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AcsTenantFacade, AcsCaregiverFacade } from '@neuroassist/acs';
-import { EdgeDeviceFacade } from '@neuroassist/edge';
-import { PacComandoFacade } from '@neuroassist/pac';
+import { DeviceFacade } from '@neuroassist/edge';
+import { PacPacienteFacade } from '@neuroassist/pac';
 
 // =============================================================================
 // OnboardingWizardPageComponent — scope:web wizard shell (ACS owns this page)
@@ -200,8 +200,8 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
 export class OnboardingWizardPageComponent {
   readonly tenantFacade = inject(AcsTenantFacade);
   readonly caregiverFacade = inject(AcsCaregiverFacade);
-  private readonly edgeFacade = inject(EdgeDeviceFacade);
-  private readonly pacFacade = inject(PacComandoFacade);
+  private readonly edgeFacade = inject(DeviceFacade);
+  private readonly pacFacade = inject(PacPacienteFacade);
 
   readonly tenantNome = signal('');
   readonly cuidadoraNome = signal('');
@@ -209,7 +209,7 @@ export class OnboardingWizardPageComponent {
   readonly pareamento = signal<Pareamento>('idle');
   readonly concluido = signal(false);
 
-  readonly dispositivoExistente = computed(() => this.edgeFacade.devices()[0] ?? null);
+  readonly dispositivoExistente = computed(() => this.edgeFacade.device());
 
   readonly pareamentoEfetivo = computed<Pareamento>(() =>
     this.dispositivoExistente() ? 'pareado' : this.pareamento(),
@@ -217,7 +217,7 @@ export class OnboardingWizardPageComponent {
 
   readonly checklist = computed(() => [
     { label: 'Unidade de cuidado', done: !!this.tenantFacade.tenant() },
-    { label: 'Paciente registrado', done: this.pacFacade.patients().length > 0 },
+    { label: 'Paciente registrado', done: this.pacFacade.hasPatient() },
     { label: 'Dispositivo pareado', done: this.pareamentoEfetivo() === 'pareado' },
     { label: 'Cuidadora convidada', done: this.cuidadoraEmail().trim().length > 0 },
   ]);

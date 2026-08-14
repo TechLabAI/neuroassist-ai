@@ -163,7 +163,7 @@ export class EvntClientMockAdapter implements EvntClientPort {
     );
   }
 
-  ack(eventoId: string, _dispatchId: string): Observable<void> {
+  ack(_eventoId: string, _dispatchId: string): Observable<void> {
     return timer(200).pipe(switchMap(() => EMPTY as Observable<void>));
   }
 

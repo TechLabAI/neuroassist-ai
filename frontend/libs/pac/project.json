@@ -5,5 +5,24 @@
   "sourceRoot": "libs/pac/src",
   "prefix": "pac",
   "tags": ["scope:pac", "type:feature"],
-  "targets": {}
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/pac"],
+      "options": {
+        "jestConfig": "libs/pac/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/pac/**/*.ts",
+          "libs/pac/**/*.html"
+        ]
+      }
+    }
+  }
 }

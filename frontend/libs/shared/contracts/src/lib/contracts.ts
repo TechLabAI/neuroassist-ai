@@ -73,6 +73,9 @@ export interface GestureTestVM {
   readonly degraded: boolean;            // true => mocked verdict, honest banner shown
   readonly degradedReason: DegradedReason;
   readonly contractVersion: string | null; // negotiated with edge bridge on openStream
+  /** ADR-006: detector algorithm in use. 'ear_bri' = interim; 'onnx' = production;
+   *  null = handshake not yet received (pre-connection or mock path). */
+  readonly detectorType: 'ear_bri' | 'onnx' | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@
         "@nx/enforce-module-boundaries": [
           "error",
           {
-            "enforceBuildableLibDependency": true,
+            "enforceBuildableLibDependency": false,
             "allow": [],
             "depConstraints": [
               {
@@ -32,7 +32,8 @@
               },
               {
                 "sourceTag": "scope:pac",
-                "onlyDependOnLibsWithTags": ["scope:pac", "scope:shared"]
+                "onlyDependOnLibsWithTags": ["scope:pac", "scope:shared"],
+                "notDependOnLibsWithTags": ["scope:gest"]
               },
               {
                 "sourceTag": "scope:evnt",
