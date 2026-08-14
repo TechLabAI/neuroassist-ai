@@ -37,11 +37,26 @@ class MultiTenantIsolationIT extends BaseIntegrationTest {
     private static final String TENANT_A = "emp_test";
     private static final String TENANT_B = "emp_other";
 
-    @Autowired private TipoGestoRepositoryPort tipoGestoPort;
+    private TipoGestoRepositoryPort tipoGestoPort;
 
-    @Autowired private TenantIdentifierResolver tenantIdentifierResolver;
+    private TenantIdentifierResolver tenantIdentifierResolver;
 
-    @Autowired private DataSource dataSource;
+    private DataSource dataSource;
+
+    @Autowired
+    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
+        this.tipoGestoPort = tipoGestoPort;
+    }
+
+    @Autowired
+    void setTenantIdentifierResolver(TenantIdentifierResolver tenantIdentifierResolver) {
+        this.tenantIdentifierResolver = tenantIdentifierResolver;
+    }
+
+    @Autowired
+    void setDataSource(DataSource dataSource) {
+        this.dataSource = dataSource;
+    }
 
     @AfterEach
     void clearTenant() {

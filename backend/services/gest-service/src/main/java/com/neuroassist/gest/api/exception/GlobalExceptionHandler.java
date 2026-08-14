@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -112,6 +114,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                                 .collect(Collectors.toList()));
         ProblemDetail pd = ProblemDetailFactory.forCode("validation", ex, servletRequest, context);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(pd);
+    }
+
+    /** Spring Security method-level access denied (e.g. wrong scope in @PreAuthorize) → 403. */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAuthorizationDenied(
+            AuthorizationDeniedException ex, HttpServletRequest req) {
+        log.debug("Authorization denied: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetailFactory.forCode("insufficient-scope", ex, req);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(pd);
+    }
+
+    /** Spring Security authentication failure (missing or invalid token) → 401. */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ProblemDetail> handleAuthentication(
+            AuthenticationException ex, HttpServletRequest req) {
+        log.debug("Authentication failed: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetailFactory.forCode("unauthenticated", ex, req);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(pd);
     }

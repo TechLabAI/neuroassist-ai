@@ -5,6 +5,7 @@ import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
+import com.neuroassist.gest.application.port.out.GestObservabilityPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
@@ -44,6 +45,7 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     private final TipoGestoRepositoryPort tipoGestoRepositoryPort;
     private final DetectionProfileDomainService detectionProfileDomainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final GestObservabilityPort observabilityPort;
 
     /**
      * Publishes a new versioned DetectionProfile. Steps (GEST-009):
@@ -91,6 +93,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
         // 5. Publish in-process domain event (AFTER_COMMIT listener in P6)
         eventPublisher.publishEvent(
                 new DetectionProfilePublished(saved.id(), saved.version(), Instant.now()));
+
+        observabilityPort.incrementProfileVersionsPublished();
 
         log.info("DetectionProfile published: id={} version={}", saved.id(), saved.version());
         return toResponse(saved);

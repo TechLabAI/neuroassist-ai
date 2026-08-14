@@ -17,7 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
+          issuer-uri: ${GEST_SECURITY_ISSUER_URI:http://acs-service/realms/neuroassist}
 
 server:
   port: 8084
@@ -34,13 +34,35 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,info,prometheus,metrics
   endpoint:
     health:
-      show-details: always
+      show-details: when_authorized
+    prometheus:
+      enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      edgePairing:
+        sliding-window-size: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 30s
+        ignore-exceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - com.neuroassist.gest.shared.error.CodedException
+
+gest:
+  edge:
+    url: ${EDGE_SERVICE_URL:http://edge-service}
 
 logging:
   pattern:

@@ -34,15 +34,40 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     private static final String TEST_TENANT = "emp_test";
 
-    @Autowired private DetectionProfileRepositoryPort profilePort;
+    private DetectionProfileRepositoryPort profilePort;
 
-    @Autowired private DetectionProfilePrimitiveRepositoryPort primitivePort;
+    private DetectionProfilePrimitiveRepositoryPort primitivePort;
 
-    @Autowired private TipoGestoRepositoryPort tipoGestoPort;
+    private TipoGestoRepositoryPort tipoGestoPort;
 
-    @Autowired private DetectionProfileJpaRepository profileJpaRepository;
+    private DetectionProfileJpaRepository profileJpaRepository;
 
-    @Autowired private DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
+    private DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
+
+    @Autowired
+    void setProfilePort(DetectionProfileRepositoryPort profilePort) {
+        this.profilePort = profilePort;
+    }
+
+    @Autowired
+    void setPrimitivePort(DetectionProfilePrimitiveRepositoryPort primitivePort) {
+        this.primitivePort = primitivePort;
+    }
+
+    @Autowired
+    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
+        this.tipoGestoPort = tipoGestoPort;
+    }
+
+    @Autowired
+    void setProfileJpaRepository(DetectionProfileJpaRepository profileJpaRepository) {
+        this.profileJpaRepository = profileJpaRepository;
+    }
+
+    @Autowired
+    void setPrimitiveJpaRepository(DetectionProfilePrimitiveJpaRepository primitiveJpaRepository) {
+        this.primitiveJpaRepository = primitiveJpaRepository;
+    }
 
     @BeforeEach
     void setTenantContext() {

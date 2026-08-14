@@ -70,6 +70,9 @@ dependencies {
     testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 
 
+    // WireMock — HTTP stubbing for Feign integration tests (P4: EdgePairingClientIT)
+    testImplementation("org.wiremock:wiremock-standalone:3.9.2")
+
     // BDD — Cucumber
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
     testImplementation("io.cucumber:cucumber-java:7.18.0")
@@ -79,8 +82,41 @@ dependencies {
 
 }
 
-tasks.withType<Test> {
+// Unit tests: excludes "integration"-tagged tests and the CucumberIT @Suite runner (P8/BDD).
+// CucumberIT uses the JUnit Platform Suite engine which propagates the excludeTags filter to
+// the Cucumber engine, altering dry-run behaviour and causing spurious failures. Exclude it by
+// class pattern so only JUnit Jupiter unit tests (ArchUnit, Mockito, etc.) run here.
+tasks.test {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+    exclude("**/bdd/CucumberIT.class")
+}
+
+// Integration tests: only tests tagged "integration" (Testcontainers — requires Docker)
+// CucumberIT is excluded here because the JUnit Platform Suite Engine bypasses tag filters,
+// causing it to run even without @Tag("integration"). Use the bddTest task for BDD scenarios.
+tasks.register<Test>("integrationTest") {
+    description = "Runs integration tests (Testcontainers / PostgreSQL). Requires Docker."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+    exclude("**/bdd/CucumberIT.class")
+    shouldRunAfter(tasks.test)
+}
+
+// BDD test task — runs CucumberIT suite (JUnit Platform Suite engine bypasses tag filters)
+tasks.register<Test>("bddTest") {
+    description = "Runs BDD Cucumber scenarios via CucumberIT suite. Requires Docker."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
     useJUnitPlatform()
+    include("**/bdd/CucumberIT.class")
+    shouldRunAfter(tasks.named("integrationTest"))
 }
 
 tasks.register("architectureCheck") {

@@ -1,0 +1,113 @@
+{
+  "issue": "GEST-017",
+  "layer": "be",
+  "computedAt": "2026-08-12T12:22:41",
+  "checklist": {
+    "total": 10,
+    "done": 1,
+    "partial": 0,
+    "missing": 9,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "implementar `backend/services/gest-service/src/main/java/com/neuroassist/gest/infrastructure/config/SecurityConfig.java` (Spring Security `@Configuration`, `SecurityFilterChain` com JWT resource server, mapeamento de scopes por endpoint)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/gest-service/src/main/java/com/neuroassist/gest/infrastructure/config/SecurityConfig.java"
+      },
+      {
+        "text": "configurar `spring.security.oauth2.resourceserver.jwt.jwk-set-uri` como `${ACS_JWK_URI:http://acs-service/oauth2/jwks}` em `application.yml` (resolve via REG em producao, variavel de ambiente em testes)",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: application.yml"
+      },
+      {
+        "text": "mapear: `GET /tipos-gesto/**`, `GET /detection-profiles/**`, `GET /detection-contract`, `POST /eligibility:check` → `gest.read`; `POST /tipos-gesto`, `POST /tipos-gesto/*/transitions`, `POST /detection-profiles` → `gest.manage`; `GET /devices/*/detection-profile`, `POST /recognized-commands` → device credential (claim `deviceId`)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "implementar extrator de `tenantId` do JWT claim `tenant` (populado em `TenantContextHolder`)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "testes de seguranca: token sem scope → 403; token expirado → 401; endpoint publico sem token → 200",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`GET /tipos-gesto` sem token retorna `401 Unauthorized`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`POST /tipos-gesto` com token de scope `gest.read` (sem `gest.manage`) retorna `403 /errors/insufficient-scope`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`GET /actuator/health` sem token retorna `200` (endpoint publico)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "JWT expirado em qualquer endpoint retorna `401 Unauthorized`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`tenantId` populado no `TenantContextHolder` vem exclusivamente do claim `tenant` do JWT",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "unknown",
+    "lint": "skip",
+    "test": "unknown",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 11,
+    "provisional": true,
+    "range": [
+      11,
+      21
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 8,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 3,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 3/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

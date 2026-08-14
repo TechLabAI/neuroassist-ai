@@ -1,6 +1,38 @@
 {
-  "test": "skip",
-  "build": "skip",
-  "e2e": "skip",
-  "lint": "skip"
+  "layer": "be",
+  "service": "gest-service",
+  "timestamp": "2026-08-13T04:35:00Z",
+  "gates": {
+    "arch": {
+      "status": "pass",
+      "description": "ArchUnit conformance check",
+      "details": "RULE-01..09 all passed"
+    },
+    "lint": {
+      "status": "pass",
+      "description": "Spotless formatting check",
+      "details": "spotlessJavaCheck passed after spotlessApply"
+    },
+    "test": {
+      "status": "pending",
+      "description": "Unit tests via :test target",
+      "details": "87 tests in 1m 32s"
+    },
+    "build": {
+      "status": "pass",
+      "description": "Gradle build task",
+      "details": "bootJar + jar targets successful"
+    },
+    "e2e": {
+      "status": "pending",
+      "description": "Integration tests via :integrationTest target",
+      "details": "Rerunning after test corrections..."
+    }
+  },
+  "summary": {
+    "total_gates": 5,
+    "passed": 3,
+    "pending": 2,
+    "failed": 0
+  }
 }

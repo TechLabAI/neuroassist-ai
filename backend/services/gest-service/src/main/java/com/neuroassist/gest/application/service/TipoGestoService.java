@@ -8,6 +8,7 @@ import com.neuroassist.gest.api.exception.IllegalTransitionException;
 import com.neuroassist.gest.api.exception.InvalidNomeException;
 import com.neuroassist.gest.api.exception.TipoGestoNotFoundException;
 import com.neuroassist.gest.application.port.in.TipoGestoUseCase;
+import com.neuroassist.gest.application.port.out.GestObservabilityPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.application.port.out.TipoGestoTransitionRepositoryPort;
 import com.neuroassist.gest.domain.event.PrimitiveDeprecated;
@@ -36,6 +37,7 @@ public class TipoGestoService implements TipoGestoUseCase {
     private final TipoGestoTransitionRepositoryPort tipoGestoTransitionRepositoryPort;
     private final TipoGestoDomainService tipoGestoDomainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final GestObservabilityPort observabilityPort;
 
     @Override
     @Transactional(readOnly = true)
@@ -82,6 +84,8 @@ public class TipoGestoService implements TipoGestoUseCase {
                 new PrimitiveRegistered(
                         saved.id(), saved.nome(), saved.tenantId(), null, Instant.now()));
 
+        observabilityPort.incrementTipoGestoRegistrations();
+
         log.info("TipoGesto registered: id={} nome={}", saved.id(), saved.nome());
         return toResponse(saved);
     }
@@ -126,6 +130,9 @@ public class TipoGestoService implements TipoGestoUseCase {
                         toState.name(),
                         request.actor(),
                         Instant.now()));
+
+        observabilityPort.incrementTipoGestoTransitions(
+                transition.fromState().name(), toState.name());
 
         // Publish specialised deprecated event if transitioning to DEPRECATED
         if (toState == DetectabilityState.DEPRECATED) {

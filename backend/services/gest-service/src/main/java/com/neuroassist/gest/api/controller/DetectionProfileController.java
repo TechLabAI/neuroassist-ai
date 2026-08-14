@@ -3,11 +3,15 @@ package com.neuroassist.gest.api.controller;
 import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
+import com.neuroassist.gest.application.port.out.EdgePairingPort;
 import com.neuroassist.gest.shared.audit.AuditAction;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DetectionProfileController {
 
     private final DetectionProfileUseCase detectionProfileUseCase;
+    private final EdgePairingPort edgePairingPort;
 
     @PostMapping
     @PreAuthorize("hasAuthority('gest.detection-profile.publicar')")
@@ -40,11 +45,29 @@ public class DetectionProfileController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Returns the active detection profile with conditional-GET support (ETag / 304).
+     *
+     * <p>If the client sends {@code If-None-Match} matching the current profile's ETag, responds
+     * with {@code 304 Not Modified} (no body). Otherwise responds with {@code 200 OK}, setting
+     * {@code ETag} and {@code Cache-Control: max-age=60} headers.
+     */
     @GetMapping("/active")
     @PreAuthorize("hasAuthority('gest.detection-profile.read')")
-    public ResponseEntity<DetectionProfileResponse> findActive() {
+    public ResponseEntity<DetectionProfileResponse> findActive(HttpServletRequest request) {
         Optional<DetectionProfileResponse> result = detectionProfileUseCase.findActive();
-        return result.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        if (result.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DetectionProfileResponse profile = result.get();
+        String clientEtag = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+        if (profile.etag() != null && profile.etag().equals(clientEtag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.ETAG, profile.etag())
+                .header(HttpHeaders.CACHE_CONTROL, "max-age=60")
+                .body(profile);
     }
 
     @GetMapping("/{version}")
@@ -54,10 +77,32 @@ public class DetectionProfileController {
         return result.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * Returns the active detection profile for a given device, after verifying pairing with
+     * edge-service. Supports conditional-GET (ETag / 304) identically to {@link
+     * #findActive(HttpServletRequest)}.
+     *
+     * <p>If the device is not paired, {@link EdgePairingPort} throws a {@code
+     * CodedException("device-not-paired")} mapped to 403 by {@link
+     * com.neuroassist.gest.api.exception.GlobalExceptionHandler}.
+     */
     @GetMapping("/devices/{deviceId}")
     @PreAuthorize("hasAuthority('gest.detection-profile.read')")
-    public ResponseEntity<DetectionProfileResponse> findForDevice(@PathVariable UUID deviceId) {
+    public ResponseEntity<DetectionProfileResponse> findForDevice(
+            @PathVariable UUID deviceId, HttpServletRequest request) {
+        edgePairingPort.checkPairingAndGetTenant(deviceId);
         Optional<DetectionProfileResponse> result = detectionProfileUseCase.findForDevice(deviceId);
-        return result.map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        if (result.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        DetectionProfileResponse profile = result.get();
+        String clientEtag = request.getHeader(HttpHeaders.IF_NONE_MATCH);
+        if (profile.etag() != null && profile.etag().equals(clientEtag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).build();
+        }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.ETAG, profile.etag())
+                .header(HttpHeaders.CACHE_CONTROL, "max-age=60")
+                .body(profile);
     }
 }

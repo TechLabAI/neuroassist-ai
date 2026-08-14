@@ -24,7 +24,12 @@ class TipoGestoRepositoryAdapterIT extends BaseIntegrationTest {
 
     private static final String TEST_TENANT = "emp_test";
 
-    @Autowired private TipoGestoRepositoryPort tipoGestoPort;
+    private TipoGestoRepositoryPort tipoGestoPort;
+
+    @Autowired
+    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
+        this.tipoGestoPort = tipoGestoPort;
+    }
 
     @BeforeEach
     void setTenantContext() {
