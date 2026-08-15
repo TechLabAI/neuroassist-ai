@@ -22,6 +22,8 @@ export class AcsCaregiverFacade {
   private readonly _saving = signal(false);
   private readonly _error = signal<string | null>(null);
   private readonly _coverageMap = signal<ReadonlyMap<string, readonly string[]>>(new Map());
+  /** Maps `${cuidadorId}:${pacienteId}` → active linkId for revokeLink calls. */
+  private readonly _linkMap = signal<ReadonlyMap<string, string>>(new Map());
 
   readonly caregivers = this._caregivers.asReadonly();
   readonly selected = this._selected.asReadonly();
@@ -36,6 +38,15 @@ export class AcsCaregiverFacade {
   coverageFor(pacienteId: string): CoverageVm {
     const coveredBy = this._coverageMap().get(pacienteId) ?? [];
     return { pacienteId, coveredBy, isCovered: coveredBy.length > 0 };
+  }
+
+  /**
+   * Returns the active linkId for a given cuidador-patient pair, or null if not linked.
+   * Used by PatientLinkageComponent to obtain the linkId before calling revokeLink().
+   * Populated after loadRoster() / linkToPatient() / revokeLink() via _refreshCoverage*.
+   */
+  linkIdFor(cuidadorId: string, pacienteId: string): string | null {
+    return this._linkMap().get(`${cuidadorId}:${pacienteId}`) ?? null;
   }
 
   /** Active caregivers only (for roster display). */
@@ -144,6 +155,7 @@ export class AcsCaregiverFacade {
 
   private async _refreshCoverageMap(activeCaregivers: readonly CuidadorVm[]): Promise<void> {
     const patientMap = new Map<string, string[]>();
+    const linkMap = new Map<string, string>();
     for (const caregiver of activeCaregivers) {
       try {
         const links = await lastValueFrom(this.linkPort.listForCaregiver(caregiver.id));
@@ -152,24 +164,44 @@ export class AcsCaregiverFacade {
           const current = patientMap.get(link.pacienteId) ?? [];
           current.push(caregiver.id);
           patientMap.set(link.pacienteId, current);
+          linkMap.set(`${caregiver.id}:${link.pacienteId}`, link.id);
         }
       } catch { /* best-effort */ }
     }
     this._coverageMap.set(patientMap);
+    this._linkMap.set(linkMap);
   }
 
   private async _refreshCoverageForPatient(pacienteId: string): Promise<void> {
     const active = this._caregivers().filter((c) => c.isActive);
     const ids: string[] = [];
+    const linkUpdates = new Map<string, string>();
+    const toRemove: string[] = [];
+
     for (const c of active) {
       try {
         const links = await lastValueFrom(this.linkPort.listForCaregiver(c.id));
-        if (links.some((l) => l.pacienteId === pacienteId && l.active)) ids.push(c.id);
+        const activeLink = links.find((l) => l.pacienteId === pacienteId && l.active);
+        const key = `${c.id}:${pacienteId}`;
+        if (activeLink) {
+          ids.push(c.id);
+          linkUpdates.set(key, activeLink.id);
+        } else {
+          toRemove.push(key);
+        }
       } catch { /* best-effort */ }
     }
+
     this._coverageMap.update((m) => {
       const updated = new Map(m);
       updated.set(pacienteId, ids);
+      return updated;
+    });
+
+    this._linkMap.update((m) => {
+      const updated = new Map(m);
+      for (const [k, v] of linkUpdates) updated.set(k, v);
+      for (const k of toRemove) updated.delete(k);
       return updated;
     });
   }

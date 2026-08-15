@@ -1,12 +1,12 @@
 import { Component, ChangeDetectionStrategy, OnInit, inject, signal, computed } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 
 // =============================================================================
 // PatientLinkageComponent — SPEC-01 route /acs/pacientes/:pacienteId/vinculos
 // Shows caregivers linked to a patient + coverage badge.
 // ADR-005: revoke blocked for last covering caregiver (BE 409, facade error signal).
-// TODO[FE-ACS-022]: full linkage UI with coverage indicator and revoke confirmation modal
+// Inline confirmation state avoids browser confirm() — uses pendingRevokeId signal.
 // =============================================================================
 
 @Component({
@@ -20,44 +20,128 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
         <p class="mt-1 text-sm text-ink-soft">Cuidadores autorizados a receber alertas para este paciente.</p>
       </header>
 
-      <div class="mb-4 flex items-center gap-2 rounded-xl border px-4 py-3"
-           [class]="coverage().isCovered ? 'border-success bg-success-subtle' : 'border-error bg-error-subtle'">
-        <span class="material-symbols-outlined text-[18px]"
-              [class]="coverage().isCovered ? 'text-success' : 'text-error'">
+      <!-- Coverage badge -->
+      <div
+        class="mb-4 flex items-center gap-2 rounded-xl border px-4 py-3"
+        [class]="coverage().isCovered ? 'border-success bg-success-subtle' : 'border-error bg-error-subtle'"
+        data-testid="coverage-badge"
+        role="status"
+      >
+        <span
+          class="material-symbols-outlined text-[18px]"
+          [class]="coverage().isCovered ? 'text-success' : 'text-error'"
+          aria-hidden="true"
+        >
           {{ coverage().isCovered ? 'check_circle' : 'warning' }}
         </span>
-        <p class="text-sm font-medium"
-           [class]="coverage().isCovered ? 'text-success-ink' : 'text-error-ink'">
+        <p
+          class="text-sm font-medium"
+          [class]="coverage().isCovered ? 'text-success-ink' : 'text-error-ink'"
+        >
           {{ coverage().isCovered
               ? 'Paciente coberto — ' + coverage().coveredBy.length + ' cuidador(es) ativo(s)'
               : 'Paciente sem cobertura — adicione ao menos um cuidador ativo' }}
         </p>
       </div>
 
+      <!-- Error banner -->
       @if (facade.error()) {
-        <p class="mb-4 rounded-lg bg-error-subtle px-4 py-3 text-sm text-error-ink">{{ facade.error() }}</p>
+        <p class="mb-4 rounded-lg bg-error-subtle px-4 py-3 text-sm text-error-ink" role="alert" data-testid="linkage-error">
+          {{ facade.error() }}
+        </p>
       }
 
       @if (facade.loading()) {
-        <p class="text-sm text-ink-soft">Carregando cuidadores…</p>
-      } @else {
-        <div class="flex flex-col gap-3">
-          @for (c of facade.activeCaregivers(); track c.id) {
-            <div class="flex items-center justify-between rounded-xl border border-border bg-surface p-4">
-              <div>
-                <p class="text-sm font-semibold text-ink">{{ c.nome }}</p>
-                <p class="text-xs text-ink-soft">{{ c.papelLabel }}</p>
-              </div>
-              <button
-                class="text-xs font-medium text-brand hover:underline disabled:opacity-40"
-                [disabled]="facade.saving()"
-                (click)="toggleLink(c.id)"
-              >
-                {{ isLinked(c.id) ? 'Remover vínculo' : 'Vincular' }}
-              </button>
-            </div>
-          }
+        <div class="flex items-center gap-2 text-sm text-ink-soft" role="status" data-testid="linkage-loading">
+          <span class="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">progress_activity</span>
+          Carregando cuidadores…
         </div>
+      } @else {
+
+        <!-- Linked caregivers — show first -->
+        @if (linkedCaregivers().length > 0) {
+          <section class="mb-6">
+            <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">Vínculos ativos</h2>
+            <div class="flex flex-col gap-3">
+              @for (c of linkedCaregivers(); track c.id) {
+                <div
+                  class="flex items-center justify-between rounded-xl border border-success bg-success-subtle p-4"
+                  data-testid="linked-caregiver-row"
+                >
+                  <div>
+                    <p class="text-sm font-semibold text-ink">{{ c.nome }}</p>
+                    <p class="text-xs text-ink-soft">{{ c.papelLabel }}</p>
+                  </div>
+
+                  @if (pendingRevokeId() === c.id) {
+                    <!-- Inline confirmation -->
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-ink-soft">Confirmar remoção?</span>
+                      <button
+                        class="rounded-lg bg-error px-3 py-1.5 text-xs font-semibold text-error-ink hover:bg-error-strong disabled:opacity-40"
+                        [disabled]="facade.saving()"
+                        (click)="confirmRevoke(c.id)"
+                        aria-label="Confirmar remoção de vínculo"
+                        data-testid="confirm-revoke-btn"
+                      >Confirmar</button>
+                      <button
+                        class="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
+                        (click)="cancelRevoke()"
+                        aria-label="Cancelar remoção de vínculo"
+                        data-testid="cancel-revoke-btn"
+                      >Cancelar</button>
+                    </div>
+                  } @else {
+                    <button
+                      class="text-xs font-medium text-error hover:underline disabled:opacity-40"
+                      [disabled]="facade.saving()"
+                      (click)="requestRevoke(c.id)"
+                      aria-label="Remover vínculo de {{ c.nome }}"
+                      data-testid="revoke-link-btn"
+                    >
+                      Remover vínculo
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        <!-- Unlinked active caregivers — available to add -->
+        @if (unlinkedCaregivers().length > 0) {
+          <section>
+            <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">Disponíveis para vincular</h2>
+            <div class="flex flex-col gap-3">
+              @for (c of unlinkedCaregivers(); track c.id) {
+                <div
+                  class="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
+                  data-testid="unlinked-caregiver-row"
+                >
+                  <div>
+                    <p class="text-sm font-semibold text-ink">{{ c.nome }}</p>
+                    <p class="text-xs text-ink-soft">{{ c.papelLabel }}</p>
+                  </div>
+                  <button
+                    class="text-xs font-medium text-brand hover:underline disabled:opacity-40"
+                    [disabled]="facade.saving()"
+                    (click)="link(c.id)"
+                    aria-label="Vincular {{ c.nome }} a este paciente"
+                    data-testid="link-caregiver-btn"
+                  >
+                    Vincular
+                  </button>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (facade.activeCaregivers().length === 0) {
+          <p class="text-sm text-ink-soft" data-testid="no-caregivers-msg">
+            Nenhum cuidador ativo disponível. Convide um cuidador primeiro.
+          </p>
+        }
       }
     </div>
   `,
@@ -66,15 +150,24 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 export class PatientLinkageComponent implements OnInit {
   readonly facade = inject(AcsCaregiverFacade);
   private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
 
-  private readonly pacienteId = signal('');
+  readonly pacienteId = signal('');
 
+  /** Derived coverage for the current patient — reacts to facade's coverageMap updates. */
   readonly coverage = computed(() => this.facade.coverageFor(this.pacienteId()));
 
-  isLinked(cuidadorId: string): boolean {
-    return this.coverage().coveredBy.includes(cuidadorId);
-  }
+  /** Active caregivers already linked to this patient. */
+  readonly linkedCaregivers = computed(() =>
+    this.facade.activeCaregivers().filter((c) => this.coverage().coveredBy.includes(c.id)),
+  );
+
+  /** Active caregivers not yet linked to this patient. */
+  readonly unlinkedCaregivers = computed(() =>
+    this.facade.activeCaregivers().filter((c) => !this.coverage().coveredBy.includes(c.id)),
+  );
+
+  /** cuidadorId pending revoke confirmation — avoids browser confirm(). */
+  readonly pendingRevokeId = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('pacienteId') ?? '';
@@ -82,14 +175,26 @@ export class PatientLinkageComponent implements OnInit {
     void this.facade.loadRoster();
   }
 
-  async toggleLink(cuidadorId: string): Promise<void> {
+  async link(cuidadorId: string): Promise<void> {
+    await this.facade.linkToPatient(cuidadorId, this.pacienteId());
+  }
+
+  /** First click — shows inline confirmation. */
+  requestRevoke(cuidadorId: string): void {
+    this.pendingRevokeId.set(cuidadorId);
+  }
+
+  cancelRevoke(): void {
+    this.pendingRevokeId.set(null);
+  }
+
+  /** Second click — performs actual revoke after obtaining linkId from facade. */
+  async confirmRevoke(cuidadorId: string): Promise<void> {
     const pid = this.pacienteId();
-    if (this.isLinked(cuidadorId)) {
-      // TODO[FE-ACS-022]: show confirmation modal before revoke
-      // For now: need linkId — load links for this caregiver first
-      // Simplified: facade.revokeLink(cuidadorId, linkId, pid) — linkId lookup deferred
-    } else {
-      await this.facade.linkToPatient(cuidadorId, pid);
+    const linkId = this.facade.linkIdFor(cuidadorId, pid);
+    if (linkId) {
+      await this.facade.revokeLink(cuidadorId, linkId, pid);
     }
+    this.pendingRevokeId.set(null);
   }
 }

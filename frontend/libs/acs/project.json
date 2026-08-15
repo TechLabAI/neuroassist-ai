@@ -5,5 +5,24 @@
   "sourceRoot": "libs/acs/src",
   "prefix": "acs",
   "tags": ["scope:acs", "type:feature"],
-  "targets": {}
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/acs"],
+      "options": {
+        "jestConfig": "libs/acs/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/acs/**/*.ts",
+          "libs/acs/**/*.html"
+        ]
+      }
+    }
+  }
 }

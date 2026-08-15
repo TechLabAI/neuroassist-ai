@@ -5,8 +5,11 @@
 // =============================================================================
 
 // Shell descriptor and routes (consumed by scope:web app.routes.ts)
-export { ACS_MODULE_DESCRIPTOR } from './lib/acs.descriptor';
+export { ACS_MODULE_DESCRIPTOR, MODULE_PERMISSION_MAP, MODULE_FEATURE_FLAGS } from './lib/acs.descriptor';
 export { ACS_ROUTES } from './lib/acs.routes';
+
+// Nav config (shell sidebar / breadcrumb registration)
+export { ACS_NAV_CONFIG } from './lib/acs-nav-config';
 
 // Facades (scope:web may inject directly; other modules must not)
 export { AcsTenantFacade } from './lib/acs-tenant.facade';
@@ -29,6 +32,10 @@ export { AcsShellIntegrationService } from './lib/integration/acs-shell-integrat
 // Providers factory
 export { provideAcs } from './lib/acs.providers';
 export type { AcsProviderConfig } from './lib/acs.providers';
+
+// Access layer — DI tokens (Wave-0 bypass pattern; provide real services to enforce RBAC)
+export { ACS_AUTH_SESSION, ACS_ACCESS_DECISION } from './lib/access/acs-access-tokens';
+export type { AcsAuthSession, AcsAccessDecision } from './lib/access/acs-access-tokens';
 
 // Port tokens (needed by app.config.ts to override adapters in tests)
 export { ACS_TENANT_PORT } from './lib/api/acs-tenant.port';
