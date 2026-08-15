@@ -51,7 +51,13 @@ public final class ProblemDetailFactory {
                                     "Caregiver confirmador could not be resolved")),
                     Map.entry(
                             "evento-not-found",
-                            new ErrorMetadata("not_found", 404, "Evento not found")));
+                            new ErrorMetadata("not_found", 404, "Evento not found")),
+                    Map.entry(
+                            "tenant-mismatch",
+                            new ErrorMetadata(
+                                    "forbidden",
+                                    403,
+                                    "Request tenant does not match resource tenant")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

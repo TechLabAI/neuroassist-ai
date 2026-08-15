@@ -219,6 +219,7 @@ class SseEmitterAdapterTest {
                 null,
                 Instant.now(),
                 Instant.now(),
-                seq);
+                seq,
+                "empresa_demo");
     }
 }

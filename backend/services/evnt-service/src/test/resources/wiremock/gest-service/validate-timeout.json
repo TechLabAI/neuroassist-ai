@@ -1,0 +1,23 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/recognized-commands",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.primitives[0].tipoGestoId",
+        "contains": "SLOW"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "fixedDelayMilliseconds": 6000,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "valid": true,
+      "contractVersion": "1.0"
+    }
+  }
+}

@@ -15,4 +15,5 @@ public record Evento(
         Instant confirmadoAt,
         Instant recognizedAt,
         Instant createdAt,
-        Long seq) {}
+        Long seq,
+        String tenantId) {}

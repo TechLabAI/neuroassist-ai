@@ -44,7 +44,15 @@ public class ReportIngressService implements ReportIngressUseCase {
                 request.reportId(),
                 request.pacienteId());
 
-        // 0. Biometric payload guard (EVNT-023 — forbidden-biometric-payload)
+        // 0a. Tenant isolation: device token tenant must match patient tenant (EVNT-022)
+        if (request.deviceTenant() != null
+                && request.patientTenant() != null
+                && !request.deviceTenant().equals(request.patientTenant())) {
+            throw new CodedException(
+                    "tenant-mismatch", "Device token tenant does not match patient tenant");
+        }
+
+        // 0b. Biometric payload guard (EVNT-023 — forbidden-biometric-payload)
         if (request.rawFramePayload() != null && !request.rawFramePayload().isBlank()) {
             throw new CodedException(
                     "forbidden-biometric-payload",
@@ -103,7 +111,8 @@ public class ReportIngressService implements ReportIngressUseCase {
                         null,
                         request.recognizedAt(),
                         createdAt,
-                        null);
+                        null,
+                        request.patientTenant());
 
         // 6. Create NotificationDispatch — tier derived from urgency (EVNT-022)
         String tier =
@@ -126,8 +135,15 @@ public class ReportIngressService implements ReportIngressUseCase {
         // 9. Register idempotency key
         reportIdempotencyRepositoryPort.save(request.reportId(), evento.id());
 
-        // 10. Dispatch notification (log for PoC)
-        notificationDispatchPort.dispatch(dispatch);
+        // 10. Dispatch notification — catch failures so the transaction commits (dispatch stays
+        // QUEUED)
+        try {
+            notificationDispatchPort.dispatch(dispatch);
+        } catch (Exception e) {
+            log.warn(
+                    "Notification dispatch failed, dispatch stays QUEUED for retry: {}",
+                    e.getMessage());
+        }
 
         // 11. Audit trail (no-op for PoC)
         auditTrailPort.append("EVENTO_CRIADO", evento.id().toString(), "PoC");

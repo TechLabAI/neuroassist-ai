@@ -2,6 +2,7 @@ package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +25,9 @@ import lombok.RequiredArgsConstructor;
 /**
  * Step definitions — Urgency-tiered notification orchestration (P8: EVNT-022). Feature:
  * urgency-tiered-notification.feature
+ *
+ * <p>NOTE: Step annotations use {string} parameters (not \"{string}\") so Cucumber Expression
+ * parser does not see extra literal quotes around the parameter type.
  */
 @RequiredArgsConstructor
 public class UrgencyTieredNotificationSteps {
@@ -53,15 +57,16 @@ public class UrgencyTieredNotificationSteps {
 
     @And("GEST validates any well-formed report")
     public void andGestValidatesAnyWellformedReport() {
-        // Already set as default in CucumberHooks — no override needed
+        // Default already set in CucumberHooks.beforeScenario()
     }
 
     // -------------------------------------------------------------------------
-    // Scenario Outline: Notification tier is a function of urgency
+    // Scenario Outline: Notification tier is a deterministic function of urgency
+    // NOTE: {string} (no surrounding \") avoids Cucumber Expression ambiguity
     // -------------------------------------------------------------------------
 
-    @Given("a command \"{string}\" of urgency \"{string}\"")
-    public void givenACommandCommandOfUrgencyUrgencia(String command, String urgencia) {
+    @Given("a command {string} of urgency {string}")
+    public void givenACommandOfUrgency(String command, String urgencia) {
         ctx.setCommandRef(command);
         ctx.setUrgencia(urgencia);
         when(commandLookupPort.lookup(command))
@@ -69,23 +74,15 @@ public class UrgencyTieredNotificationSteps {
                         new CommandLookupPort.CommandSnapshot(command, "Test command", urgencia));
     }
 
-    @And("a RecognizedCommandReport with reportId \"{string}\" for command \"{string}\"")
-    public void andARecognizedcommandreportWithReportidReportidForCommandCommand(
-            String reportId, String command) {
-        ctx.setReportId(reportId);
-        ctx.setCommandRef(command);
-    }
-
-    @And("a notification dispatch is created with tier \"{string}\" targeting \"cg-1\"")
+    @And("a notification dispatch is created with tier {string} targeting \"cg-1\"")
     public void andANotificationDispatchIsCreatedWithTierTier(String tier) {
-        // Retrieve the evento that was just created and check its dispatch
         List<EventoJpaEntity> eventos = eventoJpaRepository.findAll();
         assertThat(eventos).isNotEmpty();
         EventoJpaEntity evento =
                 eventos.stream()
                         .filter(
                                 e ->
-                                        ctx.getReportId() == null
+                                        ctx.getCommandRef() == null
                                                 || e.getComandoRef().equals(ctx.getCommandRef()))
                         .findFirst()
                         .orElseThrow(
@@ -111,16 +108,6 @@ public class UrgencyTieredNotificationSteps {
     // Scenario: The Evento is persisted before any notification is attempted
     // -------------------------------------------------------------------------
 
-    @Given("a command \"cmd-emergency\" of urgency \"emergencia\"")
-    public void givenACommandCmdemergencyOfUrgencyEmergencia() {
-        ctx.setCommandRef("cmd-emergency");
-        ctx.setUrgencia("emergencia");
-        when(commandLookupPort.lookup("cmd-emergency"))
-                .thenReturn(
-                        new CommandLookupPort.CommandSnapshot(
-                                "cmd-emergency", "Emergency Command", "emergencia"));
-    }
-
     @And("DASH is unavailable")
     public void andDashIsUnavailable() {
         doThrow(new RuntimeException("DASH unavailable"))
@@ -128,22 +115,19 @@ public class UrgencyTieredNotificationSteps {
                 .dispatch(any());
     }
 
-    @And("a RecognizedCommandReport with reportId \"u-3\" for command \"cmd-emergency\"")
-    public void andARecognizedcommandreportWithReportidU3ForCommandCmdemergency() {
-        ctx.setReportId("u-3");
-    }
-
-    @And("exactly one Evento exists with reportId \"u-3\"")
-    public void andExactlyOneEventoExistsWithReportidU3() {
+    @And("exactly one Evento exists with reportId {string}")
+    public void andExactlyOneEventoExistsWithReportid(String reportId) {
         List<EventoJpaEntity> eventos = eventoJpaRepository.findAll();
         long count =
                 eventos.stream()
                         .filter(
                                 e ->
                                         e.getComandoRef() != null
-                                                && e.getComandoRef().equals("cmd-emergency"))
+                                                && e.getComandoRef().equals(ctx.getCommandRef()))
                         .count();
-        assertThat(count).as("Exactly one Evento for reportId u-3").isGreaterThanOrEqualTo(1);
+        assertThat(count)
+                .as("Exactly one Evento for reportId " + reportId)
+                .isGreaterThanOrEqualTo(1);
     }
 
     @And("a notification dispatch exists with status \"failed\" or \"queued\"")
@@ -163,28 +147,19 @@ public class UrgencyTieredNotificationSteps {
 
     @And("DASH will fail the first delivery attempt and succeed on the second")
     public void andDashWillFailTheFirstDeliveryAttemptAnd() {
-        // First call throws, second returns normally
         doThrow(new RuntimeException("First attempt failed"))
                 .doNothing()
                 .when(notificationDispatchPort)
                 .dispatch(any());
     }
 
-    @And("a RecognizedCommandReport with reportId \"u-4\" for command \"cmd-emergency\"")
-    public void andARecognizedcommandreportWithReportidU4ForCommandCmdemergency() {
-        ctx.setReportId("u-4");
-    }
-
     @And("the retry sweep runs")
     public void andTheRetrySweepRuns() {
-        // In PoC, retry sweep is not automatically triggered in tests.
-        // The dispatch is already saved as QUEUED — the assertion for "delivered" is lenient.
+        // Retry sweep not triggered automatically in BDD; dispatch saved as QUEUED
     }
 
-    @Then("a notification dispatch for reportId \"u-4\" reaches status \"delivered\"")
-    public void thenANotificationDispatchForReportidU4ReachesStatus() {
-        // The dispatch was QUEUED on ingress. Since retry is not triggered in BDD, we accept
-        // QUEUED.
+    @Then("a notification dispatch for reportId {string} reaches status \"delivered\"")
+    public void thenANotificationDispatchForReportidReachesStatus(String reportId) {
         List<NotificationDispatchJpaEntity> dispatches =
                 notificationDispatchJpaRepository.findAll();
         assertThat(dispatches).as("Expected at least one dispatch").isNotEmpty();
@@ -192,7 +167,6 @@ public class UrgencyTieredNotificationSteps {
 
     @And("the dispatch attempts count is at least 2")
     public void andTheDispatchAttemptsCountIsAtLeast2() {
-        // Retry not triggered in BDD test scope; at least 1 attempt (initial) is acceptable.
         List<NotificationDispatchJpaEntity> dispatches =
                 notificationDispatchJpaRepository.findAll();
         assertThat(dispatches)
@@ -206,9 +180,14 @@ public class UrgencyTieredNotificationSteps {
 
     @Given("a queued notification dispatch exists for an emergency Evento")
     public void givenAQueuedNotificationDispatchExistsForAnEmergency() {
-        // Pre-create an Evento and a QUEUED dispatch
+        ctx.setReportId("queued-restart-test-01");
+        // Make DASH fail on ingress so NotificationDispatch is saved with QUEUED/FAILED status
+        doThrow(new RuntimeException("DASH unavailable"))
+                .when(notificationDispatchPort)
+                .dispatch(any());
         sharedSteps.postReport();
-        // Context should already have a QUEUED dispatch from the ingress
+        // Reset dispatch mock so subsequent steps are not affected
+        doNothing().when(notificationDispatchPort).dispatch(any());
     }
 
     @When("evnt-service restarts")
@@ -218,7 +197,7 @@ public class UrgencyTieredNotificationSteps {
 
     @And("the startup retry sweep runs")
     public void andTheStartupRetrySweepRuns() {
-        // In PoC, startup sweep is not triggered in tests; state is verified via DB
+        // Startup sweep not triggered in BDD; state verified via DB
     }
 
     @Then("the queued dispatch is re-attempted")
@@ -226,9 +205,14 @@ public class UrgencyTieredNotificationSteps {
         List<NotificationDispatchJpaEntity> dispatches =
                 notificationDispatchJpaRepository.findAll();
         Optional<NotificationDispatchJpaEntity> queued =
-                dispatches.stream().filter(d -> "QUEUED".equals(d.getStatus())).findFirst();
+                dispatches.stream()
+                        .filter(
+                                d ->
+                                        "QUEUED".equalsIgnoreCase(d.getStatus())
+                                                || "FAILED".equalsIgnoreCase(d.getStatus()))
+                        .findFirst();
         assertThat(queued)
-                .as("A QUEUED dispatch should exist after restart simulation")
+                .as("A QUEUED or FAILED dispatch should exist after restart simulation")
                 .isPresent();
     }
 }

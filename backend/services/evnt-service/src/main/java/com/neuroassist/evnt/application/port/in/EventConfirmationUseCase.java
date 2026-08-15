@@ -4,5 +4,5 @@ import java.util.UUID;
 
 public interface EventConfirmationUseCase {
 
-    void confirm(UUID eventoId, String verdict, String confirmedBy);
+    void confirm(UUID eventoId, String verdict, String confirmedBy, String requestTenant);
 }

@@ -1,0 +1,22 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/api/v1/recognized-commands",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.primitives[0].tipoGestoId",
+        "contains": "UNKNOWN"
+      }
+    ]
+  },
+  "response": {
+    "status": 422,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "valid": false,
+      "reason": "unknown-primitive"
+    }
+  }
+}

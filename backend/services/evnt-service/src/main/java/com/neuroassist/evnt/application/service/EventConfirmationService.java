@@ -28,7 +28,7 @@ public class EventConfirmationService implements EventConfirmationUseCase {
     private final SseEventBroadcastPort sseEventBroadcastPort;
 
     @Override
-    public void confirm(UUID eventoId, String verdict, String confirmedBy) {
+    public void confirm(UUID eventoId, String verdict, String confirmedBy, String requestTenant) {
         // 1. Resolve and validate confirmer via ACS (EVNT-023)
         String resolvedCaregiver;
         try {
@@ -51,6 +51,14 @@ public class EventConfirmationService implements EventConfirmationUseCase {
                                 () ->
                                         new ResponseStatusException(
                                                 HttpStatus.NOT_FOUND, "Evento not found"));
+
+        // 2a. Tenant isolation: request tenant must match evento tenant (EVNT-022)
+        if (requestTenant != null
+                && evento.tenantId() != null
+                && !requestTenant.equals(evento.tenantId())) {
+            throw new CodedException(
+                    "tenant-mismatch", "Request tenant does not match evento tenant");
+        }
 
         String existingFeedback = evento.feedback();
 
@@ -82,7 +90,8 @@ public class EventConfirmationService implements EventConfirmationUseCase {
                         Instant.now(),
                         evento.recognizedAt(),
                         evento.createdAt(),
-                        evento.seq());
+                        evento.seq(),
+                        evento.tenantId());
 
         Evento saved = eventoRepositoryPort.save(updated);
         sseEventBroadcastPort.broadcast(saved);
