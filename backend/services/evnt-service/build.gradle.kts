@@ -76,6 +76,9 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
+    // WireMock — contract tests (INT-EVNT-002..005, P9)
+    testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
+
 }
 
 tasks.withType<Test> {

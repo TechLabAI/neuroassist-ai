@@ -74,7 +74,12 @@ public class SharedSteps {
             JsonNode json = objectMapper.readTree(body);
             String actual = json.has(field) ? json.get(field).asText() : "";
             assertThat(actual)
-                    .as("ProblemDetail field '" + field + "' should end with '" + expectedValue + "'")
+                    .as(
+                            "ProblemDetail field '"
+                                    + field
+                                    + "' should end with '"
+                                    + expectedValue
+                                    + "'")
                     .endsWith(expectedValue);
         } catch (Exception e) {
             throw new AssertionError("Failed to parse ProblemDetail: " + e.getMessage(), e);

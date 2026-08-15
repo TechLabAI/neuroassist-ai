@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/pacientes/.*/responsavel"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "caregiverId": "care-uuid-001",
+      "nome": "Maria Cuidadora",
+      "pushToken": "fcm-token-abc123"
+    }
+  }
+}

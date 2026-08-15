@@ -55,7 +55,9 @@ public final class ProblemDetailFactory {
                     Map.entry(
                             "tenant-mismatch",
                             new ErrorMetadata(
-                                    "forbidden", 403, "Request tenant does not match resource tenant")));
+                                    "forbidden",
+                                    403,
+                                    "Request tenant does not match resource tenant")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

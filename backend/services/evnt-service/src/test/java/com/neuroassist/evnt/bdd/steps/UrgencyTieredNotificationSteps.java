@@ -70,7 +70,8 @@ public class UrgencyTieredNotificationSteps {
         ctx.setCommandRef(command);
         ctx.setUrgencia(urgencia);
         when(commandLookupPort.lookup(command))
-                .thenReturn(new CommandLookupPort.CommandSnapshot(command, "Test command", urgencia));
+                .thenReturn(
+                        new CommandLookupPort.CommandSnapshot(command, "Test command", urgencia));
     }
 
     @And("a notification dispatch is created with tier {string} targeting \"cg-1\"")
@@ -79,17 +80,25 @@ public class UrgencyTieredNotificationSteps {
         assertThat(eventos).isNotEmpty();
         EventoJpaEntity evento =
                 eventos.stream()
-                        .filter(e -> ctx.getCommandRef() == null || e.getComandoRef().equals(ctx.getCommandRef()))
+                        .filter(
+                                e ->
+                                        ctx.getCommandRef() == null
+                                                || e.getComandoRef().equals(ctx.getCommandRef()))
                         .findFirst()
                         .orElseThrow(
-                                () -> new AssertionError("No Evento found for commandRef=" + ctx.getCommandRef()));
+                                () ->
+                                        new AssertionError(
+                                                "No Evento found for commandRef="
+                                                        + ctx.getCommandRef()));
 
         List<NotificationDispatchJpaEntity> dispatches =
                 notificationDispatchJpaRepository.findAll().stream()
                         .filter(d -> d.getEventoId().equals(evento.getId()))
                         .toList();
 
-        assertThat(dispatches).as("Expected exactly one dispatch for eventoId=" + evento.getId()).isNotEmpty();
+        assertThat(dispatches)
+                .as("Expected exactly one dispatch for eventoId=" + evento.getId())
+                .isNotEmpty();
         NotificationDispatchJpaEntity dispatch = dispatches.get(0);
         assertThat(dispatch.getTier()).as("Notification tier").isEqualToIgnoringCase(tier);
         assertThat(dispatch.getTargetCaregiverId()).as("Target caregiver").isEqualTo("cg-1");
@@ -101,21 +110,30 @@ public class UrgencyTieredNotificationSteps {
 
     @And("DASH is unavailable")
     public void andDashIsUnavailable() {
-        doThrow(new RuntimeException("DASH unavailable")).when(notificationDispatchPort).dispatch(any());
+        doThrow(new RuntimeException("DASH unavailable"))
+                .when(notificationDispatchPort)
+                .dispatch(any());
     }
 
     @And("exactly one Evento exists with reportId {string}")
     public void andExactlyOneEventoExistsWithReportid(String reportId) {
         List<EventoJpaEntity> eventos = eventoJpaRepository.findAll();
-        long count = eventos.stream()
-                .filter(e -> e.getComandoRef() != null && e.getComandoRef().equals(ctx.getCommandRef()))
-                .count();
-        assertThat(count).as("Exactly one Evento for reportId " + reportId).isGreaterThanOrEqualTo(1);
+        long count =
+                eventos.stream()
+                        .filter(
+                                e ->
+                                        e.getComandoRef() != null
+                                                && e.getComandoRef().equals(ctx.getCommandRef()))
+                        .count();
+        assertThat(count)
+                .as("Exactly one Evento for reportId " + reportId)
+                .isGreaterThanOrEqualTo(1);
     }
 
     @And("a notification dispatch exists with status \"failed\" or \"queued\"")
     public void andANotificationDispatchExistsWithStatusFailedOr() {
-        List<NotificationDispatchJpaEntity> dispatches = notificationDispatchJpaRepository.findAll();
+        List<NotificationDispatchJpaEntity> dispatches =
+                notificationDispatchJpaRepository.findAll();
         assertThat(dispatches).as("Expected at least one notification dispatch").isNotEmpty();
         NotificationDispatchJpaEntity dispatch = dispatches.get(0);
         assertThat(dispatch.getStatus())
@@ -129,7 +147,10 @@ public class UrgencyTieredNotificationSteps {
 
     @And("DASH will fail the first delivery attempt and succeed on the second")
     public void andDashWillFailTheFirstDeliveryAttemptAnd() {
-        doThrow(new RuntimeException("First attempt failed")).doNothing().when(notificationDispatchPort).dispatch(any());
+        doThrow(new RuntimeException("First attempt failed"))
+                .doNothing()
+                .when(notificationDispatchPort)
+                .dispatch(any());
     }
 
     @And("the retry sweep runs")
@@ -139,14 +160,18 @@ public class UrgencyTieredNotificationSteps {
 
     @Then("a notification dispatch for reportId {string} reaches status \"delivered\"")
     public void thenANotificationDispatchForReportidReachesStatus(String reportId) {
-        List<NotificationDispatchJpaEntity> dispatches = notificationDispatchJpaRepository.findAll();
+        List<NotificationDispatchJpaEntity> dispatches =
+                notificationDispatchJpaRepository.findAll();
         assertThat(dispatches).as("Expected at least one dispatch").isNotEmpty();
     }
 
     @And("the dispatch attempts count is at least 2")
     public void andTheDispatchAttemptsCountIsAtLeast2() {
-        List<NotificationDispatchJpaEntity> dispatches = notificationDispatchJpaRepository.findAll();
-        assertThat(dispatches).as("Expected at least one dispatch for retry verification").isNotEmpty();
+        List<NotificationDispatchJpaEntity> dispatches =
+                notificationDispatchJpaRepository.findAll();
+        assertThat(dispatches)
+                .as("Expected at least one dispatch for retry verification")
+                .isNotEmpty();
     }
 
     // -------------------------------------------------------------------------
@@ -157,7 +182,9 @@ public class UrgencyTieredNotificationSteps {
     public void givenAQueuedNotificationDispatchExistsForAnEmergency() {
         ctx.setReportId("queued-restart-test-01");
         // Make DASH fail on ingress so NotificationDispatch is saved with QUEUED/FAILED status
-        doThrow(new RuntimeException("DASH unavailable")).when(notificationDispatchPort).dispatch(any());
+        doThrow(new RuntimeException("DASH unavailable"))
+                .when(notificationDispatchPort)
+                .dispatch(any());
         sharedSteps.postReport();
         // Reset dispatch mock so subsequent steps are not affected
         doNothing().when(notificationDispatchPort).dispatch(any());
@@ -175,9 +202,17 @@ public class UrgencyTieredNotificationSteps {
 
     @Then("the queued dispatch is re-attempted")
     public void thenTheQueuedDispatchIsReattempted() {
-        List<NotificationDispatchJpaEntity> dispatches = notificationDispatchJpaRepository.findAll();
+        List<NotificationDispatchJpaEntity> dispatches =
+                notificationDispatchJpaRepository.findAll();
         Optional<NotificationDispatchJpaEntity> queued =
-                dispatches.stream().filter(d -> "QUEUED".equalsIgnoreCase(d.getStatus()) || "FAILED".equalsIgnoreCase(d.getStatus())).findFirst();
-        assertThat(queued).as("A QUEUED or FAILED dispatch should exist after restart simulation").isPresent();
+                dispatches.stream()
+                        .filter(
+                                d ->
+                                        "QUEUED".equalsIgnoreCase(d.getStatus())
+                                                || "FAILED".equalsIgnoreCase(d.getStatus()))
+                        .findFirst();
+        assertThat(queued)
+                .as("A QUEUED or FAILED dispatch should exist after restart simulation")
+                .isPresent();
     }
 }

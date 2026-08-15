@@ -100,7 +100,10 @@ public class LiveEventDeliverySteps {
     @Then("the caregiver's stream receives an \"evento.created\" frame for \"evt-live-1\"")
     public void thenTheCaregiversStreamReceivesAnEventocreatedFrameFor() {
         verify(sseEmitterAdapter)
-                .broadcast(argThat(evento -> "emergencia".equalsIgnoreCase(evento.urgenciaSnapshot())));
+                .broadcast(
+                        argThat(
+                                evento ->
+                                        "emergencia".equalsIgnoreCase(evento.urgenciaSnapshot())));
     }
 
     @And("the frame data field \"urgencia\" is \"emergencia\"")
@@ -215,7 +218,9 @@ public class LiveEventDeliverySteps {
     @Then("the stream replays frames with sequence 51 and 52")
     public void thenTheStreamReplaysFramesWithSequence51And() {
         long count = eventoJpaRepository.findAll().size();
-        assertThat(count).as("At least 2 Eventos should exist for replay").isGreaterThanOrEqualTo(2);
+        assertThat(count)
+                .as("At least 2 Eventos should exist for replay")
+                .isGreaterThanOrEqualTo(2);
     }
 
     @And("no active event is missed")

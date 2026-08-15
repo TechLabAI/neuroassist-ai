@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/api/v1/comandos/DELETED-.*"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "type": "https://neuroassist.ai/errors/not-found",
+      "title": "Comando not found",
+      "status": 404,
+      "detail": "Comando with given ref does not exist or is deactivated"
+    }
+  }
+}

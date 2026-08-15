@@ -12,7 +12,6 @@ import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
-import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.time.Instant;
 import java.util.HashMap;
@@ -110,7 +109,9 @@ public class CaregiverConfirmationFeedbackSteps {
     public void andTheEventoEvt1RecordsConfirmadoporCg1AndA() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        assertThat(entity.getConfirmadoPor()).as("confirmadoPor should be 'cg-1'").isEqualTo("cg-1");
+        assertThat(entity.getConfirmadoPor())
+                .as("confirmadoPor should be 'cg-1'")
+                .isEqualTo("cg-1");
         assertThat(entity.getConfirmadoAt()).as("confirmadoAt should be set").isNotNull();
     }
 

@@ -1,0 +1,17 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/pacientes/NO-RESPONSAVEL-.*/responsavel"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "type": "https://neuroassist.ai/errors/not-found",
+      "title": "Responsavel not found",
+      "status": 404
+    }
+  }
+}

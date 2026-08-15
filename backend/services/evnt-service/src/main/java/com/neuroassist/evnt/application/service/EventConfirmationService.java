@@ -7,7 +7,6 @@ import com.neuroassist.evnt.application.port.out.EventoRepositoryPort;
 import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.domain.model.Evento;
 import com.neuroassist.evnt.shared.error.CodedException;
-
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -58,8 +57,7 @@ public class EventConfirmationService implements EventConfirmationUseCase {
                 && evento.tenantId() != null
                 && !requestTenant.equals(evento.tenantId())) {
             throw new CodedException(
-                    "tenant-mismatch",
-                    "Request tenant does not match evento tenant");
+                    "tenant-mismatch", "Request tenant does not match evento tenant");
         }
 
         String existingFeedback = evento.feedback();

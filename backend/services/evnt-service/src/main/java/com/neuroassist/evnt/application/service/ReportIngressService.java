@@ -49,8 +49,7 @@ public class ReportIngressService implements ReportIngressUseCase {
                 && request.patientTenant() != null
                 && !request.deviceTenant().equals(request.patientTenant())) {
             throw new CodedException(
-                    "tenant-mismatch",
-                    "Device token tenant does not match patient tenant");
+                    "tenant-mismatch", "Device token tenant does not match patient tenant");
         }
 
         // 0b. Biometric payload guard (EVNT-023 — forbidden-biometric-payload)
@@ -136,11 +135,14 @@ public class ReportIngressService implements ReportIngressUseCase {
         // 9. Register idempotency key
         reportIdempotencyRepositoryPort.save(request.reportId(), evento.id());
 
-        // 10. Dispatch notification — catch failures so the transaction commits (dispatch stays QUEUED)
+        // 10. Dispatch notification — catch failures so the transaction commits (dispatch stays
+        // QUEUED)
         try {
             notificationDispatchPort.dispatch(dispatch);
         } catch (Exception e) {
-            log.warn("Notification dispatch failed, dispatch stays QUEUED for retry: {}", e.getMessage());
+            log.warn(
+                    "Notification dispatch failed, dispatch stays QUEUED for retry: {}",
+                    e.getMessage());
         }
 
         // 11. Audit trail (no-op for PoC)

@@ -1,0 +1,19 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPattern": "/api/v1/comandos/.*"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "ref": "cmd-001",
+      "label": "Toque duplo",
+      "urgencia": "rotina",
+      "sensibilidade": 0.75,
+      "pacienteId": "pac-uuid-001"
+    }
+  }
+}
