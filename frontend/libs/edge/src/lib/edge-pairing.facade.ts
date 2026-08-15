@@ -6,9 +6,10 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timer, Subscription, switchMap, of, catchError } from 'rxjs';
+import { timer, Subscription, switchMap, of, catchError, retry, defer } from 'rxjs';
 import { PAIRING_PORT } from './api/pairing.port';
 import { DEVICE_PORT } from './api/device.port';
+import { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './edge-toast.token';
 import {
   PairingVM,
   PairingPhase,
@@ -57,6 +58,7 @@ export class PairingFacade {
   private readonly pairingPort = inject(PAIRING_PORT);
   private readonly devicePort = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
 
   private readonly _vm = signal<PairingVM>(idleVm());
 
@@ -86,9 +88,12 @@ export class PairingFacade {
   register(label: string, pacienteHint?: string): void {
     this._vm.update((vm) => ({ ...vm, phase: 'registering', errorMessage: null }));
 
-    this.pairingPort
-      .register({ label, pacienteHint })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    // defer() ensures each retry invokes the port factory again (new HTTP request).
+    defer(() => this.pairingPort.register({ label, pacienteHint }))
+      .pipe(
+        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (result) => {
           this._vm.set({
@@ -104,13 +109,16 @@ export class PairingFacade {
           this.startClaimPoll(result.deviceId);
           this.startTtlWatch(result.enrollmentExpiresAt);
         },
-        error: (err: unknown) => {
+        error: (_err: unknown) => {
           this._vm.update((vm) => ({
             ...vm,
             phase: 'error',
             errorMessage: 'Não foi possível registrar o dispositivo. Tente novamente.',
           }));
-          console.error('PairingFacade.register error:', err);
+          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+            label: 'Tentar novamente',
+            callback: () => this.register(label, pacienteHint),
+          });
         },
       });
   }
@@ -129,18 +137,24 @@ export class PairingFacade {
       pacienteId,
     }));
 
-    this.pairingPort
-      .pairToPatient(deviceId, { pacienteId })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    // defer() ensures each retry invokes the port factory again (new HTTP request).
+    defer(() => this.pairingPort.pairToPatient(deviceId, { pacienteId }))
+      .pipe(
+        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (dev) => this.handleFirstHeartbeat(dev),
-        error: (err: unknown) => {
+        error: (_err: unknown) => {
           this._vm.update((vm) => ({
             ...vm,
             phase: 'error',
             errorMessage: 'Falha ao parear com o paciente. Tente novamente.',
           }));
-          console.error('PairingFacade.pairToPatient error:', err);
+          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+            label: 'Tentar novamente',
+            callback: () => this.pairToPatient(pacienteId),
+          });
         },
       });
   }

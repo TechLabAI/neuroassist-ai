@@ -1,26 +1,35 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
+import { EDGE_ACCESS_DECISION } from './edge-access-tokens';
 
 // ---------------------------------------------------------------------------
-// edgeConductorGuard — SPEC-01 §3 / SPEC-05 §3
-// Requires the conductor entitlement for register/pair/unpair/retire operations.
-// On failure: redirects to /edge/device (read-only detail) with a notice.
+// edgeConductorGuard — SPEC-01 §3 / SPEC-05 §3 (FE-EDGE-015)
+//
+// Requires the conductor entitlement (edge.device.manage) for
+// register/pair/unpair/retire operations.
+// On failure: redirects to /edge/device (read-only detail).
 // Never produces a blank page (SPEC-01 §3).
 //
-// TODO[FE-EDGE-003]: wire to AuthSessionService.hasPermission('edge.device.manage')
-// until then: pass-through (Layer 1 scaffold).
+// Wave-0 bypass: EDGE_ACCESS_DECISION defaults to null when auth layer is not
+// yet wired (factory: () => null). Guard passes through in dev and test
+// environments until the access-decision service is promoted.
+//
+// To enforce RBAC in production, provide the real service:
+//   { provide: EDGE_ACCESS_DECISION, useExisting: RealAccessDecisionService }
 // ---------------------------------------------------------------------------
 
-export const edgeConductorGuard: CanActivateFn = (_route, _state) => {
-  const router = inject(Router);
+export const edgeConductorGuard: CanActivateFn = () => {
+  const access = inject(EDGE_ACCESS_DECISION, { optional: true });
 
-  // TODO[FE-EDGE-003]: replace with real RBAC check
-  // const session = inject(AuthSessionService);
-  // if (!session.hasPermission('edge.device.manage')) {
-  //   return router.createUrlTree(['/edge', 'device']);
-  // }
-  // return true;
+  // Wave-0 bypass: access decision service not wired — allow through.
+  if (access === null) {
+    return true;
+  }
 
-  // Layer 1 scaffold: always allow (conductor session assumed in dev)
+  // RBAC check: conductor permission required for manage operations.
+  if (!access.can('edge.device.manage')) {
+    return inject(Router).createUrlTree(['/edge', 'device']);
+  }
+
   return true;
 };

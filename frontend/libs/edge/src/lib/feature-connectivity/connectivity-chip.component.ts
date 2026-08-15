@@ -64,13 +64,15 @@ function toneIcon(tone: ConnectivityTone): string {
 export class ConnectivityChipComponent {
   private readonly facade = inject(DeviceFacade);
 
-  /** If provided externally (composition), use it; otherwise read from DeviceFacade. */
-  readonly vmInput = input<DeviceConnectivityVM | null>(null, { alias: 'vm' });
+  /** External VM override (composition slot). When provided, takes precedence over the facade.
+   * Consumers bind: <edge-connectivity-chip [vmExternal]="signal()" /> */
+  readonly vmExternal = input<DeviceConnectivityVM | null>(null);
 
   /** Open action emitted when the chip is clicked (for host pages that want to intercept). */
   readonly open = output<void>();
 
-  readonly vm = () => this.vmInput() ?? this.facade.connectivity();
+  /** Resolved VM: external override first, then facade signal. */
+  readonly vm = () => this.vmExternal() ?? this.facade.connectivity();
 
   protected readonly toneClass = toneClass;
   protected readonly toneIcon = toneIcon;

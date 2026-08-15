@@ -2,55 +2,59 @@ import {
   Component,
   ChangeDetectionStrategy,
   inject,
+  Input,
   OnDestroy,
-  input,
   output,
   computed,
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PairingFacade } from '../edge-pairing.facade';
-import { PairingPhase, PairedDeviceOutcome } from '@neuroassist/shared/contracts';
+import { PairedDeviceOutcome } from '@neuroassist/shared/contracts';
+import { PairingCodeCardComponent } from './pairing-code-card.component';
+import { PairingProgressComponent } from './pairing-progress.component';
+import { PairingResultComponent } from './pairing-result.component';
 
 // ---------------------------------------------------------------------------
-// DevicePairingPageComponent — SPEC-01 §2 / SPEC-06 §5
-// Owns the pairing wizard: idle → registering → awaiting-claim → paired.
+// DevicePairingPageComponent — FE-EDGE-011
+// Smart container: owns the pairing wizard state machine via PairingFacade.
+// Composes:
+//   - PairingProgressComponent  — step indicator
+//   - PairingCodeCardComponent  — token display + TTL countdown (awaiting-claim)
+//   - PairingResultComponent    — paired / expired / error outcomes
+//
 // Used in two contexts:
 //   1. Own route /edge/pairing (standalone host; conductor guard)
 //   2. Composed inside onboarding step-3 slot (via EdgeShellIntegrationService)
 //
 // OnPush; Standalone; OnDestroy cleans up polling.
-// TODO[FE-EDGE-006..012]: implement full pairing flow UI (Layer 2)
+// Safety: NEVER transitions to "paired" on register() alone (SPEC-04 §2).
 // ---------------------------------------------------------------------------
-
-function phaseLabel(phase: PairingPhase): string {
-  switch (phase) {
-    case 'idle': return 'Aguardando início';
-    case 'registering': return 'Solicitando código…';
-    case 'awaiting-claim': return 'Aguardando o agente reclamar o código…';
-    case 'awaiting-first-heartbeat': return 'Aguardando primeiro heartbeat…';
-    case 'paired': return 'Dispositivo pareado!';
-    case 'expired': return 'Código expirado';
-    case 'error': return 'Erro no pareamento';
-  }
-}
 
 @Component({
   selector: 'edge-device-pairing',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, PairingCodeCardComponent, PairingProgressComponent, PairingResultComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mx-auto max-w-lg p-8">
       <header class="mb-6">
         <h1 class="font-display text-xl font-bold tracking-tight text-ink">Parear dispositivo</h1>
         <p class="mt-1 text-sm text-ink-soft">
-          Conecte o agente edge ao paciente. O código expira em {{ countdown() }}s.
+          Conecte o agente edge ao paciente.
         </p>
       </header>
 
-      <!-- State machine display -->
+      <!-- Step progress bar (always visible during active pairing) -->
+      @if (showProgress()) {
+        <div class="mb-5">
+          <edge-pairing-progress [phase]="facade.phase()" />
+        </div>
+      }
+
+      <!-- Main card -->
       <div class="rounded-2xl border border-line bg-surface p-6 shadow-card">
+
         @switch (facade.phase()) {
 
           @case ('idle') {
@@ -78,19 +82,13 @@ function phaseLabel(phase: PairingPhase): string {
 
           @case ('awaiting-claim') {
             <div class="flex flex-col gap-4">
-              <div class="flex items-center justify-between">
-                <span class="text-sm font-medium text-ink">Código de pareamento</span>
-                <span class="text-xs text-ink-faint">Expira em {{ countdown() }}s</span>
-              </div>
-              <!-- Enrollment token — shown once (api-contract §2.1) -->
-              <div class="rounded-xl border border-brand bg-brand-subtle px-5 py-4 text-center">
-                <p class="font-mono text-2xl font-bold tracking-widest text-brand">
-                  {{ facade.state().enrollmentToken ?? '—' }}
-                </p>
-                <p class="mt-2 text-xs text-ink-soft">
-                  Informe este código ao agente edge para concluir o registro.
-                </p>
-              </div>
+              <!-- Presentational token card (FE-EDGE-009) -->
+              <edge-pairing-code-card
+                [token]="facade.state().enrollmentToken ?? ''"
+                [countdown]="facade.countdown()"
+                (expired)="onCodeExpiredInUi()"
+                (copied)="onCodeCopied()" />
+
               <div class="flex items-center gap-2 text-sm text-ink-soft">
                 <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
                 Aguardando o agente reclamar o código…
@@ -111,56 +109,19 @@ function phaseLabel(phase: PairingPhase): string {
             </div>
           }
 
-          @case ('paired') {
-            <div class="flex flex-col items-center gap-4 py-4 text-center">
-              <span class="material-symbols-outlined text-[48px] text-success">check_circle</span>
-              <div>
-                <p class="font-display text-base font-bold text-ink">Dispositivo pareado!</p>
-                @if (facade.state().versao; as versao) {
-                  <p class="mt-1 text-xs text-success-ink">Online · versão {{ versao }}</p>
-                }
-              </div>
-              <a routerLink="/edge/device"
-                 class="mt-2 inline-flex items-center gap-2 rounded-xl bg-success px-5 py-2 text-sm font-bold text-success-ink">
-                Ver dispositivo
-              </a>
-            </div>
-          }
-
-          @case ('expired') {
-            <div class="flex flex-col items-center gap-4 py-4 text-center">
-              <span class="material-symbols-outlined text-[40px] text-warn">timer_off</span>
-              <div>
-                <p class="text-sm font-medium text-ink">Código expirado</p>
-                <p class="mt-1 text-xs text-ink-soft">
-                  {{ facade.state().errorMessage }}
-                </p>
-              </div>
-              <button (click)="onRetry()"
-                      class="rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-strong">
-                Novo código
-              </button>
-            </div>
-          }
-
-          @case ('error') {
-            <div class="flex flex-col items-center gap-4 py-4 text-center">
-              <span class="material-symbols-outlined text-[40px] text-danger">error</span>
-              <div>
-                <p class="text-sm font-medium text-ink">Erro no pareamento</p>
-                <p class="mt-1 text-xs text-ink-soft">{{ facade.state().errorMessage }}</p>
-              </div>
-              <button (click)="onRetry()"
-                      class="rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-brand-ink hover:bg-brand-strong">
-                Tentar novamente
-              </button>
-            </div>
+          @default {
+            <!-- Outcome card for paired / expired / error (FE-EDGE-010) -->
+            <edge-pairing-result
+              [phase]="facade.phase()"
+              [versao]="facade.state().versao"
+              [errorMessage]="facade.state().errorMessage"
+              (retry)="onRetry()" />
           }
 
         }
       </div>
 
-      <!-- Phase breadcrumb -->
+      <!-- Phase label -->
       <p class="mt-3 text-xs text-ink-faint">
         Estado: <span class="font-medium text-ink-soft">{{ phaseLabel(facade.phase()) }}</span>
       </p>
@@ -170,17 +131,27 @@ function phaseLabel(phase: PairingPhase): string {
 export class DevicePairingPageComponent implements OnDestroy {
   protected readonly facade = inject(PairingFacade);
 
-  /** Optional paciente hint from onboarding step-3 host (SPEC-01 §4). */
-  readonly pacienteHint = input<string | null>(null);
+  /**
+   * Optional paciente hint from onboarding step-3 host (SPEC-01 §4).
+   * NOTE: @Input() is used instead of the input() signal API (ts-jest limitation).
+   */
+  @Input() set pacienteHint(value: string | null) {
+    this._pacienteHint.set(value ?? null);
+  }
+  protected readonly _pacienteHint = signal<string | null>(null);
 
   /** Emitted to host page when pairing completes (SPEC-03 §6). */
   readonly paired = output<PairedDeviceOutcome>();
 
   protected readonly countdown = computed(() => this.facade.countdown());
-  protected readonly phaseLabel = phaseLabel;
+
+  protected readonly showProgress = computed(() => {
+    const p = this.facade.phase();
+    return p !== 'idle' && p !== 'paired' && p !== 'expired' && p !== 'error';
+  });
 
   protected onRegister(): void {
-    const hint = this.pacienteHint();
+    const hint = this._pacienteHint();
     this.facade.register(
       'Dispositivo NeuroAssist',
       hint ?? undefined,
@@ -191,9 +162,30 @@ export class DevicePairingPageComponent implements OnDestroy {
     this.facade.retry();
   }
 
+  protected onCodeExpiredInUi(): void {
+    // UI notification — the facade already handles the state transition via
+    // startTtlWatch (SPEC-04 §2). No additional action needed from the component.
+  }
+
+  protected onCodeCopied(): void {
+    // No-op for now — could emit a toast in P8 observability wave.
+  }
+
+  protected phaseLabel(phase: string): string {
+    const labels: Record<string, string> = {
+      'idle': 'Aguardando início',
+      'registering': 'Solicitando código…',
+      'awaiting-claim': 'Aguardando o agente reclamar o código…',
+      'awaiting-first-heartbeat': 'Aguardando primeiro heartbeat…',
+      'paired': 'Dispositivo pareado!',
+      'expired': 'Código expirado',
+      'error': 'Erro no pareamento',
+    };
+    return labels[phase] ?? phase;
+  }
+
   ngOnDestroy(): void {
     this.facade.stopPolling();
-    // Emit outcome if pairing completed before the host unmounts
     const outcome = this.facade.lastOutcome();
     if (outcome) {
       this.paired.emit(outcome);

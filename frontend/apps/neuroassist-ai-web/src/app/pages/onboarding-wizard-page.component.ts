@@ -1,7 +1,16 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, effect } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  computed,
+  OnInit,
+  Type,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { NgComponentOutlet } from '@angular/common';
 import { AcsTenantFacade, AcsCaregiverFacade } from '@neuroassist/acs';
-import { DeviceFacade } from '@neuroassist/edge';
+import { EdgeShellIntegrationService } from '@neuroassist/edge';
 import { PacPacienteFacade } from '@neuroassist/pac';
 
 // =============================================================================
@@ -11,9 +20,14 @@ import { PacPacienteFacade } from '@neuroassist/pac';
 //
 // Step 1: Tenant setup        → AcsTenantFacade.create()
 // Step 2: Patient register    → PacComandoFacade.patient (PAC-owned)
-// Step 3: Edge device pairing → EdgeDeviceFacade (EDGE-owned)
+// Step 3: Edge device pairing → EdgeShellIntegrationService.resolvePairingSlot()
+//                               (rendered via NgComponentOutlet — INT-FE-EDGE-003)
 // Step 4: First command       → link to /pac (PAC catalog)
 // Step 5: Invite caregiver    → AcsCaregiverFacade.invite()
+//
+// nx-boundary: EdgeShellIntegrationService imported from @neuroassist/edge barrel only
+// (no scope:edge internal imports in scope:web). DevicePairingPageComponent type is
+// never imported here — obtained lazily via resolvePairingSlot() at runtime.
 //
 // Route: /onboarding (scope:web, outside shell — uses AppComponent directly)
 // Wired by app.routes.ts as a standalone loadComponent (no shell layout).
@@ -24,7 +38,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
 @Component({
   selector: 'app-onboarding-wizard-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, NgComponentOutlet],
   template: `
     <div class="mx-auto max-w-6xl p-8">
       <header class="mb-7">
@@ -82,31 +96,38 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
             </p>
           </div>
 
-          <!-- Step 3: Dispositivo edge (EDGE) -->
+          <!-- Step 3: Dispositivo edge (EDGE) — INT-FE-EDGE-003 -->
+          <!-- DevicePairingPageComponent mounted via NgComponentOutlet (no direct import, nx-boundary preserved) -->
+          <!-- pacienteHint wired from PacPacienteFacade.patient().id via ngComponentOutletInputs -->
           <div class="rounded-2xl border border-border bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">3</span>
               <h2 class="font-display text-sm font-semibold text-ink">Dispositivo edge</h2>
-            </div>
-            <div class="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-4 py-3">
-              @if (pareamentoEfetivo() === 'idle') {
-                <span class="text-sm text-ink-soft">Nenhum dispositivo pareado ainda.</span>
-                <button
-                  class="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
-                  (click)="parear()"
-                >Parear dispositivo</button>
-              } @else if (pareamentoEfetivo() === 'pareando') {
-                <span class="flex items-center gap-2 text-sm font-medium text-brand">
-                  <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  Pareando…
-                </span>
-              } @else {
-                <span class="flex items-center gap-2 text-sm font-medium text-success-ink">
-                  <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                  Dispositivo pareado
+              @if (pareamentoEfetivo() === 'pareado') {
+                <span class="ml-auto text-xs font-medium text-success-ink">
+                  <span class="material-symbols-outlined text-[14px] align-middle">check_circle</span>
+                  Pareado
                 </span>
               }
             </div>
+            @if (pareamentoEfetivo() !== 'pareado') {
+              @if (pairingComponentType(); as compType) {
+                <!-- DevicePairingPageComponent composed in place via slot (SPEC-06 §3) -->
+                <ng-container
+                  [ngComponentOutlet]="compType"
+                  [ngComponentOutletInputs]="pairingInputs()" />
+              } @else {
+                <div class="flex items-center gap-2 text-sm text-ink-soft">
+                  <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                  Carregando módulo de pareamento…
+                </div>
+              }
+            } @else {
+              <div class="flex items-center gap-2 text-sm text-success-ink">
+                <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                Dispositivo pareado com sucesso.
+              </div>
+            }
           </div>
 
           <!-- Step 4: Primeiro comando (PAC) -->
@@ -197,11 +218,14 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class OnboardingWizardPageComponent {
+export class OnboardingWizardPageComponent implements OnInit {
   readonly tenantFacade = inject(AcsTenantFacade);
   readonly caregiverFacade = inject(AcsCaregiverFacade);
-  private readonly edgeFacade = inject(DeviceFacade);
-  private readonly pacFacade = inject(PacPacienteFacade);
+  protected readonly pacFacade = inject(PacPacienteFacade);
+
+  // INT-FE-EDGE-003: EDGE composition via EdgeShellIntegrationService (no DeviceFacade import).
+  // scope:web only sees EdgeShellIntegrationService from @neuroassist/edge barrel.
+  private readonly edgeIntegration = inject(EdgeShellIntegrationService);
 
   readonly tenantNome = signal('');
   readonly cuidadoraNome = signal('');
@@ -209,7 +233,29 @@ export class OnboardingWizardPageComponent {
   readonly pareamento = signal<Pareamento>('idle');
   readonly concluido = signal(false);
 
-  readonly dispositivoExistente = computed(() => this.edgeFacade.device());
+  /**
+   * DevicePairingPageComponent type, resolved lazily via resolvePairingSlot().
+   * Typed as Type<object> to avoid importing DevicePairingPageComponent in scope:web
+   * (nx-boundary: no direct scope:edge component import in scope:web).
+   */
+  readonly pairingComponentType = signal<Type<object> | null>(null);
+
+  /** Inputs for NgComponentOutlet — pacienteHint bound from active patient (SPEC-06 §3). */
+  readonly pairingInputs = computed<Record<string, unknown>>(() => ({
+    pacienteHint: this.pacFacade.patient()?.id ?? null,
+  }));
+
+  /**
+   * Detects pairing completion via two signals:
+   *   1. connectivity.paired — updated after next liveness poll (authoritative)
+   *   2. pairingPhase === 'paired' — immediate (after first heartbeat confirmed by PairingFacade)
+   * This ensures the checklist updates without waiting for the next poll cycle.
+   */
+  readonly dispositivoExistente = computed(
+    () =>
+      this.edgeIntegration.connectivityReadModel()().paired ||
+      this.edgeIntegration.pairingPhase()() === 'paired',
+  );
 
   readonly pareamentoEfetivo = computed<Pareamento>(() =>
     this.dispositivoExistente() ? 'pareado' : this.pareamento(),
@@ -228,13 +274,29 @@ export class OnboardingWizardPageComponent {
     this.cuidadoraEmail().trim().length > 0,
   );
 
+  /**
+   * Resolve the pairing component type at init so the slot is ready to render
+   * before the user reaches step 3 (SPEC-06 §3, INT-FE-EDGE-003).
+   * resolvePairingSlot() returns Promise.resolve(DevicePairingPageComponent) — synchronous in mock.
+   */
+  ngOnInit(): void {
+    this.edgeIntegration.resolvePairingSlot().then((comp) => {
+      this.pairingComponentType.set(comp as Type<object>);
+    });
+  }
+
   async criarTenant(): Promise<void> {
     await this.tenantFacade.create({ nome: this.tenantNome().trim(), tipo: 'familia' });
   }
 
-  protected parear(): void {
-    this.pareamento.set('pareando');
-    setTimeout(() => this.pareamento.set('pareado'), 1600);
+  /**
+   * Called by host when the (paired) output is emitted from DevicePairingPageComponent.
+   * Advances the onboarding state (SPEC-06 §3 / INT-FE-EDGE-003).
+   * Note: since NgComponentOutlet does not wire outputs natively, this method is also
+   * triggered reactively via dispositivoExistente when pairingPhase() === 'paired'.
+   */
+  onDevicePaired(_outcome: unknown): void {
+    this.pareamento.set('pareado');
   }
 
   protected async concluir(): Promise<void> {

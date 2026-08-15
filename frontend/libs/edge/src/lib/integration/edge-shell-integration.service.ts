@@ -1,6 +1,7 @@
 import { Injectable, inject, Signal, Type } from '@angular/core';
 import { DeviceFacade } from '../edge.facade';
-import { DeviceConnectivityVM } from '@neuroassist/shared/contracts';
+import { PairingFacade } from '../edge-pairing.facade';
+import { DeviceConnectivityVM, PairingPhase } from '@neuroassist/shared/contracts';
 import { DevicePairingPageComponent } from '../feature-pairing/device-pairing-page.component';
 
 // ---------------------------------------------------------------------------
@@ -10,12 +11,14 @@ import { DevicePairingPageComponent } from '../feature-pairing/device-pairing-pa
 //
 // nx-boundary rule: scope:web MUST NOT import scope:edge internals directly.
 // The topbar reads connectivity through connectivityReadModel();
-// onboarding step-3 obtains the pairing component through resolvePairingSlot().
+// onboarding step-3 obtains the pairing component through resolvePairingSlot()
+// and tracks pairing progress through pairingPhase().
 // ---------------------------------------------------------------------------
 
 @Injectable({ providedIn: 'root' })
 export class EdgeShellIntegrationService {
   private readonly deviceFacade = inject(DeviceFacade);
+  private readonly pairingFacade = inject(PairingFacade);
   private registered = false;
 
   /** Register the EDGE module descriptor with the shell registry.
@@ -35,6 +38,16 @@ export class EdgeShellIntegrationService {
    */
   connectivityReadModel(): Signal<DeviceConnectivityVM> {
     return this.deviceFacade.connectivity;
+  }
+
+  /**
+   * Returns the current pairing phase as a readonly Signal.
+   * Host pages (onboarding step-3) use this to track pairing progress
+   * without importing PairingFacade directly (preserves nx-boundary).
+   * SPEC-06 §3: "pairingPhase() exposes PairingFacade.phase to host pages"
+   */
+  pairingPhase(): Signal<PairingPhase> {
+    return this.pairingFacade.phase;
   }
 
   /**

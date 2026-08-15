@@ -5,5 +5,24 @@
   "sourceRoot": "libs/edge/src",
   "prefix": "edge",
   "tags": ["scope:edge", "type:feature"],
-  "targets": {}
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/edge"],
+      "options": {
+        "jestConfig": "libs/edge/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/edge/**/*.ts",
+          "libs/edge/**/*.html"
+        ]
+      }
+    }
+  }
 }

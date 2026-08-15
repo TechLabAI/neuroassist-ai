@@ -1,6 +1,7 @@
 import { inject } from '@angular/core';
 import { EdgeShellIntegrationService } from './integration/edge-shell-integration.service';
 import { DeviceFacade } from './edge.facade';
+import { EDGE_ERROR_MESSAGES } from './edge-error-messages';
 
 // ---------------------------------------------------------------------------
 // edgeBootstrap — SPEC-06 §4
@@ -19,6 +20,11 @@ export const edgeBootstrap = {
     try {
       const integration = inject(EdgeShellIntegrationService);
       integration.registerWithShell();
+
+      // INT-FE-EDGE-006: EDGE error messages are available at module init.
+      // TODO[INT-FE-EDGE-006]: register with SharedErrorModelService.register('edge', EDGE_ERROR_MESSAGES)
+      // when SharedErrorModelService implements the registration interface.
+      void EDGE_ERROR_MESSAGES; // tree-shake guard: ensures the map is included in the bundle
 
       // Resolve connectivity for the active patient (placeholder pacienteId)
       // TODO[FE-EDGE-001]: get pacienteId from EmpresaContextService

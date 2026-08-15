@@ -6,8 +6,9 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timer, Subscription, switchMap, of, catchError } from 'rxjs';
+import { timer, Subscription, switchMap, of, catchError, retry, defer } from 'rxjs';
 import { DEVICE_PORT } from './api/device.port';
+import { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './edge-toast.token';
 import {
   DispositivoEdgeView,
   LivenessView,
@@ -36,7 +37,7 @@ export const MODULE_FEATURE_FLAGS = {
 // avoid client clock skew (doc 06 R5).
 // ---------------------------------------------------------------------------
 
-function deriveState(
+export function deriveState(
   device: DispositivoEdgeView | null,
   pollOk: boolean,
 ): DerivedState {
@@ -103,11 +104,14 @@ function relativeTime(isoStr: string | null): string {
 export class DeviceFacade {
   private readonly port = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
 
   private readonly _device = signal<DispositivoEdgeView | null>(null);
   private readonly _pollOk = signal<boolean>(true);
   private readonly _loading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
+  /** Derive conductor entitlement — true until session integration replaces this (FE-EDGE-003 TODO). */
+  private readonly _canManage = signal<boolean>(true);
 
   private pollSub: Subscription | null = null;
   private lastEtag: string | undefined;
@@ -117,6 +121,8 @@ export class DeviceFacade {
   readonly device = this._device.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly error = this._error.asReadonly();
+  /** Conductor entitlement gate — accessible even when no device is paired (FE-EDGE-018). */
+  readonly canManage = this._canManage.asReadonly();
 
   /** DerivedState computed from device + poll health (ADR-005). */
   readonly derivedState = computed<DerivedState>(() =>
@@ -147,7 +153,7 @@ export class DeviceFacade {
       derivedState: this.derivedState(),
       lastSyncRelative: relativeTime(dev.ultimaSincronizacao),
       profileDrift: dev.profileDrift,
-      canManage: true, // TODO[FE-EDGE-003]: derive from session entitlement via edgeConductorGuard
+      canManage: this._canManage(), // TODO[FE-EDGE-003]: derive from session entitlement via edgeConductorGuard
     };
   });
 
@@ -257,29 +263,47 @@ export class DeviceFacade {
     this.pollSub = null;
   }
 
-  /** Unpair the current device (conductor action — SPEC-04 §3). */
+  /** Unpair the current device (conductor action — SPEC-04 §3). G6: 2 auto-retries then toast. */
   unpair(reason: string): void {
     const dev = this._device();
     if (!dev) return;
-    this.port
-      .unpair(dev.deviceId, { reason })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    // defer() ensures each retry invokes the port factory again (new HTTP request).
+    defer(() => this.port.unpair(dev.deviceId, { reason }))
+      .pipe(
+        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: () => this.load(dev.deviceId), // refresh — no optimistic flip (SPEC-04 §3)
-        error: (err: unknown) => this._error.set(String(err)),
+        error: (err: unknown) => {
+          this._error.set(String(err));
+          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+            label: 'Tentar novamente',
+            callback: () => this.unpair(reason),
+          });
+        },
       });
   }
 
-  /** Retire the current device (conductor action — SPEC-04 §3). */
+  /** Retire the current device (conductor action — SPEC-04 §3). G6: 2 auto-retries then toast. */
   retire(): void {
     const dev = this._device();
     if (!dev) return;
-    this.port
-      .retire(dev.deviceId)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+    // defer() ensures each retry invokes the port factory again (new HTTP request).
+    defer(() => this.port.retire(dev.deviceId))
+      .pipe(
+        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe({
         next: (updated) => this._device.set(updated),
-        error: (err: unknown) => this._error.set(String(err)),
+        error: (err: unknown) => {
+          this._error.set(String(err));
+          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+            label: 'Tentar novamente',
+            callback: () => this.retire(),
+          });
+        },
       });
   }
 }
