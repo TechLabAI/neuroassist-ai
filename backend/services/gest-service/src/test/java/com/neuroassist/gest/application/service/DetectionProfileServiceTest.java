@@ -13,7 +13,7 @@ import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
-import com.neuroassist.gest.application.port.out.GestObservabilityPort;
+import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
@@ -51,7 +51,7 @@ class DetectionProfileServiceTest {
 
     @Mock private ApplicationEventPublisher eventPublisher;
 
-    @Mock private GestObservabilityPort observabilityPort;
+    @Mock private TenantContextPort tenantContextPort;
 
     @InjectMocks private DetectionProfileService detectionProfileService;
 

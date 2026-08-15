@@ -3,15 +3,6 @@ package com.neuroassist.gest.bdd;
 import io.cucumber.junit.platform.engine.Constants;
 import org.junit.platform.suite.api.*;
 
-/**
- * Cucumber integration test runner — gest-service.
- *
- * <p>Runs all .feature files in src/test/resources/features/. Requires a running Spring context
- * (see CucumberSpringContext).
- *
- * <p>DRY-RUN mode is active: stub steps with PendingException are SKIPPED, not FAILED. Remove
- * EXECUTION_DRY_RUN_PROPERTY_NAME once steps are wired.
- */
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")
@@ -19,5 +10,5 @@ import org.junit.platform.suite.api.*;
 @ConfigurationParameter(
         key = Constants.PLUGIN_PROPERTY_NAME,
         value = "pretty, html:build/reports/cucumber/cucumber-report.html")
-@ConfigurationParameter(key = Constants.FILTER_TAGS_PROPERTY_NAME, value = "not @Disabled")
+@ConfigurationParameter(key = Constants.EXECUTION_DRY_RUN_PROPERTY_NAME, value = "false")
 public class CucumberIT {}

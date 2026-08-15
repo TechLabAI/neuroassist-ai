@@ -13,20 +13,16 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:9999/.well-known/jwks.json
-
 eureka:
   client:
     enabled: false
 
+# Expose all actuator endpoints for integration tests (GestMetricsIT, HealthIT).
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: "*"
   endpoint:
-    prometheus:
-      enabled: true
-  prometheus:
-    metrics:
-      export:
-        enabled: true
+    health:
+      show-details: always

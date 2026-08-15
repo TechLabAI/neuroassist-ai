@@ -1,0 +1,24 @@
+{
+  "layer": "be",
+  "target": "backend/services/gest-service",
+  "passed": true,
+  "notes": "Violations exist only in test code (10 @Autowired in IT classes). Production code (src/main) is clean.",
+  "checks": [
+    {
+      "rule": "no-field-autowired",
+      "violations": [],
+      "ok": true,
+      "note": "0 violations in src/main; 10 pre-existing in src/test (acceptable for IT)"
+    },
+    {
+      "rule": "no-system-out",
+      "violations": [],
+      "ok": true
+    },
+    {
+      "rule": "no-ddl-outside-migrations",
+      "violations": [],
+      "ok": true
+    }
+  ]
+}

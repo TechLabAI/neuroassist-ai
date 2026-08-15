@@ -45,4 +45,8 @@ public class EventoJpaEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    /** DB-generated bigserial — never inserted/updated by JPA; populated on fetch. */
+    @Column(name = "seq", insertable = false, updatable = false)
+    private Long seq;
 }

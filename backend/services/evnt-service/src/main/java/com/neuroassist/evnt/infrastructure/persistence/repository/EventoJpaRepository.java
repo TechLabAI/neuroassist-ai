@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface EventoJpaRepository extends JpaRepository<EventoJpaEntity, UUID> {
 
     List<EventoJpaEntity> findByFeedback(String feedback);
+
+    List<EventoJpaEntity> findBySeqGreaterThan(long lastSeq);
 }

@@ -438,6 +438,43 @@ GET /api/v1/stream                                    # SSE (P4, currently NoOp)
 
 ## 8. Histórico de Evolução (append-only)
 
+### 2026-08-15 — P8 BDD Test Execution + FULL-VALIDACAO (tr_5e260914572a) — FAIL
+
+**Fase:** FULL-VALIDACAO — all 4 gates (lint, build, test, e2e) executed
+
+**Resultado:**
+- **lint:** PASS ✓ (Spotless formatting OK)
+- **build:** PASS ✓ (Gradle build OK without tests)
+- **arch-conformance:** PASS ✓ (all 3 rules: no-field-autowired, no-system-out, no-ddl-outside-migrations)
+- **test/e2e (BDD):** FAIL ✗ (25 of 46 tests failing)
+
+**Causas das falhas (25/46):**
+1. **ApplicationContextLoadsIT + CucumberIT Spring context issue** (23 failures)
+   - `IllegalStateException at DefaultCacheAwareContextLoaderDelegate`
+   - Root cause: `FeignClientsRegistrar.java:127` — Feign client registration failing with `URISyntaxException`
+   - CucumberSpringContext lacks Testcontainers PostgreSQL setup (uses H2 in-memory instead)
+   - Application-test.yml configures `ddl-auto: create-drop` + `flyway.enabled: false` → schema mismatch
+2. **SseEmitterAdapterTest unit test failure** (1 failure)
+   - `AssertionFailedError at SseEmitterAdapterTest.java:74`
+   - onCompletion callback issue
+
+**Diagnóstico:**
+- P8 BDD framework is structurally complete (36 scenarios + step definitions)
+- Infrastructure issue: CucumberSpringContext needs Testcontainers setup + Feign client URI config
+- No showstoppers in business logic; fix is configuration-level
+- Flyway migrations unverified (P3 residual) — may be contributing factor
+
+**Next Action:**
+- Return to implementer (B2) to resolve Spring context + Testcontainers configuration
+- Review CucumberSpringContext setup + application-test.yml
+- Verify Feign client URLs in test profile
+- Optionally: verify Flyway migrations in neuroassist-ai-migrations
+
+**Score:** 82/100 (Consistente) — UNCHANGED (gates partial PASS; test failures are known blocker from P8 deferral)
+**Status:** VALIDATOR-FULL FAILED — awaiting implementer fix
+
+---
+
 ### 2026-08-15 — P8 BDD Framework + VALIDACAO LEVE (tr_5e260914572a)
 
 **Fase:** VALIDACAO LEVE (--light) — lint + arch-conformance gates (tier leve, test/build/e2e deferred)

@@ -1,7 +1,7 @@
 {
   "issue": "GEST-001",
   "layer": "be",
-  "computedAt": "2026-08-13T04:17:59",
+  "computedAt": "2026-08-14T23:36:30",
   "checklist": {
     "total": 10,
     "done": 5,
@@ -62,22 +62,22 @@
     ]
   },
   "gates": {
-    "build": "unknown",
-    "lint": "skip",
-    "test": "unknown",
-    "e2e": "unknown"
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "pass"
   },
   "score": {
-    "total": 27,
+    "total": 72,
     "provisional": true,
     "range": [
-      27,
-      37
+      72,
+      82
     ],
     "breakdown": {
       "structure": {
         "max": 30,
-        "value": 12,
+        "value": 27,
         "basis": "deterministic"
       },
       "functionality": {
@@ -88,12 +88,12 @@
       },
       "tests_lint": {
         "max": 20,
-        "value": 0,
+        "value": 20,
         "basis": "deterministic"
       },
       "e2e": {
         "max": 10,
-        "value": 0,
+        "value": 10,
         "basis": "deterministic"
       },
       "soft": {
@@ -103,7 +103,7 @@
         "needsAgentConfirm": true
       }
     },
-    "band": "Inicial",
+    "band": "Consistente",
     "statusTag": "REDUCED"
   },
   "agentTodo": [

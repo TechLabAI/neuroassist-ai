@@ -17,7 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: ${GEST_SECURITY_ISSUER_URI:http://acs-service/realms/neuroassist}
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
 
 server:
   port: 8084
@@ -34,16 +34,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,prometheus
   endpoint:
     health:
-      show-details: when_authorized
-    prometheus:
-      enabled: true
-  prometheus:
-    metrics:
-      export:
-        enabled: true
+      show-details: always
   metrics:
     tags:
       application: ${spring.application.name}
@@ -52,17 +46,29 @@ resilience4j:
   circuitbreaker:
     instances:
       edgePairing:
-        sliding-window-size: 5
-        failure-rate-threshold: 60
-        wait-duration-in-open-state: 30s
-        ignore-exceptions:
+        # Sliding window: evaluate over the last 10 calls (COUNT_BASED)
+        slidingWindowSize: 10
+        # Minimum calls before the error rate is calculated (5 consecutive failures trigger the circuit)
+        minimumNumberOfCalls: 5
+        # Open circuit when failure rate reaches 50%
+        failureRateThreshold: 50
+        # Keep circuit open for 30s before transitioning to HALF_OPEN
+        waitDurationInOpenState: 30s
+        # Allow 3 probe calls in HALF_OPEN state before deciding to CLOSE or re-OPEN
+        permittedNumberOfCallsInHalfOpenState: 3
+        # Expose circuit breaker state via /actuator/health
+        registerHealthIndicator: true
+  retry:
+    instances:
+      edgePairing:
+        # One retry before the circuit breaker counts a failure (GET is idempotent)
+        maxAttempts: 2
+        # Wait 100ms between attempts (avoids thundering-herd on transient glitches)
+        waitDuration: 100ms
+        # Only retry on transient connectivity failures (not on 4xx or domain errors)
+        retryExceptions:
           - java.net.ConnectException
           - java.net.SocketTimeoutException
-          - com.neuroassist.gest.shared.error.CodedException
-
-gest:
-  edge:
-    url: ${EDGE_SERVICE_URL:http://edge-service}
 
 logging:
   pattern:

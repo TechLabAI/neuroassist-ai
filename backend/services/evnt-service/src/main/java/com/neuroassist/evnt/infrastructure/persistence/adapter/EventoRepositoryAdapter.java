@@ -33,6 +33,11 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
         return repository.findByFeedback(feedback).stream().map(this::toDomain).toList();
     }
 
+    @Override
+    public List<Evento> findBySeqGreaterThan(long lastSeq) {
+        return repository.findBySeqGreaterThan(lastSeq).stream().map(this::toDomain).toList();
+    }
+
     private EventoJpaEntity toEntity(Evento e) {
         return EventoJpaEntity.builder()
                 .id(e.id())
@@ -45,6 +50,7 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
                 .confirmadoAt(e.confirmadoAt())
                 .recognizedAt(e.recognizedAt())
                 .createdAt(e.createdAt())
+                // seq is insertable=false — DB fills it via bigserial
                 .build();
     }
 
@@ -59,6 +65,7 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
                 e.getConfirmadoPor(),
                 e.getConfirmadoAt(),
                 e.getRecognizedAt(),
-                e.getCreatedAt());
+                e.getCreatedAt(),
+                e.getSeq());
     }
 }

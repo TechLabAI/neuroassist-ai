@@ -42,6 +42,11 @@ management:
     tags:
       application: ${spring.application.name}
 
+evnt:
+  sse:
+    keepalive-seconds: 15
+    emitter-timeout-ms: 180000
+
 logging:
   pattern:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"

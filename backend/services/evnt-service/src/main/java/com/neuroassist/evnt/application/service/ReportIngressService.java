@@ -9,17 +9,17 @@ import com.neuroassist.evnt.application.port.out.GestValidationPort;
 import com.neuroassist.evnt.application.port.out.NotificationDispatchPort;
 import com.neuroassist.evnt.application.port.out.NotificationDispatchRepositoryPort;
 import com.neuroassist.evnt.application.port.out.ReportIdempotencyRepositoryPort;
+import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.domain.model.Evento;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
+import com.neuroassist.evnt.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
 @Service
@@ -35,6 +35,7 @@ public class ReportIngressService implements ReportIngressUseCase {
     private final EventoRepositoryPort eventoRepositoryPort;
     private final NotificationDispatchRepositoryPort notificationDispatchRepositoryPort;
     private final ReportIdempotencyRepositoryPort reportIdempotencyRepositoryPort;
+    private final SseEventBroadcastPort sseEventBroadcastPort;
 
     @Override
     public ReportIngressResponse ingest(ReportIngressRequest request) {
@@ -42,6 +43,13 @@ public class ReportIngressService implements ReportIngressUseCase {
                 "Ingesting report reportId={} pacienteId={}",
                 request.reportId(),
                 request.pacienteId());
+
+        // 0. Biometric payload guard (EVNT-023 — forbidden-biometric-payload)
+        if (request.rawFramePayload() != null && !request.rawFramePayload().isBlank()) {
+            throw new CodedException(
+                    "forbidden-biometric-payload",
+                    "Report must not include raw biometric frame payload");
+        }
 
         // 1. Idempotency check
         if (reportIdempotencyRepositoryPort.exists(request.reportId())) {
@@ -71,8 +79,7 @@ public class ReportIngressService implements ReportIngressUseCase {
                         new GestValidationPort.GestValidationRequest(
                                 request.profileVersion(), tipoGestoIds));
         if (!valid) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY, "Gesture report validation failed");
+            throw new CodedException("gest-rejected", "Gesture report rejected by GEST service");
         }
 
         // 3. Lookup command snapshot (hardcoded for PoC)
@@ -82,7 +89,7 @@ public class ReportIngressService implements ReportIngressUseCase {
         // 4. Resolve caregiver (hardcoded for PoC)
         String caregiverId = caregiverRoutingPort.resolveCaregiver(request.pacienteId());
 
-        // 5. Create Evento domain model
+        // 5. Create Evento domain model (seq=null: DB fills bigserial on persist)
         Instant createdAt = Instant.now();
         Evento evento =
                 new Evento(
@@ -95,21 +102,23 @@ public class ReportIngressService implements ReportIngressUseCase {
                         null,
                         null,
                         request.recognizedAt(),
-                        createdAt);
-
-        // 6. Create NotificationDispatch
-        NotificationDispatch dispatch =
-                new NotificationDispatch(
-                        UUID.randomUUID(),
-                        evento.id(),
-                        "FULL_SCREEN_ALARM",
-                        caregiverId,
-                        "QUEUED",
-                        0,
+                        createdAt,
                         null);
 
-        // 7. Persist Evento
-        eventoRepositoryPort.save(evento);
+        // 6. Create NotificationDispatch — tier derived from urgency (EVNT-022)
+        String tier =
+                "emergencia".equalsIgnoreCase(commandSnapshot.urgencia())
+                        ? "full_screen_alarm"
+                        : "discreet";
+        NotificationDispatch dispatch =
+                new NotificationDispatch(
+                        UUID.randomUUID(), evento.id(), tier, caregiverId, "QUEUED", 0, null);
+
+        // 7. Persist Evento (saved entity will carry DB-generated seq after fetch)
+        Evento persisted = eventoRepositoryPort.save(evento);
+
+        // 7a. Broadcast SSE frame to tenant's active connections
+        sseEventBroadcastPort.broadcast(persisted);
 
         // 8. Persist NotificationDispatch
         notificationDispatchRepositoryPort.save(dispatch);
@@ -128,7 +137,7 @@ public class ReportIngressService implements ReportIngressUseCase {
         return new ReportIngressResponse(
                 evento.id(),
                 "created",
-                new ReportIngressResponse.NotificationInfo("FULL_SCREEN_ALARM", caregiverId),
+                new ReportIngressResponse.NotificationInfo(tier, caregiverId),
                 createdAt);
     }
 }

@@ -1,1 +1,6 @@
-{"pending_input": 0, "pending_output": 0, "watermark_input": 7599216, "watermark_output": 96029}
+{
+  "pending_input": 19297268,
+  "pending_output": 164034,
+  "watermark_input": 30084385,
+  "watermark_output": 215515
+}

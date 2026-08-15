@@ -24,12 +24,15 @@ public class EventQueryService implements EventQueryUseCase {
             return new ActiveEventsResponse(null);
         }
         Evento first = eventos.get(0);
-        // PoC simplification: tier is always FULL_SCREEN_ALARM
+        String tier =
+                "emergencia".equalsIgnoreCase(first.urgenciaSnapshot())
+                        ? "full_screen_alarm"
+                        : "discreet";
         ActiveEventsResponse.EventoSummary summary =
                 new ActiveEventsResponse.EventoSummary(
                         first.id(),
                         first.urgenciaSnapshot(),
-                        "FULL_SCREEN_ALARM",
+                        tier,
                         first.feedback(),
                         first.recognizedAt(),
                         first.comandoRef());

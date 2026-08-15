@@ -44,7 +44,7 @@ public class TipoGestoJpaEntity implements Persistable<UUID> {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Transient @Builder.Default private boolean isNew = true;
+    @Transient @Builder.Default private boolean isNew = false;
 
     @Column(name = "nome", nullable = false, length = 120)
     private String nome;

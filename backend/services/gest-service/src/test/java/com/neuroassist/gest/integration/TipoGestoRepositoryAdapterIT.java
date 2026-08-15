@@ -8,10 +8,11 @@ import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
 import java.util.List;
 import java.util.Optional;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestConstructor;
 
 /**
  * Integration tests for {@link
@@ -20,16 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
  * is exercised by setting {@link TenantContextHolder} before each test. Implements GEST-011
  * acceptance criteria: P3.
  */
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@RequiredArgsConstructor
 class TipoGestoRepositoryAdapterIT extends BaseIntegrationTest {
 
     private static final String TEST_TENANT = "emp_test";
 
-    private TipoGestoRepositoryPort tipoGestoPort;
-
-    @Autowired
-    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
-        this.tipoGestoPort = tipoGestoPort;
-    }
+    private final TipoGestoRepositoryPort tipoGestoPort;
 
     @BeforeEach
     void setTenantContext() {

@@ -16,10 +16,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -30,44 +31,21 @@ import org.springframework.transaction.annotation.Transactional;
  * Uses Testcontainers PostgreSQL (singleton container from {@link BaseIntegrationTest}). Implements
  * GEST-012 acceptance criteria: P3.
  */
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@RequiredArgsConstructor
 class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     private static final String TEST_TENANT = "emp_test";
 
-    private DetectionProfileRepositoryPort profilePort;
+    private final DetectionProfileRepositoryPort profilePort;
 
-    private DetectionProfilePrimitiveRepositoryPort primitivePort;
+    private final DetectionProfilePrimitiveRepositoryPort primitivePort;
 
-    private TipoGestoRepositoryPort tipoGestoPort;
+    private final TipoGestoRepositoryPort tipoGestoPort;
 
-    private DetectionProfileJpaRepository profileJpaRepository;
+    private final DetectionProfileJpaRepository profileJpaRepository;
 
-    private DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
-
-    @Autowired
-    void setProfilePort(DetectionProfileRepositoryPort profilePort) {
-        this.profilePort = profilePort;
-    }
-
-    @Autowired
-    void setPrimitivePort(DetectionProfilePrimitiveRepositoryPort primitivePort) {
-        this.primitivePort = primitivePort;
-    }
-
-    @Autowired
-    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
-        this.tipoGestoPort = tipoGestoPort;
-    }
-
-    @Autowired
-    void setProfileJpaRepository(DetectionProfileJpaRepository profileJpaRepository) {
-        this.profileJpaRepository = profileJpaRepository;
-    }
-
-    @Autowired
-    void setPrimitiveJpaRepository(DetectionProfilePrimitiveJpaRepository primitiveJpaRepository) {
-        this.primitiveJpaRepository = primitiveJpaRepository;
-    }
+    private final DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
 
     @BeforeEach
     void setTenantContext() {

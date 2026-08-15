@@ -15,7 +15,9 @@ public class EventQueryController {
     private final EventQueryUseCase eventQueryUseCase;
 
     @GetMapping("/active")
-    public ResponseEntity<EventQueryUseCase.ActiveEventsResponse> listActive() {
+    public ResponseEntity<EventQueryUseCase.ActiveEventsResponse> listActive(
+            @RequestParam(required = false) String since) {
+        // 'since' parameter accepted for polling fallback (EVNT-024); service ignores it for now
         return ResponseEntity.ok(eventQueryUseCase.listActive());
     }
 }

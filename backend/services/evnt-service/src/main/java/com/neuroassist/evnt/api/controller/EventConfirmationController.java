@@ -18,9 +18,9 @@ public class EventConfirmationController {
     @PostMapping("/{id}/confirmation")
     public ResponseEntity<Void> confirm(
             @PathVariable UUID id, @RequestBody ConfirmationRequest body) {
-        eventConfirmationUseCase.confirm(id, body.verdict());
+        eventConfirmationUseCase.confirm(id, body.verdict(), body.confirmedBy());
         return ResponseEntity.ok().build();
     }
 
-    public record ConfirmationRequest(String verdict) {}
+    public record ConfirmationRequest(String verdict, String confirmedBy) {}
 }

@@ -1,7 +1,9 @@
 package com.neuroassist.gest.infrastructure.config;
 
+import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
 import com.neuroassist.gest.domain.service.TipoGestoDomainService;
+import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,5 +18,10 @@ public class DomainServiceConfig {
     @Bean
     public DetectionProfileDomainService detectionProfileDomainService() {
         return new DetectionProfileDomainService();
+    }
+
+    @Bean
+    public TenantContextPort tenantContextPort() {
+        return TenantContextHolder::getTenantIdOrNull;
     }
 }

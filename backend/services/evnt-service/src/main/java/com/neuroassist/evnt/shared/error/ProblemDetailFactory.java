@@ -28,8 +28,30 @@ public final class ProblemDetailFactory {
 
     private static final Map<String, ErrorMetadata> CODE_METADATA =
             Map.ofEntries(
-                    // (no error-model.arch.json pinned at generation time)
-                    );
+                    // EVNT domain error codes (EVNT-022/023/024, P8)
+                    Map.entry(
+                            "gest-rejected",
+                            new ErrorMetadata(
+                                    "validation", 422, "Gesture report rejected by GEST")),
+                    Map.entry(
+                            "forbidden-biometric-payload",
+                            new ErrorMetadata(
+                                    "validation", 400, "Biometric payload not allowed in report")),
+                    Map.entry(
+                            "feedback-terminal",
+                            new ErrorMetadata(
+                                    "conflict",
+                                    409,
+                                    "Event feedback is terminal and cannot be changed")),
+                    Map.entry(
+                            "confirmador-unresolved",
+                            new ErrorMetadata(
+                                    "validation",
+                                    422,
+                                    "Caregiver confirmador could not be resolved")),
+                    Map.entry(
+                            "evento-not-found",
+                            new ErrorMetadata("not_found", 404, "Evento not found")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

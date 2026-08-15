@@ -1,0 +1,113 @@
+{
+  "issue": "EVNT-022",
+  "layer": "be",
+  "computedAt": "2026-08-14T23:47:32",
+  "checklist": {
+    "total": 10,
+    "done": 0,
+    "partial": 0,
+    "missing": 10,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "Implement step definitions for `ingress-golden-path.feature` in `infrastructure.test.cucumber.steps` package",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: ingress-golden-path.feature"
+      },
+      {
+        "text": "Configure Testcontainers PostgreSQL + WireMock stubs (GEST validate OK, PAC returns `urgencia=emergencia` Comando, ACS returns caregiver, DASH returns ack) in the Cucumber Spring context",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Assert: POST /reports returns 201; `notification_dispatch` row exists with `tier=full_screen_alarm`; `evento.feedback=nao_avaliado`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Repeat for `rotina`: same but `tier=discreet`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "All four Gherkin scenarios from `ingress-golden-path.feature` pass with `./gradlew :services:evnt-service:test --tests '*CucumberRunner*'`",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: ingress-golden-path.feature"
+      },
+      {
+        "text": "`./gradlew :services:evnt-service:test` includes and passes the ingress-golden-path Cucumber feature",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Emergency scenario: `notification_dispatch.tier = full_screen_alarm`, `notification_dispatch.status IN ('queued','delivered')`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Routine scenario: `notification_dispatch.tier = discreet`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "All step definitions exist (no undefined steps — no yellow in Cucumber report)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Testcontainers PostgreSQL starts; WireMock stubs match GEST/PAC/ACS/DASH contracts",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "deferred",
+    "lint": "pass",
+    "test": "deferred",
+    "e2e": "deferred"
+  },
+  "score": {
+    "total": 0,
+    "provisional": true,
+    "range": [
+      0,
+      10
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 0,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "INTACT"
+  },
+  "agentTodo": [
+    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

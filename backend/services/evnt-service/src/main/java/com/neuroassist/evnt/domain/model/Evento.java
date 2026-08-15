@@ -14,4 +14,5 @@ public record Evento(
         String confirmadoPor,
         Instant confirmadoAt,
         Instant recognizedAt,
-        Instant createdAt) {}
+        Instant createdAt,
+        Long seq) {}

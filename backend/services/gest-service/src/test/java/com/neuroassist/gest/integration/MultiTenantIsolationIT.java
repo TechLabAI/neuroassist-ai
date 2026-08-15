@@ -10,9 +10,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestConstructor;
 
 /**
  * Cross-tenant isolation integration tests (INT-GEST-005).
@@ -32,31 +33,18 @@ import org.springframework.beans.factory.annotation.Autowired;
  * (not by Hibernate DDL), ensuring true per-schema isolation via PostgreSQL search_path. Implements
  * P3 acceptance criterion: "dados de tenant A não aparecem em query de tenant B".
  */
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@RequiredArgsConstructor
 class MultiTenantIsolationIT extends BaseIntegrationTest {
 
     private static final String TENANT_A = "emp_test";
     private static final String TENANT_B = "emp_other";
 
-    private TipoGestoRepositoryPort tipoGestoPort;
+    private final TipoGestoRepositoryPort tipoGestoPort;
 
-    private TenantIdentifierResolver tenantIdentifierResolver;
+    private final TenantIdentifierResolver tenantIdentifierResolver;
 
-    private DataSource dataSource;
-
-    @Autowired
-    void setTipoGestoPort(TipoGestoRepositoryPort tipoGestoPort) {
-        this.tipoGestoPort = tipoGestoPort;
-    }
-
-    @Autowired
-    void setTenantIdentifierResolver(TenantIdentifierResolver tenantIdentifierResolver) {
-        this.tenantIdentifierResolver = tenantIdentifierResolver;
-    }
-
-    @Autowired
-    void setDataSource(DataSource dataSource) {
-        this.dataSource = dataSource;
-    }
+    private final DataSource dataSource;
 
     @AfterEach
     void clearTenant() {

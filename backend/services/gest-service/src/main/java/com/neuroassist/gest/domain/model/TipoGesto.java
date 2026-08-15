@@ -29,9 +29,7 @@ public record TipoGesto(
      */
     public boolean isTransitionAllowed(DetectabilityState to) {
         return switch (this.detectabilityState) {
-            case REGISTERED ->
-                    to == DetectabilityState.PENDING_TRAINING
-                            || to == DetectabilityState.DEPRECATED;
+            case REGISTERED -> to == DetectabilityState.PENDING_TRAINING;
             case PENDING_TRAINING ->
                     to == DetectabilityState.SUPPORTED || to == DetectabilityState.DEPRECATED;
             case SUPPORTED -> to == DetectabilityState.DEPRECATED;
@@ -67,6 +65,20 @@ public record TipoGesto(
                 this.nome,
                 newState,
                 this.engineFeatureRef,
+                this.tenantId,
+                this.createdAt,
+                Instant.now(),
+                this.createdBy,
+                updatedBy);
+    }
+
+    public TipoGesto withState(
+            DetectabilityState newState, String updatedBy, String newEngineFeatureRef) {
+        return new TipoGesto(
+                this.id,
+                this.nome,
+                newState,
+                newEngineFeatureRef != null ? newEngineFeatureRef : this.engineFeatureRef,
                 this.tenantId,
                 this.createdAt,
                 Instant.now(),
