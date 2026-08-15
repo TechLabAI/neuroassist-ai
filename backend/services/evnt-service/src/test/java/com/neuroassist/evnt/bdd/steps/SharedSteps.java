@@ -2,7 +2,10 @@ package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.evnt.bdd.ScenarioContext;
+import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
@@ -18,17 +21,14 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
-/**
- * Shared step definitions — steps common to two or more feature files (P8: EVNT-022/023/024).
- *
- * <p>Uses {@link ScenarioContext} to share HTTP state between Given/When/Then phases.
- */
 @RequiredArgsConstructor
 public class SharedSteps {
 
     private final ScenarioContext ctx;
 
     private final TestRestTemplate restTemplate;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // -------------------------------------------------------------------------
     // Given — tenant / patient setup
@@ -42,31 +42,43 @@ public class SharedSteps {
 
     // -------------------------------------------------------------------------
     // When — POST /api/v1/reports
+    // NOTE: {string} avoids Cucumber treating the literal "/" as alternation
     // -------------------------------------------------------------------------
 
-    @When("the edge posts the report to \"/api/v1/reports\"")
-    public void whenTheEdgePostsTheReportToApiv1reports() {
+    @When("the edge posts the report to {string}")
+    public void whenTheEdgePostsTheReportTo(String url) {
         ResponseEntity<String> response = postReport();
         ctx.setLastResponse(response);
     }
 
     // -------------------------------------------------------------------------
-    // Then — status assertions
+    // Then — generic status assertion (replaces all literal @Then("status is NNN"))
     // -------------------------------------------------------------------------
 
-    @Then("the response status is 200")
-    public void thenTheResponseStatusIs200() {
-        assertThat(ctx.getLastResponse().getStatusCode().value()).isEqualTo(200);
+    @Then("the response status is {int}")
+    public void thenTheResponseStatusIs(int status) {
+        assertThat(ctx.getLastResponse().getStatusCode().value())
+                .as("Expected HTTP status " + status)
+                .isEqualTo(status);
     }
 
-    @Then("the response status is 201")
-    public void thenTheResponseStatusIs201() {
-        assertThat(ctx.getLastResponse().getStatusCode().value()).isEqualTo(201);
-    }
+    // -------------------------------------------------------------------------
+    // Then — generic ProblemDetail field assertion (avoids "/" in annotation)
+    // -------------------------------------------------------------------------
 
-    @Then("the response status is 422")
-    public void thenTheResponseStatusIs422() {
-        assertThat(ctx.getLastResponse().getStatusCode().value()).isEqualTo(422);
+    @And("the ProblemDetail field {string} is {string}")
+    public void andTheProblemDetailFieldIs(String field, String expectedValue) {
+        try {
+            String body = ctx.getLastResponse().getBody();
+            assertThat(body).as("Response body must not be null").isNotNull();
+            JsonNode json = objectMapper.readTree(body);
+            String actual = json.has(field) ? json.get(field).asText() : "";
+            assertThat(actual)
+                    .as("ProblemDetail field '" + field + "' should end with '" + expectedValue + "'")
+                    .endsWith(expectedValue);
+        } catch (Exception e) {
+            throw new AssertionError("Failed to parse ProblemDetail: " + e.getMessage(), e);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -83,6 +95,8 @@ public class SharedSteps {
         body.put("profileVersion", 1);
         body.put("recognizedAt", Instant.now().toString());
         body.put("deviceId", "device-test-01");
+        body.put("patientTenant", ctx.getTenantId());
+        body.put("deviceTenant", ctx.getDeviceTokenTenant());
         if (ctx.isRawFramePayload()) {
             body.put("rawFramePayload", "base64encodedframedata==");
         }

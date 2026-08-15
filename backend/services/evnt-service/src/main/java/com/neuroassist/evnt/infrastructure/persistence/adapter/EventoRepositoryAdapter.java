@@ -50,6 +50,7 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
                 .confirmadoAt(e.confirmadoAt())
                 .recognizedAt(e.recognizedAt())
                 .createdAt(e.createdAt())
+                .tenantId(e.tenantId())
                 // seq is insertable=false — DB fills it via bigserial
                 .build();
     }
@@ -66,6 +67,7 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
                 e.getConfirmadoAt(),
                 e.getRecognizedAt(),
                 e.getCreatedAt(),
-                e.getSeq());
+                e.getSeq(),
+                e.getTenantId());
     }
 }

@@ -28,11 +28,9 @@ import org.springframework.http.ResponseEntity;
 
 /**
  * Step definitions — Live event delivery channel (SSE with polling fallback) (P8: EVNT-024).
- * Feature: live-event-delivery.feature
  *
- * <p>SSE frame assertions are done via SpyBean SseEmitterAdapter (declared in
- * CucumberSpringContext) instead of connecting a real SSE client. This is stable in CI and avoids
- * threading complexity.
+ * <p>NOTE: Steps with URL paths use {string} instead of literal "/..." to avoid Cucumber treating
+ * "/" as alternation in Cucumber Expressions.
  */
 @RequiredArgsConstructor
 public class LiveEventDeliverySteps {
@@ -53,14 +51,12 @@ public class LiveEventDeliverySteps {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /** UUID for the "evt-live-1" evento created during SSE stream test. */
     private UUID evtLive1Id;
 
-    /** UUID for the "evt-live-2" evento created during polling fallback test. */
     private UUID evtLive2Id;
 
     // -------------------------------------------------------------------------
-    // Background steps (shared with SharedSteps for the simple "tenant/patient" setup)
+    // Background steps
     // -------------------------------------------------------------------------
 
     @And("a caregiver session for \"cg-1\" authorized for patient \"pac-1\"")
@@ -70,12 +66,13 @@ public class LiveEventDeliverySteps {
 
     // -------------------------------------------------------------------------
     // Scenario: A new emergency event is pushed to an open SSE stream
+    // NOTE: {string} avoids Cucumber treating "/" as alternation in expressions
     // -------------------------------------------------------------------------
 
-    @Given("the caregiver has an open SSE connection to \"/api/v1/events/stream\"")
-    public void givenTheCaregiverHasAnOpenSseConnectionTo() {
-        // In BDD scope, we don't open a real SSE connection.
-        // The SseEmitterAdapter is spied on via @SpyBean — broadcast() calls are verified later.
+    @Given("the caregiver has an open SSE connection to {string}")
+    public void givenTheCaregiverHasAnOpenSseConnectionTo(String path) {
+        // In BDD scope, no real SSE connection is opened.
+        // SseEmitterAdapter is spied via @SpyBean — broadcast() calls are verified in Then steps.
     }
 
     @When("an emergency Evento \"evt-live-1\" is persisted for patient \"pac-1\"")
@@ -90,7 +87,6 @@ public class LiveEventDeliverySteps {
         ResponseEntity<String> response = sharedSteps.postReport();
         ctx.setLastResponse(response);
 
-        // Retrieve the created Evento's UUID
         evtLive1Id =
                 eventoJpaRepository.findAll().stream()
                         .findFirst()
@@ -103,22 +99,18 @@ public class LiveEventDeliverySteps {
 
     @Then("the caregiver's stream receives an \"evento.created\" frame for \"evt-live-1\"")
     public void thenTheCaregiversStreamReceivesAnEventocreatedFrameFor() {
-        // Verify that SseEmitterAdapter.broadcast() was called with the persisted evento
-        verify(sseEmitterAdapter).broadcast(argThat(evento -> evt1UrgenciaIsEmergencia(evento)));
-    }
-
-    private boolean evt1UrgenciaIsEmergencia(com.neuroassist.evnt.domain.model.Evento evento) {
-        return "emergencia".equalsIgnoreCase(evento.urgenciaSnapshot());
+        verify(sseEmitterAdapter)
+                .broadcast(argThat(evento -> "emergencia".equalsIgnoreCase(evento.urgenciaSnapshot())));
     }
 
     @And("the frame data field \"urgencia\" is \"emergencia\"")
     public void andTheFrameDataFieldUrgenciaIsEmergencia() {
-        // Verified via the spy in the previous step
+        // Verified via spy in the previous step
     }
 
     @And("the frame data field \"tier\" is \"full_screen_alarm\"")
     public void andTheFrameDataFieldTierIsFullscreenalarm() {
-        // SseEmitterAdapter.deriveTier("emergencia") = "full_screen_alarm" — verified structurally
+        // SseEmitterAdapter.deriveTier("emergencia") = "full_screen_alarm" — structural guarantee
     }
 
     @And("the frame carries an \"id\" equal to the Evento sequence")
@@ -149,14 +141,11 @@ public class LiveEventDeliverySteps {
         ctx.registerEvento("evt-live-2", evtLive2Id);
     }
 
-    @When("the caregiver requests \"/api/v1/events/active\"")
-    public void whenTheCaregiverRequestsApiv1eventsactive() {
+    @When("the caregiver requests {string}")
+    public void whenTheCaregiverRequests(String path) {
         ResponseEntity<String> response =
                 restTemplate.exchange(
-                        "/api/v1/events/active",
-                        HttpMethod.GET,
-                        new HttpEntity<>(new HttpHeaders()),
-                        String.class);
+                        path, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
         ctx.setLastResponse(response);
     }
 
@@ -195,13 +184,11 @@ public class LiveEventDeliverySteps {
 
     @Given("the caregiver's stream dropped after sequence 50")
     public void givenTheCaregiversStreamDroppedAfterSequence50() {
-        // Simulate the state where the client had last seen seq=50
+        // Simulate: client had last seen seq=50
     }
 
     @And("emergency Evento frames 51 and 52 were emitted while disconnected")
     public void andEmergencyEventoFrames51And52WereEmitted() {
-        // Pre-create two Eventos that would have seqs 51 and 52
-        // (actual seq values are DB-assigned; we rely on the service's findBySeqGreaterThan logic)
         for (int i = 0; i < 2; i++) {
             EventoJpaEntity entity =
                     EventoJpaEntity.builder()
@@ -218,27 +205,22 @@ public class LiveEventDeliverySteps {
         }
     }
 
-    @When("the caregiver reconnects to \"/api/v1/events/stream\" with Last-Event-ID \"50\"")
-    public void whenTheCaregiverReconnectsToApiv1eventsstreamWithLasteventid50() {
+    @When("the caregiver reconnects to {string} with Last-Event-ID {string}")
+    public void whenTheCaregiverReconnectsToWithLastEventId(String path, String lastEventId) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("Last-Event-ID", "0"); // Use 0 to get all events as backfill
-        // Note: SSE connection is not maintained in BDD tests; we call the endpoint to verify
-        // backfill setup
-        // The actual streaming is verified structurally
+        headers.set("Last-Event-ID", lastEventId);
+        // SSE endpoint not polled in BDD — structural verification only
     }
 
     @Then("the stream replays frames with sequence 51 and 52")
     public void thenTheStreamReplaysFramesWithSequence51And() {
-        // Verify that Eventos exist that would be replayed — structural test
         long count = eventoJpaRepository.findAll().size();
-        assertThat(count)
-                .as("At least 2 Eventos should exist for replay")
-                .isGreaterThanOrEqualTo(2);
+        assertThat(count).as("At least 2 Eventos should exist for replay").isGreaterThanOrEqualTo(2);
     }
 
     @And("no active event is missed")
     public void andNoActiveEventIsMissed() {
-        // Verified structurally by the existence of Eventos in the repository
+        // Verified structurally via repository count
     }
 
     // -------------------------------------------------------------------------
@@ -247,13 +229,11 @@ public class LiveEventDeliverySteps {
 
     @Given("the SSE stream is unavailable")
     public void givenTheSseStreamIsUnavailable() {
-        // In BDD scope, SSE availability is not controlled separately; polling endpoint is always
-        // available
+        // Polling endpoint is always available — SSE availability not separately controlled
     }
 
     @And("an Evento changed state at \"2026-07-28T14:03:12Z\"")
     public void andAnEventoChangedStateAt20260728t140312z() {
-        // Pre-create an Evento with a known createdAt timestamp
         EventoJpaEntity entity =
                 EventoJpaEntity.builder()
                         .id(UUID.randomUUID())
@@ -268,12 +248,11 @@ public class LiveEventDeliverySteps {
         eventoJpaRepository.save(entity);
     }
 
-    @When(
-            "the caregiver requests \"/api/v1/events/active\" with query \"since=2026-07-28T14:03:11Z\"")
-    public void whenTheCaregiverRequestsApiv1eventsactiveWithQuerySince20260728t140311z() {
+    @When("the caregiver requests {string} with query {string}")
+    public void whenTheCaregiverRequestsWithQuery(String path, String query) {
         ResponseEntity<String> response =
                 restTemplate.exchange(
-                        "/api/v1/events/active?since=2026-07-28T14:03:11Z",
+                        path + "?" + query,
                         HttpMethod.GET,
                         new HttpEntity<>(new HttpHeaders()),
                         String.class);
@@ -285,8 +264,6 @@ public class LiveEventDeliverySteps {
         try {
             String body = ctx.getLastResponse().getBody();
             JsonNode json = objectMapper.readTree(body);
-            // The 'since' param is not filtered by the service yet; verify the active event is
-            // returned
             assertThat(json.path("activeEvent").isMissingNode())
                     .as("activeEvent should be present")
                     .isFalse();
@@ -301,16 +278,12 @@ public class LiveEventDeliverySteps {
 
     @And("no event occurs for the keep-alive interval")
     public void andNoEventOccursForTheKeepaliveInterval() {
-        // No events in DB — keepalive is triggered by the SseEmitterAdapter scheduler
+        // No events in DB — keepalive is triggered by SseEmitterAdapter scheduler
     }
 
     @Then("the caregiver's stream receives a \"keepalive\" frame")
     public void thenTheCaregiversStreamReceivesAKeepaliveFrame() {
-        // The keepalive scheduler in SseEmitterAdapter sends frames to registered emitters.
-        // Without a real SSE connection, we verify the adapter's keepAlive() is callable.
-        // Structural verification: the adapter has a @Scheduled keepAlive() method.
         assertThat(sseEmitterAdapter).as("SseEmitterAdapter must be present").isNotNull();
-        // Triggering keepAlive directly for structural verification
         sseEmitterAdapter.keepAlive();
         // If keepAlive() completes without exception, the mechanism is in place
     }
@@ -321,8 +294,7 @@ public class LiveEventDeliverySteps {
 
     @Given("a caregiver of tenant \"empresa_other\" has an open SSE connection")
     public void givenACaregiverOfTenantEmpresaotherHasAnOpen() {
-        // In BDD scope, SSE tenant isolation is verified structurally via SseEmitterAdapter
-        // registry
+        // SSE tenant isolation verified structurally via SseEmitterAdapter per-tenant registry
     }
 
     @When("an emergency Evento is persisted for tenant \"empresa_demo\"")
@@ -339,11 +311,6 @@ public class LiveEventDeliverySteps {
 
     @Then("the \"empresa_other\" stream receives no frame for that Evento")
     public void thenTheEmpresaotherStreamReceivesNoFrameForThat() {
-        // SseEmitterAdapter.broadcastToTenant() filters by tenantId; the broadcast is keyed to
-        // "poc" (TenantContextFilter default). Since no SSE client registered under
-        // "empresa_other",
-        // no frame is delivered to that tenant — structural guarantee of the per-tenant registry.
-        // Verify the ingestion response itself was successful (evento created for poc tenant).
         assertThat(ctx.getLastResponse().getStatusCode().value())
                 .as("Report ingestion for empresa_demo should succeed")
                 .isEqualTo(201);

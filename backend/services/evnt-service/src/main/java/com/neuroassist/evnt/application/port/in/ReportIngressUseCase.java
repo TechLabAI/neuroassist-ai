@@ -18,7 +18,11 @@ public interface ReportIngressUseCase {
             Instant recognizedAt,
             String deviceId,
             /** Non-null presence indicates biometric payload — rejected with 400 (EVNT-023). */
-            String rawFramePayload) {
+            String rawFramePayload,
+            /** Tenant the patient belongs to — used to detect device token tenant mismatch. */
+            String patientTenant,
+            /** Tenant the device token is scoped to — must match patientTenant or request is rejected with 403. */
+            String deviceTenant) {
 
         public record PrimitiveEntry(String tipoGestoId, double confidence) {}
     }

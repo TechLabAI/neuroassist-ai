@@ -49,4 +49,7 @@ public class EventoJpaEntity {
     /** DB-generated bigserial — never inserted/updated by JPA; populated on fetch. */
     @Column(name = "seq", insertable = false, updatable = false)
     private Long seq;
+
+    @Column(name = "tenant_id", length = 100)
+    private String tenantId;
 }
