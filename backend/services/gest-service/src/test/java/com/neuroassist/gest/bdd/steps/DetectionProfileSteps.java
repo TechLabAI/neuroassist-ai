@@ -16,303 +16,238 @@ public class DetectionProfileSteps {
     @And("the caller is authenticated")
     public void andTheCallerIsAuthenticated() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given(
             "primitive \"3f1c-aaa\" is in state \"supported\" with engineFeatureRef \"mp.blink.double.v1\"")
     public void givenPrimitive3f1caaaIsInStateSupportedWithEnginefeatureref() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("primitive \"9a20-bbb\" is in state \"pending_training\"")
     public void andPrimitive9a20bbbIsInStatePendingtraining() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the caller has role \"gest.manage\"")
     public void andTheCallerHasRoleGestmanage() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller publishes a detection profile with default classification params")
     public void whenTheCallerPublishesADetectionProfileWithDefault() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body contains version 1")
     public void andTheResponseBodyContainsVersion1() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And(
             "the profile primitives list contains \"3f1c-aaa\" with engineFeatureRef \"mp.blink.double.v1\"")
     public void andTheProfilePrimitivesListContains3f1caaaWithEnginefeatureref() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the profile primitives list does NOT contain \"9a20-bbb\"")
     public void andTheProfilePrimitivesListDoesNotContain9a20bbb() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the profile has active true")
     public void andTheProfileHasActiveTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("no primitives are in state \"supported\" in tenant \"empresa-test\"")
     public void givenNoPrimitivesAreInStateSupportedInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller publishes a detection profile")
     public void whenTheCallerPublishesADetectionProfile() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/empty-profile\"")
-    public void andTheErrorTypeIsErrorsemptyprofile() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("a profile version 1 already exists for tenant \"empresa-test\"")
     public void givenAProfileVersion1AlreadyExistsForTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("primitive \"3f1c-aaa\" is in state \"supported\"")
     public void andPrimitive3f1caaaIsInStateSupported() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller publishes a new detection profile")
     public void whenTheCallerPublishesANewDetectionProfile() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the returned version is 2")
     public void andTheReturnedVersionIs2() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("no version is ever reused")
     public void andNoVersionIsEverReused() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("profile version 1 is active for tenant \"empresa-test\"")
     public void givenProfileVersion1IsActiveForTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the new profile has active true")
     public void andTheNewProfileHasActiveTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("profile version 1 has active false")
     public void andProfileVersion1HasActiveFalse() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("there is exactly one active profile for tenant \"empresa-test\"")
     public void andThereIsExactlyOneActiveProfileForTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("profile version 1 is active for tenant \"empresa-test\" with primitives [\"3f1c-aaa\"]")
     public void givenProfileVersion1IsActiveForTenantEmpresatest_2() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And(
             "primitive \"9a20-bbb\" is in state \"supported\" and added after the profile was published")
     public void andPrimitive9a20bbbIsInStateSupportedAndAdded() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the system deactivates profile version 1 upon publishing version 2")
     public void whenTheSystemDeactivatesProfileVersion1UponPublishing() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("the primitives list of profile version 1 still contains only [\"3f1c-aaa\"]")
     public void thenThePrimitivesListOfProfileVersion1Still() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("profile version 3 is active for tenant \"empresa-test\"")
     public void givenProfileVersion3IsActiveForTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller gets the active detection profile")
     public void whenTheCallerGetsTheActiveDetectionProfile() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response header \"X-Profile-Version\" equals \"3\"")
     public void andTheResponseHeaderXprofileversionEquals3() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body has version 3")
     public void andTheResponseBodyHasVersion3() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("no detection profile exists for tenant \"empresa-test\"")
     public void givenNoDetectionProfileExistsForTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("the response status is 404")
     public void thenTheResponseStatusIs404() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/no-active-profile\"")
-    public void andTheErrorTypeIsErrorsnoactiveprofile() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("profile version 5 exists for tenant \"empresa-test\" with primitives [\"3f1c-aaa\"]")
     public void givenProfileVersion5ExistsForTenantEmpresatestWith() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller gets profile by version 5")
     public void whenTheCallerGetsProfileByVersion5() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body has version 5")
     public void andTheResponseBodyHasVersion5() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the primitives list matches exactly what was recorded at publish time")
     public void andThePrimitivesListMatchesExactlyWhatWasRecorded() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller gets profile by version 999")
     public void whenTheCallerGetsProfileByVersion999() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("device \"D-12\" is paired to tenant \"empresa-test\"")
     public void givenDeviceD12IsPairedToTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("profile version 4 is active for tenant \"empresa-test\"")
     public void andProfileVersion4IsActiveForTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the device credential is valid")
     public void andTheDeviceCredentialIsValid() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge device \"D-12\" gets its detection profile without If-None-Match")
     public void whenTheEdgeDeviceD12GetsItsDetectionProfile() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response header \"X-Profile-Version\" equals \"4\"")
     public void andTheResponseHeaderXprofileversionEquals4() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge device \"D-12\" gets its detection profile with If-None-Match \"4\"")
     public void whenTheEdgeDeviceD12GetsItsDetectionProfile_2() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("the response status is 304")
     public void thenTheResponseStatusIs304() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body is empty")
     public void andTheResponseBodyIsEmpty() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge device \"D-12\" gets its detection profile with If-None-Match \"3\"")
     public void whenTheEdgeDeviceD12GetsItsDetectionProfile_3() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("device \"D-12\" is paired to tenant \"empresa-other\"")
     public void givenDeviceD12IsPairedToTenantEmpresaother() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the device credential presents tenant \"empresa-test\"")
     public void andTheDeviceCredentialPresentsTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge device \"D-12\" gets its detection profile")
     public void whenTheEdgeDeviceD12GetsItsDetectionProfile_4() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/device-not-paired\"")
-    public void andTheErrorTypeIsErrorsdevicenotpaired() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 }

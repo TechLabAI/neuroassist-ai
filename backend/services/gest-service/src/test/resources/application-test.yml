@@ -16,3 +16,13 @@ spring:
 eureka:
   client:
     enabled: false
+
+# Expose all actuator endpoints for integration tests (GestMetricsIT, HealthIT).
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always

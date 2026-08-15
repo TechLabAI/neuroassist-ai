@@ -10,7 +10,7 @@ public interface EventQueryUseCase {
     record ActiveEventsResponse(EventoSummary activeEvent) {
 
         public record EventoSummary(
-                UUID id,
+                UUID eventoId,
                 String urgencia,
                 String tier,
                 String feedback,

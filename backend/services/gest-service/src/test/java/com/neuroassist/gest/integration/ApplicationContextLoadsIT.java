@@ -2,14 +2,18 @@ package com.neuroassist.gest.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
-@RequiredArgsConstructor
 class ApplicationContextLoadsIT extends BaseIntegrationTest {
 
-    private final ApplicationContext context;
+    private ApplicationContext context;
+
+    @Autowired
+    void setContext(ApplicationContext context) {
+        this.context = context;
+    }
 
     @Test
     void contextLoads() {

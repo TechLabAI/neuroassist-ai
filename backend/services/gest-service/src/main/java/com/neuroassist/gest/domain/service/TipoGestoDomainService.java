@@ -7,8 +7,8 @@ import com.neuroassist.gest.domain.model.DetectabilityState;
  * Domain service for TipoGesto invariants (ADR-006). Pure POJO — zero Spring imports (RULE-01).
  * Registered as @Bean in DomainServiceConfig.
  *
- * <p>Allowed ADR-006 transition arcs: REGISTERED → PENDING_TRAINING | DEPRECATED PENDING_TRAINING →
- * SUPPORTED | DEPRECATED SUPPORTED → DEPRECATED DEPRECATED → (nothing — terminal state)
+ * <p>Allowed ADR-006 transition arcs: REGISTERED → PENDING_TRAINING PENDING_TRAINING → SUPPORTED |
+ * DEPRECATED SUPPORTED → DEPRECATED DEPRECATED → (nothing — terminal state)
  */
 public class TipoGestoDomainService {
 
@@ -22,9 +22,7 @@ public class TipoGestoDomainService {
     public void validateTransition(DetectabilityState from, DetectabilityState to) {
         boolean allowed =
                 switch (from) {
-                    case REGISTERED ->
-                            to == DetectabilityState.PENDING_TRAINING
-                                    || to == DetectabilityState.DEPRECATED;
+                    case REGISTERED -> to == DetectabilityState.PENDING_TRAINING;
                     case PENDING_TRAINING ->
                             to == DetectabilityState.SUPPORTED
                                     || to == DetectabilityState.DEPRECATED;

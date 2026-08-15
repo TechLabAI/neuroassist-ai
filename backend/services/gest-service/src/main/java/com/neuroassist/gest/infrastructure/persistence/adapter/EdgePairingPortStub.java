@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 public class EdgePairingPortStub implements EdgePairingPort {
 
     @Override
-    public String getTenantForDevice(String deviceId) {
+    public String checkPairingAndGetTenant(java.util.UUID deviceId) {
         return "poc";
     }
 }

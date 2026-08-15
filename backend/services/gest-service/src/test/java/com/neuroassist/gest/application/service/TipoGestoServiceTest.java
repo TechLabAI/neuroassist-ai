@@ -16,6 +16,7 @@ import com.neuroassist.gest.api.exception.DuplicateTipoGestoException;
 import com.neuroassist.gest.api.exception.IllegalTransitionException;
 import com.neuroassist.gest.api.exception.InvalidNomeException;
 import com.neuroassist.gest.api.exception.TipoGestoNotFoundException;
+import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.application.port.out.TipoGestoTransitionRepositoryPort;
 import com.neuroassist.gest.domain.model.DetectabilityState;
@@ -49,6 +50,8 @@ class TipoGestoServiceTest {
     @Mock private TipoGestoDomainService tipoGestoDomainService;
 
     @Mock private ApplicationEventPublisher eventPublisher;
+
+    @Mock private TenantContextPort tenantContextPort;
 
     @InjectMocks private TipoGestoService tipoGestoService;
 
@@ -213,7 +216,7 @@ class TipoGestoServiceTest {
                         null,
                         "system");
         TransitionRequest request =
-                new TransitionRequest("PENDING_TRAINING", "system", "ready for training");
+                new TransitionRequest("PENDING_TRAINING", "system", "ready for training", null);
 
         when(tipoGestoRepositoryPort.findById(id)).thenReturn(Optional.of(current));
         doNothing().when(tipoGestoDomainService).validateTransition(any(), any());
@@ -254,7 +257,7 @@ class TipoGestoServiceTest {
                         Instant.now(),
                         null,
                         "admin");
-        TransitionRequest request = new TransitionRequest("DEPRECATED", "admin", "obsolete");
+        TransitionRequest request = new TransitionRequest("DEPRECATED", "admin", "obsolete", null);
 
         when(tipoGestoRepositoryPort.findById(id)).thenReturn(Optional.of(current));
         doNothing().when(tipoGestoDomainService).validateTransition(any(), any());
@@ -281,7 +284,8 @@ class TipoGestoServiceTest {
                         Instant.now(),
                         null,
                         null);
-        TransitionRequest request = new TransitionRequest("SUPPORTED", "system", "skip steps");
+        TransitionRequest request =
+                new TransitionRequest("SUPPORTED", "system", "skip steps", null);
 
         when(tipoGestoRepositoryPort.findById(id)).thenReturn(Optional.of(current));
         doThrow(new IllegalTransitionException("REGISTERED", "SUPPORTED"))
@@ -306,7 +310,7 @@ class TipoGestoServiceTest {
                         Instant.now(),
                         null,
                         null);
-        TransitionRequest request = new TransitionRequest("INVALID_STATE", "system", null);
+        TransitionRequest request = new TransitionRequest("INVALID_STATE", "system", null, null);
 
         when(tipoGestoRepositoryPort.findById(id)).thenReturn(Optional.of(current));
 
@@ -318,7 +322,7 @@ class TipoGestoServiceTest {
     @Test
     void transition_notFound_throwsTipoGestoNotFoundException() {
         UUID id = UUID.randomUUID();
-        TransitionRequest request = new TransitionRequest("PENDING_TRAINING", "system", null);
+        TransitionRequest request = new TransitionRequest("PENDING_TRAINING", "system", null, null);
         when(tipoGestoRepositoryPort.findById(id)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> tipoGestoService.transition(id, request))

@@ -8,8 +8,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- gen_random_uuid() used in seed mig
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- Trigram indexes for substring search on names, codes and descriptions.
 CREATE EXTENSION IF NOT EXISTS "unaccent"; -- Accent-insensitive search (LOWER(unaccent(nome)) LIKE ...).
 
-CREATE SCHEMA IF NOT EXISTS t_emp_test;
+-- Global schema used by Hibernate DDL (ddl-auto: create-drop) in test profile.
+-- TenantIdentifierResolver falls back to neuroassist_global when no tenant in ThreadLocal.
+CREATE SCHEMA IF NOT EXISTS neuroassist_global;
+GRANT ALL PRIVILEGES ON SCHEMA neuroassist_global TO test;
+ALTER ROLE test SET search_path TO neuroassist_global, public;
 
+CREATE SCHEMA IF NOT EXISTS t_emp_test;
 GRANT ALL PRIVILEGES ON SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_test TO test;

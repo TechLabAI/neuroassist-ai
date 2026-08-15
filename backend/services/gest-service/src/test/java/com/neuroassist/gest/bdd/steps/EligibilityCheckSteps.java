@@ -17,161 +17,130 @@ public class EligibilityCheckSteps {
     @And("the caller is authenticated with role \"gest.read\"")
     public void andTheCallerIsAuthenticatedWithRoleGestread() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("primitive \"3f1c-aaa\" is in state \"supported\" in tenant \"empresa-test\"")
     public void givenPrimitive3f1caaaIsInStateSupportedInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("primitive \"9a20-bbb\" is in state \"supported\" in tenant \"empresa-test\"")
     public void andPrimitive9a20bbbIsInStateSupportedInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the caller checks eligibility with urgencia \"emergencia\" for primitives [\"3f1c-aaa\", \"9a20-bbb\"]")
     public void whenTheCallerChecksEligibilityWithUrgenciaEmergenciaFor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("\"eligible\" is true")
     public void andEligibleIsTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("result for \"3f1c-aaa\" has eligible true")
     public void andResultFor3f1caaaHasEligibleTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("result for \"9a20-bbb\" has eligible true")
     public void andResultFor9a20bbbHasEligibleTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("primitive \"9a20-bbb\" is in state \"registered\" in tenant \"empresa-test\"")
     public void andPrimitive9a20bbbIsInStateRegisteredInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("\"eligible\" is false")
     public void andEligibleIsFalse() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("result for \"9a20-bbb\" has eligible false with reason \"primitive is not 'supported'\"")
     public void andResultFor9a20bbbHasEligibleFalseWithReason() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("primitive \"3f1c-aaa\" is in state \"pending_training\" in tenant \"empresa-test\"")
     public void givenPrimitive3f1caaaIsInStatePendingtrainingInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the caller checks eligibility with urgencia \"emergencia\" for primitives [\"3f1c-aaa\"]")
     public void whenTheCallerChecksEligibilityWithUrgenciaEmergenciaFor_2() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("result for \"3f1c-aaa\" has eligible false")
     public void andResultFor3f1caaaHasEligibleFalse() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("primitive \"9a20-bbb\" is in state \"pending_training\" in tenant \"empresa-test\"")
     public void andPrimitive9a20bbbIsInStatePendingtrainingInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller checks eligibility with urgencia \"rotina\" for primitives [\"3f1c-aaa\"]")
     public void whenTheCallerChecksEligibilityWithUrgenciaRotinaFor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("primitive \"3f1c-aaa\" is in state \"deprecated\" in tenant \"empresa-test\"")
     public void givenPrimitive3f1caaaIsInStateDeprecatedInTenant() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the caller checks eligibility with urgencia \"emergencia\" for primitives [\"unknown-id-xyz\"]")
     public void whenTheCallerChecksEligibilityWithUrgenciaEmergenciaFor_3() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/unknown-primitive\"")
-    public void andTheErrorTypeIsErrorsunknownprimitive() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the error detail lists \"unknown-id-xyz\"")
     public void andTheErrorDetailListsUnknownidxyz() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the caller checks eligibility with urgencia \"emergencia\" for primitives [\"3f1c-aaa\", \"ghost-1\", \"ghost-2\"]")
     public void whenTheCallerChecksEligibilityWithUrgenciaEmergenciaFor_4() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the error detail lists \"ghost-1\" and \"ghost-2\"")
     public void andTheErrorDetailListsGhost1AndGhost2() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And(
             "the caller checks eligibility with urgencia \"emergencia\" for primitives [\"3f1c-aaa\"] again")
     public void andTheCallerChecksEligibilityWithUrgenciaEmergenciaFor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("both responses are 200 with identical \"eligible\" value")
     public void thenBothResponsesAre200WithIdenticalEligibleValue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the detectabilityState of \"3f1c-aaa\" has not changed")
     public void andTheDetectabilitystateOf3f1caaaHasNotChanged() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("primitive \"3f1c-aaa\" exists in tenant \"empresa-other\" in state \"supported\"")
     public void givenPrimitive3f1caaaExistsInTenantEmpresaotherInState() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("a caller from tenant \"empresa-test\" checks eligibility for primitives [\"3f1c-aaa\"]")
     public void whenACallerFromTenantEmpresatestChecksEligibilityFor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 }

@@ -1,0 +1,12 @@
+{
+  "id": "EVNT",
+  "module": "EVNT",
+  "service": "evnt-service",
+  "pipeline": "implement",
+  "currentStep": "full-validate-failed",
+  "nextStep": "decision",
+  "progressUnit": "8/9",
+  "iteration": 6,
+  "timestamp": "2026-08-14T23:54:35",
+  "capReached": true
+}

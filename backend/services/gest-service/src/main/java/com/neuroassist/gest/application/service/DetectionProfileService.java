@@ -5,6 +5,7 @@ import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
+import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
@@ -44,6 +45,7 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     private final TipoGestoRepositoryPort tipoGestoRepositoryPort;
     private final DetectionProfileDomainService detectionProfileDomainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TenantContextPort tenantContextPort;
 
     /**
      * Publishes a new versioned DetectionProfile. Steps (GEST-009):
@@ -72,14 +74,13 @@ public class DetectionProfileService implements DetectionProfileUseCase {
         detectionProfileRepositoryPort.deactivateCurrent();
 
         // 3. Create and persist new DetectionProfile
-        // tenant-pending-p5: real tenantId comes from TenantContextHolder.require() in P5
         DetectionProfile profile =
                 DetectionProfile.publish(
                         version,
                         "v1.0.0",
                         request.classificationParams(),
                         supported,
-                        "tenant-pending-p5",
+                        tenantContextPort.getTenantIdOrNull(),
                         null);
         DetectionProfile saved = detectionProfileRepositoryPort.save(profile);
 

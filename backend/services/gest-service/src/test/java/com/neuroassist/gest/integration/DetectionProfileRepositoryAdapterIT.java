@@ -16,10 +16,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestConstructor;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -30,19 +31,21 @@ import org.springframework.transaction.annotation.Transactional;
  * Uses Testcontainers PostgreSQL (singleton container from {@link BaseIntegrationTest}). Implements
  * GEST-012 acceptance criteria: P3.
  */
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@RequiredArgsConstructor
 class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     private static final String TEST_TENANT = "emp_test";
 
-    @Autowired private DetectionProfileRepositoryPort profilePort;
+    private final DetectionProfileRepositoryPort profilePort;
 
-    @Autowired private DetectionProfilePrimitiveRepositoryPort primitivePort;
+    private final DetectionProfilePrimitiveRepositoryPort primitivePort;
 
-    @Autowired private TipoGestoRepositoryPort tipoGestoPort;
+    private final TipoGestoRepositoryPort tipoGestoPort;
 
-    @Autowired private DetectionProfileJpaRepository profileJpaRepository;
+    private final DetectionProfileJpaRepository profileJpaRepository;
 
-    @Autowired private DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
+    private final DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
 
     @BeforeEach
     void setTenantContext() {

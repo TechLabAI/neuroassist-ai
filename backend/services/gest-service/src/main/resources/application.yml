@@ -42,6 +42,34 @@ management:
     tags:
       application: ${spring.application.name}
 
+resilience4j:
+  circuitbreaker:
+    instances:
+      edgePairing:
+        # Sliding window: evaluate over the last 10 calls (COUNT_BASED)
+        slidingWindowSize: 10
+        # Minimum calls before the error rate is calculated (5 consecutive failures trigger the circuit)
+        minimumNumberOfCalls: 5
+        # Open circuit when failure rate reaches 50%
+        failureRateThreshold: 50
+        # Keep circuit open for 30s before transitioning to HALF_OPEN
+        waitDurationInOpenState: 30s
+        # Allow 3 probe calls in HALF_OPEN state before deciding to CLOSE or re-OPEN
+        permittedNumberOfCallsInHalfOpenState: 3
+        # Expose circuit breaker state via /actuator/health
+        registerHealthIndicator: true
+  retry:
+    instances:
+      edgePairing:
+        # One retry before the circuit breaker counts a failure (GET is idempotent)
+        maxAttempts: 2
+        # Wait 100ms between attempts (avoids thundering-herd on transient glitches)
+        waitDuration: 100ms
+        # Only retry on transient connectivity failures (not on 4xx or domain errors)
+        retryExceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+
 logging:
   pattern:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"

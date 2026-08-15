@@ -11,8 +11,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for TipoGestoDomainService ADR-006 state-machine invariants (Fase 1 — P2).
  *
- * <p>5 allowed arcs: REGISTERED → PENDING_TRAINING | DEPRECATED PENDING_TRAINING → SUPPORTED |
- * DEPRECATED SUPPORTED → DEPRECATED
+ * <p>4 allowed arcs: REGISTERED → PENDING_TRAINING | PENDING_TRAINING → SUPPORTED | DEPRECATED
+ * SUPPORTED → DEPRECATED
  *
  * <p>All other arcs are illegal. DEPRECATED is a terminal state — no exit.
  */
@@ -38,13 +38,13 @@ class TipoGestoDomainServiceTest {
     }
 
     @Test
-    void validateTransition_registeredToDeprecated_allowed() {
-        assertThatNoException()
-                .isThrownBy(
+    void validateTransition_registeredToDeprecated_illegal() {
+        assertThatThrownBy(
                         () ->
                                 domainService.validateTransition(
                                         DetectabilityState.REGISTERED,
-                                        DetectabilityState.DEPRECATED));
+                                        DetectabilityState.DEPRECATED))
+                .isInstanceOf(IllegalTransitionException.class);
     }
 
     @Test

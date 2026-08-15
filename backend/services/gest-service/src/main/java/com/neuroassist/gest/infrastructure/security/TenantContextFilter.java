@@ -9,11 +9,11 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.UUID;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
+import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,8 +22,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Reads tenantId from JWT claim ("tenant_id") and binds it to {@link TenantContextHolder} for the
- * duration of the request. Validates X-Tenant-Id header (if present) matches the JWT claim.
+ * P5 (GEST-018): Reads tenantId from JWT claims ("tenant" first, fallback to "sub") and binds it to
+ * {@link TenantContextHolder} for the duration of the request.
+ *
+ * <p>Registered inside the Spring Security filter chain via {@code addFilterAfter(...,
+ * BearerTokenAuthenticationFilter.class)} in {@link
+ * com.neuroassist.gest.infrastructure.config.SecurityConfig} — NOT auto-registered as a standalone
+ * servlet filter (disabled via FilterRegistrationBean).
  *
  * <p>P3 addition (GEST-014): Guard 503 — if the JWT carries a tenantId whose corresponding schema
  * ({@code t_<tenantId>}) does not exist in the database, the filter short-circuits with HTTP 503
@@ -31,12 +36,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Slf4j
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 50)
 @RequiredArgsConstructor
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private static final String JWT_CLAIM_TENANT_ID = "tenant_id";
+    private static final String JWT_CLAIM_TENANT = "tenant";
     private static final String HEADER_TENANT_ID = "X-Tenant-Id";
+    private static final String HEADER_CORRELATION_ID = "X-Correlation-Id";
+    private static final String MDC_CORRELATION_KEY = "correlationId";
     private static final String SCHEMA_PREFIX = "t_";
     private static final String PROBLEM_TYPE_TENANT_NOT_FOUND = "tenant-not-found";
 
@@ -50,6 +56,15 @@ public class TenantContextFilter extends OncePerRequestFilter {
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
+        // ── X-Correlation-Id — generate if absent, propagate in response ──────
+        String correlationId = request.getHeader(HEADER_CORRELATION_ID);
+        if (correlationId == null || correlationId.isBlank()) {
+            correlationId = UUID.randomUUID().toString();
+        }
+        MDC.put(MDC_CORRELATION_KEY, correlationId);
+        response.setHeader(HEADER_CORRELATION_ID, correlationId);
+
+        // ── Tenant extraction from JWT ─────────────────────────────────────────
         String tenantId = extractTenantIdFromJwt();
 
         if (tenantId != null) {
@@ -86,13 +101,39 @@ public class TenantContextFilter extends OncePerRequestFilter {
             }
 
             TenantContextHolder.set(tenantId);
+            MDC.put(TenantContextHolder.MDC_KEY, tenantId);
         }
 
         try {
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
+            MDC.remove(TenantContextHolder.MDC_KEY);
+            MDC.remove(MDC_CORRELATION_KEY);
         }
+    }
+
+    /**
+     * Extracts the tenant identifier from the current request's JWT. Reads claim "tenant" first;
+     * falls back to "sub" (subject) if absent.
+     */
+    private String extractTenantIdFromJwt() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            Jwt jwt = jwtAuth.getToken();
+            if (jwt != null) {
+                String tenantClaim = jwt.getClaimAsString(JWT_CLAIM_TENANT);
+                if (tenantClaim != null && !tenantClaim.isBlank()) {
+                    return tenantClaim;
+                }
+                // Fallback to subject
+                String sub = jwt.getSubject();
+                if (sub != null && !sub.isBlank()) {
+                    return sub;
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -115,17 +156,5 @@ public class TenantContextFilter extends OncePerRequestFilter {
                     e.getMessage());
             return false;
         }
-    }
-
-    private String extractTenantIdFromJwt() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            Jwt jwt = jwtAuth.getToken();
-            if (jwt != null) {
-                Object claim = jwt.getClaim(JWT_CLAIM_TENANT_ID);
-                return claim == null ? null : claim.toString();
-            }
-        }
-        return null;
     }
 }

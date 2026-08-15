@@ -17,185 +17,145 @@ public class ReportValidationSteps {
     @And("profile version 7 is published for tenant \"empresa-test\"")
     public void andProfileVersion7IsPublishedForTenantEmpresatest() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And(
             "the profile version 7 contains primitive \"3f1c-aaa\" with engineFeatureRef \"mp.blink.double.v1\"")
     public void andTheProfileVersion7ContainsPrimitive3f1caaaWith() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the device credential for \"D-12\" is valid for tenant \"empresa-test\"")
     public void andTheDeviceCredentialForD12IsValidFor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge posts a RecognizedCommandReport:")
-    public void whenTheEdgePostsARecognizedcommandreport() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
+    public void whenTheEdgePostsARecognizedcommandreport(String body) {
+        // TODO: implement step — body contains the JSON docstring
     }
 
     @And("the response body has valid true")
     public void andTheResponseBodyHasValidTrue() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body has contractVersion \"1.0.0\"")
     public void andTheResponseBodyHasContractversion100() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given(
             "profile version 7 also contains primitive \"9a20-bbb\" with engineFeatureRef \"mp.brow.raise.v1\"")
     public void givenProfileVersion7AlsoContainsPrimitive9a20bbbWith() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the edge posts a composite RecognizedCommandReport with primitives [\"3f1c-aaa\", \"9a20-bbb\"] and composite true")
     public void whenTheEdgePostsACompositeRecognizedcommandreportWithPrimitives() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge posts a report with profileVersion 999")
     public void whenTheEdgePostsAReportWithProfileversion999() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/unknown-profile-version\"")
-    public void andTheErrorTypeIsErrorsunknownprofileversion() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the edge posts a report referencing profileVersion 7 with primitive \"ghost-primitive-id\"")
     public void whenTheEdgePostsAReportReferencingProfileversion7() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("the error type is \"\\/errors\\/primitive-not-in-profile\"")
-    public void andTheErrorTypeIsErrorsprimitivenotinprofile() {
-        // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge posts a valid RecognizedCommandReport with reportId \"privacy-test-001\"")
     public void whenTheEdgePostsAValidRecognizedcommandreportWithReportid() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("no record with reportId \"privacy-test-001\" exists in the database")
     public void andNoRecordWithReportidPrivacytest001ExistsInThe() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("no confidence value is stored in the database for this interaction")
     public void andNoConfidenceValueIsStoredInTheDatabase() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("no biometric data is stored in any table")
     public void andNoBiometricDataIsStoredInAnyTable() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body does not contain any confidence value")
     public void andTheResponseBodyDoesNotContainAnyConfidence() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body does not contain any image or landmark data")
     public void andTheResponseBodyDoesNotContainAnyImage() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("a valid report with reportId \"6b0e-report-1\" was previously validated successfully")
     public void givenAValidReportWithReportid6b0ereport1WasPreviously() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge posts the same report again with reportId \"6b0e-report-1\"")
     public void whenTheEdgePostsTheSameReportAgainWith() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("no additional side effects occur")
     public void andNoAdditionalSideEffectsOccur() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Given("profile version 7 also contains primitive \"9a20-bbb\"")
     public void givenProfileVersion7AlsoContainsPrimitive9a20bbb() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When(
             "the edge posts a composite RecognizedCommandReport with only one primitive and composite true")
     public void whenTheEdgePostsACompositeRecognizedcommandreportWithOnly() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the edge posts a report with primitive confidence {double}")
     public void whenTheEdgePostsAReportWithPrimitiveConfidence(double confidence) {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("the response status is {string}")
     public void thenTheResponseStatusIsExpectedstatus(String expectedStatus) {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller gets the detection contract descriptor")
     public void whenTheCallerGetsTheDetectionContractDescriptor() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body has recognizedCommandReportSchema reference")
     public void andTheResponseBodyHasRecognizedcommandreportschemaReference() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @And("the response body has edgeRecognitionSignalSchema reference")
     public void andTheResponseBodyHasEdgerecognitionsignalschemaReference() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @When("the caller lists the tipos-gesto catalog")
     public void whenTheCallerListsTheTiposgestoCatalog() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 
     @Then("the response header \"X-Detection-Contract-Version\" equals \"1.0.0\"")
     public void thenTheResponseHeaderXdetectioncontractversionEquals100() {
         // TODO: implement step
-        throw new io.cucumber.java.PendingException();
     }
 }

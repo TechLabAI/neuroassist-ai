@@ -4,10 +4,13 @@ import com.neuroassist.gest.api.dto.TipoGestoRequest;
 import com.neuroassist.gest.api.dto.TipoGestoResponse;
 import com.neuroassist.gest.api.dto.TransitionRequest;
 import com.neuroassist.gest.api.exception.DuplicateTipoGestoException;
+import com.neuroassist.gest.api.exception.EngineFeatureRefRequiredException;
 import com.neuroassist.gest.api.exception.IllegalTransitionException;
 import com.neuroassist.gest.api.exception.InvalidNomeException;
+import com.neuroassist.gest.api.exception.RegressionReasonRequiredException;
 import com.neuroassist.gest.api.exception.TipoGestoNotFoundException;
 import com.neuroassist.gest.application.port.in.TipoGestoUseCase;
+import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.application.port.out.TipoGestoTransitionRepositoryPort;
 import com.neuroassist.gest.domain.event.PrimitiveDeprecated;
@@ -36,6 +39,7 @@ public class TipoGestoService implements TipoGestoUseCase {
     private final TipoGestoTransitionRepositoryPort tipoGestoTransitionRepositoryPort;
     private final TipoGestoDomainService tipoGestoDomainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TenantContextPort tenantContextPort;
 
     @Override
     @Transactional(readOnly = true)
@@ -71,12 +75,19 @@ public class TipoGestoService implements TipoGestoUseCase {
             throw new DuplicateTipoGestoException(nome);
         }
 
-        // Tenant placeholder: in P5, TenantContextHolder.require() will provide the real tenantId.
-        // For P2 (mock-first), the tenant is surfaced through the repository port.
-        String tenantRef = "tenant-pending-p5";
+        String tenantRef = tenantContextPort.getTenantIdOrNull();
 
         TipoGesto tipoGesto = TipoGesto.register(nome, tenantRef);
         TipoGesto saved = tipoGestoRepositoryPort.save(tipoGesto);
+
+        // ADR-006: audit trail begins at registration (fromState = null → REGISTERED)
+        tipoGestoTransitionRepositoryPort.save(
+                TipoGestoTransition.of(
+                        saved.id(),
+                        null,
+                        DetectabilityState.REGISTERED,
+                        "system",
+                        "initial registration"));
 
         eventPublisher.publishEvent(
                 new PrimitiveRegistered(
@@ -101,8 +112,21 @@ public class TipoGestoService implements TipoGestoUseCase {
                     tipoGesto.detectabilityState().name(), request.toState());
         }
 
-        // Delegate state-machine guard to domain service (ADR-006 invariant)
+        // Delegate state-machine guard to domain service (ADR-006: arc validity first)
         tipoGestoDomainService.validateTransition(tipoGesto.detectabilityState(), toState);
+
+        // ADR-006 INVARIANT #5: arc PENDING_TRAINING → SUPPORTED requires engineFeatureRef
+        if (toState == DetectabilityState.SUPPORTED
+                && (request.engineFeatureRef() == null || request.engineFeatureRef().isBlank())) {
+            throw new EngineFeatureRefRequiredException();
+        }
+
+        // ADR-006 INVARIANT #4: arc SUPPORTED → DEPRECATED requires explicit reason
+        if (tipoGesto.detectabilityState() == DetectabilityState.SUPPORTED
+                && toState == DetectabilityState.DEPRECATED
+                && (request.reason() == null || request.reason().isBlank())) {
+            throw new RegressionReasonRequiredException();
+        }
 
         // Append-only transition audit record
         TipoGestoTransition transition =
@@ -114,8 +138,12 @@ public class TipoGestoService implements TipoGestoUseCase {
                         request.reason());
         tipoGestoTransitionRepositoryPort.save(transition);
 
-        // Update domain object with new state
-        TipoGesto updated = tipoGesto.withState(toState, request.actor());
+        // Update domain object with new state (carry engineFeatureRef when transitioning to
+        // SUPPORTED)
+        TipoGesto updated =
+                toState == DetectabilityState.SUPPORTED
+                        ? tipoGesto.withState(toState, request.actor(), request.engineFeatureRef())
+                        : tipoGesto.withState(toState, request.actor());
         TipoGesto saved = tipoGestoRepositoryPort.save(updated);
 
         // Publish transition event
