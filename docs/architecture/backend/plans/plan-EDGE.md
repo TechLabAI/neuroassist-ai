@@ -8,10 +8,17 @@
 
 ## Status das prioridades
 
-- P1 -- pendente (scaffold + domain model + controllers skeleton)
-- P2 -- pendente (registration, enrollment, pairing, heartbeat, liveness)
+- P1 -- ✅ DONE (scaffold + domain model + controllers skeleton) — validado 2026-08-15 BASELINE
+- P2 -- ✅ IMPLEMENTADO (registration, enrollment, pairing, heartbeat, liveness) — Modo 3 LIGHT PASS
+  - EDGE-005: DeviceRegistrationService.register() com enrollment token hash
+  - EDGE-006: DeviceRegistrationService.enrollDevice() com credential one-time
+  - EDGE-007: PairingService.pair/unpair() com exclusive pairing
+  - EDGE-008: HeartbeatService.recordHeartbeat() com staleness detection
+  - EDGE-009: LivenessService.evaluate() com read-time derivation
+  - Gates: Lint PASS (spotlessCheck), ArchUnit PASS, test/build/e2e DEFERRED
+  - Score: 81/100 (Maduro)
 - P3 -- pendente (JPA adapters + Flyway migration)
-- P4 -- pendente (Feign client + retire + integrations GWY/REG/PAC/DASH)
+- P4 -- pendente (Feign client real + retire + integrations GWY/REG/PAC/DASH)
 - P5 -- pendente (OAuth2 security + tenant propagation + ACS coordination)
 - P6 -- pendente (domain event listeners)
 - P7 -- pendente (observability + metrics + logging)
@@ -117,7 +124,7 @@ Iniciar pelo EDGE-001 (Gradle module). Usar o `generator-config.yml` como refere
 
 ### Prioridade 2 -- Operacoes de Dominio (Golden Path)
 
-**Status:** pendente
+**Status:** ✅ IMPLEMENTADO (2026-08-15 17:09-17:30 UTC)
 
 #### Objetivo / Resultado esperado
 Fluxo completo de: registro de device (201 + enrollment token) → enrollment (200 + credential) → pairing (201 paired) → heartbeat (200 + liveness + profile pointer) → liveness poll (200 status derivado). Todos os invariantes de seguranca aplicados (token hash-only, credential hash-only, deviceId do token nunca do body).
