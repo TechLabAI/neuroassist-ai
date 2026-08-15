@@ -1,15 +1,23 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, filter, map } from 'rxjs';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink, RouterLinkActive } from '@angular/router';
+import { PAC_MODULE_DESCRIPTOR } from '@neuroassist/pac';
+import { EVNT_NAV_CONFIG } from '@neuroassist/evnt';
+import { ACS_MODULE_DESCRIPTOR } from '@neuroassist/acs';
 
 interface NavItem {
   path: string;
   label: string;
+  order: number;
 }
 
+// Sourced from each module's descriptor/nav-config (showInNav:true only).
+// GEST and EDGE are showInNav:false — composed elsewhere (PAC editor slot,
+// topbar chip) rather than routed via the sidebar.
 const NAV_ITEMS: NavItem[] = [
-];
+  { path: '/pac', label: PAC_MODULE_DESCRIPTOR.menu.label, order: 10 },
+  { path: EVNT_NAV_CONFIG.route, label: EVNT_NAV_CONFIG.label, order: EVNT_NAV_CONFIG.order },
+  { path: '/acs', label: ACS_MODULE_DESCRIPTOR.menu.label, order: ACS_MODULE_DESCRIPTOR.menu.order },
+].sort((a, b) => a.order - b.order);
 
 @Component({
   selector: 'app-sidebar',

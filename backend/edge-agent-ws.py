@@ -113,6 +113,11 @@ class DetectorState:
 
 
 def process_frame(state: DetectorState, ear_l, ear_r, bri_l, bri_r, watched: str, now: float):
+    # INTERIM: EAR/BRI detector — not ONNX
+    # Detection uses Eye Aspect Ratio (EAR) + Brow Raise Index (BRI) thresholds.
+    # The production PEA will use an ONNX classifier (gesture_v1.onnx) — tracked in
+    # INT-GEST-004 / INT-GEST-007. This interim is bounded to the pre-PEA period.
+    # See ADR-006-ear-bri-interim-detector.md for rationale and safeguards.
     """Detect exactly the single `watched` tipoGestoId. Returns (fired: bool, confidence)."""
     if state.in_cooldown(now):
         return False, 0.0
@@ -319,7 +324,11 @@ async def handle_client(websocket, camera_index: int, debug: bool):
     drain_task = asyncio.create_task(drain_queue())
 
     try:
-        await websocket.send(json.dumps({"type": "hello", "contractVersion": CONTRACT_VERSION}))
+        await websocket.send(json.dumps({
+            "type": "hello",
+            "contractVersion": CONTRACT_VERSION,
+            "detectorType": "ear_bri",  # ADR-006: interim EAR/BRI detector — not ONNX
+        }))
 
         async for raw in websocket:
             try:

@@ -14,6 +14,7 @@ import {
 } from './api/comando.port';
 import { TipoGesto } from './api/tipos-gesto-read.port';
 import { EdgeDeviceAckStubAdapter } from './api/edge-device-ack-stub.adapter';
+import { PacTelemetryService } from './telemetry/pac-telemetry.service';
 
 /** Crypto-safe idempotency key (browser-native). */
 function generateIdempotencyKey(): string {
@@ -92,6 +93,7 @@ export class PacComandoFacade {
   private readonly port = inject(PAC_COMANDO_PORT);
   private readonly ackStub = inject(EdgeDeviceAckStubAdapter);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly telemetry = inject(PacTelemetryService);
 
   private readonly _catalog = signal<ComandoRowVM[]>([]);
   private readonly _loadState = signal<CatalogLoadState>('idle');
@@ -120,6 +122,7 @@ export class PacComandoFacade {
           this._catalog.set(comandos.map((c) => this._toRowVM(c, [])));
           this._loadState.set('loaded');
           this._loading.set(false);
+          this.telemetry.trackCatalogLoaded(comandos.length);
         },
         error: (err: unknown) => {
           this._error.set(err instanceof Error ? err.message : 'Erro ao carregar catálogo');
@@ -195,9 +198,10 @@ export class PacComandoFacade {
                 dirty: false,
               }));
             }
+            this.telemetry.trackComandoSaved(ed.urgencia);
             this.load(ed.pid);
           },
-          error: (err: unknown) => this._handleSaveError(err),
+          error: (err: unknown) => this._handleSaveError(err, null),
         });
     } else {
       // Update existing draft (only allowed while estado === 'drafted')
@@ -221,9 +225,10 @@ export class PacComandoFacade {
               saveState: 'saved-pending-sync',
               dirty: false,
             }));
+            this.telemetry.trackComandoSaved(ed.urgencia);
             this.load(ed.pid);
           },
-          error: (err: unknown) => this._handleSaveError(err),
+          error: (err: unknown) => this._handleSaveError(err, ed.cid),
         });
     }
   }
@@ -242,9 +247,10 @@ export class PacComandoFacade {
             etag: updated.etag,
             saveState: 'saved-pending-sync',
           }));
+          this.telemetry.trackLifecycleTransition('recalibrated', ed.cid!);
           this.load(ed.pid);
         },
-        error: (err: unknown) => this._handleSaveError(err),
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
       });
   }
 
@@ -253,13 +259,16 @@ export class PacComandoFacade {
     from(lastValueFrom(this.port.retire(pid, row.id, row.etag)))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: () => this.load(pid),
+        next: () => {
+          this.telemetry.trackLifecycleTransition('retired', row.id);
+          this.load(pid);
+        },
         error: (err: unknown) => this._error.set(err instanceof Error ? err.message : 'Erro ao aposentar comando'),
       });
   }
 
   /** Patch editor field — marks dirty */
-  patchEditor(partial: Partial<Omit<EditorVM, 'pid' | 'cid' | 'etag' | 'saveState' | 'emergencyGateError'>>): void {
+  patchEditor(partial: Partial<Omit<EditorVM, 'pid' | 'cid' | 'etag' | 'saveState'>>): void {
     this._editor.update((e) => ({ ...e, ...partial, dirty: true }));
   }
 
@@ -289,18 +298,27 @@ export class PacComandoFacade {
     };
   }
 
-  private _handleSaveError(err: unknown): void {
+  private _handleSaveError(err: unknown, cid?: string | null): void {
     // Emergency gate (422) surfaces a blocking modal (PAC-FE-021)
     const msg = err instanceof Error ? err.message : 'Erro ao salvar comando';
-    const isEmergencyGate = msg.includes('emergency-not-detectable') ||
-      (err && typeof err === 'object' && 'status' in err && (err as {status: number}).status === 422);
+    const status = (err && typeof err === 'object' && 'status' in err)
+      ? (err as { status: number }).status
+      : null;
+
+    const isEmergencyGate = msg.includes('emergency-not-detectable') || status === 422;
+    const isConflict = msg.includes('conflict-precondition') || status === 409;
+
     if (isEmergencyGate) {
+      this.telemetry.trackEmergencyGateBlocked(cid ?? 'unknown');
       this._editor.update((e) => ({
         ...e,
         saveState: 'error',
         emergencyGateError: 'Este comando de emergência requer um gesto reconhecível pelo motor de detecção. Verifique o catálogo de gestos com a equipe técnica.',
       }));
     } else {
+      if (isConflict) {
+        this.telemetry.trackConflictPrecondition(cid ?? 'unknown');
+      }
       this._editor.update((e) => ({ ...e, saveState: 'error', emergencyGateError: null }));
       this._error.set(msg);
     }

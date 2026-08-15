@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of, throwError } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { HttpResponse, HttpErrorResponse } from '@angular/common/http';
+
 import {
   PacComandoPort,
   Comando,
@@ -10,6 +11,16 @@ import {
   ComandoTuning,
   ComandoEstado,
 } from './comando.port';
+
+// E2E test hook interface — only active in development/test environments.
+// Set window.__PAC_E2E_EMERGENCY_GATE = true (via page.addInitScript in Playwright)
+// to make create() return 422 for urgencia=emergencia, enabling the emergency
+// gate blocking modal to be tested without switching to HTTP adapter (BLOCKER-4 ALTERNATIVE).
+declare global {
+  interface Window {
+    __PAC_E2E_EMERGENCY_GATE?: boolean;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Mock seed — sourced from prototype shared/mock-data.ts
@@ -94,6 +105,30 @@ export class ComandoMockAdapter implements PacComandoPort {
     draft: ComandoCreate,
     _idempotencyKey?: string,
   ): Observable<HttpResponse<Comando>> {
+    // E2E test hook: if window.__PAC_E2E_EMERGENCY_GATE is true and urgencia is
+    // 'emergencia', simulate the 422 emergency-not-detectable error that the real
+    // BE returns when the gesture is not detectable by the engine (SPEC-07).
+    if (
+      typeof window !== 'undefined' &&
+      window.__PAC_E2E_EMERGENCY_GATE &&
+      draft.urgencia === 'emergencia'
+    ) {
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 422,
+            error: {
+              type: 'https://neuroassist.ai/problems/emergency-not-detectable',
+              title: 'Emergency gate: gesture not detectable',
+              status: 422,
+              errorCode: 'emergency-not-detectable',
+              detail:
+                'The selected gesture type is not detectable by the current gesture engine. Choose a different gesture or change urgência to Rotina.',
+            },
+          }),
+      );
+    }
+
     const cmd: Comando = {
       id: `cmd-${Date.now()}`,
       pacienteId: pid,

@@ -25,7 +25,7 @@ export const MODULE_FEATURE_FLAGS = {
 export const GEST_MODULE_DESCRIPTOR = {
   key: 'gest',
   entry: () =>
-    import('@neuroassist/gest').then((m) => m.GestureLiveTestComponent),
+    import('./feature-live-test/gesture-live-test.component').then((m) => m.GestureLiveTestComponent),
   routes: GEST_ROUTES,
   permissionMap: MODULE_PERMISSION_MAP,
   featureFlags: MODULE_FEATURE_FLAGS,
@@ -35,5 +35,5 @@ export const GEST_MODULE_DESCRIPTOR = {
    * scope:pac / scope:acs must use GestShellIntegrationService.resolveLiveTestSlot()
    * — they must NEVER import this field directly (GEST-INT-002 nx-boundary). */
   liveTestComponent: () =>
-    import('@neuroassist/gest').then((m) => m.GestureLiveTestComponent),
+    import('./feature-live-test/gesture-live-test.component').then((m) => m.GestureLiveTestComponent),
 } as const;

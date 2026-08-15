@@ -5,5 +5,14 @@
   "sourceRoot": "libs/shared/contracts/src",
   "prefix": "neuroassist",
   "tags": ["scope:shared", "type:contracts"],
-  "targets": {}
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/libs/shared/contracts"],
+      "options": {
+        "command": "npx tsc -p libs/shared/contracts/tsconfig.build.json",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
 }

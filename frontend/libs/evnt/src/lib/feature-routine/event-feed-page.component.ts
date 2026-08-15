@@ -3,46 +3,62 @@ import {
   ChangeDetectionStrategy,
   inject,
   computed,
+  signal,
   OnInit,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { EventDeliveryFacade } from '../evnt.facade';
-import { EventoVm } from '../evnt.types';
+import { EVNT_MODULE_DESCRIPTOR } from '../evnt.descriptor';
+import { RoutineNoticeComponent } from './routine-notice/routine-notice.component';
+import { EventListComponent } from './event-list/event-list.component';
 
 // =============================================================================
-// EventFeedPageComponent — SPEC-03 §3, SPEC-02 §3 (routine-feed surface)
+// EventFeedPageComponent — SPEC-03 §3, SPEC-02 §3 (FE-EVNT-013)
 // Route: /eventos (registered via EVNT_ROUTES)
-// Shows the routine event queue (discreet, dismissible) and delivery-mode banner.
-// Emergency alarm is handled exclusively by AlarmOverlayComponent (shell outlet).
+//
+// Smart component: reads facade signals, composes two presentational children.
+//   • RoutineNoticeComponent — dismissible discreet notices (FLAG-02 gated)
+//   • EventListComponent     — recent-events history list
+//
+// Emergency alarm is handled EXCLUSIVELY by AlarmOverlayComponent (shell outlet,
+// ADR-005) — this page is never shown during an active alarm event.
+//
+// FLAG-02: routineNoticesEnabled suppresses discreet notices when 'off'.
+//   The emergency alarm is unaffected (handled by the shell, not by this flag).
+//   TODO[INT-FE-EVNT-005]: replace with FeatureFlagService when available.
+//
+// DegradedModeBanner: inline (DegradedModeBannerComponent from
+//   @neuroassist/shared/ui-feedback is a Wave-0 stub with no content).
 // =============================================================================
-
-function horaLabel(iso: string): string {
-  const d = new Date(iso);
-  const h = String(d.getHours()).padStart(2, '0');
-  const m = String(d.getMinutes()).padStart(2, '0');
-  return `${h}h${m}`;
-}
 
 @Component({
   selector: 'evnt-event-feed-page',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [RoutineNoticeComponent, EventListComponent],
   template: `
     <div class="mx-auto max-w-2xl px-4 py-8">
 
-      <!-- Degraded banner (SPEC-04 §4) -->
+      <!-- Degraded banner (SPEC-04 §4 — inline; @neuroassist/shared/ui-feedback is Wave-0 stub) -->
       @if (deliveryMode() === 'degraded') {
-        <div class="mb-4 flex items-center gap-2 rounded-lg bg-warn/10 px-4 py-3 text-sm text-warn-ink">
-          <span class="material-symbols-outlined text-[18px]">signal_disconnected</span>
+        <div
+          class="mb-4 flex items-center gap-2 rounded-lg bg-warn/10 px-4 py-3 text-sm text-warn-ink"
+          role="alert"
+          aria-live="polite"
+          data-testid="degraded-banner">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">signal_disconnected</span>
           <span>Modo degradado — recebendo eventos via polling.</span>
         </div>
       }
 
-      <h1 class="font-display text-xl font-bold text-ink mb-6">Notificações de rotina</h1>
+      <h1 class="mb-6 font-display text-xl font-bold text-ink">Notificações de rotina</h1>
 
-      <!-- Loading state -->
+      <!-- Loading skeleton -->
       @if (loading()) {
-        <div class="flex justify-center py-12">
-          <span class="material-symbols-outlined animate-spin text-[32px] text-ink-faint">
+        <div class="flex justify-center py-12" aria-label="Carregando notificações">
+          <span
+            class="material-symbols-outlined animate-spin text-[32px] text-ink-faint"
+            aria-hidden="true">
             progress_activity
           </span>
         </div>
@@ -50,80 +66,102 @@ function horaLabel(iso: string): string {
 
       <!-- Error state -->
       @if (error()) {
-        <div class="rounded-lg bg-error/10 px-4 py-3 text-sm text-error-ink">
+        <div class="rounded-lg bg-error/10 px-4 py-3 text-sm text-error-ink" role="alert">
           Erro ao carregar notificações. Tente novamente.
         </div>
       }
 
-      <!-- Empty state -->
-      @if (!loading() && !error() && routineQueue().length === 0) {
-        <div class="flex flex-col items-center py-16 text-center">
-          <span class="material-symbols-outlined text-[56px] text-ink-faint">notifications_off</span>
-          <p class="mt-4 text-sm text-ink-soft">Nenhuma notificação de rotina no momento.</p>
+      <!-- Routine queue — FLAG-02: suppressed when routineNotices='off' -->
+      @if (routineNoticesEnabled()) {
+        <div role="list" aria-label="Fila de notificações de rotina">
+          @for (evt of routineQueue(); track evt.eventoId) {
+            <evnt-routine-notice
+              [evento]="evt"
+              (dismiss)="onDismiss($event)"
+              (open)="onOpen($event)" />
+          }
         </div>
       }
 
-      <!-- Routine queue -->
-      @for (evt of routineQueue(); track evt.eventoId) {
+      <!-- Recent-events history list -->
+      @if (recentEvents().length > 0) {
+        <h2 class="mb-4 mt-8 font-display text-base font-semibold text-ink">
+          Histórico recente
+        </h2>
+        <evnt-event-list [events]="recentEvents()" (open)="onOpen($event)" />
+      }
+
+      <!-- Empty state: no queue items, no recent events, not loading -->
+      @if (empty()) {
         <div
-          class="mb-3 flex items-start gap-3 rounded-xl border border-surface-border bg-surface px-4 py-3 shadow-sm">
-
-          <span class="material-symbols-outlined mt-0.5 text-[20px] text-ink-soft">
-            notifications
+          class="flex flex-col items-center py-16 text-center"
+          data-testid="empty-state">
+          <span
+            class="material-symbols-outlined text-[56px] text-ink-faint"
+            aria-hidden="true">
+            notifications_off
           </span>
-
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold text-ink">"{{ evt.commandLabel }}"</p>
-            <p class="mt-0.5 text-xs text-ink-soft">
-              {{ evt.patientName }} · {{ horaLabel(evt.recognizedAt) }}
-            </p>
-          </div>
-
-          <div class="flex shrink-0 gap-2">
-            <button
-              (click)="verDetalhe(evt)"
-              class="rounded-lg px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors">
-              Ver
-            </button>
-            <button
-              (click)="dispensar(evt.eventoId)"
-              class="rounded-lg px-3 py-1.5 text-xs font-medium text-ink-soft hover:bg-surface-hover transition-colors">
-              <span class="material-symbols-outlined text-[16px]">close</span>
-            </button>
-          </div>
+          <p class="mt-4 text-sm text-ink-soft">Nenhuma notificação de rotina no momento.</p>
         </div>
       }
 
     </div>
   `,
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EventFeedPageComponent implements OnInit {
   private readonly facade = inject(EventDeliveryFacade);
   private readonly router = inject(Router);
 
+  // ---------------------------------------------------------------------------
+  // Facade signals — all reads proxied through signals (OnPush-safe)
+  // ---------------------------------------------------------------------------
+
   readonly routineQueue = this.facade.routineQueue;
+  readonly recentEvents = this.facade.recentEvents;
   readonly deliveryMode = this.facade.deliveryMode;
   readonly loading = this.facade.loading;
   readonly error = this.facade.error;
 
-  /** True when queue is empty and not loading (SPEC-03 §3). */
-  readonly empty = computed(() => !this.loading() && this.routineQueue().length === 0);
+  // ---------------------------------------------------------------------------
+  // FLAG-02: discreet notice visibility (SPEC-05 §3)
+  // Protected (not private) so unit tests can mutate it via (component as any).
+  // ---------------------------------------------------------------------------
 
-  protected horaLabel = horaLabel;
+  protected readonly routineNoticesEnabled = signal(
+    EVNT_MODULE_DESCRIPTOR.featureFlags.routineNotices === 'on',
+  );
+
+  // ---------------------------------------------------------------------------
+  // Derived state
+  // ---------------------------------------------------------------------------
+
+  /** True when there is nothing to display and no active loading. */
+  readonly empty = computed(
+    () =>
+      !this.loading() &&
+      this.routineQueue().length === 0 &&
+      this.recentEvents().length === 0,
+  );
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   ngOnInit(): void {
-    // Hydration already done by evnt.bootstrap; this re-fetch is lightweight
-    // and refreshes the routine list if the user navigates to /eventos later.
-    // TODO[FE-EVNT-020]: load history (recent events) for SPEC-03 §3 recentEvents
+    // Load recent-events history (SPEC-03 §3).
+    // Hydration of routineQueue was already done by evnt.bootstrap on app init.
     void this.facade.loadHistory({ page: 0, size: 20 });
   }
 
-  protected dispensar(eventoId: string): void {
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  protected onDismiss(eventoId: string): void {
     this.facade.dismiss(eventoId);
   }
 
-  protected verDetalhe(evt: EventoVm): void {
-    void this.router.navigate(['/eventos', evt.eventoId]);
+  protected onOpen(eventoId: string): void {
+    void this.router.navigate(['/eventos', eventoId]);
   }
 }

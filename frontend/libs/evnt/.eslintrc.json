@@ -16,6 +16,10 @@
         "@angular-eslint/component-selector": [
           "error",
           { "type": "element", "prefix": "evnt", "style": "kebab-case" }
+        ],
+        "@typescript-eslint/no-unused-vars": [
+          "warn",
+          { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
         ]
       }
     },

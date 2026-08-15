@@ -1,4 +1,4 @@
-import { InjectionToken } from '@angular/core';
+import { InjectionToken, Signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 
@@ -20,6 +20,11 @@ export interface EdgeDetectionPort {
 
   /** Close the active bridge session, if any. Idempotent. */
   close(): void;
+
+  /** ADR-006: detector algorithm reported by the edge agent in the WS handshake.
+   * 'ear_bri' = interim EAR/BRI detector; 'onnx' = production classifier;
+   * null = handshake not yet received, or close() was called (mock path stays null). */
+  readonly detectorType: Signal<'ear_bri' | 'onnx' | null>;
 }
 
 export const EDGE_DETECTION_PORT = new InjectionToken<EdgeDetectionPort>('EDGE_DETECTION_PORT');

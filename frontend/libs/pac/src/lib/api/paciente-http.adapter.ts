@@ -27,7 +27,9 @@ export class PacienteHttpAdapter implements PacPacientePort {
 
   create(dto: PacienteCreate, idempotencyKey?: string): Observable<HttpResponse<Paciente>> {
     // TODO[PAC-FE-008]: add Idempotency-Key header
-    const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {};
+    const headers: Record<string, string> = idempotencyKey
+      ? { 'Idempotency-Key': idempotencyKey }
+      : {};
     return this.http.post<Paciente>(this.base, dto, {
       headers,
       observe: 'response',
