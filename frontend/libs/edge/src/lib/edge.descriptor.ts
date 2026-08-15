@@ -35,15 +35,25 @@ export const MODULE_FEATURE_FLAGS = {
 
 export const EDGE_MODULE_DESCRIPTOR = {
   key: MODULE_KEY,
-  entry: () => import('@neuroassist/edge').then((m) => m.EDGE_ROUTES),
+  entry: () => import('./edge.routes').then((m) => m.EDGE_ROUTES),
   routes: EDGE_ROUTES,
   permissionMap: MODULE_PERMISSION_MAP,
   featureFlags: MODULE_FEATURE_FLAGS,
   menu: MODULE_MENU_METADATA,
   bootstrap: edgeBootstrap,
-  /** Composition slot A: the always-visible connectivity read-model for the topbar/Home.
-   * scope:web must use EdgeShellIntegrationService.connectivityReadModel() — NEVER import
-   * DeviceFacade directly (nx-boundary scope:web may compose scope:edge). */
+  /** Composition slot A: the always-visible connectivity chip for the topbar/Home.
+   * scope:web mounts this via NgComponentOutlet — NEVER import ConnectivityChipComponent
+   * directly from scope:edge (nx-boundary: scope:web may only compose via this slot).
+   * The chip reads its VM from EdgeShellIntegrationService.connectivityReadModel(). */
+  connectivityReadModel: () =>
+    import('./feature-connectivity/connectivity-chip.component').then(
+      (m) => m.ConnectivityChipComponent,
+    ),
+  /** Composition slot B: onboarding step-3 host page (conductor pairing flow).
+   * scope:web mounts this via NgComponentOutlet with [pacienteHint] input binding.
+   * NEVER import DevicePairingPageComponent from scope:edge directly (nx-boundary). */
   pairingComponent: () =>
-    import('@neuroassist/edge').then((m) => m.DevicePairingPageComponent),
+    import('./feature-pairing/device-pairing-page.component').then(
+      (m) => m.DevicePairingPageComponent,
+    ),
 } as const;

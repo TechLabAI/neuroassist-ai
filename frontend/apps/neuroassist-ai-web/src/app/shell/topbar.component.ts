@@ -1,12 +1,18 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { ConnectivityChipComponent } from '@neuroassist/edge';
+import { Router } from '@angular/router';
+import { ConnectivityChipComponent, EdgeShellIntegrationService } from '@neuroassist/edge';
 
 // ---------------------------------------------------------------------------
 // TopbarComponent — shell header with always-visible connectivity chip (SPEC-06 §5)
-// Connectivity is read via EdgeShellIntegrationService (via ConnectivityChipComponent
-// which injects DeviceFacade) — never by importing DeviceFacade directly (nx-boundary).
+//
+// INT-FE-EDGE-002: connectivity is read via EdgeShellIntegrationService.connectivityReadModel()
+// — the sole sanctioned composition path (ADR-006, SPEC-06 §5). The VM is passed as
+// [vmExternal] to ConnectivityChipComponent so the topbar controls the data binding
+// explicitly rather than relying on the chip's internal DeviceFacade injection.
+//
+// nx-boundary: TopbarComponent imports only from @neuroassist/edge barrel (scope:web→scope:edge
+// via barrel — allowed per .eslintrc depConstraints). No scope:edge internal paths.
 //
 // ADR-005: the chip reflects DerivedState (freshness-based), never the raw status flag.
 // SPEC-01 §1: connectivity chip is always visible on every authenticated route.
@@ -17,7 +23,6 @@ import { ConnectivityChipComponent } from '@neuroassist/edge';
   standalone: true,
   imports: [
     FormsModule,
-    RouterLink,
     ConnectivityChipComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,8 +34,11 @@ import { ConnectivityChipComponent } from '@neuroassist/edge';
       </select>
 
       <!-- Connectivity chip — always visible (Wireframe §3.2.B, ADR-005) -->
-      <!-- ConnectivityChipComponent reads DerivedState from DeviceFacade via EdgeShellIntegrationService -->
-      <edge-connectivity-chip />
+      <!-- VM is provided via EdgeShellIntegrationService.connectivityReadModel() (INT-FE-EDGE-002) -->
+      <!-- (open) routes to /edge/device — chip's internal RouterLink also handles direct clicks -->
+      <edge-connectivity-chip
+        [vmExternal]="edgeConnectivity()"
+        (open)="router.navigate(['/edge', 'device'])" />
 
       <div class="topbar-actions">
         <!-- search, notifications, user menu -->
@@ -51,4 +59,9 @@ import { ConnectivityChipComponent } from '@neuroassist/edge';
 })
 export class TopbarComponent {
   readonly activeEmpresa = signal<string>('');
+
+  protected readonly router = inject(Router);
+
+  /** Read-model signal from EdgeShellIntegrationService — the sole composition path (ADR-006). */
+  protected readonly edgeConnectivity = inject(EdgeShellIntegrationService).connectivityReadModel();
 }
