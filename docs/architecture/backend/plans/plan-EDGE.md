@@ -17,8 +17,19 @@
   - EDGE-009: LivenessService.evaluate() com read-time derivation
   - Gates: Lint PASS (spotlessCheck), ArchUnit PASS, test/build/e2e DEFERRED
   - Score: 81/100 (Maduro)
-- P3 -- pendente (JPA adapters + Flyway migration)
-- P4 -- pendente (Feign client real + retire + integrations GWY/REG/PAC/DASH)
+- P3 -- ✅ IMPLEMENTADO (JPA adapters + Flyway migration) — Modo 3 LIGHT PASS
+  - EDGE-010: DispositivoEdgeRepositoryAdapter + DispositivoCredentialRepositoryAdapter + others (4 adapters)
+  - EDGE-011: Flyway V0700__edge_initial_schema.sql + schema routing
+  - EDGE-INT-005: MIG service integration — migration applied
+  - Gates: Lint PASS (spotlessCheck), ArchUnit PASS (no-field-autowired, no-system-out, no-ddl-outside-migrations), test/build/e2e DEFERRED
+  - Score: 81→82 (provisional, pending full test suite)
+- P4 -- ✅ IMPLEMENTADO (Feign client real + retire + integrations GWY/REG/PAC/DASH) — Modo 3 LIGHT PASS
+  - EDGE-014: DetectionProfileClient (Feign real) + DetectionProfileFeignAdapter (@Primary) com @CircuitBreaker
+  - EDGE-015: DeviceRegistrationService.retire() — soft-revoke credentials + transição auditada
+  - EDGE-INT-001: GestDetectionProfileContractTest (WireMock) para validar Feign contract
+  - EDGE-INT-003: Rota edge-service no api-gateway application.yml configurada
+  - Gates: Lint PASS (spotlessCheck — 5 files P4 code formatted), ArchUnit PASS (RULE-01..09, @FeignClient placement OK), test/build/e2e DEFERRED
+  - Score: 82/100 (Maduro)
 - P5 -- pendente (OAuth2 security + tenant propagation + ACS coordination)
 - P6 -- pendente (domain event listeners)
 - P7 -- pendente (observability + metrics + logging)
