@@ -55,7 +55,7 @@ export function toRelativePtBR(isoStr: string | null | undefined): string {
   `,
 })
 export class RelativeTimeComponent {
-  private readonly _isoDate = signal<string | null | undefined>(null);
+  protected readonly _isoDate = signal<string | null | undefined>(null);
 
   /** ISO-8601 UTC timestamp to format as pt-BR relative time. */
   @Input() set isoDate(value: string | null | undefined) {

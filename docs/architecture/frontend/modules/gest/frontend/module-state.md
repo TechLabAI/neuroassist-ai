@@ -379,6 +379,43 @@ See section 2 table above for full status. Key groupings:
   - **Product readiness:** P1-P5 deliver stable, well-tested live-test bridge with honest degradation, interim detector transparency, multi-empresa seam, boundary enforcement, and telemetry foundation. Core functionality mature (80/100). Shipping viable without P6 (E2E).
   - **Continued work:** P6 (E2E implementation) + P7 (UX polish) + P8 (split monolithic lib) can proceed in parallel or sequentially; no blockers identified
 
+**2026-08-15 (P6 completion) — VALIDACAO:**
+- FE Implementer completed P6 (Playwright E2E Tests)
+- **Implementation status:**
+  - ✓ **9 Playwright spec files fully implemented** (no longer stubs):
+    - composition-boundary.spec.ts: Dev host renders at /gest; empty state & start button visible
+    - live-test-simple-recognized.spec.ts: Single gesture test reaches recognized state + success message; JSON outcome displayed
+    - live-test-composite.spec.ts: Two-step composite gesture advances step indicator → recognized
+    - live-test-degraded-offline.spec.ts: Device offline → degraded banner on load
+    - camera-permission-error.spec.ts: Permission denied → error block + "Tentar novamente" retry button
+    - camera-lifecycle-teardown.spec.ts: Stop test releases camera + removes video element; restart re-acquires cleanly
+    - live-test-timeout-not-recognized.spec.ts: Timeout expires → not-recognized state + retry available
+    - backend-error-handling.spec.ts: Stream connection error → not-recognized + error message; retry starts fresh run
+    - **stream-no-cache-between-runs.spec.ts** (GEST-FE-026 mandatory gate): Stream state from run 1 fully cleared before run 2 starts ✓
+  - ✓ **Mock edge agent infrastructure working:** E2E flags wired in edge-detection-mock.adapter.ts (`window.__GEST_E2E_MOCK_RECOGNIZED`, `window.__GEST_E2E_MOCK_STREAM_ERROR`) and gest-dev-host.component.ts (`window.__GEST_E2E_TEMPO_MAX`, `window.__GEST_E2E_COMPOSITE`)
+  - ✓ **Dev server active:** `http://localhost:4200` serving neuroassist-ai-web (app-shell bootstrapped)
+- **Cross-module bug fix (EDGE, outside GEST scope but critical):**
+  - ✓ **relative-time.component.ts:** Field `_isoDate` changed from `private` to `protected` (line 58), allowing template access
+  - ✓ Resolved Vite error overlay blocking all clicks in dev mode
+  - ✓ Affects any module displaying relative times (device timestamps in EDGE detail pages)
+- Gates validated (independent runs):
+  - `npx nx test gest` → exit 0 ✓ (**122/122 tests passing**; P6 adds real e2e, no unit test changes)
+  - `npx nx lint gest` → exit 0 ✓ (4 unused-var warnings; same as P5)
+  - `npx nx build gest` → exit 0 ✓ (dist/libs/gest generated; no regressions)
+  - `npx nx e2e gest-e2e` → exit 0 ✓ (**14/14 cenários passando**, 5.1s total)
+- Cross-module validation (EDGE fix):
+  - `npx nx test edge` → exit 0 ✓ (**231/231 tests passing**, including relative-time.component.spec.ts)
+  - `npx nx lint edge` → exit 0 ✓ (20 warnings; no new errors from fix)
+- **GEST-FE-026 (mandatory gate) PASSED:** stream-no-cache-between-runs test confirms state isolation between runs
+- Score maintained: **80/100 (Maduro)** — E2E adds confidence in composition + lifecycle without structural change; core functionality + edge cases well-covered
+- **Product readiness assessment:**
+  - ✓ P1-P6 now COMPLETE: foundation (targets), unit tests (122), ADR-006 interim detector, multi-empresa prep, boundary rules, telemetry stubs, full E2E coverage
+  - ✓ All mandatory gates passing: lint, test, build, e2e (14/14 cenários)
+  - ✓ GEST-FE-026 (stream-no-cache) verified: safety-critical gate GREEN
+  - ✓ Core functionality mature + thoroughly tested (unit + e2e): **ready for shipment**
+  - ⚠ Remaining gaps (not blockers for shipping): observability sink integration (telemetry stubs wired), multi-empresa X-Empresa-Id injection (seam ready), monolithic lib split (nice-to-have for modularity)
+- **Recommendation:** ENCERRAR ciclo autopilot GEST — all P1-P6 priorities delivered, score ≥ 80, all mandatory gates GREEN, shipping viable. P7+ (lib split, full observability) can be handled post-ship or in future cycles.
+
 ---
 
 ## 8. Estado Atual Resumido (para agentes)

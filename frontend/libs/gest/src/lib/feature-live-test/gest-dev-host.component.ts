@@ -9,7 +9,14 @@ import { GestureLiveTestComponent } from './gesture-live-test.component';
 // GestureLiveTestComponent via GestShellIntegrationService instead. This host
 // exists so the live-test surface can be exercised standalone (`nx serve
 // gest`, Playwright specs) without the full PAC command-editor context.
+//
+// E2E window flags (read once at construction — set via page.addInitScript before bootstrap):
+//   window.__GEST_E2E_TEMPO_MAX  — override tempoMaximoGestoMs for fast timeout tests
+//   window.__GEST_E2E_COMPOSITE  — enable composite draft (2-step gesture flow)
 // ---------------------------------------------------------------------------
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _w = typeof window !== 'undefined' ? (window as any) : null;
 
 @Component({
   selector: 'gest-dev-host',
@@ -31,12 +38,14 @@ export class GestDevHostComponent {
     commandDraftRef: 'draft-dev-host',
     rotulo: 'água',
     primitivoPrincipal: 'tg-piscar-duplo-001',
-    primitivoSecundario: null,
+    primitivoSecundario: (_w?.__GEST_E2E_COMPOSITE as boolean | undefined)
+      ? 'tg-fechar-punho-001'
+      : null,
     sensibilidade: 'media',
     urgencia: 'rotina',
     tempoMinimoGestoMs: 400,
-    tempoMaximoGestoMs: 8000,
-    composite: false,
+    tempoMaximoGestoMs: (_w?.__GEST_E2E_TEMPO_MAX as number | undefined) ?? 8000,
+    composite: (_w?.__GEST_E2E_COMPOSITE as boolean | undefined) ?? false,
   });
 
   protected readonly lastOutcome = signal<GestureTestOutcome | null>(null);
