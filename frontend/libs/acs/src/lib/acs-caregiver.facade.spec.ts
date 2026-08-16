@@ -275,8 +275,15 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
   // deactivate()
   // ---------------------------------------------------------------------------
   describe('deactivate()', () => {
-    it('marks the caregiver as inactive (isActive=false, status=inactive)', async () => {
+    // Helper: load roster with no links so cuid-test has no coverage → pre-flight passes.
+    async function loadRosterWithoutCoverage(): Promise<void> {
+      linkPort.listForCaregiver.mockReturnValue(of([]));
       await facade.loadRoster();
+    }
+
+    it('marks the caregiver as inactive (isActive=false, status=inactive)', async () => {
+      // cuid-test must NOT be last-covering → load roster with empty links.
+      await loadRosterWithoutCoverage();
       await facade.deactivate('cuid-test');
       const found = facade.caregivers().find((c) => c.id === 'cuid-test');
       expect(found?.isActive).toBe(false);
@@ -284,21 +291,54 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
     });
 
     it('removes the deactivated caregiver from activeCaregivers()', async () => {
-      await facade.loadRoster();
+      await loadRosterWithoutCoverage();
       await facade.deactivate('cuid-test');
       expect(facade.activeCaregivers()).toHaveLength(0);
     });
 
     it('saving() is false after successful deactivation', async () => {
-      await facade.loadRoster();
+      await loadRosterWithoutCoverage();
       await facade.deactivate('cuid-test');
       expect(facade.saving()).toBe(false);
     });
 
     it('sets error() on adapter failure', async () => {
       cuidadorPort.deactivate.mockReturnValue(throwError(() => new Error('Deactivate failed')));
+      // Load without links so pre-flight does not block; adapter call will throw.
+      await loadRosterWithoutCoverage();
       await facade.deactivate('cuid-test');
       expect(facade.error()).toBe('Deactivate failed');
+    });
+
+    // ADR-005 pre-flight: P8 blocking modal
+    it('ADR-005: sets coverageModal() when cuid is the sole coverage for a patient', async () => {
+      // Default mock: listForCaregiver returns SEED_LINK (cuid-test → pac-marcio, sole coverage).
+      await facade.loadRoster();
+      // coverageMap: pac-marcio → ['cuid-test'] — last-covering.
+      await facade.deactivate('cuid-test');
+      expect(facade.coverageModal()).not.toBeNull();
+      expect(facade.coverageModal()?.type).toBe('deactivate');
+    });
+
+    it('ADR-005: does NOT call adapter when pre-flight blocks deactivation', async () => {
+      await facade.loadRoster();
+      await facade.deactivate('cuid-test');
+      expect(cuidadorPort.deactivate).not.toHaveBeenCalled();
+    });
+
+    it('ADR-005: does NOT block when coverage map is empty (no patients assigned)', async () => {
+      await loadRosterWithoutCoverage(); // no links → empty coverage map
+      await facade.deactivate('cuid-test');
+      expect(facade.coverageModal()).toBeNull();
+      expect(cuidadorPort.deactivate).toHaveBeenCalled();
+    });
+
+    it('dismissCoverageModal() clears the modal signal', async () => {
+      await facade.loadRoster();
+      await facade.deactivate('cuid-test');
+      expect(facade.coverageModal()).not.toBeNull();
+      facade.dismissCoverageModal();
+      expect(facade.coverageModal()).toBeNull();
     });
   });
 
@@ -343,6 +383,15 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
       linkPort.revoke.mockReturnValue(throwError(() => 'plain-string-error'));
       await facade.revokeLink('cuid-test', 'link-test-001', 'pac-marcio');
       expect(facade.error()).toBe('Erro ao revogar vínculo');
+    });
+
+    // ADR-005 / P8: 409 also surfaces the blocking modal signal.
+    it('on 409: sets coverageModal() to a non-null deactivate payload (ADR-005)', async () => {
+      const err409 = Object.assign(new Error('Conflict'), { status: 409 });
+      linkPort.revoke.mockReturnValue(throwError(() => err409));
+      await facade.revokeLink('cuid-test', 'link-test-001', 'pac-marcio');
+      expect(facade.coverageModal()).not.toBeNull();
+      expect(facade.coverageModal()?.type).toBe('deactivate');
     });
   });
 });

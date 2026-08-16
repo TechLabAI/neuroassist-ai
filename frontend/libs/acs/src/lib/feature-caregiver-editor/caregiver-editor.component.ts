@@ -135,7 +135,12 @@ export class CaregiverEditorComponent implements OnInit {
       this.isEdit.set(true);
       this.editingId.set(id);
       // Draft preservation: restore form from existing caregiver data on edit load.
+      // On error (unknown cuidadorId): redirect to /acs — no dead-end edit page.
       void this.facade.loadOne(id).then(() => {
+        if (this.facade.error()) {
+          void this.router.navigate(['/acs']);
+          return;
+        }
         const sel = this.facade.selected();
         if (sel) {
           this.draftForm.patchValue({

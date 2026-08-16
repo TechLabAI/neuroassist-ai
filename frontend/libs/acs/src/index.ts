@@ -28,10 +28,26 @@ export type {
 
 // Integration service (scope:web shell injects this)
 export { AcsShellIntegrationService } from './lib/integration/acs-shell-integration.service';
+export type {
+  AcsBreadcrumbItem,
+  AcsBreadcrumbPort,
+  AcsShellRegistry,
+  OnboardingWizardStep,
+} from './lib/integration/acs-shell-integration.service';
+
+// Empresa context — ACS is the sole writer; scope:web and peers read via this service
+export { AcsEmpresaContextService } from './lib/api/acs-empresa-context.service';
+
+// HTTP interceptor — wire in app.config.ts: provideHttpClient(withInterceptors([acsHttpInterceptorFn]))
+// SKIP_EMPRESA_ID_HEADER: set on tenant provisioning requests to omit X-Empresa-Id
+export { acsHttpInterceptorFn, SKIP_EMPRESA_ID_HEADER } from './lib/api/acs-http.interceptor';
 
 // Providers factory
 export { provideAcs } from './lib/acs.providers';
 export type { AcsProviderConfig } from './lib/acs.providers';
+
+// Telemetry (INT-FE-ACS-004)
+export { AcsTelemetryService } from './lib/telemetry/acs-telemetry.service';
 
 // Access layer — DI tokens (Wave-0 bypass pattern; provide real services to enforce RBAC)
 export { ACS_AUTH_SESSION, ACS_ACCESS_DECISION } from './lib/access/acs-access-tokens';

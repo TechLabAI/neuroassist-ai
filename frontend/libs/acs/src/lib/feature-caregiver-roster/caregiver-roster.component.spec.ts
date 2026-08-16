@@ -42,6 +42,8 @@ const caregiversSignal = signal<readonly CuidadorVm[]>([]);
 const activeCaregivers: Signal<readonly CuidadorVm[]> = computed(
   () => caregiversSignal().filter((c) => c.isActive),
 );
+// P8: coverage blocking modal signal
+const coverageModalSignal = signal<{ type: 'deactivate' | 'cross-tenant'; pacienteNome: string } | null>(null);
 
 const mockFacade = {
   loading: loadingSignal.asReadonly(),
@@ -49,8 +51,11 @@ const mockFacade = {
   saving: savingSignal.asReadonly(),
   caregivers: caregiversSignal.asReadonly(),
   activeCaregivers,
+  // P8: ADR-005 blocking modal signal (readonly — never set directly in tests)
+  coverageModal: coverageModalSignal.asReadonly(),
   loadRoster: jest.fn().mockResolvedValue(undefined),
   deactivate: jest.fn().mockResolvedValue(undefined),
+  dismissCoverageModal: jest.fn().mockImplementation(() => coverageModalSignal.set(null)),
   // coverage helpers (not used by roster directly, but referenced by facade type)
   coverageFor: jest.fn().mockReturnValue({ pacienteId: '', coveredBy: [], isCovered: false }),
   linkIdFor: jest.fn().mockReturnValue(null),
@@ -69,9 +74,11 @@ describe('CaregiverRosterComponent — FE-ACS-022', () => {
     errorSignal.set(null);
     savingSignal.set(false);
     caregiversSignal.set([]);
+    coverageModalSignal.set(null);
     jest.clearAllMocks();
     mockFacade.loadRoster.mockResolvedValue(undefined);
     mockFacade.deactivate.mockResolvedValue(undefined);
+    mockFacade.dismissCoverageModal.mockImplementation(() => coverageModalSignal.set(null));
 
     await TestBed.configureTestingModule({
       imports: [CaregiverRosterComponent],
