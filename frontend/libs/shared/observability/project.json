@@ -1,9 +1,30 @@
 {
   "name": "shared-observability",
   "projectType": "library",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "libs/shared/observability/src",
+  "prefix": "neuroassist",
   "tags": [
     "type:data-access",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/shared/observability"],
+      "options": {
+        "project": "libs/shared/observability/ng-package.json",
+        "tsConfig": "libs/shared/observability/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/shared/observability/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/shared/observability/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    }
+  }
 }

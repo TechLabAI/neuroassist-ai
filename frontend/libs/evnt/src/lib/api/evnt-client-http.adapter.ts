@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
 import { EVNT_EMPRESA_CONTEXT } from '../access/evnt-access-tokens';
 import {
@@ -13,28 +13,25 @@ import {
   EventoPageDto,
 } from './evnt-client.port';
 import { mapProblemDetailToAppError } from './evnt-error-mapper';
+import { parseSseLine, createSseBuffer } from './evnt-sse-parser';
 
 // =============================================================================
-// EvntClientHttpAdapter — production adapter
+// EvntClientHttpAdapter — production adapter (P6-A, P6-B refactor)
 // Base path: /api/v1/events (routed via GWY).
 //
-// Multi-empresa (INT-FE-EVNT-006): injects EMPRESA_CONTEXT token (Wave-0 stub,
-// defaults to null). When a non-null empresa id is available, appends the
-// X-Empresa-Id header on every HTTP call. Full wiring is blocked on promotion
-// of @neuroassist/shared/empresa-context from Wave-0 stub to real service.
+// Multi-empresa (INT-FE-EVNT-001):
+//   HttpClient calls: X-Empresa-Id added by evntHttpInterceptorFn (withInterceptors).
+//   fetch()-based SSE: X-Empresa-Id read from EVNT_EMPRESA_CONTEXT in constructor
+//   (fetch() does not pass through Angular interceptors).
 //
-// Error mapping (INT-FE-EVNT-006): every HTTP method pipes through
-// mapProblemDetailToAppError so callers receive AppError with the ProblemDetail
-// `type` URI as `code` — enabling GUARD-04 / ERR-01 / ERR-02 distinctions.
+// SSE (P6-B, INT-FE-EVNT-002):
+//   openStream() uses fetch() + ReadableStream to support custom headers.
+//   On stream close (not abort): Observable completes so facade can degrade to polling.
+//   On fetch error: Observable errors so facade degradation path activates.
 //
-// TODO[INT-FE-EVNT-002]: EventSource (native) does not support custom headers.
-// See openStream() for evaluated strategies and deferred approach.
+// Error mapping (INT-FE-EVNT-006): every HttpClient call pipes through
+//   mapProblemDetailToAppError preserving ProblemDetail.type in AppError.type.
 // =============================================================================
-
-/** Minimal SSE parser state — tracks Last-Event-ID for reconnect. */
-interface SseParseState {
-  lastEventId: number;
-}
 
 @Injectable({ providedIn: 'root' })
 export class EvntClientHttpAdapter implements EvntClientPort {
@@ -42,44 +39,108 @@ export class EvntClientHttpAdapter implements EvntClientPort {
   private readonly base = '/api/v1/events';
 
   /**
-   * EmpresaContext (Wave-0: null until @neuroassist/shared/empresa-context is promoted).
-   * The header is conditionally added — a null context means the call is sent without it
-   * (e.g. during the auth token exchange or on first load before tenant resolution).
-   * Token: EVNT_EMPRESA_CONTEXT from evnt-access-tokens.ts (INT-FE-EVNT-006).
+   * EmpresaContext captured at construction time for use inside fetch() callbacks.
+   * fetch() does not pass through HttpClient interceptors, so we read the context
+   * directly here (P6-B risk mitigation — inject() cannot be called inside Observable
+   * callback).
    */
   private readonly empresaContext = inject(EVNT_EMPRESA_CONTEXT, { optional: true });
-
-  // ---------------------------------------------------------------------------
-  // Header helpers
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Returns HttpHeaders with X-Empresa-Id when a non-null empresa id is available.
-   * The value passes through even if it is an empty string to avoid masking misconfig.
-   */
-  private get empresaHeaders(): HttpHeaders {
-    const id = this.empresaContext?.id ?? null;
-    return id !== null
-      ? new HttpHeaders({ 'X-Empresa-Id': id })
-      : new HttpHeaders();
-  }
 
   // ---------------------------------------------------------------------------
   // EvntClientPort implementation
   // ---------------------------------------------------------------------------
 
+  /**
+   * Open SSE live channel via fetch() + ReadableStream (P6-B, INT-FE-EVNT-002).
+   *
+   * Behaviour:
+   * - Uses AbortController so the Observable teardown aborts the fetch cleanly.
+   * - X-Empresa-Id added manually (fetch bypasses HttpClient interceptors).
+   * - SSE lines parsed by evnt-sse-parser (pure function, no DI).
+   * - On stream close (response body exhausted): subscriber.complete() → facade degrades.
+   * - On fetch / decode error: subscriber.error(err) → facade degradation path.
+   */
   openStream(): Observable<SseFrame> {
-    // TODO[FE-EVNT-007]: implement fetch-based SSE with Authorization + X-Empresa-Id headers.
-    // The native EventSource() cannot carry custom headers; evaluated strategies:
-    //   a) fetch() streaming + ReadableStream (requires CORS + Sec-Fetch-Mode)
-    //   b) eventsource-parser npm polyfill with fetch transport
-    //   c) HttpClient with observe:'events' + responseType:'text' (interceptors carry Auth)
-    // For now, returns an observable that immediately errors so the facade falls back
-    // to polling (SPEC-04 §4 degradation path).
+    const empresaId = this.empresaContext?.id ?? null;
+
     return new Observable<SseFrame>((subscriber) => {
-      const state: SseParseState = { lastEventId: 0 };
-      void state; // suppress unused warning until TODO is resolved
-      subscriber.error(new Error('SSE HTTP adapter not yet implemented — degrading to poll'));
+      const controller = new AbortController();
+
+      const headers: Record<string, string> = {
+        Accept: 'text/event-stream',
+        'Cache-Control': 'no-cache',
+      };
+      if (empresaId) {
+        headers['X-Empresa-Id'] = empresaId;
+      }
+
+      const processStream = async () => {
+        let response: Response;
+        try {
+          response = await fetch(`${this.base}/stream`, {
+            headers,
+            signal: controller.signal,
+          });
+        } catch (err) {
+          if (!controller.signal.aborted) {
+            subscriber.error(err);
+          }
+          return;
+        }
+
+        if (!response.ok) {
+          subscriber.error(new Error(`SSE endpoint returned ${response.status}`));
+          return;
+        }
+
+        const body = response.body;
+        if (!body) {
+          subscriber.error(new Error('SSE response body is null'));
+          return;
+        }
+
+        const reader = body.getReader();
+        const decoder = new TextDecoder();
+        const sseBuffer = createSseBuffer();
+        let textBuffer = '';
+
+        try {
+          while (!controller.signal.aborted) {
+            const { done, value } = await reader.read();
+            if (done) {
+              // Stream closed gracefully — complete so facade degrades to polling
+              subscriber.complete();
+              break;
+            }
+
+            textBuffer += decoder.decode(value, { stream: true });
+            const lines = textBuffer.split('\n');
+
+            // Keep the last (potentially incomplete) line in the buffer
+            textBuffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+              const frame = parseSseLine(line, sseBuffer);
+              if (frame !== null) {
+                subscriber.next(frame);
+              }
+            }
+          }
+        } catch (err) {
+          if (!controller.signal.aborted) {
+            subscriber.error(err);
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      };
+
+      void processStream();
+
+      // Teardown: abort the fetch when Observable is unsubscribed
+      return () => {
+        controller.abort();
+      };
     });
   }
 
@@ -87,16 +148,13 @@ export class EvntClientHttpAdapter implements EvntClientPort {
     const params: Record<string, string> = {};
     if (since) params['since'] = since;
     return this.http
-      .get<ActiveEventsDto>(`${this.base}/active`, {
-        params,
-        headers: this.empresaHeaders,
-      })
+      .get<ActiveEventsDto>(`${this.base}/active`, { params })
       .pipe(catchError((err) => throwError(() => mapProblemDetailToAppError(err))));
   }
 
   get(eventoId: string): Observable<EventoDto> {
     return this.http
-      .get<EventoDto>(`${this.base}/${eventoId}`, { headers: this.empresaHeaders })
+      .get<EventoDto>(`${this.base}/${eventoId}`)
       .pipe(catchError((err) => throwError(() => mapProblemDetailToAppError(err))));
   }
 
@@ -105,7 +163,6 @@ export class EvntClientHttpAdapter implements EvntClientPort {
       .post<ConfirmationResponseDto>(
         `${this.base}/${eventoId}/confirmation`,
         { verdict },
-        { headers: this.empresaHeaders },
       )
       .pipe(catchError((err) => throwError(() => mapProblemDetailToAppError(err))));
   }
@@ -115,7 +172,6 @@ export class EvntClientHttpAdapter implements EvntClientPort {
       .post<void>(
         `${this.base}/${eventoId}/dispatches/${dispatchId}/ack`,
         {},
-        { headers: this.empresaHeaders },
       )
       .pipe(catchError((err) => throwError(() => mapProblemDetailToAppError(err))));
   }
@@ -128,7 +184,7 @@ export class EvntClientHttpAdapter implements EvntClientPort {
     if (params?.since) httpParams['since'] = params.since;
     if (params?.feedback) httpParams['feedback'] = params.feedback;
     return this.http
-      .get<EventoPageDto>(this.base, { params: httpParams, headers: this.empresaHeaders })
+      .get<EventoPageDto>(this.base, { params: httpParams })
       .pipe(catchError((err) => throwError(() => mapProblemDetailToAppError(err))));
   }
 }

@@ -4,6 +4,7 @@ import {
   inject,
   computed,
   OnInit,
+  signal,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EventDeliveryFacade } from '../../evnt.facade';
@@ -12,6 +13,7 @@ import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestam
 import { FeedbackVerdictControl } from '../feedback-verdict-control/feedback-verdict-control.component';
 import { ConfirmationTrailComponent } from '../confirmation-trail/confirmation-trail.component';
 import { ConfirmationVerdict } from '../../evnt.types';
+import { AppError } from '@neuroassist/shared/error-model';
 
 // =============================================================================
 // EventDetailPageComponent — SPEC-03 §4, SPEC-02 §2 (FE-EVNT-016)
@@ -23,14 +25,27 @@ import { ConfirmationVerdict } from '../../evnt.types';
 // CONCUR-01: FeedbackVerdictControl [disabled]="confirming()" — same signal used by
 //   AlarmOverlayComponent. A confirmation in flight blocks all verdict buttons.
 //
-// canConfirm: feedback === 'nao_avaliado'.
-//   TODO[FE-EVNT-020/P6]: also check hasPermission('evnt.confirm') via AccessDecision.
-//
-// NAV-02: breadcrumb rendered inline ("<Eventos > {label} ({displayTime})").
-//   Will be replaced by global breadcrumb infra once available.
-//
-// 404 treatment: if loadDetail resolves with no event (null), navigate to /eventos.
+// Error type routing (P6-G, INT-FE-EVNT-003, INT-FE-EVNT-007, FE-EVNT-023):
+//   '/errors/event-not-found'  → navigate('/eventos') (event doesn't exist)
+//   '/errors/tenant-mismatch'  → navigate('/eventos') silently (do not reveal existence)
+//   '/errors/forbidden'        → show inline message, stay on page (no redirect)
+//   null selectedEvent (other) → navigate('/eventos') as safe fallback
 // =============================================================================
+
+/**
+ * Classify a detail-page AppError into a routing category.
+ * Exported for unit testing without requiring the full component.
+ */
+export function classifyDetailError(
+  err: AppError | null,
+): 'not-found' | 'tenant-mismatch' | 'forbidden' | 'other' {
+  if (!err) return 'other';
+  const discriminant = err.type ?? err.code;
+  if (discriminant === '/errors/event-not-found') return 'not-found';
+  if (discriminant === '/errors/tenant-mismatch') return 'tenant-mismatch';
+  if (discriminant === '/errors/forbidden') return 'forbidden';
+  return 'other';
+}
 
 @Component({
   selector: 'evnt-event-detail-page',
@@ -45,7 +60,7 @@ import { ConfirmationVerdict } from '../../evnt.types';
   template: `
     <div class="mx-auto max-w-2xl px-4 py-8">
 
-      <!-- Breadcrumb (NAV-02 — inline; global breadcrumb infra is P6) -->
+      <!-- Breadcrumb (NAV-02 — inline; global breadcrumb infra deferred) -->
       <nav aria-label="Navegação" class="mb-6 flex items-center gap-2 text-sm text-ink-soft">
         <a
           href="/eventos"
@@ -76,8 +91,18 @@ import { ConfirmationVerdict } from '../../evnt.types';
         </div>
       }
 
-      <!-- Not-found / loading-complete-but-null state -->
-      @if (!loading() && !selectedEvent()) {
+      <!-- Forbidden inline message (P6-G — '/errors/forbidden') -->
+      @if (!loading() && forbiddenError()) {
+        <div
+          class="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+          role="alert"
+          data-testid="forbidden-message">
+          Você não é responsável por este paciente.
+        </div>
+      }
+
+      <!-- Not-found / loading-complete-but-null state (non-forbidden, no event) -->
+      @if (!loading() && !selectedEvent() && !forbiddenError()) {
         <div
           class="flex flex-col items-center py-16 text-center"
           data-testid="not-found"
@@ -152,11 +177,18 @@ export class EventDetailPageComponent implements OnInit {
   readonly confirming = this.facade.confirming;
 
   // ---------------------------------------------------------------------------
+  // Local error state (P6-G)
+  // ---------------------------------------------------------------------------
+
+  /** True when the last loadDetail() returned a '/errors/forbidden' error.
+   * Shows inline message instead of redirecting (stays on page). */
+  private readonly _forbiddenError = signal(false);
+  readonly forbiddenError = this._forbiddenError.asReadonly();
+
+  // ---------------------------------------------------------------------------
   // Derived state
   // ---------------------------------------------------------------------------
 
-  /** canConfirm: feedback pending evaluation.
-   * TODO[FE-EVNT-020/P6]: also verify hasPermission('evnt.confirm') via AccessDecision. */
   readonly canConfirm = computed(() => {
     const event = this.selectedEvent();
     return event !== null && event.feedback === 'nao_avaliado';
@@ -170,13 +202,7 @@ export class EventDetailPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.eventoId = this.route.snapshot.paramMap.get('eventoId') ?? '';
-    // Non-optimistic load: only react after server response.
-    void this.facade.loadDetail(this.eventoId).then(() => {
-      // 404 redirect: loadDetail sets selectedEvent to null on error/not-found.
-      if (!this.facade.selectedEvent()) {
-        void this.router.navigate(['/eventos']);
-      }
-    });
+    void this._loadWithErrorHandling(this.eventoId);
   }
 
   // ---------------------------------------------------------------------------
@@ -185,5 +211,36 @@ export class EventDetailPageComponent implements OnInit {
 
   protected onVerdict(verdict: ConfirmationVerdict): void {
     void this.facade.confirm(this.eventoId, verdict);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Load event detail and apply P6-G error type routing:
+   *   'not-found'      → navigate to /eventos (event doesn't exist)
+   *   'tenant-mismatch' → navigate to /eventos silently (don't reveal existence)
+   *   'forbidden'      → show inline message "Você não é responsável por este paciente."
+   *   null selected + no classified error → navigate to /eventos (safe fallback)
+   */
+  private async _loadWithErrorHandling(eventoId: string): Promise<void> {
+    this._forbiddenError.set(false);
+    await this.facade.loadDetail(eventoId);
+
+    // After loadDetail() resolves: route based on error type
+    if (!this.facade.selectedEvent()) {
+      const errorCategory = classifyDetailError(this.facade.error());
+
+      if (errorCategory === 'forbidden') {
+        // Stay on page — show inline message (no redirect)
+        this._forbiddenError.set(true);
+        return;
+      }
+
+      // All other cases (not-found, tenant-mismatch, other): navigate away
+      // tenant-mismatch: navigate silently without revealing event existence
+      void this.router.navigate(['/eventos']);
+    }
   }
 }

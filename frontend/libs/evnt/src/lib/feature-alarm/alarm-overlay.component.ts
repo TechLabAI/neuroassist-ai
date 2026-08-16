@@ -24,6 +24,7 @@ import { EventDeliveryFacade } from '../evnt.facade';
         role="alertdialog"
         aria-live="assertive"
         aria-modal="true"
+        data-testid="alarm-overlay"
         [attr.aria-label]="evt.patientName + ' precisa de ajuda'">
 
         <span class="material-symbols-outlined text-[96px] text-alarm-ink">emergency_home</span>

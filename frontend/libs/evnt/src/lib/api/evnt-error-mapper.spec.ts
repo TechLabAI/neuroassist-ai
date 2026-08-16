@@ -4,7 +4,8 @@ import { mapProblemDetailToAppError } from './evnt-error-mapper';
 // =============================================================================
 // evnt-error-mapper spec — INT-FE-EVNT-006
 // Validates that ProblemDetail (RFC 7807) type URIs are preserved in AppError.code
-// so that callers can distinguish error variants (GUARD-04, ERR-01, ERR-02).
+// AND AppError.type so that callers can distinguish error variants (GUARD-04, ERR-01, ERR-02).
+// P6-C: two new tests verify AppError.type field population.
 // =============================================================================
 
 describe('mapProblemDetailToAppError', () => {
@@ -53,5 +54,41 @@ describe('mapProblemDetailToAppError', () => {
 
     expect(result.code).toBe('EVNT_UNKNOWN');
     expect(result.message).toBe('Erro desconhecido');
+  });
+
+  // P6-C: AppError.type field — 403 tenant-mismatch vs 403 forbidden distinction
+
+  it('populates AppError.type with ProblemDetail type URI for tenant-mismatch (P6-C)', () => {
+    const err = new HttpErrorResponse({
+      error: {
+        type: '/errors/tenant-mismatch',
+        title: 'Tenant Mismatch',
+        status: 403,
+        detail: 'Evento pertence a outro tenant.',
+      },
+      status: 403,
+      statusText: 'Forbidden',
+    });
+
+    const result = mapProblemDetailToAppError(err);
+
+    expect(result.type).toBe('/errors/tenant-mismatch');
+  });
+
+  it('populates AppError.type with ProblemDetail type URI for forbidden (P6-C)', () => {
+    const err = new HttpErrorResponse({
+      error: {
+        type: '/errors/forbidden',
+        title: 'Forbidden',
+        status: 403,
+        detail: 'Você não tem permissão para este evento.',
+      },
+      status: 403,
+      statusText: 'Forbidden',
+    });
+
+    const result = mapProblemDetailToAppError(err);
+
+    expect(result.type).toBe('/errors/forbidden');
   });
 });
