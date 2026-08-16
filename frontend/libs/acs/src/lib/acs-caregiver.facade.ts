@@ -1,9 +1,16 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, Signal } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 import { ACS_CUIDADOR_PORT } from './api/acs-cuidador.port';
 import type { CuidadorCreateDto } from './api/acs-cuidador.port';
 import { ACS_LINK_PORT } from './api/acs-link.port';
 import { CuidadorVm, CoverageVm, toCuidadorVm } from './acs.types';
+import { AcsTelemetryService } from './telemetry/acs-telemetry.service';
+
+// Payload type for the coverage blocking modal (ADR-005).
+export interface CoverageModalPayload {
+  type: 'deactivate' | 'cross-tenant';
+  pacienteNome: string;
+}
 
 // =============================================================================
 // AcsCaregiverFacade — SPEC-03 §3, SPEC-04 §2/§3
@@ -15,6 +22,7 @@ import { CuidadorVm, CoverageVm, toCuidadorVm } from './acs.types';
 export class AcsCaregiverFacade {
   private readonly cuidadorPort = inject(ACS_CUIDADOR_PORT);
   private readonly linkPort = inject(ACS_LINK_PORT);
+  private readonly telemetry = inject(AcsTelemetryService);
 
   private readonly _caregivers = signal<readonly CuidadorVm[]>([]);
   private readonly _selected = signal<CuidadorVm | null>(null);
@@ -24,12 +32,16 @@ export class AcsCaregiverFacade {
   private readonly _coverageMap = signal<ReadonlyMap<string, readonly string[]>>(new Map());
   /** Maps `${cuidadorId}:${pacienteId}` → active linkId for revokeLink calls. */
   private readonly _linkMap = signal<ReadonlyMap<string, string>>(new Map());
+  /** ADR-005: non-null when a blocking modal must be shown to the coordinator. */
+  private readonly _showCoverageModal = signal<CoverageModalPayload | null>(null);
 
   readonly caregivers = this._caregivers.asReadonly();
   readonly selected = this._selected.asReadonly();
   readonly loading = this._loading.asReadonly();
   readonly saving = this._saving.asReadonly();
   readonly error = this._error.asReadonly();
+  /** ADR-005: modal payload — non-null while blocking modal is visible. */
+  readonly coverageModal: Signal<CoverageModalPayload | null> = this._showCoverageModal.asReadonly();
 
   /** Derived coverage signal: per pacienteId, array of active cuidador ids. */
   readonly coverageByPatient = this._coverageMap.asReadonly();
@@ -65,6 +77,7 @@ export class AcsCaregiverFacade {
       await this._refreshCoverageMap(vms.filter((c) => c.isActive));
     } catch (err) {
       this._error.set(err instanceof Error ? err.message : 'Erro ao carregar cuidadores');
+      this.telemetry.trackLoadRosterError();
     } finally {
       this._loading.set(false);
     }
@@ -87,13 +100,16 @@ export class AcsCaregiverFacade {
   async invite(dto: CuidadorCreateDto): Promise<CuidadorVm | null> {
     this._saving.set(true);
     this._error.set(null);
+    this.telemetry.trackInviteStart();
     try {
       const result = await lastValueFrom(this.cuidadorPort.create(dto));
       const vm = toCuidadorVm(result);
       this._caregivers.update((list) => [...list, vm]);
+      this.telemetry.trackInviteSuccess(vm.id);
       return vm;
     } catch (err) {
       this._error.set(err instanceof Error ? err.message : 'Erro ao convidar cuidador');
+      this.telemetry.trackInviteError();
       return null;
     } finally {
       this._saving.set(false);
@@ -101,6 +117,14 @@ export class AcsCaregiverFacade {
   }
 
   async deactivate(id: string): Promise<void> {
+    // ADR-005 pre-flight: block if this caregiver is the sole coverage for any patient.
+    const blockedPatientId = this._getSolelyBlockedPatient(id);
+    if (blockedPatientId !== null) {
+      this._showCoverageModal.set({ type: 'deactivate', pacienteNome: blockedPatientId });
+      this.telemetry.trackDeactivateBlock(blockedPatientId);
+      return; // Do NOT call the adapter — block in UI before the request.
+    }
+
     this._saving.set(true);
     this._error.set(null);
     try {
@@ -109,11 +133,18 @@ export class AcsCaregiverFacade {
       this._caregivers.update((list) =>
         list.map((c) => (c.id === id ? vm : c)),
       );
+      this.telemetry.trackDeactivateSuccess(id);
     } catch (err) {
       this._error.set(err instanceof Error ? err.message : 'Erro ao desativar cuidador');
+      this.telemetry.trackDeactivateError();
     } finally {
       this._saving.set(false);
     }
+  }
+
+  /** Dismiss the ADR-005 blocking modal (wired to the (confirmed) output of CoverageBlockModalComponent). */
+  dismissCoverageModal(): void {
+    this._showCoverageModal.set(null);
   }
 
   async linkToPatient(cuidadorId: string, pacienteId: string): Promise<void> {
@@ -137,12 +168,17 @@ export class AcsCaregiverFacade {
     try {
       await lastValueFrom(this.linkPort.revoke(cuidadorId, linkId));
       await this._refreshCoverageForPatient(pacienteId);
+      this.telemetry.trackRevokeLinkSuccess(linkId);
     } catch (err: unknown) {
       const status = err instanceof Object && 'status' in err ? (err as { status: number }).status : 0;
       if (status === 409) {
         this._error.set('Não é possível remover o último vínculo ativo deste paciente (ADR-005). Adicione outro cuidador primeiro.');
+        // ADR-005: also surface the blocking modal so the coordinator sees the safety rationale.
+        this._showCoverageModal.set({ type: 'deactivate', pacienteNome: pacienteId });
+        this.telemetry.trackRevokeLinkBlock409(pacienteId);
       } else {
         this._error.set(err instanceof Error ? err.message : 'Erro ao revogar vínculo');
+        this.telemetry.trackRevokeLinkError();
       }
     } finally {
       this._saving.set(false);
@@ -152,6 +188,20 @@ export class AcsCaregiverFacade {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /**
+   * ADR-005: returns the pacienteId of the first patient where `cuidadorId` is the
+   * sole active caregiver in the current coverage map, or null if no such patient exists.
+   * Used as the pre-flight check before deactivating a caregiver.
+   */
+  private _getSolelyBlockedPatient(cuidadorId: string): string | null {
+    for (const [pacienteId, caregiverIds] of this._coverageMap().entries()) {
+      if (caregiverIds.includes(cuidadorId) && caregiverIds.length === 1) {
+        return pacienteId;
+      }
+    }
+    return null;
+  }
 
   private async _refreshCoverageMap(activeCaregivers: readonly CuidadorVm[]): Promise<void> {
     const patientMap = new Map<string, string[]>();

@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
+import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.component';
 
 // =============================================================================
 // CaregiverRosterComponent — SPEC-01 route /acs
@@ -12,8 +13,17 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 @Component({
   selector: 'acs-caregiver-roster',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, CoverageBlockModalComponent],
   template: `
+    <!-- ADR-005 blocking modal: shown when deactivate/unlink would leave a patient uncovered -->
+    @if (facade.coverageModal() !== null) {
+      <acs-coverage-block-modal
+        [type]="facade.coverageModal()!.type"
+        [pacienteNome]="facade.coverageModal()!.pacienteNome"
+        (confirmed)="facade.dismissCoverageModal()"
+      />
+    }
+
     <div class="mx-auto max-w-4xl p-8">
       <header class="mb-6 flex items-center justify-between">
         <div>
