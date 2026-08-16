@@ -88,8 +88,14 @@ export const appRoutes: Routes = [
           import('@neuroassist/acs').then((m) => m.ACS_ROUTES),
       },
 
+      // HIST — Histórico e Auditoria (promoted by /fe-architect-promote HIST)
+      {
+        path: 'historico',
+        loadChildren: () =>
+          import('@neuroassist/hist').then((m) => m.HIST_ROUTES),
+      },
+
       // Additional modules added progressively via /fe-architect-promote:
-      // { path: 'hist', loadChildren: () => import('@neuroassist/hist').then(m => m.HIST_ROUTES) },
       // { path: 'dash', loadChildren: () => import('@neuroassist/dash').then(m => m.DASH_ROUTES) },
 
       { path: '**', redirectTo: '' },

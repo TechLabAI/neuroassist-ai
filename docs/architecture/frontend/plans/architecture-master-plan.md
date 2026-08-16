@@ -14,6 +14,7 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | PAC | pac | OK | OK | OK | OK | OK | 2026-07-29 |
 | EDGE | edge | OK | OK | OK | OK | OK | 2026-07-29 |
 | ACS | acs | OK | OK | OK | OK | OK | 2026-08-12 |
+| HIST | hist | OK | OK | OK | OK | OK | 2026-08-16 |
 
 ## Ledger de gates diferidos
 

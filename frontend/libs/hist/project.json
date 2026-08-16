@@ -1,0 +1,28 @@
+{
+  "name": "@neuroassist/hist",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/hist/src",
+  "prefix": "hist",
+  "tags": ["scope:hist", "type:feature"],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/hist"],
+      "options": {
+        "jestConfig": "libs/hist/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/hist/**/*.ts",
+          "libs/hist/**/*.html"
+        ]
+      }
+    }
+  }
+}
