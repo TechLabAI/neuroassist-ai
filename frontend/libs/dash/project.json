@@ -1,0 +1,28 @@
+{
+  "name": "@neuroassist/dash",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/dash/src",
+  "prefix": "dash",
+  "tags": ["scope:dash", "type:feature"],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/dash"],
+      "options": {
+        "jestConfig": "libs/dash/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/dash/**/*.ts",
+          "libs/dash/**/*.html"
+        ]
+      }
+    }
+  }
+}

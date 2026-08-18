@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { AppShellComponent } from './shell/app-shell.component';
 import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
+// DASH — promoted by /fe-architect-promote neuroassist-ai DASH (D-494)
 
 export const appRoutes: Routes = [
   // Onboarding wizard — scope:web page (ACS-owned), outside shell layout
@@ -13,11 +14,27 @@ export const appRoutes: Routes = [
     title: 'Configuração inicial',
   },
 
+  // DASH Entrada — chromeless brand entry (outside shell chrome — FE-DASH generator-config)
+  // No shell chrome: rendered at top-level, not inside AppShellComponent.
+  {
+    path: 'entrada',
+    loadComponent: () =>
+      import('@neuroassist/dash').then((m) => m.EntradaComponent),
+    title: 'Bem-vindo',
+  },
+
   {
     path: '',
     component: AppShellComponent,
     children: [
-      { path: '', redirectTo: 'home', pathMatch: 'full' },
+      // DASH — Dashboard e Notificações (default landing: /)
+      // Replaces the previous redirectTo:'home' placeholder.
+      // DASH_ROUTES covers: / (HomeStatus) and /notificacoes (NotificationCenter).
+      {
+        path: '',
+        loadChildren: () =>
+          import('@neuroassist/dash').then((m) => m.DASH_ROUTES),
+      },
 
       // GEST — thin host route (dev/e2e only; showInNav:false)
       // In production the live-test surface is embedded in PAC calibracao and
@@ -95,8 +112,7 @@ export const appRoutes: Routes = [
           import('@neuroassist/hist').then((m) => m.HIST_ROUTES),
       },
 
-      // Additional modules added progressively via /fe-architect-promote:
-      // { path: 'dash', loadChildren: () => import('@neuroassist/dash').then(m => m.DASH_ROUTES) },
+      // Additional modules added progressively via /fe-architect-promote.
 
       { path: '**', redirectTo: '' },
     ],

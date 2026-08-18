@@ -15,6 +15,7 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | EDGE | edge | OK | OK | OK | OK | OK | 2026-07-29 |
 | ACS | acs | OK | OK | OK | OK | OK | 2026-08-12 |
 | HIST | hist | OK | OK | OK | OK | OK | 2026-08-16 |
+| DASH | dash | OK | OK | OK | OK | OK | 2026-08-18 |
 
 ## Ledger de gates diferidos
 
@@ -49,3 +50,9 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-07-30T00:22:11 -- ACS -- M4 Specs-Validate -- OK (skip: EARS PASS 55/55 concluído em M3)
 - 2026-07-30T00:52:00 -- ACS -- M5 FE Backlog -- OK -- 31 issues funcionais + 5 integração = 36 issues; plan-FE-ACS.md gerado
 - 2026-08-12T00:00:00 -- ACS -- M6 FE Promote -- OK (Track D) -- 3 Ports (Tenant/Cuidador/Link) + 3 Mocks (ADR-005 last-covering-block enforced no mock) + 3 HTTP stubs; AcsTenantFacade + AcsCaregiverFacade (signals + coverage map derivada); provideAcs(); 4 feature components (CaregiverRoster/CaregiverEditor/PatientLinkage/TenantSetup); AcsShellIntegrationService; ACS_ROUTES (/acs, /acs/cuidadores/novo, /acs/cuidadores/:id/editar, /acs/pacientes/:id/vinculos); rota /onboarding wired (scope:web); ACS_DESCRIPTOR adicionado (showInNav:true); acs-e2e 45 specs; E2E gate OK (pending)
+- 2026-08-16T15:45:39 -- HIST -- E2E-Validate — OK (pending) — 13 specs listed (hist-e2e: history-timeline + feedback-verdict); gate passed 2026-08-16
+- 2026-08-17T18:11:27 -- DASH -- M1 -- FE Vision OK -- 01..06 + _brief.md + ADR-005 (server-driven home summary); DASH = home surface + cross-module composition (scope:web); EVNT dono do alarm/toast
+- 2026-08-17T21:23:25 -- DASH -- M3 -- FE Specs OK -- SPEC-01..08 + generator-config.yml + cross-link + 3 e2e features; wire /panel/** BE autoritativo; signals-first facades; scope:dash boundaries ADR-005
+- 2026-08-17T21:43:43 -- DASH -- M4 -- FE Specs-Validate OK (com gaps) -- Gate1 EARS PASS (36 clausulas); Gate2 16/36 cobertos, 8 gaps reais (role-hide, /notificacoes, chromeless, loading-state, empty-list, bootstrap, destroy, 403-banner); gaps para backlog
+- 2026-08-17T22:09:23 -- DASH -- M5 -- FE Backlog OK -- 30 issues funcionais (FE-DASH-001..030) + 6 integracao (INT-FE-DASH-001..006); plan-FE-DASH.md P1..P9; 8 coverage gaps G1..G8 mapeados; SSE auth decision pendente
+- 2026-08-18T00:24:00 -- DASH -- M6 FE Promote -- OK (Track D, --skip-shell) -- 2 Ports (DashSummary/DashNotifications) + 2 Mock + 2 HTTP stubs; DashHomeFacade + NotificationsFacade (signals-first); provideDash(); HomeStatusComponent (home.component promoted, BFF summary shape) + EntradaComponent (chromeless) + NotificationCenterComponent; DASH_ROUTES (/ + /notificacoes); /entrada top-level route (outside shell); DASH_DESCRIPTOR adicionado (showInNav:true, order:0); dash-e2e 3 specs; E2E gate OK (pending)
