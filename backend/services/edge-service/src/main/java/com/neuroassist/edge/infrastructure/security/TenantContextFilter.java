@@ -5,21 +5,24 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Reads tenantId from JWT claim ("tenant_id") and binds it to TenantContextHolder for the duration
- * of the request. Validates X-Tenant-Id header (if present) matches.
+ * Reads {@code tenant_id} claim from the already-validated JWT and binds it to {@link
+ * TenantContextHolder} for the duration of the request.
+ *
+ * <p>This filter is registered INSIDE Spring Security's {@code FilterChainProxy} (via {@code
+ * SecurityConfig.addFilterAfter(..., BearerTokenAuthenticationFilter.class)}), so the
+ * SecurityContext is guaranteed to be populated when this filter runs. It is NOT registered as a
+ * standalone Servlet filter (see {@code SecurityConfig.tenantContextFilterRegistration}).
+ *
+ * <p>Validates the optional {@code X-Tenant-Id} header against the JWT claim: if present and
+ * mismatched, the request is rejected with 403 to prevent tenant spoofing.
  */
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 50)
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String JWT_CLAIM_TENANT_ID = "tenant_id";

@@ -1,7 +1,9 @@
 package com.neuroassist.edge.infrastructure.persistence.repository;
 
+import com.neuroassist.edge.domain.model.CredentialStatus;
 import com.neuroassist.edge.infrastructure.persistence.entity.DispositivoCredentialJpaEntity;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -10,5 +12,16 @@ public interface DispositivoCredentialJpaRepository
 
     List<DispositivoCredentialJpaEntity> findByTenantId(String tenantId);
 
-    // TODO: add domain-specific query methods
+    /**
+     * Retrieve all credentials for a device (active and revoked) — used during retire / re-pair
+     * revocation.
+     */
+    List<DispositivoCredentialJpaEntity> findByDispositivoEdgeId(UUID dispositivoEdgeId);
+
+    /**
+     * Retrieve the single active credential for a device. At most one active credential per device
+     * is enforced by partial unique index {@code ux_dispositivo_credential_active}.
+     */
+    Optional<DispositivoCredentialJpaEntity> findByDispositivoEdgeIdAndStatus(
+            UUID dispositivoEdgeId, CredentialStatus status);
 }

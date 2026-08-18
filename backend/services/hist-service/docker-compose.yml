@@ -1,0 +1,42 @@
+# docker-compose.yml
+version: '3.9'
+
+services:
+
+  hist-db:
+    image: postgres:16
+    container_name: hist-postgres
+    environment:
+      POSTGRES_DB: hist_dev
+      POSTGRES_USER: hist
+      POSTGRES_PASSWORD: hist_dev_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - hist-pgdata:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hist -d hist_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  hist-activemq:
+    image: apache/activemq-classic:5.18
+    container_name: hist-activemq
+    ports:
+      - "61616:61616"   # Broker JMS
+      - "8161:8161"     # Console de administração
+    environment:
+      ACTIVEMQ_ADMIN_LOGIN: admin
+      ACTIVEMQ_ADMIN_PASSWORD: admin
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8161/api/jolokia/read/org.apache.activemq:type=Broker,brokerName=localhost,service=Health/CurrentStatus || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+
+volumes:
+  hist-pgdata:

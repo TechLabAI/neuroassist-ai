@@ -28,8 +28,44 @@ public final class ProblemDetailFactory {
 
     private static final Map<String, ErrorMetadata> CODE_METADATA =
             Map.ofEntries(
-                    // (no error-model.arch.json pinned at generation time)
-                    );
+                    // EDGE error codes (api-contract §8)
+                    Map.entry(
+                            "edge.device-not-found",
+                            new ErrorMetadata("not_found", 404, "Device not found")),
+                    Map.entry(
+                            "edge.patient-not-paired",
+                            new ErrorMetadata(
+                                    "not_found", 404, "No active paired device for patient")),
+                    Map.entry(
+                            "edge.enrollment-invalid",
+                            new ErrorMetadata(
+                                    "auth", 401, "Enrollment token invalid, expired, or consumed")),
+                    Map.entry(
+                            "edge.already-enrolled",
+                            new ErrorMetadata("conflict", 409, "Device already enrolled")),
+                    Map.entry(
+                            "edge.pairing-conflict",
+                            new ErrorMetadata("conflict", 409, "Exclusive pairing violated")),
+                    Map.entry(
+                            "edge.illegal-pairing-transition",
+                            new ErrorMetadata("conflict", 409, "Pairing transition not allowed")),
+                    Map.entry(
+                            "edge.device-retired",
+                            new ErrorMetadata("conflict", 409, "Device is retired")),
+                    Map.entry(
+                            "edge.identity-mismatch",
+                            new ErrorMetadata(
+                                    "forbidden",
+                                    403,
+                                    "Body identity differs from authenticated principal")),
+                    Map.entry(
+                            "edge.insufficient-scope",
+                            new ErrorMetadata(
+                                    "forbidden", 403, "Insufficient scope for this operation")),
+                    Map.entry(
+                            "edge.optimistic-lock",
+                            new ErrorMetadata(
+                                    "conflict", 409, "Concurrent modification detected")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

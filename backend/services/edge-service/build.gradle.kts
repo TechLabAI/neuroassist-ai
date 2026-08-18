@@ -65,6 +65,9 @@ dependencies {
     testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 
 
+    // WireMock — GEST integration contract tests (EDGE-INT-001, P4)
+    testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
+
     // BDD — Cucumber
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")
     testImplementation("io.cucumber:cucumber-java:7.18.0")
