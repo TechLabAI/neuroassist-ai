@@ -1,6 +1,6 @@
 ## [FE-EVNT-026] e2e — alarme-emergencia-preempcao.feature (Playwright)
 
-**Status:** ABERTA
+**Status:** DONE
 **GitHub:** [#TBD]
 
 **Outcome:**

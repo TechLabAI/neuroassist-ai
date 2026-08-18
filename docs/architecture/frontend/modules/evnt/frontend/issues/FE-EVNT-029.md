@@ -1,6 +1,6 @@
 ## [FE-EVNT-029] e2e — notificacao-rotina.feature (Playwright)
 
-**Status:** ABERTA
+**Status:** DONE
 **GitHub:** [#TBD]
 
 **Outcome:**

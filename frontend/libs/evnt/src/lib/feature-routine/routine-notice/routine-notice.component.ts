@@ -42,7 +42,8 @@ const PLACEHOLDER_EVENTO: EventoVm = {
   template: `
     <div
       class="mb-3 flex items-start gap-3 rounded-xl border border-surface-border bg-surface px-4 py-3 shadow-sm"
-      role="listitem">
+      role="listitem"
+      data-testid="routine-notice">
 
       <!-- Urgency badge -->
       <div class="mt-1 flex-shrink-0">

@@ -3,114 +3,119 @@ import {
   ChangeDetectionStrategy,
   inject,
   computed,
-  signal,
   OnInit,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { EventDeliveryFacade } from '../evnt.facade';
-import { EVNT_MODULE_DESCRIPTOR } from '../evnt.descriptor';
+import { EvntFeatureFlagsService } from '../api/evnt-feature-flags.service';
 import { RoutineNoticeComponent } from './routine-notice/routine-notice.component';
 import { EventListComponent } from './event-list/event-list.component';
+import { EvntFeedSkeletonComponent } from '../ui/feed-skeleton/evnt-feed-skeleton.component';
+import { EvntDegradedModeBannerComponent } from '../ui/degraded-banner/evnt-degraded-mode-banner.component';
 
 // =============================================================================
 // EventFeedPageComponent — SPEC-03 §3, SPEC-02 §3 (FE-EVNT-013)
 // Route: /eventos (registered via EVNT_ROUTES)
 //
 // Smart component: reads facade signals, composes two presentational children.
-//   • RoutineNoticeComponent — dismissible discreet notices (FLAG-02 gated)
-//   • EventListComponent     — recent-events history list
+//   • EvntFeedSkeletonComponent     — loading placeholder (3 rows, P7/FE-EVNT-022)
+//   • EvntDegradedModeBannerComponent — degraded-mode status (P7/FE-EVNT-024)
+//   • RoutineNoticeComponent        — dismissible discreet notices (FLAG-02 gated)
+//   • EventListComponent            — recent-events history list
 //
 // Emergency alarm is handled EXCLUSIVELY by AlarmOverlayComponent (shell outlet,
 // ADR-005) — this page is never shown during an active alarm event.
 //
-// FLAG-02: routineNoticesEnabled suppresses discreet notices when 'off'.
-//   The emergency alarm is unaffected (handled by the shell, not by this flag).
-//   TODO[INT-FE-EVNT-005]: replace with FeatureFlagService when available.
+// FLAG-02 (FE-EVNT-024): routineNoticesEnabled reads from EvntFeatureFlagsService.
+//   Off → suppress discreet routine section; emergency alarm unaffected.
 //
-// DegradedModeBanner: inline (DegradedModeBannerComponent from
-//   @neuroassist/shared/ui-feedback is a Wave-0 stub with no content).
+// ERR-03 (FE-EVNT-024): polling errors are silent (no error signal propagation).
+//   Handled in EventDeliveryFacade._startPolling() — no change needed in this component.
+//
+// Loading states (FE-EVNT-022):
+//   loading=true  → EvntFeedSkeletonComponent (hides content; breadcrumb always visible)
+//   loading=false, empty=true → empty state message
+//   loading=false, empty=false → full content
+//
+// Degraded banner (FE-EVNT-024): EvntDegradedModeBannerComponent shown above the
+//   breadcrumb when deliveryMode='degraded'. Receives pollIntervalSec computed signal.
 // =============================================================================
 
 @Component({
   selector: 'evnt-event-feed-page',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RoutineNoticeComponent, EventListComponent],
+  imports: [
+    RoutineNoticeComponent,
+    EventListComponent,
+    EvntFeedSkeletonComponent,
+    EvntDegradedModeBannerComponent,
+  ],
   template: `
     <div class="mx-auto max-w-2xl px-4 py-8">
 
-      <!-- Degraded banner (SPEC-04 §4 — inline; @neuroassist/shared/ui-feedback is Wave-0 stub) -->
+      <!-- Degraded banner (SPEC-04 §4, FE-EVNT-024) — always above breadcrumb -->
       @if (deliveryMode() === 'degraded') {
-        <div
-          class="mb-4 flex items-center gap-2 rounded-lg bg-warn/10 px-4 py-3 text-sm text-warn-ink"
-          role="alert"
-          aria-live="polite"
-          data-testid="degraded-banner">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">signal_disconnected</span>
-          <span>Modo degradado — recebendo eventos via polling.</span>
-        </div>
+        <evnt-degraded-mode-banner [pollIntervalSec]="pollIntervalSec()" />
       }
 
-      <h1 class="mb-6 font-display text-xl font-bold text-ink">Notificações de rotina</h1>
+      <!-- Page breadcrumb — ALWAYS visible regardless of loading/empty/populated state (FE-EVNT-022) -->
+      <h1 class="mb-6 font-display text-xl font-bold text-ink page-title">Eventos</h1>
 
-      <!-- Loading skeleton -->
+      <!-- Loading skeleton (FE-EVNT-022): replaces content block while loading -->
       @if (loading()) {
-        <div class="flex justify-center py-12" aria-label="Carregando notificações">
-          <span
-            class="material-symbols-outlined animate-spin text-[32px] text-ink-faint"
-            aria-hidden="true">
-            progress_activity
-          </span>
-        </div>
-      }
+        <evnt-feed-skeleton />
+      } @else {
 
-      <!-- Error state -->
-      @if (error()) {
-        <div class="rounded-lg bg-error/10 px-4 py-3 text-sm text-error-ink" role="alert">
-          Erro ao carregar notificações. Tente novamente.
-        </div>
-      }
+        <!-- Error state -->
+        @if (error()) {
+          <div class="rounded-lg bg-error/10 px-4 py-3 text-sm text-error-ink" role="alert">
+            Erro ao carregar notificações. Tente novamente.
+          </div>
+        }
 
-      <!-- Routine queue — FLAG-02: suppressed when routineNotices='off' -->
-      @if (routineNoticesEnabled()) {
-        <div role="list" aria-label="Fila de notificações de rotina">
-          @for (evt of routineQueue(); track evt.eventoId) {
-            <evnt-routine-notice
-              [evento]="evt"
-              (dismiss)="onDismiss($event)"
-              (open)="onOpen($event)" />
-          }
-        </div>
-      }
+        <!-- Routine queue — FLAG-02 (FE-EVNT-024): suppressed when routineNotices='off' -->
+        @if (routineNoticesEnabled()) {
+          <div role="list" aria-label="Fila de notificações de rotina">
+            @for (evt of routineQueue(); track evt.eventoId) {
+              <evnt-routine-notice
+                [evento]="evt"
+                (dismiss)="onDismiss($event)"
+                (open)="onOpen($event)" />
+            }
+          </div>
+        }
 
-      <!-- Recent-events history list -->
-      @if (recentEvents().length > 0) {
-        <h2 class="mb-4 mt-8 font-display text-base font-semibold text-ink">
-          Histórico recente
-        </h2>
-        <evnt-event-list [events]="recentEvents()" (open)="onOpen($event)" />
-      }
+        <!-- Recent-events history list -->
+        @if (recentEvents().length > 0) {
+          <h2 class="mb-4 mt-8 font-display text-base font-semibold text-ink">
+            Histórico recente
+          </h2>
+          <evnt-event-list [events]="recentEvents()" (open)="onOpen($event)" />
+        }
 
-      <!-- Empty state: no queue items, no recent events, not loading -->
-      @if (empty()) {
-        <div
-          class="flex flex-col items-center py-16 text-center"
-          data-testid="empty-state">
-          <span
-            class="material-symbols-outlined text-[56px] text-ink-faint"
-            aria-hidden="true">
-            notifications_off
-          </span>
-          <p class="mt-4 text-sm text-ink-soft">Nenhuma notificação de rotina no momento.</p>
-        </div>
-      }
+        <!-- Empty state (FE-EVNT-022): no queue, no recent events, not loading -->
+        @if (empty()) {
+          <div
+            class="flex flex-col items-center py-16 text-center"
+            data-testid="empty-state">
+            <span
+              class="material-symbols-outlined text-[56px] text-ink-faint"
+              aria-hidden="true">
+              notifications_off
+            </span>
+            <p class="mt-4 text-sm text-ink-soft">Sem notificações pendentes. Aguardando eventos…</p>
+          </div>
+        }
 
+      }
     </div>
   `,
 })
 export class EventFeedPageComponent implements OnInit {
   private readonly facade = inject(EventDeliveryFacade);
   private readonly router = inject(Router);
+  private readonly flagService = inject(EvntFeatureFlagsService);
 
   // ---------------------------------------------------------------------------
   // Facade signals — all reads proxied through signals (OnPush-safe)
@@ -123,12 +128,22 @@ export class EventFeedPageComponent implements OnInit {
   readonly error = this.facade.error;
 
   // ---------------------------------------------------------------------------
-  // FLAG-02: discreet notice visibility (SPEC-05 §3)
-  // Protected (not private) so unit tests can mutate it via (component as any).
+  // FLAG-02: discreet notice visibility (FE-EVNT-024, SPEC-05 §3)
+  // Reads from EvntFeatureFlagsService — respects runtime overrides via
+  // EVNT_FEATURE_FLAGS_OVERRIDE token (INT-FE-EVNT-005).
   // ---------------------------------------------------------------------------
 
-  protected readonly routineNoticesEnabled = signal(
-    EVNT_MODULE_DESCRIPTOR.featureFlags.routineNotices === 'on',
+  readonly routineNoticesEnabled = computed(() =>
+    this.flagService.areRoutineNoticesEnabled(),
+  );
+
+  // ---------------------------------------------------------------------------
+  // Degraded banner — poll interval (FE-EVNT-024)
+  // Converts pollIntervalMs (feature flag, default 15000) to seconds for display.
+  // ---------------------------------------------------------------------------
+
+  readonly pollIntervalSec = computed(() =>
+    Math.round(this.flagService.getPollIntervalMs() / 1000),
   );
 
   // ---------------------------------------------------------------------------
