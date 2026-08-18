@@ -1,0 +1,42 @@
+package com.neuroassist.dash.shared.audit;
+
+import java.time.Instant;
+import lombok.extern.slf4j.Slf4j;
+import org.aspectj.lang.JoinPoint;
+import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+
+/**
+ * Logs every controller call annotated with {@link AuditAction}. The default implementation emits a
+ * single slf4j INFO line; replace {@link #logAudit} to ship to a persistent audit store.
+ */
+@Slf4j
+@Aspect
+@Component
+public class AuditAspect {
+
+    @AfterReturning("@annotation(com.neuroassist.dash.shared.audit.AuditAction)")
+    public void onAuditedAction(JoinPoint jp) {
+        MethodSignature signature = (MethodSignature) jp.getSignature();
+        AuditAction marker = signature.getMethod().getAnnotation(AuditAction.class);
+        if (marker == null) {
+            return;
+        }
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String principal = auth != null ? String.valueOf(auth.getName()) : "anonymous";
+        logAudit(marker.value(), principal, signature.toShortString());
+    }
+
+    protected void logAudit(String action, String principal, String method) {
+        log.info(
+                "audit action={} principal={} method={} ts={}",
+                action,
+                principal,
+                method,
+                Instant.now());
+    }
+}

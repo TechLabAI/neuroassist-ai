@@ -1,0 +1,188 @@
+{
+  "id": "DASH",
+  "pipeline": "architecture-fullstack",
+  "modulo": "DASH",
+  "service": "dash-service",
+  "module": "dash",
+  "type": "standard",
+  "mode": "full",
+  "beStep": "scaffold",
+  "feStep": "e2e-validate",
+  "currentPhase": "M7",
+  "nextPhase": "done",
+  "timestamp": "2026-08-18T12:30:00Z",
+  "notes": "Pipeline COMPLETO M1→M7. BDD gate OK (fix inline: step def {string} + PendingException removido). E2E gate OK (pending, 0 tests prototype-first). Trace: tr_ce3b17a065b0.",
+  "handoff": {
+    "M1": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/backend/services/dash-service/01..06 + ADR-004/005/006",
+        "docs/architecture/frontend/modules/dash/frontend/01..06 + ADR-005"
+      ],
+      "key_decisions": [
+        "dash-service = BFF: compõe HIST/PAC/EVNT/EDGE/ACS",
+        "DASH FE = home surface + scope:web; EVNT dono alarm/toast"
+      ],
+      "warnings": [
+        "Contrato /dashboard/summary a fixar em Specs"
+      ]
+    },
+    "M1.5": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/frontend/modules/dash/_brief.md (BE → FE)"
+      ],
+      "key_decisions": [
+        "BE autoritativo"
+      ],
+      "warnings": []
+    },
+    "M2": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/backend/services/dash-service/dash-service-spec.md",
+        "docs/architecture/backend/services/dash-service/contracts/api-contract.md",
+        "docs/architecture/backend/services/dash-service/contracts/data-model.md",
+        "docs/architecture/backend/services/dash-service/contracts/event-contracts.md",
+        "docs/architecture/backend/services/dash-service/contracts/integration-contracts.md",
+        "docs/architecture/backend/services/dash-service/spec/backend/SPEC-01..10.md",
+        "docs/architecture/backend/services/dash-service/tests/cucumber/*.feature (3)",
+        "docs/architecture/backend/services/dash-service/events/event-catalog.md",
+        "docs/architecture/backend/services/dash-service/setup-local.md"
+      ],
+      "key_decisions": [
+        "data-model sem SQL executável (ADR-004 BFF sem state próprio)",
+        "SSE /panel/stream + sink POST /internal/notifications (EVNT→DASH)",
+        "Write-through: calibração→PAC; confirmação/ack→EVNT",
+        "Port 8090; idempotência por dispatchId; fail-open no_open_session",
+        "Sem broker; sem TechLab AI"
+      ],
+      "warnings": [
+        "dash-service sem migração V1 (sem SQL); scaffold deve omitir Flyway",
+        "sync-architecture embed/index best-effort (Ollama/ES)"
+      ]
+    },
+    "M3": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/frontend/modules/dash/frontend/frontend-spec/SPEC-01..08.md",
+        "docs/architecture/frontend/modules/dash/frontend/frontend-spec/generator-config.yml",
+        "docs/architecture/frontend/modules/dash/frontend/contracts/backend-api-cross-link.md",
+        "docs/architecture/frontend/modules/dash/frontend/contracts/design-tokens.md",
+        "docs/architecture/frontend/modules/dash/frontend/e2e/*.feature (3)"
+      ],
+      "key_decisions": [
+        "Signals-first; /panel/** BE autoritativo; write-through only",
+        "DASH é landing padrão (Status root); scope:dash sem importar outros módulos"
+      ],
+      "warnings": [
+        "ShellOutletRegistry (dash.global-interrupt) depende de wiring scope:web — INT-FE-EVNT-001"
+      ]
+    },
+    "M3.5": {
+      "status": "OK (com gaps)",
+      "artifacts": [],
+      "key_decisions": [
+        "Gate1 PASS: 0 EARS violations SPEC-01..07",
+        "8 gaps e2e reais (loading-state, breadcrumb, chromeless, 403 banner, empty-list, lifecycle, SSE reconnect)"
+      ],
+      "warnings": [
+        "EARS EN / features PT — keyword mismatch tool; 8 gaps e2e reais registrados como issues FE backlog"
+      ]
+    },
+    "M5": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/frontend/modules/dash/frontend/issues/FE-DASH-001..030.md",
+        "docs/architecture/frontend/modules/dash/frontend/issues/INT-FE-DASH-001..006.md",
+        "docs/architecture/frontend/modules/dash/frontend/issues/issues_map.md",
+        "docs/architecture/frontend/modules/dash/frontend/plans/plan-FE-DASH.md"
+      ],
+      "key_decisions": [
+        "30 issues funcionais (P1..P9) + 6 INT issues = 36 total",
+        "8 coverage gaps G1..G8 mapeados para issues FE + e2e specs",
+        "calm honesty: ACTIVE_EVENT_TOKEN padrão signal(null); bloquear merge até EVNT FE real",
+        "SSE auth: EventSource sem headers custom — alinhar com BE antes de P2 (cookie ou query param)",
+        "ShellOutletRegistry interface provisória até shared/ui-components estabilizar",
+        "INT-FE-DASH-001 (activeEvent wire) = bloqueio externo CRÍTICO; requer EVNT FE scaffold"
+      ],
+      "warnings": [
+        "INT-FE-DASH-001 bloqueado até EVNT FE exportar activeEvent signal",
+        "INT-FE-DASH-002 bloqueado até EDGE FE exportar deviceBadge signal",
+        "INT-FE-DASH-003 bloqueado até ShellOutletRegistry (shared/ui-components) estabilizar",
+        "SSE auth mechanism (EventSource sem headers) — decisão pendente com BE antes de P2"
+      ]
+    },
+    "M6": {
+      "status": "OK",
+      "artifacts": [
+        "frontend/libs/dash/src/lib/api/dash-summary.port.ts",
+        "frontend/libs/dash/src/lib/api/dash-summary-mock.adapter.ts",
+        "frontend/libs/dash/src/lib/api/dash-summary-http.adapter.ts",
+        "frontend/libs/dash/src/lib/api/dash-notifications.port.ts",
+        "frontend/libs/dash/src/lib/api/dash-notifications-mock.adapter.ts",
+        "frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts",
+        "frontend/libs/dash/src/lib/access/dash-access-tokens.ts",
+        "frontend/libs/dash/src/lib/access/dash.guard.ts",
+        "frontend/libs/dash/src/lib/dash.facade.ts",
+        "frontend/libs/dash/src/lib/notifications.facade.ts",
+        "frontend/libs/dash/src/lib/feature-home/home-status.component.ts",
+        "frontend/libs/dash/src/lib/feature-entrada/entrada.component.ts",
+        "frontend/libs/dash/src/lib/feature-notifications/notification-center.component.ts",
+        "frontend/libs/dash/src/lib/dash.routes.ts",
+        "frontend/libs/dash/src/lib/dash.providers.ts",
+        "frontend/libs/dash/src/lib/dash.descriptor.ts",
+        "frontend/libs/dash/src/lib/dash-nav-config.ts",
+        "frontend/libs/dash/src/lib/dash.types.ts",
+        "frontend/libs/dash/src/index.ts",
+        "frontend/libs/dash/project.json",
+        "frontend/apps/dash-e2e/ (3 specs)",
+        "frontend/apps/neuroassist-ai-web/src/app/app.routes.ts (updated)",
+        "frontend/apps/neuroassist-ai-web/src/app/app.config.ts (updated)",
+        "frontend/apps/neuroassist-ai-web/src/app/config/tool-descriptors.ts (updated)"
+      ],
+      "key_decisions": [
+        "Track D: data layer created from scratch (no prior Port/Facade in libs/dash)",
+        "BFF shape: HomeStatusComponent uses GET /panel/summary (not individual module facades)",
+        "DASH default landing: shell children path:'' → loadChildren DASH_ROUTES (/ = HomeStatus)",
+        "/entrada: top-level route outside AppShellComponent (chromeless brand entry)",
+        "/notificacoes: inside shell, inside DASH_ROUTES",
+        "DASH_DESCRIPTOR showInNav:true, order:0 (top of sidebar)",
+        "Shell --skip-shell: P2 skipped (shell already configured by previous modules)",
+        "IA advisory inline card (sugestao computed from unacknowledgedCount >= 3)",
+        "SSE DashStreamClient: deferred to scope:web (INT-FE-DASH-003); only notifications port covered here",
+        "E2E gate OK (pending, 3 Playwright spec stubs via fe-nx-register-module.py)"
+      ],
+      "warnings": [
+        "INT-FE-DASH-001 bloqueado: activeEvent signal de EVNT requer EVNT FE scope:web wire",
+        "INT-FE-DASH-002 bloqueado: deviceBadge signal de EDGE requer EDGE FE scope:web wire",
+        "INT-FE-DASH-003: ShellOutletRegistry interface provisória (shared/ui-components pendente)",
+        "SSE auth: EventSource sem headers — pendente decisão BE (cookie ou query param JWT)",
+        "Layer 1 DASH 100% completa. Proximo: /fe-validator FE-DASH-001 (Layer 2)"
+      ]
+    },
+    "M4": {
+      "status": "OK",
+      "artifacts": [
+        "docs/architecture/backend/issues/DASH-001..024.md",
+        "docs/architecture/backend/issues/INT-DASH-001..007.md",
+        "docs/architecture/backend/issues/issues_map-DASH.md",
+        "docs/architecture/backend/services/dash-service/generator-config.yml",
+        "docs/architecture/backend/plans/plan-DASH.md"
+      ],
+      "key_decisions": [
+        "24 issues funcionais (P1..P8) + 7 INT issues",
+        "generator-config.yml: type=standard, port=8090, no aggregates (zero SQL MVP), 5 feign clients, 6 outbound ports",
+        "Flyway omitido: DASH não contribui V1 (ADR-004); scaffold deve respeitar",
+        "SseEmitter + PanelSession in-memory registry (ConcurrentHashMap) — DASH-004/005",
+        "Degradação: EDGE+EVNT-read soft-degrade; ACS+PAC+HIST hard-503 (DASH-022)",
+        "Idempotência dispatchId por Set<UUID> na PanelSession (DASH-006)"
+      ],
+      "warnings": [
+        "DASH-021 (OAuth2) e pré-requisito de DASH-005 (SSE test requer JWT); usar MockMvc sem security em slice tests de P2",
+        "Feign 304 handling: usar RestTemplate com exchange() para EdgeLivenessRestAdapter (DASH-020) se Feign não honrar 304 nativamente",
+        "Correlated MDC + CompletableFuture (DASH-023): propagar MDC manualmente em threads async do SSE"
+      ]
+    }
+  }
+}

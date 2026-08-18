@@ -73,13 +73,30 @@
       "prefix": "hist",
       "name": "HistÃ³rico e Auditoria",
       "description": "Registro imutÃ¡vel de eventos, alarmes e aÃ§Ãµes de confirmaÃ§Ã£o/ediÃ§Ã£o, com trilha de auditoria.",
-      "permissions": []
+      "permissions": [
+        "hist.record-audit-fact.registrar",
+        "hist.audit-record-query.read",
+        "hist.history-query.read",
+        "hist.chain-verification.read",
+        "hist.fact-type-catalog.read"
+      ]
     },
     {
       "prefix": "dash",
       "name": "Dashboard e NotificaÃ§Ãµes",
       "description": "Painel web (Angular) para cuidador consultar histÃ³rico, calibrar sensibilidade e receber notificaÃ§Ãµes.",
-      "permissions": []
+      "permissions": [
+        "dash.panel-composition.read",
+        "dash.panel-stream.abrir",
+        "dash.panel-stream.criar",
+        "dash.panel-stream.fechar",
+        "dash.panel-stream.reprocessar",
+        "dash.notification-delivery.enviar",
+        "dash.notification-delivery.read",
+        "dash.notification-delivery.confirmar",
+        "dash.calibration-proxy.editar",
+        "dash.confirmation-proxy.confirmar"
+      ]
     },
     {
       "prefix": "edge",

@@ -1,0 +1,69 @@
+service: dash-service
+type: standard
+port: 8090
+
+# DASH is a Backend-for-Frontend with ZERO domain persistence in the MVP (ADR-004).
+# No SQL aggregates, no Flyway scripts.  All business state lives in owner services
+# (ACS, PAC, EVNT, HIST, EDGE).  Runtime state is in-memory only (PanelSession).
+
+domain:
+  aggregates: []          # MVP: no durable DASH tables
+  entities: []            # MVP: no durable DASH tables
+
+application_services:
+  - name: PanelCompositionService
+    operations:
+      - composeSummary          # GET /panel/summary
+      - composePatientOverview  # GET /panel/patients/{id}/overview
+      - queryHistory            # GET /panel/patients/{id}/history
+      - queryDeviceStatus       # GET /panel/patients/{id}/device
+  - name: PanelStreamService
+    operations:
+      - openSession             # registers PanelSession on SSE connect
+      - heartbeat               # periodic keep-alive tick
+      - closeSession            # evict on disconnect / timeout
+      - replayCatchup           # on-connect unacknowledged replay
+  - name: NotificationDeliveryService
+    operations:
+      - dispatch                # POST /internal/notifications -> SSE push or no_open_session
+      - pollUnacknowledged      # GET /panel/notifications/unacknowledged
+      - longPoll                # GET /panel/notifications/poll (fallback)
+      - acknowledge             # POST /panel/notifications/{dispatchId}/acknowledge -> EVNT
+  - name: CalibrationProxyService
+    operations:
+      - updateCalibration       # PUT /panel/patients/{id}/commands/{cmd}/calibration -> PAC
+  - name: ConfirmationProxyService
+    operations:
+      - confirmEvent            # POST /panel/events/{id}/confirm -> EVNT
+
+enums: {}
+
+feign_clients:
+  - name: AcsClient
+    service: acs-service
+    url_prop: dash.acs.base-url
+  - name: PacClient
+    service: pac-service
+    url_prop: dash.pac.base-url
+  - name: EvntClient
+    service: evnt-service
+    url_prop: dash.evnt.base-url
+  - name: HistClient
+    service: hist-service
+    url_prop: dash.hist.base-url
+  - name: EdgeClient
+    service: edge-service
+    url_prop: dash.edge.base-url
+
+consumed_events: []   # no broker (ADR-005 deferred); EVNT pushes via REST POST /internal/notifications
+
+events:
+  published: []         # no broker; browser push is via SSE (PanelStreamService)
+
+outbound_ports:
+  - IdentityDirectoryPort       # ACS: JWK fetch + scope resolution (AcsRestAdapter)
+  - CommandCatalogPort          # PAC: command catalog + calibration write-through (PacRestAdapter)
+  - EventStatePort              # EVNT: event state read + confirmation write-through (EvntEventRestAdapter)
+  - NotificationDispatchBackPort  # EVNT: delivered/acknowledged callbacks (EvntDispatchCallbackAdapter)
+  - HistoryQueryPort            # HIST: paged audit timeline (HistRestAdapter)
+  - DeviceLivenessPort          # EDGE: conditional poll ETag/304 + staleness (EdgeLivenessRestAdapter)

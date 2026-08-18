@@ -1,0 +1,52 @@
+@startuml dash-component
+!include <C4/C4_Component>
+title DASH — Component view (hexagonal, com.neuroassist.dash)
+
+Container_Boundary(api, "api (inbound adapters)") {
+  Component(panelCtl, "PanelController", "REST", "GET /panel/summary,/overview,/history,/device; write-through PUT/POST")
+  Component(streamCtl, "PanelStreamController", "SSE", "GET /panel/stream; heartbeat; catch-up trigger")
+  Component(internalCtl, "InternalNotificationController", "REST", "POST /internal/notifications (EVNT sink)")
+}
+
+Container_Boundary(app, "application (use cases + ports)") {
+  Component(compose, "ComposePanelViewUseCase", "", "parallel fan-out + per-section degradation")
+  Component(deliver, "DeliverNotificationUseCase", "", "push over SSE; report delivered/no_open_session")
+  Component(replay, "ReplayUnacknowledgedUseCase", "", "pull from EVNT on connect")
+  Component(proxy, "ProxyActionUseCase", "", "write-through calibration/confirmation/ack")
+  Component(ports, "Outbound Ports", "interfaces", "IdentityDirectory, CommandCatalog, EventState, NotificationDispatchBack, HistoryQuery, DeviceLiveness")
+}
+
+Container_Boundary(domain, "domain (framework-free)") {
+  Component(scope, "CaregiverScope", "", "authorization boundary")
+  Component(vm, "PanelViewModel VOs", "", "SummaryView, PatientOverview, HistoryPage, DeviceStatus")
+  Component(env, "NotificationEnvelope", "", "in-flight dispatch + tier semantics")
+  Component(session, "PanelSession", "", "ephemeral live session")
+}
+
+Container_Boundary(infra, "infrastructure (outbound adapters)") {
+  Component(acsA, "AcsRestAdapter", "", "IdentityDirectoryPort")
+  Component(pacA, "PacRestAdapter", "", "CommandCatalogPort")
+  Component(evntA, "Evnt*Adapters", "", "EventState + DispatchCallback")
+  Component(histA, "HistRestAdapter", "", "HistoryQueryPort")
+  Component(edgeA, "EdgeLivenessRestAdapter", "", "DeviceLivenessPort")
+  Component(reg, "SseSessionRegistry", "in-memory", "PanelSession store")
+  Component(sec, "SecurityConfig", "OAuth2", "JWT resource server + scope")
+}
+
+Rel(panelCtl, compose, "uses")
+Rel(panelCtl, proxy, "uses")
+Rel(streamCtl, deliver, "uses")
+Rel(streamCtl, replay, "uses")
+Rel(internalCtl, deliver, "uses")
+Rel(compose, ports, "reads via")
+Rel(proxy, ports, "writes via")
+Rel(deliver, reg, "push to session")
+Rel(compose, scope, "bounded by")
+Rel(compose, vm, "produces")
+Rel(deliver, env, "carries")
+Rel(ports, acsA, "impl")
+Rel(ports, pacA, "impl")
+Rel(ports, evntA, "impl")
+Rel(ports, histA, "impl")
+Rel(ports, edgeA, "impl")
+@enduml

@@ -1,0 +1,138 @@
+# generator-config.yml — DASH (frontend)
+# Input for the Nx module generator (@neuroassist/internal:module), consumed by /fe-architect-scaffold.
+# Emitted by /fe-architect-specs neuroassist-ai DASH · 2026-08-17
+# Sources: frontend/01-06 + adr/ADR-005 (server-driven home + shell composition) + shared ADR-006 (module-as-library),
+#          frontend-spec/SPEC-01..08, contracts/backend-api-cross-link.md.
+# Barrier: backend/services/dash-service/contracts/api-contract.md (BFF /panel/** surface; /internal/** is service-to-service, NOT a FE resource).
+# WARNING: FE vision/ADR-005 name the aggregate GET /dashboard/summary; the wire contract is GET /panel/summary — bind to /panel/** (BE authoritative).
+
+module: dash
+issue_prefix: DASH
+type: standard
+nx_scope: "@neuroassist"
+state_management: signals            # Signals-first; no NgRx, no BehaviorSubject in components (FE 04 §6)
+shell_route: /                       # DASH is the panel's DEFAULT landing (Status root of sidebar, FE 04 §5)
+shell_app: dash                      # thin host apps/dash loads @neuroassist/dash (ADR-006)
+
+# ── Nx libraries (SPEC-02 / FE 04 §3) ─────────────────────────────────────────
+libs:
+  - name: dash/shell-entry
+    type: domain            # entry lib @neuroassist/dash (tags scope:dash,type:app) + DASH_MODULE_DESCRIPTOR
+  - name: dash/data-access
+    type: data-access       # DashApiService + DashHomeFacade + NotificationsFacade (signals) + DashStreamClient (SSE)
+  - name: dash/feature-home
+    type: feature           # StatusCard + quick-link (Tela 01)
+  - name: dash/feature-entrada
+    type: feature           # brand entry / CTA (Tela 00, chromeless)
+  - name: dash/feature-notifications
+    type: feature           # notification center (bell/inbox of discreet dispatches)
+  - name: dash/access
+    type: domain            # roleGuard (hides Onboarding link for cuidadora)
+  - name: dash/integration
+    type: domain            # DashShellIntegrationService (nav + global outlet region + cross-module seam)
+  - name: dash/navigation
+    type: domain            # breadcrumb/menu state (Status = root)
+  - name: dash/ui
+    type: ui                # StatusCard, DeviceStatusBadge, NotificationListItem (presentational)
+
+# ── Features (routed surfaces) ────────────────────────────────────────────────
+features:
+  - name: home
+    routes: [/]
+    components:
+      - HomeStatusPageComponent
+  - name: notifications
+    routes: [/notificacoes]
+    components:
+      - NotificationCenterPageComponent
+  - name: entrada                      # chromeless brand entry (rendered outside the shell chrome)
+    routes: [/entrada]
+    components:
+      - EntradaPageComponent
+
+# ── Data access (aligned to the BE barrier — /panel/** wire paths; /internal is NOT a FE resource) ─────
+data_access:
+  - resource: HomeSummary
+    base_path: /panel/summary
+    operations: [get]
+  - resource: PatientOverview
+    base_path: /panel/patients/{patientId}/overview
+    operations: [get]
+  - resource: History
+    base_path: /panel/patients/{patientId}/history
+    operations: [list]
+  - resource: Device
+    base_path: /panel/patients/{patientId}/device
+    operations: [get]
+  - resource: NotificationStream
+    base_path: /panel/stream
+    operations: [subscribe]           # SSE text/event-stream; long-poll fallback /panel/notifications/poll
+  - resource: Notification
+    base_path: /panel/notifications
+    operations: [listUnacknowledged, poll, acknowledge]
+    idempotent_ops: [acknowledge]
+  - resource: Calibration              # write-through to PAC (owner) — DASH stores nothing (ADR-006)
+    base_path: /panel/patients/{patientId}/commands/{commandId}/calibration
+    operations: [save]
+    idempotent_ops: [save]
+  - resource: EventConfirm             # write-through to EVNT (owner) — DASH stores nothing (ADR-006)
+    base_path: /panel/events/{eventId}/confirm
+    operations: [confirm]
+
+# ── Access guards (SPEC-01 §3) ────────────────────────────────────────────────
+guards:
+  - authGuard                          # shell subtree (/ , /notificacoes); unauth → /entrada
+  - roleGuard                          # nav-level: hides Onboarding link for cuidadora role
+
+# ── Module contract (dash.contract.ts — SPEC-05) ──────────────────────────────
+module_contract:
+  key: dash
+  label: Status
+  icon: shield-check
+  route: /
+  show_in_nav: true
+  order: 0                             # top of sidebar; default landing
+  permissions:
+    - dash.view
+    - dash.onboarding.entry
+
+feature_flags:
+  - key: dash.serverSummary
+    default: "on"                      # ADR-005 aggregate path (GET /panel/summary); off ⇒ degraded fallback
+  - key: dash.notificationCenter
+    default: "on"
+  - key: dash.sseStream
+    default: "on"                      # off ⇒ long-poll fallback (/panel/notifications/poll)
+
+# ── Shared / UI libs consumed (@neuroassist/*) — FE 04 §4 ─────────────────────
+shared_deps:
+  - "@neuroassist/shared/access-http-base"    # HTTP + X-Empresa-Id interceptor
+  - "@neuroassist/shared/access-decision"
+  - "@neuroassist/shared/auth-session"
+  - "@neuroassist/shared/empresa-context"
+  - "@neuroassist/shared/contracts"
+  - "@neuroassist/shared/error-model"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-components"        # incl. ShellOutletRegistry (global outlet host)
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-feedback"
+
+# ── Cross-module composition seam (shell-level only — NOT a DASH dependency, ADR-005) ───
+# DASH declares the global outlet region and consumes EVNT activeEvent + EDGE device badge signals INJECTED at
+# scope:web (neuroassist-ai-web). scope:dash never imports scope:evnt/scope:edge/scope:hist.
+shell_surfaces:
+  - dash.global-interrupt@shell-outlet         # EVNT registers alarm/toast here (INT-FE-EVNT-001)
+  - dash.topbar-device-badge@scope-web         # EDGE device signal injected into PatientHeader
+  - dash.active-event@scope-web                # EVNT activeEvent signal injected into calm computed
+
+extra_dependencies: []
+
+# ── Backend cross-link (barrier) ──────────────────────────────────────────────
+backend_contract: ../../../../../backend/services/dash-service/contracts/api-contract.md
+
+# ── E2E ───────────────────────────────────────────────────────────────────────
+e2e:
+  e2e_project: dash-e2e
+  framework: playwright
+  features_path: docs/architecture/frontend/modules/dash/frontend/e2e/

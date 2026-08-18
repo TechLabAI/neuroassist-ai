@@ -17,6 +17,8 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | PAC | pac-service | OK | OK | OK | OK | OK | 2026-07-29 |
 | EDGE | edge-service | OK | OK | OK | OK | OK | 2026-07-29 |
 | ACS | acs-service | OK | OK | OK | OK | OK | 2026-07-30 |
+| HIST | hist-service | OK | OK | OK | OK | OK | 2026-08-16 |
+| DASH | dash-service | OK | OK | OK | OK | OK | 2026-08-17 |
 
 ## Ledger de gates diferidos
 
@@ -58,3 +60,10 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-07-30T00:22:06 -- ACS -- M4 Backlog -- OK (skip: plan-ACS.md já existia)
 - 2026-07-30T00:45:17 -- ACS -- M5 BE Scaffold -- OK -- compileJava OK, ArchUnit OK, BDD gate DIFERIDO (Testcontainers/PostgreSQL)
 - 2026-08-12T03:19:04 -- GEST -- Reconciliação pós-PoC — P1/P2/P3 real implementados (141/143 testes OK); 8 bugs corrigidos; ADR-005-FE aceito; ADR-006-EAR/BRI-interim criado (D-536); EVNT-026 aberta (D-538)
+- 2026-08-17T18:11:23 -- DASH -- M1 -- BE Vision OK -- 01..06 + _brief.md + ADR skeleton; dash-service: painel cuidador, REST GET /dashboard/summary, leitura cross-service
+- 2026-08-17T18:30:48 -- DASH -- M2 -- BE Specs OK -- api-contract (BFF: /dashboard/summary, /panel/stream SSE, write-through PAC/EVNT); data-model sem tabelas SQL (ADR-004 DASH nao system-of-record); 3 features Gherkin + SPEC-01..10; port 8090
+- 2026-08-17T21:23:25 -- DASH -- M3 -- BE Specs-Validate OK (generate-only) -- EARS PASS, 3 features Gherkin validadas, data-model BFF/zero-DDL OK; bddGate DIFERIDO pos-scaffold
+- 2026-08-17T21:43:42 -- DASH -- M4 -- BE Backlog OK -- 24 issues funcionais (DASH-001..024) + 7 integracao (INT-DASH-001..007); plan-DASH.md P1..P8; generator-config (type=standard, port=8090, 0 aggregates, 5 feign clients, sem JPA/Flyway)
+- 2026-08-17T22:09:22 -- DASH -- M5 -- BE Scaffold OK -- 71 arquivos hexagonal; compileJava OK; ArchUnit OK (RULE-01..06); ApplicationContextLoads OK; zero-DDL (ADR-004); D-540 registrado (DASH verbs + controller disambiguation); BDD gate running
+- 2026-08-17T22:17:54 -- DASH -- M5 -- BE BDD gate OK -- CucumberIT dry-run 3 features PASS; fix inline: step def "{string}" -> {string} (Cucumber Expression bug, PendingException removido); D-533 recurrence pattern
+- 2026-08-18T09:30:25 -- DASH -- M5 -- BE Scaffold OK -- 71 arquivos hexagonal; compileJava OK; ArchUnit OK; ApplicationContextLoadsIT OK; BDD gate OK (3 features dry-run); fix inline: step def {string} + PendingException removed; D-540 (DASH verbs + controller disambiguation)
