@@ -21,3 +21,14 @@ eureka:
 neuroassist:
   gest:
     url: http://localhost:8080
+
+# Resilience4j — high-threshold CB for tests so WireMock stubs never open the circuit (EDGE-014)
+# threshold 100%/100-calls = circuit never opens during unit/integration tests
+resilience4j:
+  circuitbreaker:
+    instances:
+      gest-detection-profile:
+        sliding-window-size: 100
+        minimum-number-of-calls: 100
+        failure-rate-threshold: 100
+        wait-duration-in-open-state: 60s

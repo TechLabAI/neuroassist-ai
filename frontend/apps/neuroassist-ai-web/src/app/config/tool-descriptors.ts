@@ -15,6 +15,21 @@ export interface ModuleDescriptor {
 }
 
 // ---------------------------------------------------------------------------
+// DASH — Dashboard e Notificações (Status)
+// showInNav:true — default landing (order:0; top of sidebar).
+// Shell route: / (DASH_ROUTES covers / and /notificacoes; /entrada is outside shell).
+// Promoted by /fe-architect-promote neuroassist-ai DASH (D-494).
+// ---------------------------------------------------------------------------
+const DASH_DESCRIPTOR: ModuleDescriptor = {
+  key: 'dash',
+  label: 'Status',
+  icon: 'shield',
+  shellRoute: '/',
+  showInNav: true,
+  requiredPermission: 'dash.view',
+};
+
+// ---------------------------------------------------------------------------
 // GEST — Detecção de Gesto (Edge)
 // showInNav:false — embedded feature; no sidebar entry.
 // Thin host at /gest for dev/e2e only.
@@ -74,6 +89,7 @@ const ACS_DESCRIPTOR: ModuleDescriptor = {
 // Modules added progressively via /fe-architect-promote
 // (only modules with showInNav:true appear in the sidebar)
 export const MODULE_DESCRIPTORS: ModuleDescriptor[] = [
+  DASH_DESCRIPTOR,   // order:0 — default landing (/)
   GEST_DESCRIPTOR,
   PAC_DESCRIPTOR,
   EDGE_DESCRIPTOR,

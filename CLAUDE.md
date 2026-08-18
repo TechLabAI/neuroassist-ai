@@ -2,7 +2,7 @@
 
 > Monorepo: `/backend` (Java 21 microservices) + `/frontend` (Angular + Nx) + `/docs/architecture/` (specification).
 >
-> **Stack:** Java 21 . Spring Boot 3.5.0 . Gradle 8.x (Kotlin DSL) . None . PostgreSQL 15+ . Angular 18+ . Nx 19+
+> **Stack:** Java 21 . Spring Boot 3.5.0 . Gradle 8.x (Kotlin DSL) . ActiveMQ Artemis (JMS) . PostgreSQL 15+ . Angular 18+ . Nx 19+
 
 ---
 
@@ -13,21 +13,25 @@
   build.gradle.kts (root)
   settings.gradle.kts
   services/
-    /
-    /
-    /
-    /
-    /
-    /
-    /
-
+    gest-service/      # port 8084 — Detecção de Gesto (Edge)
+    evnt-service/      # port 8085 — Eventos e Alarmes
+    pac-service/       # port 8082 — Pacientes e Catálogo de Comandos
+    acs-service/       # port 8088 — Cuidadores e Acesso
+    edge-service/      # port 8087 — Integração de Dispositivo Edge
+    neuroassist-ai-api-gateway/        # port 8080 — Spring Cloud Gateway
+    neuroassist-ai-service-registry/   # port 8761 — Eureka
     neuroassist-ai-migrations/         # Centralized Flyway (all schemas)
+    # hist-service  (not yet scaffolded)
+    # dash-service  (not yet scaffolded)
 
 /frontend/                             # Nx workspace, npmScope: @neuroassist
   apps/
-    neuroassist-ai-web/                       # single Angular app (for now)
+    neuroassist-ai-web/                # single Angular app
+    gest-e2e/ evnt-e2e/ edge-e2e/ pac-e2e/ acs-e2e/
   libs/
-    shared/{ui-tokens,ui-feedback,ui-components,error-model,access-http-base}/
+    gest/ evnt/ edge/ pac/ acs/ hist/ dash/
+    shared/{ui-tokens,ui-feedback,ui-components,error-model,access-http-base,
+            access-decision,auth-session,contracts,empresa-context,observability}/
 
 /docs/architecture/
   backend/{adr,services,standards,issues,plans}/
@@ -45,17 +49,17 @@
 
 ## Business modules (= unit of work of the AI pipeline)
 
-| Code | Name | Microservice | Nx Lib |
-|---|---|---|---|
-| GEST | Detecção de Gesto (Edge) | `` | -- |
-| EVNT | Eventos e Alarmes | `` | -- |
-| PAC | Pacientes e Catálogo de Comandos | `` | -- |
-| ACS | Cuidadores e Acesso | `` | -- |
-| HIST | Histórico e Auditoria | `` | -- |
-| DASH | Dashboard e Notificações | `` | -- |
-| EDGE | Integração de Dispositivo Edge | `` | -- |
+| Code | Name | Microservice | Nx Lib | Port | Status |
+|---|---|---|---|---|---|
+| GEST | Detecção de Gesto (Edge) | `gest-service` | `libs/gest` | 8084 | ✅ scaffolded + P1-P9 done |
+| EVNT | Eventos e Alarmes | `evnt-service` | `libs/evnt` | 8085 | ✅ scaffolded + P1-P9 done |
+| PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded |
+| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | ✅ scaffolded |
+| EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | 🔄 scaffolded + P1-P6 done |
+| HIST | Histórico e Auditoria | `hist-service` *(not yet)* | `libs/hist` | -- | ⬜ not scaffolded |
+| DASH | Dashboard e Notificações | `dash-service` *(not yet)* | `libs/dash` | -- | ⬜ not scaffolded |
 
-Issue prefix: `<MODULE>-NNN` (e.g.: `GEST-001`, `EVNT-001`, `PAC-001`). Issues live in `docs/architecture/{backend,frontend}/issues/`; GitHub sync to be set up when repository is created.
+Issue prefix: `<MODULE>-NNN` (e.g.: `GEST-001`, `EVNT-001`, `PAC-001`). Issues live in `docs/architecture/{backend,frontend}/issues/`. GitHub repository: `TechLabAI/neuroassist-ai`.
 
 ---
 
@@ -101,16 +105,16 @@ RULE-08  spring.jpa.open-in-view=false mandatory
 RULE-09  mandatory base package: com.neuroassist.<module>
 ```
 
-If `./gradlew :<service>:architectureCheck` fails → **do not commit**, fix first.
+If `./gradlew :services:<service>:architectureCheck` fails → **do not commit**, fix first.
 
 ---
 
 ## Migrations (CENTRALIZED in `neuroassist-ai-migrations`)
 
-- All migrations for ALL schemas live in `backend/neuroassist-ai-migrations/`.
-- Naming: `V<N>__<module>_<description>.sql`. Schema-aware: each V indicates which schema it applies to (in path: `db/migration/global/V*.sql`).
+- All migrations for ALL schemas live in `backend/services/neuroassist-ai-migrations/`.
+- Naming: `V<N>__<module>_<description>.sql`. Schema-aware: each V indicates which schema it applies to (in path: `db/migration/empresa/V*.sql` or `db/migration/global/V*.sql`).
 - Individual microservices use `spring.jpa.hibernate.ddl-auto=validate` (schema prepared by `neuroassist-ai-migrations`).
-- **Local dev:** run `./gradlew :neuroassist-ai-migrations:bootRun` FIRST; then the other services.
+- **Local dev:** run `./gradlew :services:neuroassist-ai-migrations:bootRun` FIRST; then the other services.
 
 ---
 
@@ -133,17 +137,17 @@ worktree. Violating this causes merge conflicts that erase other terminals' hist
 ## Essential commands
 
 ```bash
-# Build a service
-./gradlew :<service>:build
+# Build a service  (Gradle project path: :services:<service>)
+./gradlew :services:<service>:build
 
 # Unit tests (fast, no Docker)
-./gradlew :<service>:test
+./gradlew :services:<service>:test
 
 # ArchUnit -- BLOCKING -- run before each commit
-./gradlew :<service>:architectureCheck
+./gradlew :services:<service>:architectureCheck
 
 # Integration tests (Testcontainers, requires Docker)
-./gradlew :<service>:integrationTest
+./gradlew :services:<service>:integrationTest
 
 # Full BE monorepo
 ./gradlew build

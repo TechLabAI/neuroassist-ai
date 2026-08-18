@@ -47,3 +47,29 @@ logging:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"
   level:
     com.neuroassist.edge: INFO
+
+neuroassist:
+  edge:
+    heartbeat:
+      interval-seconds: 30
+      staleness-factor: 3
+    enrollment:
+      ttl-seconds: 900
+    liveness:
+      poll-hint-seconds: 15
+  gest:
+    url: ${GEST_URL:lb://gest-service}
+  acs:
+    token-endpoint: ${ACS_TOKEN_ENDPOINT:http://localhost:8180/realms/neuroassist-ai/protocol/openid-connect/token}
+
+# Resilience4j — circuit breakers for external integrations (EDGE-014)
+resilience4j:
+  circuitbreaker:
+    instances:
+      gest-detection-profile:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true

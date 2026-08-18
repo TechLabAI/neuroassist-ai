@@ -1,0 +1,25 @@
+package com.neuroassist.gest.bdd;
+
+import io.cucumber.junit.platform.engine.Constants;
+import org.junit.jupiter.api.Disabled;
+import org.junit.platform.suite.api.*;
+
+/**
+ * Cucumber integration test runner — gest-service.
+ *
+ * <p>Runs all .feature files in src/test/resources/features/. Requires a running Spring context
+ * (see CucumberSpringContext).
+ *
+ * <p>DISABLED (P9 hardening): BDD suite still in development (54 scenarios pending). Re-enable once
+ * step definitions are fully implemented.
+ */
+@Disabled("BDD suite in development — step definitions pending (P9)")
+@Suite
+@IncludeEngines("cucumber")
+@SelectClasspathResource("features")
+@ConfigurationParameter(key = Constants.GLUE_PROPERTY_NAME, value = "com.neuroassist.gest.bdd")
+@ConfigurationParameter(
+        key = Constants.PLUGIN_PROPERTY_NAME,
+        value = "pretty, html:build/reports/cucumber/cucumber-report.html")
+@ConfigurationParameter(key = Constants.EXECUTION_DRY_RUN_PROPERTY_NAME, value = "false")
+public class CucumberIT {}

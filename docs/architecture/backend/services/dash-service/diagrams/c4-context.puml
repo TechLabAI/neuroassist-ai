@@ -1,0 +1,31 @@
+@startuml dash-context
+!include <C4/C4_Context>
+title DASH — System Context (Backend-for-Frontend of the caregiver panel)
+
+Person(caregiver, "Cuidador(a)", "Jamilly / clinic coordinator — lives in the panel")
+Person_Ext(patient, "Paciente", "Márcio — never touches the panel; every screen exists for him")
+
+System_Boundary(dash, "dash-service (BFF)") {
+  System(dashsvc, "dash-service", "Composes screens, delivers notifications over SSE, proxies caregiver actions. Owns no domain state.")
+}
+
+System(gwy, "API Gateway (GWY)", "Spring Cloud Gateway — edge for browser and inter-service traffic")
+System(reg, "Service Registry (REG)", "Eureka discovery")
+
+System_Ext(acs, "ACS", "Identity + caregiver<->patient scope (hard dependency)")
+System_Ext(pac, "PAC", "Command catalog + calibration (read + write-through)")
+System_Ext(evnt, "EVNT", "Events + notification dispatch (owns notification lifecycle)")
+System_Ext(hist, "HIST", "History / audit timeline (read)")
+System_Ext(edge, "EDGE", "Device liveness (poll)")
+
+Rel(caregiver, gwy, "Panel REST + SSE stream", "HTTPS")
+Rel(gwy, dashsvc, "routes /panel/**", "REST/SSE")
+Rel(evnt, dashsvc, "POST /internal/notifications (dispatch)", "REST")
+Rel(dashsvc, acs, "resolve scope / JWK", "REST")
+Rel(dashsvc, pac, "read catalog / write-through calibration", "REST")
+Rel(dashsvc, evnt, "pull unacked / delivered+ack / confirm", "REST")
+Rel(dashsvc, hist, "read audit timeline", "REST")
+Rel(dashsvc, edge, "poll liveness (ETag/304)", "REST")
+Rel(dashsvc, reg, "register / discover", "Eureka")
+Rel_Back(patient, dashsvc, "his help requests surface here")
+@enduml

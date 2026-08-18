@@ -1,0 +1,43 @@
+# Profile 'local' — desenvolvimento local com mocks de plataforma
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/dash_dev
+    username: dash
+    password: dash_dev_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: t_emp_dev
+  flyway:
+    enabled: false  # schema gerenciado pelo neuroassist-ai-migrations
+  activemq:
+    broker-url: tcp://localhost:61616
+    user: admin
+    password: admin
+
+# Desabilita autenticação real com a plataforma no profile local
+platform:
+  identity:
+    mock: true
+    mock-user-id: user-dev-001
+    mock-user-name: Desenvolvedor Local
+    mock-roles:
+      - DASH_OPERATOR  # role principal da tool
+  tenant:
+    mock: true
+    mock-tenant-id: tenant-dev
+    mock-organization-id: org-dev-001
+  authorization:
+    mock: true
+    mock-permit-all: true
+
+logging:
+  level:
+    com.neuroassist.dash: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG

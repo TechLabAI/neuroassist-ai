@@ -1,0 +1,33 @@
+@startuml dash-container
+!include <C4/C4_Container>
+title DASH — Container view
+
+Person(caregiver, "Cuidador(a)")
+System_Ext(browser, "Angular Panel", "frontend/design-reference — SPA")
+
+System_Boundary(dash, "dash-service") {
+  Container(api, "Panel API + SSE", "Spring Web / SseEmitter", "/panel/** REST + /panel/stream SSE + /internal/notifications sink")
+  Container(app, "Application (use cases)", "Java 21", "Compose*, DeliverNotification, ReplayUnacknowledged, Proxy{Calibration,Confirmation,Ack}")
+  Container(sessions, "SSE Session Registry", "in-memory", "sessionId -> {tenant, caregiver, connection}; ephemeral")
+  Container(infra, "Outbound REST adapters", "RestClient/Feign", "ACS/PAC/EVNT/HIST/EDGE ports")
+}
+
+System_Ext(acs, "ACS")
+System_Ext(pac, "PAC")
+System_Ext(evnt, "EVNT")
+System_Ext(hist, "HIST")
+System_Ext(edge, "EDGE")
+ContainerDb_Ext(none, "No DASH database", "n/a", "MVP owns zero tables")
+
+Rel(caregiver, browser, "uses")
+Rel(browser, api, "REST + SSE", "HTTPS via GWY")
+Rel(api, app, "invokes use cases")
+Rel(app, sessions, "register / lookup / push")
+Rel(app, infra, "via outbound ports")
+Rel(evnt, api, "POST /internal/notifications")
+Rel(infra, acs, "scope / JWK")
+Rel(infra, pac, "catalog / calibration")
+Rel(infra, evnt, "unacked / callbacks / confirm")
+Rel(infra, hist, "audit read")
+Rel(infra, edge, "liveness poll")
+@enduml

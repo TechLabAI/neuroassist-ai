@@ -1,5 +1,13 @@
 # Profile 'local' — desenvolvimento local com mocks de plataforma
+# P5: use jwk-set-uri (lazy fetch) instead of issuer-uri (eager OIDC discovery) so the service
+# starts even when ACS/Keycloak is temporarily unavailable. JWT validation still happens on the
+# first request; startup does NOT require ACS to be reachable.
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${KEYCLOAK_JWKS_URI:http://localhost:8180/realms/neuroassist-ai/protocol/openid-connect/certs}
   datasource:
     url: jdbc:postgresql://localhost:5432/edge_dev
     username: edge

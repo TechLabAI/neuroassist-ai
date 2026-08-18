@@ -37,6 +37,10 @@ public class CrossAspectArchTest {
 
     private static final Set<String> PERMISSION_CATALOGUE =
             Set.of(
+                    "edge.manage",
+                    "edge.device",
+                    "edge.read",
+                    "edge.internal",
                     "edge.device-registration.aposentar",
                     "edge.device-registration.criar",
                     "edge.heartbeat.criar",

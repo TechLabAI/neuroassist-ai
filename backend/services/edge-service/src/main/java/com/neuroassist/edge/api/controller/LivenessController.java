@@ -1,44 +1,83 @@
 package com.neuroassist.edge.api.controller;
 
+import com.neuroassist.edge.api.dto.LivenessResponse;
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
-import com.neuroassist.edge.shared.audit.AuditAction;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RestController;
 
-// Security: @PreAuthorize derived from rbac.arch.json via the module generator.
-// To change which permission gates a method, edit rbac.arch.json and re-run
-// be-module-generator.py; do not patch the annotation by hand.
+/**
+ * Liveness poll endpoints for DASH (api-contract §4.4). status derived at read time — never a
+ * stored column (ADR-006). ETag/304 support for bandwidth-efficient DASH polling. serverTime
+ * mandatory in every response (EDGE-004 / M3 warning closure). RULE-04: no imports from
+ * infrastructure.* in this class. tenantId resolved by application service from
+ * TenantContextHolder.
+ */
 @Slf4j
 @RestController
-@RequestMapping("/edge-service/liveness")
 @RequiredArgsConstructor
 public class LivenessController {
 
     private final LivenessUseCase livenessUseCase;
 
-    @GetMapping
-    @PreAuthorize("hasAuthority('edge.liveness.read')")
-    public ResponseEntity<Void> evaluate() {
-        // TODO: delegate to LivenessUseCase
-        throw new UnsupportedOperationException("evaluate not implemented");
+    /** GET /api/v1/edge/devices/{deviceId}/liveness — liveness poll (DASH). */
+    @GetMapping("/api/v1/edge/devices/{deviceId}/liveness")
+    @PreAuthorize("hasAuthority('edge.read')")
+    public ResponseEntity<LivenessResponse> getLivenessForDevice(
+            @PathVariable UUID deviceId,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false)
+                    String ifNoneMatch) {
+        LivenessUseCase.LivenessResult result = livenessUseCase.evaluate(deviceId);
+        return buildLivenessResponse(result, ifNoneMatch);
     }
 
-    @PutMapping("/{id}/resolveDeviceForPatient")
-    @PreAuthorize("hasAuthority('edge.liveness.resolver')")
-    @AuditAction("UPDATE_LIVENESS")
-    public ResponseEntity<Void> resolveDeviceForPatient() {
-        // TODO: delegate to LivenessUseCase
-        throw new UnsupportedOperationException("resolveDeviceForPatient not implemented");
+    /** GET /api/v1/edge/patients/{pacienteId}/liveness — liveness poll by patient (DASH). */
+    @GetMapping("/api/v1/edge/patients/{pacienteId}/liveness")
+    @PreAuthorize("hasAuthority('edge.read')")
+    public ResponseEntity<LivenessResponse> getLivenessForPatient(
+            @PathVariable UUID pacienteId,
+            @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false)
+                    String ifNoneMatch) {
+        LivenessUseCase.LivenessResult result = livenessUseCase.evaluateForPatient(pacienteId);
+        return buildLivenessResponse(result, ifNoneMatch);
     }
 
-    @PutMapping("/{id}/resolveTenant")
-    @PreAuthorize("hasAuthority('edge.liveness.resolver')")
-    @AuditAction("UPDATE_LIVENESS")
-    public ResponseEntity<Void> resolveTenant() {
-        // TODO: delegate to LivenessUseCase
-        throw new UnsupportedOperationException("resolveTenant not implemented");
+    // ---- Private helpers ----
+
+    private ResponseEntity<LivenessResponse> buildLivenessResponse(
+            LivenessUseCase.LivenessResult result, String ifNoneMatch) {
+        String eTag = result.eTag();
+
+        // 304: status unchanged within the same bucket boundary (api-contract §4.4)
+        if (ifNoneMatch != null && ifNoneMatch.equals(eTag)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED)
+                    .header(HttpHeaders.ETAG, eTag)
+                    .build();
+        }
+
+        LivenessResponse body =
+                new LivenessResponse(
+                        result.deviceId(),
+                        result.pacienteId(),
+                        result.status(),
+                        result.ultimaSincronizacao(),
+                        result.versao(),
+                        result.stalenessThresholdSeconds(),
+                        result.serverTime());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.ETAG, eTag)
+                .header(
+                        "X-Staleness-Threshold-Seconds",
+                        String.valueOf(result.stalenessThresholdSeconds()))
+                .body(body);
     }
 }

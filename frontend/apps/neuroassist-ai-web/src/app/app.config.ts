@@ -7,6 +7,8 @@ import { provideEvnt } from '@neuroassist/evnt';
 import { providePac } from '@neuroassist/pac';
 import { provideAcs, acsHttpInterceptorFn } from '@neuroassist/acs';
 import { provideEdge } from '@neuroassist/edge';
+import { provideHist } from '@neuroassist/hist';
+import { provideDash } from '@neuroassist/dash';
 import { appRoutes } from './app.routes';
 
 // ---------------------------------------------------------------------------
@@ -34,5 +36,7 @@ export const appConfig: ApplicationConfig = {
     providePac({ adapter: 'mock' }),
     provideAcs({ adapter: 'mock' }),
     provideEdge({ adapter: 'mock' }),
+    provideHist({ adapter: 'mock' }),
+    provideDash({ adapter: 'mock' }),
   ],
 };
