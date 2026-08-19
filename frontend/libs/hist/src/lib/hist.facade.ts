@@ -3,10 +3,8 @@ import {
   inject,
   signal,
   computed,
-  DestroyRef,
 } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HIST_CLIENT_PORT } from './api/hist-client.port';
 import { HIST_FEEDBACK_PORT } from './api/hist-feedback.port';
 import {
@@ -93,7 +91,6 @@ function mapError(err: unknown, fallback: string): AppError {
 export class HistoryFacade {
   private readonly histPort = inject(HIST_CLIENT_PORT);
   private readonly feedbackPort = inject(HIST_FEEDBACK_PORT);
-  private readonly destroyRef = inject(DestroyRef);
 
   // ---------------------------------------------------------------------------
   // Private writable signals (SPEC-03 §3)

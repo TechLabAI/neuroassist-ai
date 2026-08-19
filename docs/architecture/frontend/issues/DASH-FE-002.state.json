@@ -1,0 +1,98 @@
+{
+  "issue": "DASH-FE-002",
+  "layer": "fe",
+  "computedAt": "2026-08-19T12:07:42",
+  "checklist": {
+    "total": 7,
+    "done": 0,
+    "partial": 0,
+    "missing": 7,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "`DashStreamClient` service created in `api/` subdirectory",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Open/close/reconnect lifecycle methods",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Heartbeat handling (no false timeouts on `:heartbeat` messages)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Fallback to polling when SSE fails",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Signals exported (readonly) from `NotificationsFacade`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Unit tests for reconnect + fallback scenarios",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`npx nx test @neuroassist/dash` passes",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 50,
+    "provisional": true,
+    "range": [
+      50,
+      60
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 30,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 0,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 20,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Parcial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

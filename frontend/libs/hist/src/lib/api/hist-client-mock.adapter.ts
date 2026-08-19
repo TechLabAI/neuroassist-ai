@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, of, timer } from 'rxjs';
+import { Observable, of, throwError, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { HistClientPort } from './hist-client.port';
 import {
@@ -97,11 +97,35 @@ function filterByWindow(
   });
 }
 
+// =============================================================================
+// E2E flag helpers (localStorage — browser-only, best-effort)
+// Flags set via page.addInitScript(() => localStorage.setItem('__HIST_E2E_*__', 'true'))
+// before Angular bootstraps so the mock adapter reads them on its first call.
+//
+//  __HIST_E2E_LIST_FAIL__   : list() throws a non-HTTP error → facade shows error state
+//  __HIST_E2E_SMALL_PAGE__  : list() returns size=2 so hasMore=true with ≥3 semana records
+// =============================================================================
+
+function e2eFlag(name: string): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem(name) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class HistClientMockAdapter implements HistClientPort {
   list(params: HistoryQueryParams): Observable<PagedResponse<AuditRecordResponse>> {
     return timer(400).pipe(
       switchMap(() => {
+        // E2E: force error to test error state + retry affordance
+        if (e2eFlag('__HIST_E2E_LIST_FAIL__')) {
+          return throwError(() =>
+            Object.assign(new Error('E2E simulated list failure'), { status: 503 }),
+          );
+        }
+
         const filtered = filterByWindow(MOCK_RECORDS, params);
         const order = params.order ?? 'desc';
         const sorted = [...filtered].sort((a, b) =>
@@ -110,7 +134,8 @@ export class HistClientMockAdapter implements HistClientPort {
             : a.recordedAt.localeCompare(b.recordedAt),
         );
         const page = params.page ?? 0;
-        const size = params.size ?? 50;
+        // E2E: small page size so hasMore becomes true with ≥3 records (semana window)
+        const size = e2eFlag('__HIST_E2E_SMALL_PAGE__') ? 2 : (params.size ?? 50);
         const sliced = sorted.slice(page * size, (page + 1) * size);
         return of({ items: sliced, page, size, total: sorted.length });
       }),
