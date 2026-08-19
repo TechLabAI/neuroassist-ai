@@ -72,6 +72,9 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
+    // INT-PAC-006 (P8) — WireMock for external service stubs (GEST/ACS/EDGE/HIST)
+    testImplementation("org.wiremock:wiremock:3.9.1")
+
 }
 
 tasks.withType<Test> {
@@ -79,8 +82,14 @@ tasks.withType<Test> {
 }
 
 tasks.register("architectureCheck") {
-    dependsOn(tasks.test)
-    doFirst { logger.lifecycle("Running ArchUnit checks via :pac-service:test...") }
+    dependsOn("testArchUnit")
+    doFirst { logger.lifecycle("Running ArchUnit checks...") }
+}
+
+tasks.register<Test>("testArchUnit") {
+    useJUnitPlatform()
+    filter.includeTestsMatching("ArchitectureTest")
+    filter.includeTestsMatching("CrossAspectArchTest")
 }
 
 // Spotless — formatação canônica (google-java-format AOSP, 4 spaces)
