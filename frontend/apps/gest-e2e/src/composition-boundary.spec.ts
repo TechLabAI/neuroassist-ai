@@ -19,8 +19,12 @@ test.describe('composition-boundary', () => {
   test('dev host renders the gesture-live-test harness at /gest', async ({ page }) => {
     await gotoGest(page);
 
-    // The GestDevHostComponent h1 heading must be present
-    await expect(page.locator('h1')).toContainText('GEST — dev host (live-test harness)');
+    // The GestDevHostComponent h1 heading must be present.
+    // Scoped by accessible name (not the bare 'h1' tag) because the global
+    // EVNT alarm overlay can also render an h1 on top of any route.
+    await expect(
+      page.getByRole('heading', { name: 'GEST — dev host (live-test harness)' })
+    ).toBeVisible();
 
     // GestureLiveTestComponent must be embedded (selector in DOM)
     await expect(page.locator('gest-gesture-live-test')).toBeVisible();

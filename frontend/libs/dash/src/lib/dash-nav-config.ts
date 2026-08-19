@@ -12,3 +12,36 @@ export const DASH_NAV_CONFIG = {
   route: '/',
   order: 0,
 } as const;
+
+// =============================================================================
+// DASH_BREADCRUMBS — FE-DASH-020 (breadcrumb trail per route — SPEC-01 §4)
+//
+// Defines the breadcrumb trail for each DASH route.
+// The shell BreadcrumbService reads these from route `data.breadcrumb` or via
+// DashShellIntegrationService.contributeBreadcrumbs() — whichever the shell adopts.
+//
+// /           → [Status]
+// /notificacoes → [Status › Notificações]
+// /entrada    → [] (chromeless — no breadcrumb)
+// =============================================================================
+
+export interface DashBreadcrumbItem {
+  readonly label: string;
+  readonly route: string;
+}
+
+export const DASH_BREADCRUMBS = {
+  /** / — single-segment trail for the Home Status page. */
+  home: [
+    { label: 'Status', route: '/' },
+  ] satisfies DashBreadcrumbItem[],
+
+  /** /notificacoes — two-segment trail. */
+  notifications: [
+    { label: 'Status', route: '/' },
+    { label: 'Notificações', route: '/notificacoes' },
+  ] satisfies DashBreadcrumbItem[],
+
+  /** /entrada — chromeless; no breadcrumb. */
+  entrada: [] as DashBreadcrumbItem[],
+} as const;

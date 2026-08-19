@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core'
 import { lastValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DASH_NOTIFICATIONS_PORT } from './api/dash-notifications.port';
+import { DashStreamClient } from './api/dash-stream-client';
 import {
   NotificationEnvelope,
   NotificationsScreenVm,
@@ -31,6 +32,7 @@ function mapError(err: unknown, fallback: string): AppError {
 @Injectable({ providedIn: 'root' })
 export class NotificationsFacade {
   private readonly notificationsPort = inject(DASH_NOTIFICATIONS_PORT);
+  private readonly streamClient = inject(DashStreamClient);
   private readonly destroyRef = inject(DestroyRef);
 
   // ---------------------------------------------------------------------------
@@ -57,6 +59,28 @@ export class NotificationsFacade {
   }));
 
   // ---------------------------------------------------------------------------
+  // Constructor — real-time stream wiring (DASH-FE-002)
+  // ---------------------------------------------------------------------------
+
+  constructor() {
+    // Subscribe to real-time notification events from DashStreamClient.
+    // Accumulates items as they arrive via SSE or long-poll fallback.
+    // Avoids duplicates on SSE reconnect by checking dispatchId before prepending.
+    this.streamClient.events$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((envelope) => {
+        this.#notifications.update((list) => {
+          const exists = list.some((n) => n.dispatchId === envelope.dispatchId);
+          return exists ? list : [envelope, ...list];
+        });
+        // Promote from 'empty' when first stream event arrives.
+        if (this.#status() !== 'loaded') {
+          this.#status.set('loaded');
+        }
+      });
+  }
+
+  // ---------------------------------------------------------------------------
   // Public methods
   // ---------------------------------------------------------------------------
 
@@ -73,6 +97,10 @@ export class NotificationsFacade {
       );
       this.#notifications.set(result.notifications);
       this.#status.set(result.notifications.length === 0 ? 'empty' : 'loaded');
+      // Open SSE stream after HTTP catch-up (DASH-FE-002).
+      // TODO[DASH-005-AUTH]: Wave-0 — EventSource has no custom header support;
+      // coordinate with BE on cookie / query-param JWT for production auth.
+      this.streamClient.open('/panel/stream');
     } catch (err) {
       this.#error.set(mapError(err, 'Erro ao carregar notificações'));
       this.#status.set('error');

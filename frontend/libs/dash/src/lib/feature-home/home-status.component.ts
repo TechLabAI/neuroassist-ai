@@ -37,7 +37,7 @@ function sincronizadoRelativo(iso: string): string {
 }
 
 @Component({
-  selector: 'dash-home-status',
+  selector: 'lib-home-status',
   standalone: true,
   imports: [RouterLink],
   template: `
@@ -281,10 +281,14 @@ export class HomeStatusComponent implements OnInit {
     return null;
   });
 
-  /** True when there are no pending unacknowledged notifications (all clear). */
-  protected readonly estaBem = computed<boolean>(
-    () => this.facade.unacknowledgedCount() === 0 && this.facade.latestEvent()?.feedback !== 'nao_avaliado',
-  );
+  /**
+   * True when the patient is calm (no active EVNT alarm).
+   * Derived from facade.calm() — which reads DASH_ACTIVE_EVENT_TOKEN from EVNT,
+   * never from the aggregate summary. This is the security invariant: the StatusCard
+   * must not show "está bem" while an alarm is active in EVNT (SPEC-01 §3).
+   * TODO[INT-FE-DASH-001]: calm will reflect real EVNT signal when EVNT FE is scaffolded.
+   */
+  protected readonly estaBem = computed<boolean>(() => this.facade.calm());
 
   /** True when latest event is an emergency pending acknowledgement. */
   protected readonly isEmergencyPending = computed<boolean>(() => {
