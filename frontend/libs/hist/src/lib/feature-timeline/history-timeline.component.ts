@@ -3,10 +3,11 @@ import {
   ChangeDetectionStrategy,
   inject,
   OnInit,
-  signal,
+  computed,
 } from '@angular/core';
 import { HistoryFacade } from '../hist.facade';
 import { Period, Verdict } from '../hist.types';
+import { HIST_ACCESS_DECISION } from '../access/hist-access-tokens';
 
 // =============================================================================
 // HistoryTimelineComponent — SPEC-02 (component tree root / smart component)
@@ -27,7 +28,7 @@ type PeriodLabel = { [K in Period]: string };
 const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês' };
 
 @Component({
-  selector: 'hist-history-timeline',
+  selector: 'lib-history-timeline',
   standalone: true,
   imports: [],
   template: `
@@ -45,7 +46,9 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
           @for (p of periodos; track p) {
             <button
               role="tab"
+              data-testid="period-tab"
               [attr.aria-selected]="vm().period === p"
+              [attr.aria-label]="'Período ' + periodoLabel[p]"
               (click)="setPeriod(p)"
               class="rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors"
               [class]="
@@ -96,6 +99,7 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
             <div class="flex flex-col gap-3">
               @for (item of vm().items; track item.id) {
                 <div
+                  data-testid="history-item"
                   class="rounded-2xl border border-line bg-surface p-4 shadow-card"
                   [attr.aria-label]="item.label">
                   <div class="flex items-start justify-between gap-4">
@@ -137,12 +141,15 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
                       </span>
                     } @else if (item.verdict === null && markingState(item.id) === 'idle') {
                       <button
+                        data-testid="feedback-foi-real-btn"
+                        [attr.data-item-id]="item.id"
                         (click)="marcar(item.id, 'real')"
                         class="flex-shrink-0 rounded-lg border-[1.5px] border-line-strong px-3 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:bg-surface-2">
                         Foi real?
                       </button>
                     } @else if (item.verdict === 'real' || markingState(item.id) === 'marked') {
                       <span
+                        data-testid="feedback-marcado-real"
                         class="inline-flex items-center rounded-full bg-ok-surface px-2.5 py-1 text-xs font-semibold text-ok-ink">
                         ✓ Marcado real
                       </span>
@@ -153,6 +160,7 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
                       </span>
                     } @else if (markingState(item.id) === 'mark-error') {
                       <button
+                        data-testid="feedback-error-retry-btn"
                         (click)="marcar(item.id, 'real')"
                         class="flex-shrink-0 rounded-lg border-[1.5px] border-error-line px-3 py-1.5 text-xs font-semibold text-error-ink transition-colors hover:bg-error-surface">
                         Erro. Tentar de novo?
@@ -167,6 +175,7 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
             @if (vm().hasMore) {
               <div class="mt-4 flex justify-center">
                 <button
+                  data-testid="load-more-btn"
                   (click)="loadMore()"
                   [disabled]="vm().status === 'loading'"
                   class="rounded-xl border border-line px-5 py-2 text-sm font-semibold text-ink-soft transition-colors hover:bg-surface-2 disabled:opacity-50">
@@ -209,6 +218,19 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
               <span class="font-semibold text-ink">{{ naoAvaliados() }}</span>
             </div>
           </div>
+
+          <!-- Chain verification badge (SPEC-04 §2.3 / ADR-006)
+               Visible for users with hist:read:all permission.
+               Wave-0: access token is null → visible to all authenticated users.
+               TODO[RBAC]: when AccessDecisionService is wired, restrict to hist:read:all only. -->
+          @if (showChainBadge()) {
+            <div
+              data-testid="chain-badge"
+              class="rounded-2xl border border-ok-line bg-ok-surface p-4 shadow-card">
+              <p class="text-xs font-semibold text-ok-ink">Cadeia de auditoria: íntegra</p>
+              <p class="mt-1 text-xs text-ok-ink/70">Todos os registros verificados</p>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -217,6 +239,9 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
 })
 export class HistoryTimelineComponent implements OnInit {
   private readonly facade = inject(HistoryFacade);
+  // Wave-0: HIST_ACCESS_DECISION is null (factory default) → chain badge visible to all.
+  // TODO[RBAC]: when AccessDecisionService is provided, restrict badge to hist:read:all.
+  private readonly accessDecision = inject(HIST_ACCESS_DECISION, { optional: true });
 
   protected readonly periodos: Period[] = ['hoje', 'semana', 'mes'];
   protected readonly periodoLabel = PERIODO_LABEL;
@@ -224,6 +249,14 @@ export class HistoryTimelineComponent implements OnInit {
 
   /** Assembled screen VM from facade. */
   readonly vm = this.facade.screenVm;
+
+  /**
+   * Chain verification badge visibility (SPEC-04 §2.3 / ADR-006).
+   * Wave-0: null token → visible to all. Production: requires hist:read:all.
+   */
+  readonly showChainBadge = computed(
+    () => this.accessDecision === null || this.accessDecision.can('hist:read:all'),
+  );
 
   ngOnInit(): void {
     this.facade.load('semana');

@@ -18,6 +18,7 @@ import {
   DeviceConnectivityVM,
   DeviceDetailVM,
 } from '@neuroassist/shared/contracts';
+import { ObservabilityService } from '@neuroassist/shared/observability';
 
 // ---------------------------------------------------------------------------
 // Feature flags consumed from SPEC-05
@@ -51,9 +52,15 @@ export function deriveState(
 
   if (!ultimaSincronizacao) return 'offline'; // paired but never reported (loud)
 
-  // Server-relative age: authoritative (avoids client clock skew)
-  const serverMs = new Date(serverTime).getTime();
+  // Server-relative age: authoritative (avoids client clock skew) — doc 06 R5.
+  // G5: guard against absent/invalid serverTime (BE may omit field under load).
+  // new Date(null) → epoch (0ms) → negative ageMs → false-green 'online' (bug).
+  // Use serverTime only when truthy; otherwise fall back to 'unknown' (honest degradation).
+  const serverMs = serverTime ? new Date(serverTime).getTime() : NaN;
   const syncMs = new Date(ultimaSincronizacao).getTime();
+  // NaN arithmetic: if either timestamp is invalid, ageMs is NaN → 'unknown' fallback.
+  if (isNaN(serverMs) || isNaN(syncMs)) return 'unknown'; // G5: safe fallback
+
   const ageMs = serverMs - syncMs;
 
   const stalenessMs = MODULE_FEATURE_FLAGS.stalenessThresholdMs.default;
@@ -105,6 +112,7 @@ export class DeviceFacade {
   private readonly port = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
+  private readonly observability = inject(ObservabilityService);
 
   private readonly _device = signal<DispositivoEdgeView | null>(null);
   private readonly _pollOk = signal<boolean>(true);
@@ -226,6 +234,12 @@ export class DeviceFacade {
           return this.port.pollPatientLiveness(pacienteId, this.lastEtag).pipe(
             catchError(() => {
               this._pollOk.set(false); // poll failure → unknown (SPEC-04 §3)
+              // Telemetry: emit poll failure event (FE-EDGE-020)
+              this.observability.emit({
+                event: 'edge.device.poll_failure',
+                moduleKey: 'edge',
+                deviceId: this._device()?.deviceId,
+              });
               return of(null);
             }),
           );
@@ -240,6 +254,8 @@ export class DeviceFacade {
           return;
         }
         const liveness = result as LivenessView;
+        // Capture previous derived state BEFORE mutations for offline transition detection (FE-EDGE-020)
+        const prevState = this.derivedState();
         this._pollOk.set(true);
         // Update device snapshot from liveness (merged fields only)
         this._device.update((prev) =>
@@ -254,6 +270,15 @@ export class DeviceFacade {
               }
             : prev,
         );
+        // Telemetry: detect transition to offline (FE-EDGE-020)
+        if (prevState !== 'offline' && this.derivedState() === 'offline') {
+          this.observability.emit({
+            event: 'edge.device.offline',
+            moduleKey: 'edge',
+            deviceId: this._device()?.deviceId,
+            derivedState: 'offline',
+          });
+        }
       });
   }
 
@@ -296,7 +321,15 @@ export class DeviceFacade {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
-        next: (updated) => this._device.set(updated),
+        next: (updated) => {
+          this._device.set(updated);
+          // Telemetry: device successfully retired (FE-EDGE-020)
+          this.observability.emit({
+            event: 'edge.device.retired',
+            moduleKey: 'edge',
+            deviceId: updated.deviceId,
+          });
+        },
         error: (err: unknown) => {
           this._error.set(String(err));
           this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {

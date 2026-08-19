@@ -39,3 +39,10 @@ tmp/fe-architecture-autopilot/
 .techlab/trace-context.json
 .techlab/learning/
 .techlab/token-usage/
+frontend/.techlab/trace-context.json
+
+# Angular/Nx local caches and test/build output (never tracked)
+frontend/.angular/
+frontend/coverage/
+frontend/test-results/
+frontend/libs/dist/

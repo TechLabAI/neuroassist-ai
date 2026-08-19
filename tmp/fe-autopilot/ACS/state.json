@@ -1,0 +1,12 @@
+{
+  "id": "ACS",
+  "pipeline": "implement",
+  "modulo": "ACS",
+  "currentStep": "done",
+  "nextStep": "done",
+  "priority": "none",
+  "progressUnit": "10",
+  "iteration": 4,
+  "timestamp": "2026-08-16T00:00:00Z",
+  "notes": "FINALIZADO. Verificado independentemente (nao apenas relato do validator, que teve numeros desatualizados de novo): lint 0 err/0 warn extra, unit tests 185/185 PASS, e2e 40 passed/0 failed/18 skipped de 58 totais (go-live threshold 40+ atingido). Artefatos safety-critical confirmados no disco: coverage-block-modal.component.ts, acs-telemetry.service.ts, acs-evnt-coverage-contract.md. CoverageBlockModal (ADR-005) teve revisao de seguranca explicita aprovada (pre-flight real, adapter nao chamado quando bloqueado, defesa em profundidade com 409, modal nao-dismissible). Score reportado 80-87/100 (Maduro) em rounds independentes. 18 cenarios e2e fixme restantes e INT-FE-ACS-001 parcial (Authorization/X-Correlation-Id headers) sao bloqueadores genuinamente fora do escopo de um modulo FE standalone -- dependem de backend acs-service implantado e/ou promocao de libs compartilhadas Wave-0 (auth-session, access-http-base) que afeta multiplos modulos, decisao arquitetural cross-modulo. Modulo ACS considerado MVP+go-live ready. NOTA para futuras invocacoes: multiplos validator rounds nesta sessao reportaram contagens de issues DONE/numeracao inconsistentes entre si (numeracao FE-ACS-027/028/029/030/031 mapeada diferente em rounds diferentes) -- issues-map.md do modulo precisa de uma limpeza/reconciliacao formal em vez de updates incrementais por agentes diferentes."
+}

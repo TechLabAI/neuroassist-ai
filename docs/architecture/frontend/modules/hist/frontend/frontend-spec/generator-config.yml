@@ -1,0 +1,95 @@
+# generator-config.yml — HIST (Historico e Auditoria) — Frontend
+# Schema: libs/internal-nx-plugin/src/generator-config.schema.json
+# Input for the FE scaffold/promote stage (@neuroassist prototype-first, D-493).
+# Emitted by /fe-architect-specs retroactively — 2026-08-19
+# Note: HIST module was scaffolded directly (not via architect pipeline).
+#       This file captures the real state of frontend/libs/hist/ as-built.
+# Sources: frontend/libs/hist/ (code inspection) + module-state.md (BASELINE 2026-08-19)
+#          + plan-FE-HIST.md (planner 2026-08-19)
+# Barrier (deferred): hist-service/contracts/api-contract.md (INT-FE-HIST-001)
+#                     evnt-service feedback endpoint (INT-FE-HIST-002)
+
+module: hist
+service: hist
+issue_prefix: HIST
+shell_route: /historico
+state_management: signals             # Signals-first; HistoryFacade; no NgRx, no BehaviorSubject
+
+# ── Nx library (single-lib layout — HIST uses one lib, not shell+data-access split) ──────────
+# All artefacts live in frontend/libs/hist/  (scope:hist, type:feature)
+lib_name: "@neuroassist/hist"
+lib_path: "frontend/libs/hist"
+prefix: lib                           # ESLint component-selector prefix (lib-*)
+tags:
+  - scope:hist
+  - type:feature
+
+# ── Facade / Component (primary surfaces) ────────────────────────────────────
+facade: HistoryFacade                 # src/lib/hist.facade.ts — signals, load/setPeriod/loadMore/markFeedback/retry
+component: HistoryTimelineComponent   # src/lib/feature-timeline/history-timeline.component.ts — standalone, OnPush
+
+# ── Features (routed surfaces) ───────────────────────────────────────────────
+features:
+  - name: timeline
+    routes:
+      - /historico
+    components:
+      - HistoryTimelineComponent
+
+# ── Ports & adapter toggle ────────────────────────────────────────────────────
+adapter_toggle: HistProviderConfig    # src/lib/hist.providers.ts — adapter: 'mock' | 'http'
+dependencies:
+  client_port: HIST_CLIENT_PORT       # HistClientPort — list(), get(), verify()
+  feedback_port: HIST_FEEDBACK_PORT   # HistFeedbackPort — markFeedback()
+  http_backend: hist-service          # INT-FE-HIST-001 — BLOCKED (not deployed)
+  feedback_backend: evnt-service      # INT-FE-HIST-002 — BLOCKED (not deployed)
+
+# ── Data access (aligned to BE barrier — deferred) ────────────────────────────
+data_access:
+  - resource: AuditRecord
+    base_path: /api/v1/hist/history
+    operations: [list, get]
+    notes: "Implemented as stub HistClientHttpAdapter; activated when hist-service deployed (INT-FE-HIST-001)"
+  - resource: ChainVerification
+    base_path: /api/v1/hist/history/verify
+    operations: [verify]
+    notes: "Port defined; UI exposure pending (future iteration)"
+  - resource: EventFeedback
+    base_path: /api/v1/evnt/events/{id}/feedback
+    operations: [markFeedback]
+    notes: "Targets evnt-service; stub HistFeedbackHttpAdapter (INT-FE-HIST-002)"
+
+# ── Access / guards ───────────────────────────────────────────────────────────
+guards:
+  - authGuard                         # src/lib/access/hist.guard.ts — Wave-0 bypass active
+  - histGuard                         # src/lib/access/hist.guard.ts — Wave-0 bypass active
+
+# ── Module contract (hist.descriptor.ts) ─────────────────────────────────────
+module_contract:
+  key: hist
+  label: Historico
+  icon: history
+  route: /historico
+  show_in_nav: true
+  permissions:
+    - hist:read:all                   # auditoria completa — cuidador supervisor
+
+# ── Shared / UI libs consumed (@neuroassist/*) ────────────────────────────────
+shared_deps:
+  - "@neuroassist/shared/access-http-base"   # X-Empresa-Id interceptor — wiring deferred (INT-FE-HIST-001)
+  - "@neuroassist/shared/access-decision"    # AccessDecisionService.can() — Wave-0 bypass active
+  - "@neuroassist/shared/auth-session"       # AuthSession token (HIST_AUTH_SESSION)
+  - "@neuroassist/shared/error-model"        # AppError shape (aligned in hist.types.ts)
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-tokens"
+  - "@neuroassist/shared/ui-feedback"
+
+extra_dependencies: []
+
+# ── E2E ───────────────────────────────────────────────────────────────────────
+e2e:
+  e2e_project: hist-e2e
+  framework: playwright
+  features_path: docs/architecture/frontend/modules/hist/frontend/e2e/
+  status: "13/13 scenarios defined, all .skip pending P4 implementation"

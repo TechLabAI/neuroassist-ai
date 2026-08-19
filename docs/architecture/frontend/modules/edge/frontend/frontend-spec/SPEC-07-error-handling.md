@@ -77,6 +77,7 @@ optimistically upgraded to `online`.
 - IF the backend responds `/errors/insufficient-scope`, THEN THE SYSTEM SHALL display a toast stating the device action is not permitted.
 - IF the backend responds `/errors/pairing-conflict`, THEN THE SYSTEM SHALL display a banner explaining the patient already has an active device and SHALL NOT retry the pairing automatically.
 - IF the backend responds `/errors/optimistic-lock`, THEN THE SYSTEM SHALL refresh the device read-model and re-present the current server state.
+- IF the backend responds `/errors/device-retired`, THEN THE SYSTEM SHALL display a banner informing the operator the device is retired and SHALL provide a re-register CTA. (Added: FE-EDGE-027)
 - IF a connectivity poll fails, THEN THE SYSTEM SHALL set the derived state to `unknown` and SHALL NOT display a toast on every failed tick.
 - IF the backend responds `/errors/patient-not-paired` on the liveness path, THEN THE SYSTEM SHALL render the connectivity chip as `not-paired` and SHALL NOT raise an error dialog.
 - WHEN a management action fails with a transient network error, THE SYSTEM SHALL retry with backoff before surfacing a toast with a manual retry.

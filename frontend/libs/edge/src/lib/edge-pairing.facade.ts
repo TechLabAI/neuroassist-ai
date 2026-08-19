@@ -18,6 +18,7 @@ import {
   DispositivoEdgeView,
 } from '@neuroassist/shared/contracts';
 import { MODULE_FEATURE_FLAGS } from './edge.facade';
+import { ObservabilityService } from '@neuroassist/shared/observability';
 
 // ---------------------------------------------------------------------------
 // PairingFacade — SPEC-04 §2
@@ -59,6 +60,7 @@ export class PairingFacade {
   private readonly devicePort = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
+  private readonly observability = inject(ObservabilityService);
 
   private readonly _vm = signal<PairingVM>(idleVm());
 
@@ -244,6 +246,14 @@ export class PairingFacade {
       derivedState: 'online',
       errorMessage: null,
     }));
+
+    // Telemetry: pairing completed with confirmed first heartbeat (FE-EDGE-020)
+    this.observability.emit({
+      event: 'edge.device.paired',
+      moduleKey: 'edge',
+      deviceId: dev.deviceId,
+      derivedState: 'online',
+    });
 
     if (dev.pacienteId) {
       this._lastOutcome.set({
