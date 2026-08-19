@@ -1,5 +1,6 @@
-# Profile 'test' — Testcontainers (PostgreSQL) + Artemis embedded.
-# DataSource sobrescrito via @DynamicPropertySource em BaseIntegrationTest.
+# Profile 'test' — Testcontainers (PostgreSQL) + Artemis embedded + WireMock (INT-PAC-006).
+# DataSource, WireMock URLs, and JWK URI are overridden at runtime via @DynamicPropertySource
+# in BaseIntegrationTest (PASSO-0 fix: dynamic ports replace fixed 19991-19994).
 spring:
   jpa:
     hibernate:
@@ -8,16 +9,19 @@ spring:
     enabled: false
   artemis:
     mode: embedded
+  # JWK URI is set dynamically by BaseIntegrationTest.@DynamicPropertySource to point to the
+  # JWK WireMock server. The placeholder below is overridden before the context starts.
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+          jwk-set-uri: http://localhost:0/.well-known/jwks.json
 eureka:
   client:
     enabled: false
-# Stub URLs for Feign clients: Spring Cloud Feign validates url= at context load.
-# Properties must be resolvable stubs (never called in BDD dry-run or ArchUnit).
+# INT-PAC-006 (P8) — WireMock stub URLs for all external Feign clients.
+# These values are overridden by @DynamicPropertySource in BaseIntegrationTest with the
+# actual dynamic ports assigned at runtime.
 neuroassist:
   integration:
     gest:
@@ -28,3 +32,28 @@ neuroassist:
       url: http://localhost:19993
     hist:
       url: http://localhost:19994
+# Feign client timeouts for test (short GEST timeout to trigger CB in emergency gate tests)
+feign:
+  client:
+    config:
+      gest-service:
+        connect-timeout: 500
+        read-timeout: 500
+      acs-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      edge-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      hist-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+# Actuator endpoints for BDD health checks (SharedSteps.givenThePacServiceIsRunning)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: always
