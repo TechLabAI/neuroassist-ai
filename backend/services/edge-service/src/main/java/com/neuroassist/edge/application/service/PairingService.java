@@ -9,6 +9,7 @@ import com.neuroassist.edge.domain.model.DispositivoEdge;
 import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
+import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.util.UUID;
@@ -33,6 +34,7 @@ public class PairingService implements PairingUseCase {
     private final DispositivoEdgeTransitionRepositoryPort transitionRepo;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final EdgeMetrics edgeMetrics;
 
     @Override
     public DispositivoEdge pair(UUID deviceId, UUID pacienteId, String actor) {
@@ -93,6 +95,9 @@ public class PairingService implements PairingUseCase {
         // EDGE-016 (P6): publish domain event pos-commit
         eventPublisher.publishEvent(DispositivoPareado.of(deviceId, tenantId, pacienteId, actor));
 
+        // EDGE-017 (P7): pairing transition metric
+        edgeMetrics.recordPairingTransition(fromState, PairingState.paired.name());
+
         return updated;
     }
 
@@ -134,5 +139,8 @@ public class PairingService implements PairingUseCase {
 
         // EDGE-016 (P6): publish domain event pos-commit
         eventPublisher.publishEvent(DispositivoDespareado.of(deviceId, tenantId, reason, actor));
+
+        // EDGE-017 (P7): pairing transition metric
+        edgeMetrics.recordPairingTransition(fromState, PairingState.unpaired.name());
     }
 }

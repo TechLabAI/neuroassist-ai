@@ -1,8 +1,8 @@
 # EDGE-021 -- Implement optimistic-lock row_version enforcement (409 on stale write), Device detail endpoint (GET /devices/{id}), and DeviceListService with pagination
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/4 itens
+**Status:** PARTIAL
+**Maturidade:** 85 -- Maduro
+**Done/Total:** 7/8 itens
 
 ## Contexto
 Hardening: protecao contra writes concorrentes via `row_version` (SPEC-05), endpoint completo GET /devices/{id} com status/drift derivados em read-time (SPEC-01 §4.1), e listagem paginada de devices por tenant (SPEC-01 §4 pagination convention). Estes itens fecham o escopo P9 do EDGE.
@@ -11,9 +11,9 @@ Hardening: protecao contra writes concorrentes via `row_version` (SPEC-05), endp
 - SPEC-05, SPEC-01
 
 ## Escopo
-- [ ] verificar que `@Version` em `DispositivoEdge.rowVersion` esta mapeado e que `OptimisticLockException` e convertida para 409 `optimistic-lock` no `GlobalExceptionHandler` com campo `correlationId`
-- [ ] implementar `DeviceController.getDevice(deviceId)` chamando `LivenessService.evaluate()` e `DetectionProfilePort` para derivar `status`, `profileDrift`, `stalenessThresholdSeconds` em read-time (nao coluna armazenada)
-- [ ] implementar listagem paginada `GET /api/v1/edge/devices?page=0&size=50` com resposta `{items, page, size, total}` filtrando por `tenantId` do JWT (max size=200)
+- [x] verificar que `@Version` em `DispositivoEdge.rowVersion` esta mapeado e que `OptimisticLockException` e convertida para 409 `optimistic-lock` no `GlobalExceptionHandler` com campo `correlationId`
+- [x] implementar `DeviceController.getDevice(deviceId)` chamando `LivenessService.evaluate()` e `DetectionProfilePort` para derivar `status`, `profileDrift`, `stalenessThresholdSeconds` em read-time (nao coluna armazenada)
+- [x] implementar listagem paginada `GET /api/v1/edge/devices?page=0&size=50` com resposta `{items, page, size, total}` filtrando por `tenantId` do JWT (max size=200)
 - [ ] criar teste de integracao: duas requisicoes concorrentes de pair ao mesmo device retornam 409 `optimistic-lock` na segunda
 
 ## Resultado esperado

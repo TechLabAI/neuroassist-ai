@@ -1,8 +1,8 @@
 # EDGE-008 -- Implement HeartbeatService.recordHeartbeat() — server-stamp ultimaSincronizacao, call DetectionProfilePort, raise domain events, detect liveness crossing
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/5 itens
+**Status:** DONE
+**Maturidade:** 85 -- Maduro
+**Done/Total:** 5/5 itens
 
 ## Contexto
 O heartbeat e o evento ancora do EDGE. O servico carimba `ultima_sincronizacao` com o relogio do servidor (nunca do cliente — doc 06 R5), chama `DetectionProfilePort` para obter a versao atual do perfil de deteccao, detecta drift e transicao de liveness (offline -> online), e publica eventos de dominio. Se GEST estiver indisponivel, o heartbeat e aceito no modo degradado (`profilePointerDegraded: true`) — liveness nunca depende de GEST (ADR-006).
@@ -11,11 +11,11 @@ O heartbeat e o evento ancora do EDGE. O servico carimba `ultima_sincronizacao` 
 - SPEC-02, SPEC-10
 
 ## Escopo
-- [ ] implementar `application/service/HeartbeatService.recordHeartbeat(HeartbeatRequest, deviceId, tenantId)` extraindo `deviceId` do SecurityContext de device token (nunca do body — anti-spoofing)
-- [ ] carimbar `ultima_sincronizacao = serverNow()` e gravar `versao = agentVersion`, `runningProfileVersion` no agregado
-- [ ] chamar `DetectionProfilePort.currentPointerForTenant(tenantId)` com fallback degradado (Resilience4j); calcular `profileDrift = (runningProfileVersion != currentProfileVersion)` e publicar `ProfileDriftDetected` se drift
-- [ ] detectar cruzamento offline -> online (verificar `ultima_sincronizacao` anterior vs. `stalenessThreshold=90s`) e, se ocorrer, append `kind=liveness, fromState=offline, toState=online, actor=system` + publicar `DispositivoVoltouOnline`
-- [ ] retornar `HeartbeatResponse` com `serverTime`, `currentProfileVersion`, `profileDrift`, `stalenessThresholdSeconds=90`, `nextHeartbeatSeconds=30`; publicar `HeartbeatRecebido` pos-commit
+- [x] implementar `application/service/HeartbeatService.recordHeartbeat(HeartbeatRequest, deviceId, tenantId)` extraindo `deviceId` do SecurityContext de device token (nunca do body — anti-spoofing)
+- [x] carimbar `ultima_sincronizacao = serverNow()` e gravar `versao = agentVersion`, `runningProfileVersion` no agregado
+- [x] chamar `DetectionProfilePort.currentPointerForTenant(tenantId)` com fallback degradado (Resilience4j); calcular `profileDrift = (runningProfileVersion != currentProfileVersion)` e publicar `ProfileDriftDetected` se drift
+- [x] detectar cruzamento offline -> online (verificar `ultima_sincronizacao` anterior vs. `stalenessThreshold=90s`) e, se ocorrer, append `kind=liveness, fromState=offline, toState=online, actor=system` + publicar `DispositivoVoltouOnline`
+- [x] retornar `HeartbeatResponse` com `serverTime`, `currentProfileVersion`, `profileDrift`, `stalenessThresholdSeconds=90`, `nextHeartbeatSeconds=30`; publicar `HeartbeatRecebido` pos-commit
 
 ## Resultado esperado
 POST /api/v1/edge/heartbeat retorna 200 com `serverTime` carimbado pelo servidor, `profileDrift` correto. GEST indisponivel retorna 200 com `profilePointerDegraded=true`.

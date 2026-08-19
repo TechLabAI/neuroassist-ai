@@ -46,13 +46,42 @@ public class SecurityConfig {
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers("/actuator/health", "/actuator/prometheus")
+                                auth.requestMatchers(
+                                                "/actuator/health",
+                                                "/actuator/info",
+                                                "/actuator/metrics",
+                                                "/actuator/metrics/**",
+                                                "/actuator/prometheus")
                                         .permitAll()
                                         // POST /enroll: no Bearer — guarded by enrollment token
                                         // (api-contract §2.2)
                                         .requestMatchers(
                                                 HttpMethod.POST, "/api/v1/edge/devices/enroll")
                                         .permitAll()
+                                        // Scope enforcement at filter-chain level (defense-in-depth
+                                        // alongside @PreAuthorize; filter-level enforcement is
+                                        // reliable in all test contexts — @WebMvcTest,
+                                        // @SpringBootTest, etc.).
+                                        .requestMatchers(HttpMethod.POST, "/api/v1/edge/devices")
+                                        .hasAuthority("edge.manage")
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/v1/edge/devices/*/retire",
+                                                "/api/v1/edge/devices/*/pairings",
+                                                "/api/v1/edge/devices/*/pairings/current")
+                                        .hasAuthority("edge.manage")
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/v1/edge/devices/*/pairings/current")
+                                        .hasAuthority("edge.manage")
+                                        .requestMatchers(HttpMethod.POST, "/api/v1/edge/heartbeat")
+                                        .hasAuthority("edge.device")
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/v1/edge/devices/*/liveness",
+                                                "/api/v1/edge/patients/*/liveness",
+                                                "/api/v1/edge/patients/*/device")
+                                        .hasAnyAuthority("edge.read", "edge.internal")
                                         .anyRequest()
                                         .authenticated())
                 .oauth2ResourceServer(

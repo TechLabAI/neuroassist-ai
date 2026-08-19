@@ -1,8 +1,8 @@
 # EDGE-007 -- Implement PairingService.pair() and unpair() with exclusive-pairing enforcement, state machine, and audit transitions
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/5 itens
+**Status:** DONE
+**Maturidade:** 85 -- Maduro
+**Done/Total:** 5/5 itens
 
 ## Contexto
 O pareamento e exclusivo: um device ativo por paciente (ADR-005 invariante #1). O `PairingService` aplica a maquina de estados (registered|unpaired -> paired; paired -> unpaired) e registra cada transicao no `DispositivoEdgeTransition` (append-only). Violacoes geram 409. Re-pairing revoga o credential anterior e emite novo.
@@ -11,11 +11,11 @@ O pareamento e exclusivo: um device ativo por paciente (ADR-005 invariante #1). 
 - SPEC-03
 
 ## Escopo
-- [ ] implementar `application/service/PairingService.pair(deviceId, pacienteId, actor, tenantId)` com verificacao de unicidade por `DispositivoEdgeRepositoryPort.findActivePairingForPatient`
-- [ ] implementar `PairingService.unpair(deviceId, reason, actor, tenantId)` verificando estado atual antes da transicao (deve estar `paired`)
-- [ ] em cada operacao: mudar `pairingState`, salvar, e chamar `DispositivoEdgeTransitionRepositoryPort.append` com `kind=pairing` + `fromState`, `toState`, `actor`, `reason`, `at`
-- [ ] publicar `DispositivoPareado` ou `DispositivoDespareado` via `ApplicationEventPublisher` pos-commit
-- [ ] ao realizar re-pairing (device em `unpaired` -> `paired`): revogar credential anterior via `DispositivoCredentialRepositoryPort.revokeByDeviceId` e gerar novo credential antes de transicionar
+- [x] implementar `application/service/PairingService.pair(deviceId, pacienteId, actor, tenantId)` com verificacao de unicidade por `DispositivoEdgeRepositoryPort.findActivePairingForPatient`
+- [x] implementar `PairingService.unpair(deviceId, reason, actor, tenantId)` verificando estado atual antes da transicao (deve estar `paired`)
+- [x] em cada operacao: mudar `pairingState`, salvar, e chamar `DispositivoEdgeTransitionRepositoryPort.append` com `kind=pairing` + `fromState`, `toState`, `actor`, `reason`, `at`
+- [x] publicar `DispositivoPareado` ou `DispositivoDespareado` via `ApplicationEventPublisher` pos-commit
+- [x] ao realizar re-pairing (device em `unpaired` -> `paired`): revogar credential anterior via `DispositivoCredentialRepositoryPort.revokeByDeviceId` e gerar novo credential antes de transicionar
 
 ## Resultado esperado
 POST /devices/{id}/pairings retorna 201 paired; DELETE /pairings/current retorna 204; violacoes de exclusividade retornam 409.

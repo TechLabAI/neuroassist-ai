@@ -34,19 +34,26 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
   metrics:
     tags:
       application: ${spring.application.name}
+      module: EDGE
+
+info:
+  app:
+    version: 0.0.1-SNAPSHOT
+    module: EDGE
+    description: "edge-service — Device authority microservice"
 
 logging:
-  pattern:
-    console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"
   level:
     com.neuroassist.edge: INFO
+    org.springframework.security: WARN
+    org.hibernate: WARN
 
 neuroassist:
   edge:

@@ -12,6 +12,7 @@ import com.neuroassist.edge.domain.model.DispositivoEdge;
 import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
+import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
@@ -32,6 +33,7 @@ class PairingServiceTest {
     @Mock private DispositivoEdgeRepositoryPort deviceRepo;
     @Mock private DispositivoEdgeTransitionRepositoryPort transitionRepo;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private EdgeMetrics edgeMetrics;
 
     private final DispositivoEdgeDomainService domainService = new DispositivoEdgeDomainService();
     private PairingService sut;
@@ -41,7 +43,9 @@ class PairingServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new PairingService(deviceRepo, transitionRepo, domainService, eventPublisher);
+        sut =
+                new PairingService(
+                        deviceRepo, transitionRepo, domainService, eventPublisher, edgeMetrics);
         TenantContextHolder.set(TENANT);
     }
 

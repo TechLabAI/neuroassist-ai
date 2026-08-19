@@ -12,6 +12,7 @@ import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.DispositivoEnrollment;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
+import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.nio.charset.StandardCharsets;
@@ -46,6 +47,7 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
     private final DispositivoEdgeTransitionRepositoryPort transitionRepo;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final EdgeMetrics edgeMetrics;
 
     @Value("${neuroassist.edge.enrollment.ttl-seconds:900}")
     private long enrollmentTtlSeconds;
@@ -222,6 +224,9 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
         deviceRepo.save(retired);
 
         log.info("Device retired deviceId='{}' actor='{}'", deviceId, actor);
+
+        // EDGE-017 (P7): pairing transition metric for retire terminal operation
+        edgeMetrics.recordPairingTransition(fromState, PairingState.retired.name());
     }
 
     // ---- Helpers (private) ----

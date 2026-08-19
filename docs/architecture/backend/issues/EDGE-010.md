@@ -1,8 +1,8 @@
 # EDGE-010 -- Implement JPA adapters for all four EDGE repository ports (DispositivoEdge, Enrollment, Credential, Transition) with multi-tenant schema routing
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/6 itens
+**Status:** DONE
+**Maturidade:** 85 -- Maduro
+**Done/Total:** 6/6 itens
 
 ## Contexto
 Os quatro adapters JPA implementam as interfaces de porta do dominio usando Spring Data JPA com schema routing por tenant. O routing e transparente ao dominio — o adapter escolhe o datasource correto baseado no `TenantContextHolder`. O adapter de Transition e append-only (sem update/delete).
@@ -11,12 +11,12 @@ Os quatro adapters JPA implementam as interfaces de porta do dominio usando Spri
 - SPEC-04
 
 ## Escopo
-- [ ] criar `infrastructure/persistence/DispositivoEdgeJpaAdapter.java` implementando `DispositivoEdgeRepositoryPort` usando `DispositivoEdgeJpaRepository extends JpaRepository`; incluir query `findActivePairingForPatient` com WHERE `pairing_state = 'paired' AND paciente_id = :pacienteId`
-- [ ] criar `infrastructure/persistence/DispositivoEnrollmentJpaAdapter.java` implementando `DispositivoEnrollmentRepositoryPort` com busca por `token_hash`
-- [ ] criar `infrastructure/persistence/DispositivoCredentialJpaAdapter.java` implementando `DispositivoCredentialRepositoryPort` (inclui `revokeByDeviceId` via JPQL UPDATE status/revoked_at)
-- [ ] criar `infrastructure/persistence/DispositivoEdgeTransitionJpaAdapter.java` implementando append-only `DispositivoEdgeTransitionRepositoryPort` (sem update/delete)
-- [ ] criar `infrastructure/config/MultiTenantDataSourceConfig.java` (SchemaRoutingDataSource, TenantContextHolder, schema prefix `t_`)
-- [ ] configurar 503 rapido quando schema do tenant nao existe (SchemaRoutingDataSource lanca `TenantSchemaNotFoundException`)
+- [x] criar `infrastructure/persistence/DispositivoEdgeJpaAdapter.java` implementando `DispositivoEdgeRepositoryPort` usando `DispositivoEdgeJpaRepository extends JpaRepository`; incluir query `findActivePairingForPatient` com WHERE `pairing_state = 'paired' AND paciente_id = :pacienteId`
+- [x] criar `infrastructure/persistence/DispositivoEnrollmentJpaAdapter.java` implementando `DispositivoEnrollmentRepositoryPort` com busca por `token_hash`
+- [x] criar `infrastructure/persistence/DispositivoCredentialJpaAdapter.java` implementando `DispositivoCredentialRepositoryPort` (inclui `revokeByDeviceId` via JPQL UPDATE status/revoked_at)
+- [x] criar `infrastructure/persistence/DispositivoEdgeTransitionJpaAdapter.java` implementando append-only `DispositivoEdgeTransitionRepositoryPort` (sem update/delete)
+- [x] criar `infrastructure/config/MultiTenantDataSourceConfig.java` (SchemaRoutingDataSource, TenantContextHolder, schema prefix `t_`)
+- [x] configurar 503 rapido quando schema do tenant nao existe (SchemaRoutingDataSource lanca `TenantSchemaNotFoundException`)
 
 ## Resultado esperado
 Testes de integracao (Testcontainers) executam operacoes CRUD em todas as quatro tabelas com routing correto por tenant.

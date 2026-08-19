@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -22,42 +23,64 @@ import org.springframework.web.filter.OncePerRequestFilter;
  *
  * <p>Validates the optional {@code X-Tenant-Id} header against the JWT claim: if present and
  * mismatched, the request is rejected with 403 to prevent tenant spoofing.
+ *
+ * <p>P7 addition (EDGE-018): also populates MDC keys {@code tenantId} and {@code actor} (JWT {@code
+ * sub} claim) for structured logging. Cleared in {@code finally} to prevent ThreadLocal leak across
+ * pooled threads.
  */
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String JWT_CLAIM_TENANT_ID = "tenant_id";
     private static final String HEADER_TENANT_ID = "X-Tenant-Id";
 
+    // MDC keys (EDGE-018, P7) — must match logback-spring.xml MDC fields
+    static final String MDC_TENANT_ID = "tenantId";
+    static final String MDC_ACTOR = "actor";
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String tenantId = extractTenantIdFromJwt();
-        if (tenantId != null) {
+        JwtClaims claims = extractClaimsFromJwt();
+        if (claims.tenantId() != null) {
             String headerTenant = request.getHeader(HEADER_TENANT_ID);
-            if (headerTenant != null && !headerTenant.isBlank() && !headerTenant.equals(tenantId)) {
+            if (headerTenant != null
+                    && !headerTenant.isBlank()
+                    && !headerTenant.equals(claims.tenantId())) {
                 response.setStatus(HttpServletResponse.SC_FORBIDDEN);
                 response.getWriter().write("{\"error\":\"tenant_mismatch\"}");
                 return;
             }
-            TenantContextHolder.set(tenantId);
+            TenantContextHolder.set(claims.tenantId());
+            MDC.put(MDC_TENANT_ID, claims.tenantId());
+        }
+        if (claims.actor() != null) {
+            MDC.put(MDC_ACTOR, claims.actor());
         }
         try {
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
+            MDC.remove(MDC_TENANT_ID);
+            MDC.remove(MDC_ACTOR);
         }
     }
 
-    private String extractTenantIdFromJwt() {
+    private JwtClaims extractClaimsFromJwt() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
             if (jwt != null) {
-                Object claim = jwt.getClaim(JWT_CLAIM_TENANT_ID);
-                return claim == null ? null : claim.toString();
+                Object tenantClaim = jwt.getClaim(JWT_CLAIM_TENANT_ID);
+                Object subClaim = jwt.getClaim("sub");
+                String tenantId = tenantClaim == null ? null : tenantClaim.toString();
+                String actor = subClaim == null ? null : subClaim.toString();
+                return new JwtClaims(tenantId, actor);
             }
         }
-        return null;
+        return new JwtClaims(null, null);
     }
+
+    /** Value object for extracted JWT claims (tenantId + actor/sub). */
+    private record JwtClaims(String tenantId, String actor) {}
 }

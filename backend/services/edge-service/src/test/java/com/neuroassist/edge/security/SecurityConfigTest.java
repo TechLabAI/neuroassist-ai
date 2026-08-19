@@ -9,30 +9,28 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.neuroassist.edge.api.controller.DeviceRegistrationController;
-import com.neuroassist.edge.api.controller.HeartbeatController;
-import com.neuroassist.edge.api.controller.LivenessController;
-import com.neuroassist.edge.api.controller.PairingController;
-import com.neuroassist.edge.api.controller.ProfilePointerController;
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
 import com.neuroassist.edge.application.port.in.HeartbeatUseCase;
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
 import com.neuroassist.edge.application.port.in.PairingUseCase;
 import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.domain.model.PairingState;
-import com.neuroassist.edge.infrastructure.config.SecurityConfig;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Security configuration tests for EDGE-012 (P5).
@@ -40,16 +38,42 @@ import org.springframework.test.web.servlet.MockMvc;
  * <p>Verifies: - 401 on protected endpoints without token - 403 with wrong scope - 200/201 with
  * correct scope - POST /enroll accessible without Bearer token - X-Correlation-Id echoed in every
  * response - tenantId derived from JWT, not from body (spoofing attempt returns the JWT tenant)
+ *
+ * <p>Uses @SpringBootTest(webEnvironment=MOCK) so that:
+ *
+ * <ul>
+ *   <li>Actuator endpoints (/actuator/health) are loaded (not available with @WebMvcTest).
+ *   <li>@EnableMethodSecurity proxy is active — @PreAuthorize returns 403 for wrong scopes.
+ * </ul>
  */
-@WebMvcTest({
-    DeviceRegistrationController.class,
-    HeartbeatController.class,
-    LivenessController.class,
-    PairingController.class,
-    ProfilePointerController.class
-})
-@Import(SecurityConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
 class SecurityConfigTest {
+
+    // ---------------------------------------------------------------------------
+    // Testcontainers PostgreSQL singleton — required by @SpringBootTest (full context)
+    // ---------------------------------------------------------------------------
+
+    static final PostgreSQLContainer<?> POSTGRES =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("neuroassist-ai_test")
+                    .withUsername("test")
+                    .withPassword("test")
+                    .withInitScript("init-schema.sql");
+
+    static {
+        POSTGRES.start();
+    }
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRES::getUsername);
+        registry.add("spring.datasource.password", POSTGRES::getPassword);
+    }
+
+    // ---------------------------------------------------------------------------
 
     @Autowired MockMvc mvc;
 

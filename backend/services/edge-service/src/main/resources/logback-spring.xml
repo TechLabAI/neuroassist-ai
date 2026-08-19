@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  logback-spring.xml — edge-service structured logging (EDGE-018, P7)
+
+  Outputs one JSON object per line using logstash-logback-encoder.
+  All MDC fields are automatically included in the JSON output:
+    - correlationId  (set by CorrelationIdFilter, EDGE-013)
+    - tenantId       (set by TenantContextFilter after JWT auth, EDGE-013/P7)
+    - actor          (set by TenantContextFilter from JWT sub claim, P7)
+    - deviceId       (set by HeartbeatService for heartbeat-scoped logs, P7)
+
+  Privacy guarantee (EDGE-018 invariant): the CredentialMaskingConverter masks
+  cs_[hex] (client secrets) and et_[hex] (enrollment tokens) if they ever appear
+  in a formatted log message. Production code does not log these values directly,
+  so the converter is a defence-in-depth measure.
+-->
+<configuration>
+
+    <!--
+      Masking conversion rule — registered for use in PatternLayout patterns (%maskedMsg).
+      Masks cs_* and et_* credential token patterns as defence-in-depth (LGPD, EDGE-018).
+    -->
+    <conversionRule conversionWord="maskedMsg"
+                    converterClass="com.neuroassist.edge.infrastructure.logging.CredentialMaskingConverter"/>
+
+    <!--
+      JSON appender — primary format (EDGE-018, P7).
+      Uses logstash-logback-encoder; outputs one JSON object per line.
+      All MDC fields (correlationId, tenantId, actor, deviceId) are automatically
+      included by LogstashEncoder — no explicit includeMdcKeyName needed.
+    -->
+    <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Static service identifier fields in every log event -->
+            <customFields>{"service":"edge-service","module":"EDGE"}</customFields>
+            <!-- Compact stack traces to reduce log volume -->
+            <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                <maxDepthPerCause>10</maxDepthPerCause>
+                <maxLength>1000</maxLength>
+                <rootCauseFirst>true</rootCauseFirst>
+            </throwableConverter>
+        </encoder>
+    </appender>
+
+    <!--
+      Plain-text appender — human-readable for local development.
+      Includes MDC fields and uses %maskedMsg for credential masking.
+    -->
+    <appender name="PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level [%X{correlationId:-no-corr}] [%X{tenantId:-no-tenant}] [%X{deviceId:-}] %logger{36} - %maskedMsg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Root logger: JSON for all profiles except 'local' -->
+    <springProfile name="!local">
+        <root level="INFO">
+            <appender-ref ref="JSON"/>
+        </root>
+        <logger name="com.neuroassist.edge" level="INFO"/>
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.springframework.cloud" level="WARN"/>
+    </springProfile>
+
+    <!-- Local development: human-readable plain text -->
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="PLAIN"/>
+        </root>
+        <logger name="com.neuroassist.edge" level="DEBUG"/>
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.springframework.cloud" level="WARN"/>
+    </springProfile>
+
+</configuration>
