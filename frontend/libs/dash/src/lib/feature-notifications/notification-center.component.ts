@@ -17,7 +17,7 @@ import { NotificationsFacade } from '../notifications.facade';
 // =============================================================================
 
 @Component({
-  selector: 'dash-notification-center',
+  selector: 'lib-notification-center',
   standalone: true,
   imports: [RouterLink],
   template: `

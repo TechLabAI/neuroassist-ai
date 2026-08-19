@@ -42,6 +42,10 @@ export type { DashProviderConfig } from './lib/dash.providers';
 export { DASH_AUTH_SESSION, DASH_ACCESS_DECISION } from './lib/access/dash-access-tokens';
 export type { DashAuthSession, DashAccessDecision } from './lib/access/dash-access-tokens';
 
+// Cross-module injection tokens (INT-FE-DASH-001 / INT-FE-DASH-002)
+export { DASH_ACTIVE_EVENT_TOKEN, DASH_DEVICE_BADGE_TOKEN } from './lib/access/dash-access-tokens';
+export type { ActiveEventVm, DeviceBadgeVm } from './lib/access/dash-access-tokens';
+
 // Feature components exported for scope:web top-level routes
 // (EntradaComponent is rendered OUTSIDE the shell chrome — registered in app.routes.ts directly)
 export { EntradaComponent } from './lib/feature-entrada/entrada.component';
@@ -51,3 +55,16 @@ export { DASH_SUMMARY_PORT } from './lib/api/dash-summary.port';
 export { DASH_NOTIFICATIONS_PORT } from './lib/api/dash-notifications.port';
 export type { DashSummaryPort } from './lib/api/dash-summary.port';
 export type { DashNotificationsPort } from './lib/api/dash-notifications.port';
+
+// Shell integration + lifecycle bootstrap (FE-DASH-018, FE-DASH-019)
+export { DashShellIntegrationService } from './lib/integration/dash-shell-integration.service';
+export type {
+  DashShellRegistry,
+  DashBreadcrumbItem as DashIntegrationBreadcrumbItem,
+  DashBreadcrumbPort,
+} from './lib/integration/dash-shell-integration.service';
+export { dashInit, dashDestroy } from './lib/dash.bootstrap';
+
+// Navigation breadcrumbs (FE-DASH-020)
+export { DASH_BREADCRUMBS } from './lib/dash-nav-config';
+export type { DashBreadcrumbItem } from './lib/dash-nav-config';

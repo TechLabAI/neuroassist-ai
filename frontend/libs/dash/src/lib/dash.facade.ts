@@ -2,6 +2,7 @@ import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core'
 import { lastValueFrom } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DASH_SUMMARY_PORT } from './api/dash-summary.port';
+import { DASH_ACTIVE_EVENT_TOKEN } from './access/dash-access-tokens';
 import {
   DashSummaryResponse,
   HomeScreenVm,
@@ -17,7 +18,7 @@ import {
 // Aggregates GET /panel/summary for the HomeStatusComponent.
 // Components interact ONLY with this facade; never with ports/adapters directly.
 // SSE stream integration handled by DashStreamClient (scope:web layer) — out of DASH scope.
-// TODO[INT-FE-DASH-001]: activeEvent from EVNT injected at scope:web (not a DASH dep).
+// DONE[INT-FE-DASH-001]: activeEvent injected via DASH_ACTIVE_EVENT_TOKEN (safe default: signal(null)).
 // TODO[INT-FE-DASH-002]: deviceBadge from EDGE injected at scope:web (not a DASH dep).
 // =============================================================================
 
@@ -36,6 +37,8 @@ function mapError(err: unknown, fallback: string): AppError {
 export class DashHomeFacade {
   private readonly summaryPort = inject(DASH_SUMMARY_PORT);
   private readonly destroyRef = inject(DestroyRef);
+  /** External activeEvent signal from EVNT (via scope:web DI). Safe default: signal(null). */
+  private readonly activeEvent = inject(DASH_ACTIVE_EVENT_TOKEN);
 
   // ---------------------------------------------------------------------------
   // Private writable signals
@@ -81,6 +84,19 @@ export class DashHomeFacade {
   readonly hasDegradedSections = computed<boolean>(
     () => (this.#summary()?.degradedSections.length ?? 0) > 0,
   );
+
+  /**
+   * Security invariant — calm: true when there is NO active EVNT alarm.
+   *
+   * Derived exclusively from DASH_ACTIVE_EVENT_TOKEN (EVNT signal), NEVER from
+   * the aggregate summary or unacknowledgedCount. This ensures that the
+   * HomeStatusComponent cannot show a "patient is well" state while an alarm
+   * is active in EVNT — regardless of summary polling latency (SPEC-01 §3).
+   *
+   * calm === true  → activeEvent is null  → normal care, no emergency
+   * calm === false → activeEvent is set   → active alarm, action required
+   */
+  readonly calm = computed<boolean>(() => this.activeEvent() === null);
 
   /** Assembled screen VM. */
   readonly screenVm = computed<HomeScreenVm>(() => ({
