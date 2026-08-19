@@ -19,5 +19,5 @@ import org.junit.platform.suite.api.*;
 @ConfigurationParameter(
         key = Constants.PLUGIN_PROPERTY_NAME,
         value = "pretty, html:build/reports/cucumber/cucumber-report.html")
-@ConfigurationParameter(key = Constants.EXECUTION_DRY_RUN_PROPERTY_NAME, value = "true")
+@ConfigurationParameter(key = Constants.EXECUTION_DRY_RUN_PROPERTY_NAME, value = "false")
 public class CucumberIT {}
