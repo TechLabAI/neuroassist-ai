@@ -3,6 +3,11 @@ spring:
     name: neuroassist-ai-migrations
   main:
     web-application-type: none
+  datasource:
+    url: ${FLYWAY_URL:jdbc:postgresql://localhost:5432/teste_e2e}
+    username: ${FLYWAY_USER:teste_e2e}
+    password: ${FLYWAY_PASSWORD:teste_e2e}
+    driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
     url: ${FLYWAY_URL:jdbc:postgresql://localhost:5432/teste_e2e}

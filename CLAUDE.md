@@ -54,7 +54,7 @@
 | GEST | Detecção de Gesto (Edge) | `gest-service` | `libs/gest` | 8084 | ✅ scaffolded + P1-P9 done |
 | EVNT | Eventos e Alarmes | `evnt-service` | `libs/evnt` | 8085 | ✅ scaffolded + P1-P9 done |
 | PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded + P1-P9 done (160/160 BDD) |
-| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | 🔄 P1-P6 done (72/100) — P7 open (ACS-026: signing key persistida + refresh token real) |
+| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | ✅ scaffolded + P1-P7 done (26/26 issues, 85/100 Maduro) — PRODUCTION-READY |
 | EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | ✅ scaffolded + P1-P10 done |
 | HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | ✅ scaffolded + P1-P10 done (92/92 tests, 100/100) |
 | DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | ✅ scaffolded + P1-P8 done (100/100) |

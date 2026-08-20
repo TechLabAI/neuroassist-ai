@@ -1,7 +1,7 @@
 package com.neuroassist.gest.infrastructure.clients;
 
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
-import com.neuroassist.gest.infrastructure.clients.dto.TenantResponse;
+import com.neuroassist.gest.infrastructure.clients.TenantPairingResponse;
 import com.neuroassist.gest.shared.error.CodedException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -37,7 +37,7 @@ public class EdgePairingAdapter implements EdgePairingPort {
     @Override
     public String checkPairingAndGetTenant(UUID deviceId) {
         try {
-            TenantResponse response = edgePairingClient.getTenantForDevice(deviceId);
+            TenantPairingResponse response = edgePairingClient.checkPairingAndGetTenant(deviceId);
             if (!response.paired()) {
                 log.warn("Device {} exists in edge-service but is not paired", deviceId);
                 throw new CodedException("device-not-paired", "Device not paired: " + deviceId)
