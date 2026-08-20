@@ -65,8 +65,8 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
-    // WireMock — HTTP doubles for 5 upstream services
-    testImplementation("org.wiremock:wiremock:3.3.1")
+    // WireMock standalone — HTTP doubles for 5 upstream services (standalone shades Jetty to avoid classpath conflict)
+    testImplementation("org.wiremock:wiremock-standalone:3.3.1")
 
 }
 

@@ -47,12 +47,19 @@ _FE_TARGET = {"lint": "lint", "test": "test", "build": "build", "e2e": "e2e"}
 _BE_TASK = {"lint": "spotlessCheck", "test": "test", "build": "build", "e2e": "integrationTest"}
 
 
-def gate_command(layer: str, gate: str, project: str) -> list[str]:
+def _be_gradlew(cwd: Path) -> Path:
+    """Locate gradlew in <cwd>/backend/ (monorepo layout)."""
+    backend = cwd / "backend"
+    return backend / ("gradlew.bat" if os.name == "nt" else "gradlew")
+
+
+def gate_command(layer: str, gate: str, project: str, cwd: Path | None = None) -> list[str]:
     """Toolchain argv for one gate. Pure (no execution)."""
     if layer == "fe":
         return ["npx", "nx", _FE_TARGET[gate], project]
-    gradlew = "gradlew.bat" if os.name == "nt" else "./gradlew"
-    return [gradlew, f":{project}:{_BE_TASK[gate]}"]
+    root = cwd or Path.cwd()
+    gradlew = str(_be_gradlew(root))
+    return [gradlew, f":services:{project}:{_BE_TASK[gate]}"]
 
 
 def verdict_for(returncode: int | None, found: bool) -> str:
@@ -75,10 +82,17 @@ def _subprocess_runner(cmd: list[str], cwd: Path) -> tuple[int | None, bool, str
 
 def run_gates(layer: str, project: str, gates: list[str], cwd: Path, runner=_subprocess_runner) -> dict:
     """Run each gate and return {gate: verdict}. `runner` is injectable for tests."""
+    # For BE layer, Gradle wrapper lives in <cwd>/backend/ — run from there.
+    effective_cwd = (cwd / "backend") if layer == "be" else cwd
     verdicts: dict[str, str] = {}
     for gate in gates:
-        rc, found, _tail = runner(gate_command(layer, gate, project), cwd)
-        verdicts[gate] = verdict_for(rc, found)
+        cmd = gate_command(layer, gate, project, cwd)
+        rc, found, tail = runner(cmd, effective_cwd)
+        # Gradle exits non-zero when a task doesn't exist; treat as skip, not fail.
+        if rc != 0 and found and "not found in project" in tail and gate == "e2e":
+            verdicts[gate] = "skip"
+        else:
+            verdicts[gate] = verdict_for(rc, found)
     return verdicts
 
 

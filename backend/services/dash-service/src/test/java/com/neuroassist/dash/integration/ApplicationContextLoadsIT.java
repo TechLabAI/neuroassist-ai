@@ -4,17 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
-class ApplicationContextLoadsIT extends BaseIntegrationTest {
+class ApplicationContextLoadsIT extends BaseIntegrationTest implements ApplicationContextAware {
 
-    private final ApplicationContext context;
+    private ApplicationContext context;
 
-    public ApplicationContextLoadsIT(
-            org.springframework.boot.test.web.client.TestRestTemplate restTemplate,
-            com.neuroassist.dash.infrastructure.sse.PanelSessionRegistry panelSessionRegistry,
-            ApplicationContext context) {
-        super(restTemplate, panelSessionRegistry);
-        this.context = context;
+    @Override
+    public void setApplicationContext(ApplicationContext ctx) {
+        this.context = ctx;
     }
 
     @Test

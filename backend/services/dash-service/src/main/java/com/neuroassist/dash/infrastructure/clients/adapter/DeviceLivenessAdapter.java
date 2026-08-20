@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class DeviceLivenessAdapter implements DeviceLivenessPort {
 
-    private static final String DEGRADED_STATUS = "UNKNOWN";
+    private static final String DEGRADED_STATUS = "unknown";
 
     private final EdgeClient edgeClient;
 

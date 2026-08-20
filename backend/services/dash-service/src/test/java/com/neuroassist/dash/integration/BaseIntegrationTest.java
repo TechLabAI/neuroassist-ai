@@ -12,7 +12,6 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -88,19 +87,12 @@ public abstract class BaseIntegrationTest {
                 () -> "http://localhost:" + acsWireMock.port() + "/.well-known/jwks.json");
     }
 
-    @AfterAll
-    static void stopWireMocks() {
-        acsWireMock.stop();
-        pacWireMock.stop();
-        evntWireMock.stop();
-        histWireMock.stop();
-        edgeWireMock.stop();
-    }
-
     protected TestRestTemplate restTemplate;
+
     protected PanelSessionRegistry panelSessionRegistry;
 
-    public BaseIntegrationTest(
+    @Autowired
+    void injectTestDependencies(
             TestRestTemplate restTemplate, PanelSessionRegistry panelSessionRegistry) {
         this.restTemplate = restTemplate;
         this.panelSessionRegistry = panelSessionRegistry;
@@ -108,15 +100,20 @@ public abstract class BaseIntegrationTest {
 
     @BeforeEach
     void resetAllWireMocks() {
+        resetAndRestub();
+    }
+
+    /**
+     * Reseta todos os WireMock servers e re-stub JWKS. Chamado pelo @BeforeEach para testes JUnit
+     * comuns, e pelo hook Cucumber @Before (via BddHooks) entre cenarios BDD.
+     */
+    public static void resetAndRestub() {
         acsWireMock.resetAll();
         pacWireMock.resetAll();
         evntWireMock.resetAll();
         histWireMock.resetAll();
         edgeWireMock.resetAll();
-        // Re-stub JWKS apos reset
         stubJwks(acsWireMock);
-        // Fecha todas as sessoes SSE abertas por testes anteriores
-        // (PanelSessionRegistry e stateful in-memory)
     }
 
     // ---- helpers ----

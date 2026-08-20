@@ -60,7 +60,7 @@ public final class JwtTestHelper {
             JWTClaimsSet.Builder claimsBuilder =
                     new JWTClaimsSet.Builder()
                             .subject(subject)
-                            .issuer("test-issuer")
+                            .issuer("http://localhost:8180/realms/neuroassist-ai")
                             .issueTime(new Date())
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
                             .claim("authorities", authorities);

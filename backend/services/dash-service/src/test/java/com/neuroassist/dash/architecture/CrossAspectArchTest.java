@@ -93,7 +93,10 @@ public class CrossAspectArchTest {
                     "pac.comando-lifecycle.recalibrar",
                     "pac.paciente.criar",
                     "pac.paciente.editar",
-                    "pac.paciente.read");
+                    "pac.paciente.read",
+                    // Role-level authorities used by dash-service @PreAuthorize guards
+                    "ROLE_CAREGIVER",
+                    "SVC_EVNT");
 
     private static final Set<String> ENTITY_SCOPE_FILTER_NAMES =
             Set.of(
