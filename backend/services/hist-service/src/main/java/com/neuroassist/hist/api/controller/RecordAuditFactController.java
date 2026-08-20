@@ -110,7 +110,10 @@ public class RecordAuditFactController {
         return auditRecordQueryUseCase
                 .findById(id, tenantId)
                 .map(record -> ResponseEntity.ok(toResponse(record)))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseThrow(
+                        () ->
+                                new java.util.NoSuchElementException(
+                                        "Audit record not found: " + id));
     }
 
     // ---- helpers ----

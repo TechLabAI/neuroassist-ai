@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -34,6 +35,29 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final String TYPE_BASE = "https://neuroassist-ai.com/errors/";
+
+    /**
+     * Resource not found — {@code NoSuchElementException} thrown by controllers when a record does
+     * not exist in the caller's tenant → 404 Not Found (RFC 7807 ProblemDetail).
+     */
+    @ExceptionHandler(NoSuchElementException.class)
+    public ProblemDetail handleNotFound(NoSuchElementException ex, HttpServletRequest req) {
+        log.warn("Resource not found: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        pd.setTitle("Not Found");
+        pd.setDetail(ex.getMessage());
+        pd.setType(URI.create(TYPE_BASE + "not-found"));
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty(
+                "error",
+                Map.of(
+                        "code", "not-found",
+                        "category", "resource",
+                        "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
+                        "timestamp", OffsetDateTime.now().toString(),
+                        "context", Map.of()));
+        return pd;
+    }
 
     /**
      * Bad request exceptions (incomplete filter, invalid time window, etc.) → 400 Bad Request.

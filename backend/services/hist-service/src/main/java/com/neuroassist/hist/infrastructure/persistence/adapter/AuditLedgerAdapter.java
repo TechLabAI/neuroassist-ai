@@ -8,6 +8,8 @@ import com.neuroassist.hist.domain.model.SubjectType;
 import com.neuroassist.hist.infrastructure.persistence.entity.AuditRecordJpaEntity;
 import com.neuroassist.hist.infrastructure.security.TenantContextHolder;
 import jakarta.persistence.EntityManager;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -54,14 +56,23 @@ public class AuditLedgerAdapter implements AuditLedgerPort {
                 .caregiverId(actor != null ? actor.caregiverId() : null)
                 .actorDisplayName(actor != null ? actor.displayNameSnapshot() : null)
                 .payload(r.payload())
-                .occurredAt(r.occurredAt())
-                .recordedAt(r.recordedAt())
+                // Truncate to microseconds before persisting: PostgreSQL TIMESTAMPTZ has
+                // microsecond precision and ROUNDS sub-microsecond nanoseconds, which would
+                // produce a different value than the truncation used in SHA-256 canonical form
+                // (Sha256HashChainAdapter.canonicalize), causing spurious hash mismatches during
+                // chain verification (ADR-006, Windows JVM 100-ns Instant precision).
+                .occurredAt(truncateMicros(r.occurredAt()))
+                .recordedAt(truncateMicros(r.recordedAt()))
                 .streamKey(r.streamKey())
                 .sequenceNo(r.sequenceNo())
                 .prevHash(r.prevHash())
                 .recordHash(r.recordHash())
                 .correctsRecordId(r.correctsRecordId())
                 .build();
+    }
+
+    private static Instant truncateMicros(Instant instant) {
+        return instant != null ? instant.truncatedTo(ChronoUnit.MICROS) : null;
     }
 
     /** Converts a JPA entity back to the domain record (used by read paths in other adapters). */

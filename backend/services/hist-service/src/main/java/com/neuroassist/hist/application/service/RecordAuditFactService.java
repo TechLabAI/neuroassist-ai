@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
@@ -89,7 +90,10 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
      */
     @Override
     @Retryable(
-            retryFor = {PessimisticLockingFailureException.class},
+            retryFor = {
+                PessimisticLockingFailureException.class,
+                DataIntegrityViolationException.class
+            },
             maxAttemptsExpression = "${hist.retry.max-attempts:3}",
             backoff = @Backoff(delayExpression = "${hist.retry.backoff-ms:50}"))
     @Transactional

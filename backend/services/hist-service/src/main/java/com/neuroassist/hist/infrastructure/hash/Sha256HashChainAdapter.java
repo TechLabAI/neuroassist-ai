@@ -8,6 +8,7 @@ import com.neuroassist.hist.domain.model.HashChain;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 import java.util.TreeMap;
 import lombok.extern.slf4j.Slf4j;
@@ -75,11 +76,26 @@ public class Sha256HashChainAdapter implements HashChainPort {
         map.put("factId", r.factId() != null ? r.factId().toString() : null);
         map.put("factType", r.factType());
         map.put("id", r.id() != null ? r.id().toString() : null);
-        map.put("occurredAt", r.occurredAt() != null ? r.occurredAt().toString() : null);
-        // payload included for integrity; never logged in cleartext (LGPD)
-        map.put("payload", r.payload());
+        // Truncate to microseconds before stringifying — PostgreSQL stores TIMESTAMP with
+        // microsecond precision; Instant.now() on some JVMs (Windows) may return sub-microsecond
+        // nanoseconds that would produce a different toString() representation after a DB
+        // round-trip,
+        // causing spurious hash mismatches during chain verification (ADR-006).
+        map.put(
+                "occurredAt",
+                r.occurredAt() != null
+                        ? r.occurredAt().truncatedTo(ChronoUnit.MICROS).toString()
+                        : null);
+        // payload included for integrity; never logged in cleartext (LGPD).
+        // Normalize null and empty-map to null so that a DB round-trip (JsonMapConverter stores
+        // null as "{}") produces the same canonical form as the original null at ingestion time.
+        map.put("payload", (r.payload() == null || r.payload().isEmpty()) ? null : r.payload());
         map.put("prevHash", r.prevHash());
-        map.put("recordedAt", r.recordedAt() != null ? r.recordedAt().toString() : null);
+        map.put(
+                "recordedAt",
+                r.recordedAt() != null
+                        ? r.recordedAt().truncatedTo(ChronoUnit.MICROS).toString()
+                        : null);
         map.put("sequenceNo", r.sequenceNo());
         map.put("streamKey", r.streamKey());
         map.put("tenantId", r.tenantId());

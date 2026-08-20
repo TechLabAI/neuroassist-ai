@@ -160,6 +160,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
+                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("evnt.alarm.raised"));
@@ -200,6 +201,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
+                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("pac.command.created"));
@@ -240,6 +242,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
+                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("acs.caregiver.onboarded"));
@@ -284,6 +287,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
+                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("edge.session.started"));
@@ -323,6 +327,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
+                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isUnprocessableEntity());
     }

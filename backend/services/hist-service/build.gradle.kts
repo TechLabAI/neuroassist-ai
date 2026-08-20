@@ -51,6 +51,10 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 
+    // Retry (HIST-022 — stream-tip contention hardening, maxAttempts=3, backoff=50ms)
+    implementation("org.springframework.retry:spring-retry")
+    implementation("org.springframework:spring-aspects")
+
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.34")
     annotationProcessor("org.projectlombok:lombok:1.18.34")

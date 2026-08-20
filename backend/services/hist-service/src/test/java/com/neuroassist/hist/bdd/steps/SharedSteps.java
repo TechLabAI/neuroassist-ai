@@ -47,22 +47,31 @@ public class SharedSteps {
                     .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     /**
-     * Truncates all tenant-specific ledger tables before each scenario so that sequenceNo counters
-     * and stream heads are reset to a clean state. Uses schema-qualified table names to bypass the
-     * multi-tenant search_path mechanism.
+     * Truncates all ledger tables before each scenario so that sequenceNo counters and stream heads
+     * are reset to a clean state.
+     *
+     * <p>With ddl-auto: create-drop, Hibernate creates tables via selectAnyDataSource() which
+     * returns the raw HikariCP DataSource with default search_path ($user, public). Since the
+     * "test" user schema does not exist, PostgreSQL falls back to the public schema. All tenant
+     * data therefore lands in public.audit_record / public.stream_head / public.audit_idempotency
+     * regardless of the JWT tenant claim (which only controls the search_path for Hibernate
+     * sessions, not table creation).
+     *
+     * <p>Strategy: try all candidate schemas (public + both tenant schemas) so the cleanup works
+     * regardless of where the tables were created.
      *
      * <p>Order 0 — runs before all other @Before hooks (including resetWireMock).
      */
     @Before(order = 0)
     public void cleanDatabase() {
-        String[] tenantSchemas = {"t_emp_test", "t_emp_other"};
-        String[] tables = {"audit_record", "audit_stream_head", "idempotency_entry"};
-        for (String schema : tenantSchemas) {
+        String[] candidateSchemas = {"public", "neuroassist_global", "t_emp_test", "t_emp_other"};
+        String[] tables = {"audit_record", "stream_head", "audit_idempotency"};
+        for (String schema : candidateSchemas) {
             for (String table : tables) {
                 try {
                     jdbcTemplate.execute("TRUNCATE " + schema + "." + table + " CASCADE");
                 } catch (Exception ignored) {
-                    // Schema or table may not exist for every test run — safe to skip
+                    // Table may not exist in this schema — safe to skip
                 }
             }
         }

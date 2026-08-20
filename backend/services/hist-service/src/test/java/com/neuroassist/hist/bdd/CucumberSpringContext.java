@@ -34,11 +34,11 @@ public class CucumberSpringContext extends BaseIntegrationTest {
         ACS_WIREMOCK.start();
     }
 
-    /** Overrides {@code feign.client.config.acs-directory} URL to point at WireMock. */
+    /**
+     * Overrides {@code neuroassist.acs.url} to point at WireMock (matches AcsActorDirectoryClient).
+     */
     @DynamicPropertySource
     static void configureWireMock(DynamicPropertyRegistry registry) {
-        registry.add(
-                "feign.client.config.acs-directory.url",
-                () -> "http://localhost:" + ACS_WIREMOCK.port());
+        registry.add("neuroassist.acs.url", () -> "http://localhost:" + ACS_WIREMOCK.port());
     }
 }
