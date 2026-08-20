@@ -24,12 +24,102 @@ public final class ProblemDetailFactory {
     private record CategoryMetadata(int defaultStatus, String feActionHint) {}
 
     private static final String MEDIA_TYPE = "application/problem+json";
-    private static final String TYPE_URI_TEMPLATE = "https://neuroassist-ai.com/errors/{code}";
+    private static final String TYPE_URI_TEMPLATE = "/errors/{code}";
+
+    private static final Map<String, String> TYPE_OVERRIDES =
+            Map.ofEntries(
+                    Map.entry("pac.comando.duplicate-active-mapping", "/errors/duplicate-active-mapping"),
+                    Map.entry("pac.comando.invalid-lifecycle-transition", "/errors/invalid-lifecycle-transition"),
+                    Map.entry("pac.emergency.not-detectable", "/errors/emergency-not-detectable"),
+                    Map.entry("pac.emergency.gate-unavailable", "/errors/eligibility-gate-unavailable"),
+                    Map.entry("conflict-precondition", "/errors/conflict-precondition"),
+                    Map.entry("missing-tenant", "/errors/missing-tenant"),
+                    Map.entry("tenant-mismatch", "/errors/tenant-mismatch"),
+                    Map.entry("pac.timing.invalid", "/errors/validation"),
+                    Map.entry("pac.comando.same-primitive", "/errors/validation"),
+                    Map.entry("pac.primitive.unknown-to-gest", "/errors/validation"),
+                    Map.entry("pac.dispositivo.not-found", "/errors/validation"),
+                    Map.entry("pac.cuidador.not-found", "/errors/validation"));
 
     private static final Map<String, ErrorMetadata> CODE_METADATA =
             Map.ofEntries(
-                    // (no error-model.arch.json pinned at generation time)
-                    );
+                    // P2 — Paciente CRUD errors
+                    Map.entry(
+                            "conflict-precondition",
+                            new ErrorMetadata("conflict", 409, "Precondition Conflict")),
+                    Map.entry(
+                            "not_found.paciente",
+                            new ErrorMetadata("not_found", 404, "Paciente not found")),
+                    Map.entry(
+                            "missing-tenant",
+                            new ErrorMetadata("validation", 400, "Missing tenant identifier")),
+                    Map.entry(
+                            "tenant-mismatch",
+                            new ErrorMetadata("forbidden", 403, "Tenant identifier mismatch")),
+                    // P4 — Comando authoring errors (SPEC-02 §5.1 guards + integration failures)
+                    Map.entry(
+                            "pac.comando.same-primitive",
+                            new ErrorMetadata(
+                                    "validation",
+                                    400,
+                                    "Principal and secondary primitive must differ")),
+                    Map.entry(
+                            "pac.timing.invalid",
+                            new ErrorMetadata(
+                                    "validation",
+                                    400,
+                                    "Invalid timing: tempoMinGestoMs must be > 0 and <= tempoMaxGestoMs")),
+                    Map.entry(
+                            "pac.comando.invalid-lifecycle-transition",
+                            new ErrorMetadata("conflict", 409, "Invalid lifecycle transition")),
+                    Map.entry(
+                            "pac.comando.duplicate-active-mapping",
+                            new ErrorMetadata(
+                                    "business_rule",
+                                    422,
+                                    "Duplicate active command mapping for this patient")),
+                    Map.entry(
+                            "not_found.comando",
+                            new ErrorMetadata("not_found", 404, "Comando not found")),
+                    // P4 — ACS / EDGE integration errors
+                    Map.entry(
+                            "pac.cuidador.not-found",
+                            new ErrorMetadata(
+                                    "validation",
+                                    422,
+                                    "Caregiver not found or belongs to a different empresa")),
+                    Map.entry(
+                            "pac.dispositivo.not-found",
+                            new ErrorMetadata(
+                                    "validation",
+                                    422,
+                                    "Device not found or belongs to a different empresa")),
+                    Map.entry(
+                            "acs.unavailable",
+                            new ErrorMetadata("upstream_error", 503, "ACS service unavailable")),
+                    Map.entry(
+                            "edge.unavailable",
+                            new ErrorMetadata("upstream_error", 503, "EDGE service unavailable")),
+                    // P5 — Validate: unknown primitive in GEST
+                    Map.entry(
+                            "pac.primitive.unknown-to-gest",
+                            new ErrorMetadata(
+                                    "validation",
+                                    422,
+                                    "Primitive unknown to GEST: the referenced gesture primitive is not registered")),
+                    // P5 — Lifecycle + Emergency Gate errors (SPEC-02 §5.2-§5.5, SPEC-03)
+                    Map.entry(
+                            "pac.emergency.not-detectable",
+                            new ErrorMetadata(
+                                    "business_rule",
+                                    422,
+                                    "Emergency command not detectable by GEST")),
+                    Map.entry(
+                            "pac.emergency.gate-unavailable",
+                            new ErrorMetadata(
+                                    "upstream_error",
+                                    503,
+                                    "Emergency eligibility gate unavailable")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(
@@ -71,10 +161,10 @@ public final class ProblemDetailFactory {
                 ex != null && ex.getMessage() != null && !ex.getMessage().equals(code)
                         ? ex.getMessage()
                         : meta.title());
-        pd.setType(
-                URI.create(
-                        TYPE_URI_TEMPLATE.replace(
-                                "{code}", code == null ? "internal_error" : code)));
+        String resolvedCode = code == null ? "internal_error" : code;
+        String typeUri = TYPE_OVERRIDES.getOrDefault(
+                resolvedCode, TYPE_URI_TEMPLATE.replace("{code}", resolvedCode));
+        pd.setType(URI.create(typeUri));
         if (req != null) {
             pd.setInstance(URI.create(req.getRequestURI()));
         }

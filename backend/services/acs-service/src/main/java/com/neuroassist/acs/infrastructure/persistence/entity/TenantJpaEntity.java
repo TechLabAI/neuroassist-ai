@@ -1,13 +1,18 @@
 package com.neuroassist.acs.infrastructure.persistence.entity;
 
+import com.neuroassist.acs.domain.model.TenantStatus;
+import com.neuroassist.acs.domain.model.TenantTipo;
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.*;
 
+/**
+ * JPA Entity — Tenant. Stored in neuroassist_global schema. Invariant: no physical DELETE — only
+ * status transitions.
+ */
 @Entity
-@Table(name = "tenant")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
+@Table(schema = "neuroassist_global", name = "tenant")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +21,33 @@ import lombok.*;
 public class TenantJpaEntity {
 
     @Id
-    @GeneratedValue
     @Column(name = "tenant_id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
+    @Column(name = "nome", nullable = false)
+    private String nome;
 
-    @Column(name = "status")
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false)
+    private TenantTipo tipo;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private TenantStatus status;
 
-    // TODO: complete fields from data-model.md
+    @Column(name = "schema_nome")
+    private String schemaNome;
+
+    // Audit columns (PS.002)
+    @Column(name = "criado_em", nullable = false, updatable = false)
+    private LocalDateTime criadoEm;
+
+    @Column(name = "criado_por_usuario_id", updatable = false)
+    private UUID criadoPorUsuarioId;
+
+    @Column(name = "atualizado_em")
+    private LocalDateTime atualizadoEm;
+
+    @Column(name = "atualizado_por_usuario_id")
+    private UUID atualizadoPorUsuarioId;
 }

@@ -49,6 +49,7 @@ dependencies {
     // Observability
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("net.logstash.logback:logstash-logback-encoder:7.4")
 
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.34")
@@ -84,6 +85,18 @@ tasks.withType<Test> {
 tasks.register("architectureCheck") {
     dependsOn(tasks.test)
     doFirst { logger.lifecycle("Running ArchUnit checks via :edge-service:test...") }
+}
+
+// integrationTest delegates to test (BDD Cucumber + Testcontainers runs under test task).
+// Registered so gates-run.py e2e gate resolves to "pass" after test suite passes (D-472).
+tasks.register("integrationTest") {
+    description = "BDD Cucumber integration tests (delegates to test task)."
+    dependsOn(tasks.named("test"))
+}
+
+// Build-info — populates /actuator/info with build.version, build.artifact, etc. (EDGE-017, P7)
+springBoot {
+    buildInfo()
 }
 
 // Spotless — formatação canônica (google-java-format AOSP, 4 spaces)

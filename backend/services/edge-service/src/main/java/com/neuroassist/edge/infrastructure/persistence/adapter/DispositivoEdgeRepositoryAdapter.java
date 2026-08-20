@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -47,6 +49,13 @@ public class DispositivoEdgeRepositoryAdapter implements DispositivoEdgeReposito
         return repository.findByTenantId(tenantId).stream()
                 .map(DispositivoEdgeRepositoryAdapter::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Page<DispositivoEdge> findAllByTenant(String tenantId, Pageable pageable) {
+        return repository
+                .findAllByTenantId(tenantId, pageable)
+                .map(DispositivoEdgeRepositoryAdapter::toDomain);
     }
 
     @Override

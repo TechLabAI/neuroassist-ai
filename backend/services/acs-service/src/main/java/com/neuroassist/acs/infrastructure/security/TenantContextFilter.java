@@ -19,7 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * of the request. Validates X-Tenant-Id header (if present) matches.
  */
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 50)
+@Order(0)
 public class TenantContextFilter extends OncePerRequestFilter {
 
     private static final String JWT_CLAIM_TENANT_ID = "tenant_id";

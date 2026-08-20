@@ -61,3 +61,27 @@
 | EDGE-INT-005 | Integration with MIG — contribute EDGE DDL (V0700..V0799) to centralized migration service | INT | P3 | INTACT |
 | EDGE-INT-006 | Integration with PAC — provide EdgeDevicePort (GET /patients/{id}/device and GET /devices/{id}) for device validation | INT | P4 | INTACT |
 | EDGE-INT-007 | Integration with DASH — provide liveness poll endpoints (ETag/304, serverTime in response body) for caregiver connectivity signal | INT | P4 | INTACT |
+| DASH-001 | Create dash-service Gradle subproject (Spring Boot, no-DB, hexagonal skeleton) | BE | P1 | INTACT |
+| DASH-002 | Define hexagonal outbound ports for all upstream integrations | BE | P1 | INTACT |
+| DASH-003 | Define transient view-model and envelope value objects (no JPA entities) | BE | P1 | INTACT |
+| DASH-004 | Implement PanelSession in-memory registry with heartbeat eviction | BE | P2 | INTACT |
+| DASH-005 | Implement PanelStreamController: GET /panel/stream SSE channel with heartbeat | BE | P2 | INTACT |
+| DASH-006 | Implement InternalNotificationController: POST /internal/notifications dispatch sink with dispatchId idempotency | BE | P2 | INTACT |
+| DASH-007 | Implement GET /panel/summary: cross-module home view-model composition (EVNT + EDGE + ACS) | BE | P3 | INTACT |
+| DASH-008 | Implement GET /panel/patients/{patientId}/overview: per-patient composition (PAC + EDGE) | BE | P3 | INTACT |
+| DASH-009 | Implement GET /panel/patients/{patientId}/history: paged read-through to HIST (size cap 100) | BE | P3 | INTACT |
+| DASH-010 | Implement GET /panel/patients/{patientId}/device: EDGE liveness poll with ETag/304 and staleness threshold | BE | P3 | INTACT |
+| DASH-011 | Implement on-connect catch-up replay: GET /panel/notifications/unacknowledged + catchup-complete SSE event | BE | P3 | INTACT |
+| DASH-012 | Implement long-poll fallback: GET /panel/notifications/poll (waitSeconds<=30, cursor) | BE | P3 | INTACT |
+| DASH-013 | Implement PUT /panel/patients/{id}/commands/{cmd}/calibration: write-through to PAC with error relay | BE | P4 | INTACT |
+| DASH-014 | Implement POST /panel/events/{eventId}/confirm: write-through to EVNT (feedback verdict relay) | BE | P4 | INTACT |
+| DASH-015 | Implement POST /panel/notifications/{dispatchId}/acknowledge: write-through to EVNT callback (idempotent) | BE | P4 | INTACT |
+| DASH-016 | Implement AcsRestAdapter (IdentityDirectoryPort): JWK-set cache + scope resolution cache (TTL=30s) | BE | P5 | INTACT |
+| DASH-017 | Implement PacRestAdapter (CommandCatalogPort): catalog read + calibration write-through forwarding | BE | P5 | INTACT |
+| DASH-018 | Implement EvntEventRestAdapter + EvntDispatchCallbackAdapter (EventStatePort + NotificationDispatchBackPort) | BE | P5 | INTACT |
+| DASH-019 | Implement HistRestAdapter (HistoryQueryPort): paged audit query forwarding to HIST | BE | P5 | INTACT |
+| DASH-020 | Implement EdgeLivenessRestAdapter (DeviceLivenessPort): conditional GET + ETag + staleness-to-unknown mapping | BE | P5 | INTACT |
+| DASH-021 | Configure OAuth2 resource server: panel JWT validation (JWK set) + SVC_EVNT authority for /internal/** | BE | P6 | INTACT |
+| DASH-022 | Implement degradation matrix: per-upstream circuit breaker (soft-degrade EDGE/EVNT-read; hard-503 ACS/PAC/HIST) | BE | P6 | INTACT |
+| DASH-023 | Configure Actuator, structured logging, MDC X-Correlation-Id propagation and health indicators | BE | P7 | INTACT |
+| DASH-024 | Implement Cucumber BDD feature tests for home-status-calm, notification-delivery and calibration write-through | BE | P8 | INTACT |

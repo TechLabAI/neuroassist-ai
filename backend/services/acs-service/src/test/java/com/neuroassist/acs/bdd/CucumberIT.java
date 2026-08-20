@@ -9,8 +9,7 @@ import org.junit.platform.suite.api.*;
  * <p>Runs all .feature files in src/test/resources/features/. Requires a running Spring context
  * (see CucumberSpringContext).
  *
- * <p>DRY-RUN mode is active: stub steps with PendingException are SKIPPED, not FAILED. Remove
- * EXECUTION_DRY_RUN_PROPERTY_NAME once steps are wired.
+ * <p>P5 (ACS-024): dry-run removed — step definitions are fully implemented.
  */
 @Suite
 @IncludeEngines("cucumber")
@@ -19,5 +18,4 @@ import org.junit.platform.suite.api.*;
 @ConfigurationParameter(
         key = Constants.PLUGIN_PROPERTY_NAME,
         value = "pretty, html:build/reports/cucumber/cucumber-report.html")
-@ConfigurationParameter(key = Constants.EXECUTION_DRY_RUN_PROPERTY_NAME, value = "true")
 public class CucumberIT {}

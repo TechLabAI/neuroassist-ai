@@ -18,6 +18,19 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
+  cloud:
+    openfeign:
+      client:
+        config:
+          gest-service:
+            connect-timeout: 2000
+            read-timeout: 2000
+          hist-service:
+            connect-timeout: 2000
+            read-timeout: 3000
+          default:
+            connect-timeout: 3000
+            read-timeout: 5000
 
 server:
   port: 8082
@@ -47,3 +60,33 @@ logging:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"
   level:
     com.neuroassist.pac: INFO
+
+# INT-PAC-001 — GEST service integration (P5)
+# INT-PAC-002 — ACS service integration (P4) — INT-PAC-006 (P8): url added for WireMock test override
+# INT-PAC-003 — EDGE service integration (P4) — INT-PAC-006 (P8): url added for WireMock test override
+# INT-PAC-004 — HIST service integration (P6)
+neuroassist:
+  integration:
+    gest:
+      url: ${GEST_SERVICE_URL:http://gest-service:8084}  # Eureka discovery via Spring Cloud
+    acs:
+      url: ${ACS_SERVICE_URL:http://acs-service:8088}    # Eureka discovery via Spring Cloud
+    edge:
+      url: ${EDGE_SERVICE_URL:http://edge-service:8087}  # Eureka discovery via Spring Cloud
+    hist:
+      url: ${HIST_SERVICE_URL:http://hist-service:8089}  # Eureka discovery via Spring Cloud
+
+# Resilience4j — Circuit Breaker for gest-service (INT-PAC-001 / SPEC-10 §4)
+resilience4j:
+  circuitbreaker:
+    instances:
+      gest-service:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        failure-rate-threshold: 50          # Open CB after 50% failures in the sliding window
+        wait-duration-in-open-state: 30s    # Retry-After matches this (ADR-005)
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.Exception             # Record all exceptions (fail-closed for emergency)

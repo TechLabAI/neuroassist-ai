@@ -18,6 +18,7 @@ import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.DispositivoEnrollment;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
+import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
@@ -42,6 +43,7 @@ class DeviceRegistrationServiceTest {
     @Mock private DispositivoCredentialRepositoryPort credentialRepo;
     @Mock private DispositivoEdgeTransitionRepositoryPort transitionRepo;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private EdgeMetrics edgeMetrics;
 
     private final DispositivoEdgeDomainService domainService = new DispositivoEdgeDomainService();
     private DeviceRegistrationService sut;
@@ -57,7 +59,8 @@ class DeviceRegistrationServiceTest {
                         credentialRepo,
                         transitionRepo,
                         domainService,
-                        eventPublisher);
+                        eventPublisher,
+                        edgeMetrics);
         ReflectionTestUtils.setField(sut, "enrollmentTtlSeconds", 900L);
         ReflectionTestUtils.setField(sut, "heartbeatIntervalSeconds", 30L);
         ReflectionTestUtils.setField(

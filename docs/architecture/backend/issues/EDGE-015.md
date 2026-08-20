@@ -1,8 +1,8 @@
 # EDGE-015 -- Implement DeviceRegistrationService.retire() with credential revocation and state-machine enforcement
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/5 itens
+**Status:** DONE
+**Maturidade:** 85 -- Maduro
+**Done/Total:** 5/5 itens
 
 ## Contexto
 A aposentadoria de um device e uma transicao terminal (`retired` e final). Revogar o credential impede que um secret antigo se autentique. O device nunca e hard-deleted (referencia historica em Evento/Comando mantida). ADR-005 e api-contract §2.3. Se o device estava `paired`, o unpair deve ocorrer antes do retire (auditado).
@@ -11,11 +11,11 @@ A aposentadoria de um device e uma transicao terminal (`retired` e final). Revog
 - SPEC-03, SPEC-06
 
 ## Escopo
-- [ ] implementar `DeviceRegistrationService.retire(deviceId, actor, tenantId)` com verificacao de scope `edge.manage`
-- [ ] transicao de estado: qualquer estado nao-retired -> retired (rejeitar retired -> retired com 409 `device-retired`)
-- [ ] revogar credential ativo: `DispositivoCredentialRepositoryPort.revokeByDeviceId(deviceId)` (status=revoked, revoked_at=now)
-- [ ] se device estava `paired`: fazer unpair primeiro (append `kind=pairing` transition + clear pacienteId, publicar `DispositivoDespareado`) antes de transitar para `retired`
-- [ ] append `kind=pairing` transition row para a aposentadoria (fromState=anterior, toState=retired, actor, at); nao hard-delete a row de `dispositivo_edge`
+- [x] implementar `DeviceRegistrationService.retire(deviceId, actor, tenantId)` com verificacao de scope `edge.manage`
+- [x] transicao de estado: qualquer estado nao-retired -> retired (rejeitar retired -> retired com 409 `device-retired`)
+- [x] revogar credential ativo: `DispositivoCredentialRepositoryPort.revokeByDeviceId(deviceId)` (status=revoked, revoked_at=now)
+- [x] se device estava `paired`: fazer unpair primeiro (append `kind=pairing` transition + clear pacienteId, publicar `DispositivoDespareado`) antes de transitar para `retired`
+- [x] append `kind=pairing` transition row para a aposentadoria (fromState=anterior, toState=retired, actor, at); nao hard-delete a row de `dispositivo_edge`
 
 ## Resultado esperado
 POST /devices/{id}:retire retorna 200 com pairingState=retired; credential revogado; device permanece no banco.

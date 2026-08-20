@@ -64,6 +64,58 @@ device access token that carries `deviceId` + `tenant` claims.
 | Device token endpoint | `http://acs-service/oauth2/token` (`grant_type=client_credentials`) |
 
 - THE SYSTEM SHALL derive `tenantId` and `deviceId` exclusively from token claims (never body/path).
-- **Open coordination item (backlog):** the exact ACS registration of per-device `client_credentials`
-  clients (dynamic client registration vs. EDGE-brokered) is an ACS/EDGE integration detail to confirm
-  in `/be-architect-backlog`; this contract fixes the token *shape* and claims.
+
+### §4.2 — Device Client Registration Strategy (EDGE-INT-002)
+
+**Chosen approach: EDGE-brokered registration at enrollment time.**
+
+When EDGE issues a credential during `POST /api/v1/edge/devices/enroll` (EDGE-006), it immediately
+registers the corresponding `client_credentials` client in ACS so the device can obtain tokens.
+
+| Step | Actor | Action |
+|---|---|---|
+| 1 | Operator | `POST /api/v1/edge/devices` — creates device + enrollment token (EDGE-005) |
+| 2 | Edge agent | `POST /api/v1/edge/devices/enroll` — exchanges enrollment token for `clientId`/`clientSecret` |
+| 3 | EDGE (sync, same tx) | Registers `clientId` in ACS via `POST /acs/admin/clients` with claims: `deviceId`, `tenant`, scope=`edge.device` |
+| 4 | ACS | Persists the OAuth2 client; issues device tokens on `grant_type=client_credentials` |
+| 5 | Edge agent | Uses `clientId`/`clientSecret` at ACS token endpoint → receives device access token |
+| 6 | Edge agent | Sends heartbeats: `Authorization: Bearer <device_token>` |
+
+**Rationale:** EDGE is the single authority over device identity. Centralising client registration
+at enrollment time avoids race conditions and keeps ACS from having to validate unknown clients
+against EDGE at token-issue time (the alternative approach).
+
+**ACS admin endpoint contract (to be confirmed with ACS team):**
+
+```http
+POST /api/v1/acs/admin/clients
+Authorization: Bearer <service-token with scope acs.admin>
+Content-Type: application/json
+
+{
+  "clientId":    "<uuid>",
+  "clientName":  "edge-device-<deviceId>",
+  "grantTypes":  ["client_credentials"],
+  "scopes":      ["edge.device"],
+  "extraClaims": {
+    "deviceId":  "<uuid>",
+    "tenant_id": "<tenantId>"
+  }
+}
+```
+
+**Fallback during enrollment if ACS is unavailable:** enrollment fails with `503 acs-unavailable`
+and the device must retry. The device record is NOT persisted until ACS registration succeeds
+(transactional boundary). This prevents orphaned device records with unregistered clients.
+
+**Feign client:** `AcsAdminClient` in `infrastructure.clients` (P5 stub; full implementation
+deferred to EDGE-INT-002 when ACS publishes its admin API contract).
+
+**Security note:** the service token used by EDGE to call ACS admin is obtained via
+`client_credentials` with scope `acs.admin`. The `clientSecret` for this service client is
+configured via `${ACS_SERVICE_SECRET}` (never hardcoded). The `AcsAdminClient` is conditionally
+disabled in `application-test.yml` to avoid dependency on ACS in unit/integration tests.
+
+**Tenant isolation guarantee:** per-device clients in ACS carry `tenant_id` as an extra claim.
+EDGE validates that the `tenant_id` claim in the device token matches the `TenantContextHolder`
+(set from the same JWT on every request). A mismatch triggers 403 `tenant_mismatch`.

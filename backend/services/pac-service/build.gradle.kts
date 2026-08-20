@@ -72,15 +72,33 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
+    // INT-PAC-006 (P8) — WireMock for external service stubs (GEST/ACS/EDGE/HIST)
+    // D-534 fix (Opção A): wiremock-standalone fat jar embeds Jetty 12 + Jakarta servlet.
+    // No explicit Jetty dependency needed — standalone ships its own; external Jetty jars conflict.
+    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
+
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
 }
 
+// Unit tests only (excludes @Tag("integration") tests that require WireMock infra)
+tasks.register<Test>("testUnit") {
+    useJUnitPlatform() {
+        excludeTags("integration")
+    }
+}
+
 tasks.register("architectureCheck") {
-    dependsOn(tasks.test)
-    doFirst { logger.lifecycle("Running ArchUnit checks via :pac-service:test...") }
+    dependsOn("testArchUnit")
+    doFirst { logger.lifecycle("Running ArchUnit checks...") }
+}
+
+tasks.register<Test>("testArchUnit") {
+    useJUnitPlatform()
+    filter.includeTestsMatching("ArchitectureTest")
+    filter.includeTestsMatching("CrossAspectArchTest")
 }
 
 // Spotless — formatação canônica (google-java-format AOSP, 4 spaces)

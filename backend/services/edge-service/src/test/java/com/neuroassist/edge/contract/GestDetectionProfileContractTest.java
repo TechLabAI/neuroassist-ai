@@ -2,6 +2,7 @@ package com.neuroassist.edge.contract;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
@@ -35,7 +36,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * prevent interference with WireMock (EDGE-014 constraint).
  */
 @Tag("integration")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @ActiveProfiles("test")
 @DisplayName("INT-EDGE-001: Contract tests EDGE -> GEST detection-profile (WireMock)")
 class GestDetectionProfileContractTest {
@@ -102,17 +103,19 @@ class GestDetectionProfileContractTest {
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("S2: GEST returns 404 — Feign propagates 404 status")
-    void gestReturns404_feignPropagates() {
+    @DisplayName(
+            "S2: GEST returns 404 — Feign throws FeignException.NotFound (caught by CB fallback)")
+    void gestReturns404_feignThrowsNotFound() {
         UUID deviceId = UUID.randomUUID();
         gestMock.stubFor(
                 get(urlEqualTo("/gest-service/detection-profile/devices/" + deviceId))
                         .willReturn(aResponse().withStatus(404)));
 
-        // Feign returns ResponseEntity with 404 (not throw) because return type is ResponseEntity
-        ResponseEntity<?> response = detectionProfileClient.getActiveProfileForDevice(deviceId);
-
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        // Feign default behavior: throws FeignException.NotFound for 4xx responses.
+        // DetectionProfileFeignAdapter catches this via @CircuitBreaker fallback →
+        // Optional.empty().
+        assertThatThrownBy(() -> detectionProfileClient.getActiveProfileForDevice(deviceId))
+                .isInstanceOf(feign.FeignException.NotFound.class);
     }
 
     // -------------------------------------------------------------------------

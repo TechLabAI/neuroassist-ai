@@ -10,6 +10,7 @@ import com.neuroassist.edge.domain.event.ProfileDriftDetected;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
 import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
+import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class HeartbeatService implements HeartbeatUseCase {
     private final DetectionProfilePort detectionProfilePort;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final EdgeMetrics edgeMetrics;
 
     @Value("${neuroassist.edge.heartbeat.interval-seconds:30}")
     private long heartbeatIntervalSeconds;
@@ -50,6 +53,17 @@ public class HeartbeatService implements HeartbeatUseCase {
     public HeartbeatResult recordHeartbeat(
             UUID deviceId, String agentVersion, Long runningProfileVersion) {
         String tenantId = TenantContextHolder.require();
+        // EDGE-018 (P7): enrich MDC with deviceId so all log statements in this call carry it
+        MDC.put("deviceId", deviceId.toString());
+        try {
+            return doRecordHeartbeat(deviceId, agentVersion, runningProfileVersion, tenantId);
+        } finally {
+            MDC.remove("deviceId");
+        }
+    }
+
+    private HeartbeatResult doRecordHeartbeat(
+            UUID deviceId, String agentVersion, Long runningProfileVersion, String tenantId) {
         log.debug(
                 "Heartbeat received deviceId='{}' agentVersion='{}' tenant='{}'",
                 deviceId,
@@ -141,7 +155,12 @@ public class HeartbeatService implements HeartbeatUseCase {
             eventPublisher.publishEvent(
                     ProfileDriftDetected.of(
                             deviceId, tenantId, runningProfileVersion, currentProfileVersion));
+            // EDGE-017 (P7): increment profile drift metric
+            edgeMetrics.recordProfileDrift();
         }
+
+        // EDGE-017 (P7): increment heartbeat counter (tenantId + derived liveness status)
+        edgeMetrics.recordHeartbeat(tenantId, livenessStatus);
 
         return new HeartbeatResult(
                 updated.id(),

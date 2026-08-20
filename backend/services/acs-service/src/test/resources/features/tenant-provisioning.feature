@@ -1,4 +1,4 @@
-# Ref: SPEC-02-tenant-provisioning-saga.md, SPEC-08-bdd-test-scenarios.md §2
+﻿# Ref: SPEC-02-tenant-provisioning-saga.md, SPEC-08-bdd-test-scenarios.md §2
 Feature: Tenant Provisioning
 
   Background:
@@ -53,6 +53,6 @@ Feature: Tenant Provisioning
 
   Scenario: Tenant cannot be returned as active with null schema_name
     Given a persisted tenant row with status "active" and schema_name NULL exists (data defect)
-    When I GET /api/v1/acs/tenants/{id}
+    When I GET /api/v1/acs/tenants/"that"
     Then the response status is 500
     # DB constraint ck_tenant_active_needs_schema prevents this state at write time

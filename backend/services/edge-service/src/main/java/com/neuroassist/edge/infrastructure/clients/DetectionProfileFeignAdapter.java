@@ -43,11 +43,6 @@ public class DetectionProfileFeignAdapter implements DetectionProfilePort {
             return Optional.of(version);
         }
 
-        if (response.getStatusCode() == HttpStatus.NOT_FOUND) {
-            log.debug("GEST: no active profile for deviceId='{}'", deviceId);
-            return Optional.empty();
-        }
-
         log.warn(
                 "GEST: unexpected status {} for deviceId='{}'", response.getStatusCode(), deviceId);
         return Optional.empty();

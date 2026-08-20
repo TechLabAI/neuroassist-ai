@@ -1,4 +1,13 @@
 package com.neuroassist.acs.api.dto;
 
-// TODO: define fields from api-contract.md
-public record DirectoryRequest(String tenantId /* TODO: add fields */) {}
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
+
+/**
+ * Request DTO — Directory lookup (GET /api/v1/acs/directory/*). Used as query input for directory
+ * context queries. Requires authority: acs.directory.read.
+ */
+public record DirectoryRequest(
+        @NotNull(message = "tenantId is required") UUID tenantId,
+        UUID cuidadorId,
+        UUID pacienteId) {}

@@ -4,15 +4,36 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: neuroassist_global
   flyway:
     enabled: false
   artemis:
     mode: embedded
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+  # JWT decoder configured programmatically via JwtEncoderConfig (transient RSA key).
+  # jwk-set-uri is intentionally absent — acs-service issues and validates its own tokens.
+  cloud:
+    openfeign:
+      circuitbreaker:
+        enabled: false
+
 eureka:
   client:
     enabled: false
+
+# Stub URLs for Feign clients — adapters are mocked in BDD tests so these are never called.
+# Required because Feign validates URL properties at context load (D-533).
+neuroassist:
+  hist:
+    url: http://localhost:9991
+  mig:
+    url: http://localhost:9992
+  pac:
+    url: http://localhost:9993
+
+# JWT config for tests
+acs:
+  jwt:
+    expiry-seconds: 300
+    refresh-expiry-seconds: 3600

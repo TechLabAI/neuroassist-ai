@@ -1,8 +1,8 @@
 # EDGE-INT-007 -- Integration with DASH — provide liveness poll endpoints (ETag/304, serverTime in response body) for caregiver connectivity signal
 
-**Status:** INTACT -- gerado 2026-07-29
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/4 itens
+**Status:** PARTIAL
+**Maturidade:** 75 -- Maduro
+**Done/Total:** 3/4 itens
 
 ## Contexto
 DASH depende do endpoint de liveness para mostrar ao cuidador se o monitoramento esta ativo. O campo `serverTime` na `LivenessView` e hard dependency do FE para derivar a idade relativa ao servidor (evitando drift de relogio do cliente — warning aberto M3, fechado aqui). ETag/304 para poll eficiente. Integration-contracts §3.
@@ -11,9 +11,9 @@ DASH depende do endpoint de liveness para mostrar ao cuidador se o monitoramento
 - SPEC-02, integration-contracts.md
 
 ## Escopo
-- [ ] garantir que `LivenessView` contem o campo `serverTime` (ISO-8601 UTC, relogio do servidor no momento da resposta) em TODA resposta de GET /devices/{id}/liveness e GET /patients/{id}/liveness
-- [ ] garantir que ETag e calculado sobre o bucket de status (nao apenas `ultima_sincronizacao`): cruzamento online->offline invalida cache mesmo sem novo heartbeat
-- [ ] verificar que `X-Staleness-Threshold-Seconds: 90` e incluido no response header de liveness e heartbeat
+- [x] garantir que `LivenessView` contem o campo `serverTime` (ISO-8601 UTC, relogio do servidor no momento da resposta) em TODA resposta de GET /devices/{id}/liveness e GET /patients/{id}/liveness
+- [x] garantir que ETag e calculado sobre o bucket de status (nao apenas `ultima_sincronizacao`): cruzamento online->offline invalida cache mesmo sem novo heartbeat
+- [x] verificar que `X-Staleness-Threshold-Seconds: 90` e incluido no response header de liveness e heartbeat
 - [ ] criar teste de integracao: poll com `If-None-Match=<etag>` e status inalterado retorna 304; apos staleness retorna 200 com `status=offline` e novo ETag
 
 ## Resultado esperado

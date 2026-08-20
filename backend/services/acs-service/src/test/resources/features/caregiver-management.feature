@@ -1,4 +1,4 @@
-# Ref: SPEC-05-caregiver-linkage-coverage.md §5, SPEC-08-bdd-test-scenarios.md §3
+﻿# Ref: SPEC-05-caregiver-linkage-coverage.md §5, SPEC-08-bdd-test-scenarios.md §3
 Feature: Caregiver Management
 
   Background:

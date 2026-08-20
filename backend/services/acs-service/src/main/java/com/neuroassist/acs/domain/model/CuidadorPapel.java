@@ -1,6 +1,7 @@
 package com.neuroassist.acs.domain.model;
 
 public enum CuidadorPapel {
-    cuidadora,
-    coordenador_clinica
+    COORDENADOR_CLINICA,
+    CUIDADORA,
+    PACIENTE_APOIO
 }
