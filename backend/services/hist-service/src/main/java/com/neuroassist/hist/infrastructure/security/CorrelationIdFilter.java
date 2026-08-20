@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Servlet filter — extracts or generates {@code X-Correlation-Id} for every request, puts it in
- * MDC under the key {@code correlationId} for structured JSON logging, and propagates it in the
+ * Servlet filter — extracts or generates {@code X-Correlation-Id} for every request, puts it in MDC
+ * under the key {@code correlationId} for structured JSON logging, and propagates it in the
  * response header.
  *
  * <p>Runs at {@code HIGHEST_PRECEDENCE + 10} so it executes before Spring Security's

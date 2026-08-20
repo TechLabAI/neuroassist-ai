@@ -59,7 +59,8 @@ public class ChainVerificationService implements ChainVerificationUseCase {
         }
 
         String expectedPrevHash = hashChainPort.genesis();
-        long expectedSequenceNo = 1L;
+        long expectedSequenceNo = 0L; // first record has seq=0 (0-based)
+        int verifiedCount = 0;
 
         for (AuditRecord record : records) {
             // Check consecutive sequenceNo — no gaps allowed
@@ -74,7 +75,7 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                 return new ChainVerificationResult(
                         streamKey,
                         ChainStatus.broken,
-                        (int) (expectedSequenceNo - 1),
+                        verifiedCount,
                         expectedSequenceNo,
                         Instant.now());
             }
@@ -90,7 +91,7 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                 return new ChainVerificationResult(
                         streamKey,
                         ChainStatus.broken,
-                        (int) (record.sequenceNo() - 1),
+                        verifiedCount,
                         record.sequenceNo(),
                         Instant.now());
             }
@@ -107,17 +108,18 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                 return new ChainVerificationResult(
                         streamKey,
                         ChainStatus.broken,
-                        (int) (record.sequenceNo() - 1),
+                        verifiedCount,
                         record.sequenceNo(),
                         Instant.now());
             }
 
+            // Record successfully verified
+            verifiedCount++;
             // Advance to the next expected state
             expectedPrevHash = record.recordHash();
             expectedSequenceNo++;
         }
 
-        int verifiedCount = records.size();
         log.info(
                 "Chain verification intact: streamKey={} tenant={} recordsVerified={}",
                 streamKey,

@@ -7,12 +7,15 @@ import com.neuroassist.hist.api.dto.SubjectRefDto;
 import com.neuroassist.hist.application.port.in.AuditRecordQueryUseCase;
 import com.neuroassist.hist.application.port.in.RecordAuditFactUseCase;
 import com.neuroassist.hist.domain.model.AuditRecord;
+import com.neuroassist.hist.domain.model.TenantMismatchException;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,11 +53,21 @@ public class RecordAuditFactController {
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_hist:write')")
     public ResponseEntity<RecordAuditFactResponse> append(
-            @RequestBody @Valid RecordAuditFactRequest request, UriComponentsBuilder uriBuilder) {
+            @RequestBody @Valid RecordAuditFactRequest request,
+            UriComponentsBuilder uriBuilder,
+            Authentication authentication) {
 
-        // P1 stub: tenantId extracted from header; P5 will replace with JWT tenant claim
-        // TenantContextHolder.require() is intentionally NOT called here (P5 — HIST-015)
-        String tenantId = "stub-tenant";
+        // Extract tenant from the JWT "tenant" claim (set by BddJwtTokenFactory / Keycloak).
+        // No dependency on TenantContextHolder (infrastructure) here — JWT claim is the primary
+        // source; TenantContextFilter sets TenantContextHolder for adapters that need it.
+        String tenantId = extractTenantId(authentication);
+
+        // If the request body supplies an empresaId it must match the JWT tenant (RFC 7807 403)
+        if (request.empresaId() != null
+                && !request.empresaId().isBlank()
+                && !request.empresaId().equals(tenantId)) {
+            throw new TenantMismatchException(tenantId, request.empresaId());
+        }
 
         RecordAuditFactUseCase.Command command =
                 new RecordAuditFactUseCase.Command(
@@ -89,15 +102,28 @@ public class RecordAuditFactController {
      * tenant; {@code 404 Not Found} otherwise.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('SCOPE_hist:read')")
-    public ResponseEntity<RecordAuditFactResponse> findById(@PathVariable UUID id) {
-        // P1 stub: tenantId from header; P5 replaces with JWT tenant claim
-        String tenantId = "stub-tenant";
+    @PreAuthorize("hasAnyAuthority('SCOPE_hist:read', 'SCOPE_hist:read:all')")
+    public ResponseEntity<RecordAuditFactResponse> findById(
+            @PathVariable UUID id, Authentication authentication) {
+        String tenantId = extractTenantId(authentication);
 
         return auditRecordQueryUseCase
                 .findById(id, tenantId)
                 .map(record -> ResponseEntity.ok(toResponse(record)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // ---- helpers ----
+
+    private String extractTenantId(Authentication authentication) {
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            String tenant = jwtAuth.getToken().getClaimAsString("tenant");
+            if (tenant != null && !tenant.isBlank()) {
+                return tenant;
+            }
+        }
+        throw new IllegalStateException(
+                "JWT is missing the 'tenant' claim — cannot resolve tenant");
     }
 
     // ---- mapping ----

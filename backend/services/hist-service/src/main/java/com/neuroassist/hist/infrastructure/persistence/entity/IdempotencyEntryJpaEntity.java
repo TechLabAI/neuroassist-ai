@@ -12,9 +12,10 @@ import lombok.*;
 @Entity
 @Table(
         name = "audit_idempotency",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uq_idempotency_fact_tenant",
-                columnNames = {"fact_id", "tenant_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_idempotency_fact_tenant",
+                        columnNames = {"fact_id", "tenant_id"}))
 @Getter
 @Setter
 @NoArgsConstructor

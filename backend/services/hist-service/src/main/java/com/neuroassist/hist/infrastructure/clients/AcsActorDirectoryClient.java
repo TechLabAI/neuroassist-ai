@@ -12,9 +12,9 @@ import org.springframework.web.bind.annotation.PathVariable;
  *
  * <p>Timeout: 2s connect + 2s read via {@code feign.client.config.acs-directory.*} in
  * application.yml. Circuit breaker: Resilience4j {@code acs-directory} instance with 50 % failure
- * threshold and 30 s open window. The tenant-id and bearer token are forwarded automatically by
- * the interceptors in {@link com.neuroassist.hist.infrastructure.config.FeignClientConfig}
- * (RULE-06: Feign only in infrastructure.clients/config).
+ * threshold and 30 s open window. The tenant-id and bearer token are forwarded automatically by the
+ * interceptors in {@link com.neuroassist.hist.infrastructure.config.FeignClientConfig} (RULE-06:
+ * Feign only in infrastructure.clients/config).
  */
 @FeignClient(
         name = "acs-directory",
@@ -29,4 +29,3 @@ public interface AcsActorDirectoryClient {
     @GetMapping("/api/v1/acs/caregivers/{caregiverId}/patients")
     List<UUID> getPatientsByCaregiver(@PathVariable("caregiverId") UUID caregiverId);
 }
-

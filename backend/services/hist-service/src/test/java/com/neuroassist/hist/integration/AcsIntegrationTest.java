@@ -85,8 +85,7 @@ class AcsIntegrationTest {
         registry.add("neuroassist.acs.url", () -> "http://localhost:" + wireMock.port());
     }
 
-    @Autowired
-    private ActorDirectoryPort actorDirectoryPort;
+    @Autowired private ActorDirectoryPort actorDirectoryPort;
 
     // ---- Tests ----
 
@@ -102,12 +101,7 @@ class AcsIntegrationTest {
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody(
-                                                "[\""
-                                                        + patientA
-                                                        + "\",\""
-                                                        + patientB
-                                                        + "\"]")));
+                                        .withBody("[\"" + patientA + "\",\"" + patientB + "\"]")));
 
         List<UUID> result = actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId);
 
@@ -115,8 +109,7 @@ class AcsIntegrationTest {
         wireMock.verify(
                 1,
                 getRequestedFor(
-                        urlPathMatching(
-                                "/api/v1/acs/caregivers/" + caregiverId + "/patients")));
+                        urlPathMatching("/api/v1/acs/caregivers/" + caregiverId + "/patients")));
     }
 
     @Test
@@ -127,8 +120,7 @@ class AcsIntegrationTest {
                 get(urlPathMatching("/api/v1/acs/caregivers/" + caregiverId + "/patients"))
                         .willReturn(aResponse().withStatus(503)));
 
-        assertThatThrownBy(
-                        () -> actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId))
+        assertThatThrownBy(() -> actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId))
                 .isInstanceOf(ActorDirectoryUnavailableException.class)
                 .hasMessageContaining(caregiverId.toString());
     }
@@ -147,8 +139,7 @@ class AcsIntegrationTest {
                                         .withBody("[]")
                                         .withFixedDelay(3500)));
 
-        assertThatThrownBy(
-                        () -> actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId))
+        assertThatThrownBy(() -> actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId))
                 .isInstanceOf(ActorDirectoryUnavailableException.class);
     }
 }

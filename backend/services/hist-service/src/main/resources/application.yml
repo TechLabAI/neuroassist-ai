@@ -69,6 +69,28 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: 3
         registerHealthIndicator: true
 
+hist:
+  # Controlled vocabulary — v1 seed (HIST-023 / SPEC-02).
+  # Add types here without recompilation; changes take effect on next JVM restart.
+  fact-types:
+    allowed:
+      - evento.confirmado
+      - evento.descartado
+      - evento.feedback.registrado
+      - comando.sensibilidade.editada
+      - comando.recalibrado
+      - acesso.concedido
+      - acesso.revogado
+      - dispositivo.pareado
+      - dispositivo.despareado
+      - registro.corrigido
+
+  # Stream-tip contention retry (HIST-022 / SPEC-05).
+  # maxAttempts=3, backoff=50ms — applied only on PessimisticLockingFailureException.
+  retry:
+    max-attempts: 3
+    backoff-ms: 50
+
 logging:
   pattern:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"

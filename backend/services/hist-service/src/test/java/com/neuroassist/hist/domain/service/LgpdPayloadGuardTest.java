@@ -20,7 +20,17 @@ class LgpdPayloadGuardTest {
     private final LgpdPayloadGuard guard = new LgpdPayloadGuard();
 
     @ParameterizedTest
-    @ValueSource(strings = {"image", "biometric", "photo", "fingerprint", "landmarks", "frame", "video", "embedding"})
+    @ValueSource(
+            strings = {
+                "image",
+                "biometric",
+                "photo",
+                "fingerprint",
+                "landmarks",
+                "frame",
+                "video",
+                "embedding"
+            })
     @DisplayName("Payload with forbidden key throws ForbiddenPayloadException")
     void validate_forbiddenKey_throwsException(String forbiddenKey) {
         Map<String, Object> payload = Map.of(forbiddenKey, "some_value");

@@ -11,13 +11,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 /**
- * Per-scenario state bag for BDD step definitions. Scoped to {@code cucumber-glue} so each
- * Cucumber scenario starts with a fresh instance. Shared via Spring injection across all step
- * definition classes.
+ * Per-scenario state bag for BDD step definitions. Scoped to {@code cucumber-glue} so each Cucumber
+ * scenario starts with a fresh instance. Shared via Spring injection across all step definition
+ * classes.
  *
- * <p>Naming convention for symbolic entity identifiers (e.g. "pac-1", "cg-1"):
- * UUID is derived deterministically from the name so that the same symbolic name always maps to
- * the same UUID within a test run.
+ * <p>Naming convention for symbolic entity identifiers (e.g. "pac-1", "cg-1"): UUID is derived
+ * deterministically from the name so that the same symbolic name always maps to the same UUID
+ * within a test run.
  */
 @Component
 @ScenarioScope
@@ -60,29 +60,27 @@ public class BddScenarioState {
     private final Map<String, UUID> factUUIDs = new HashMap<>();
 
     /**
-     * Returns a deterministic UUID for a symbolic subject name (e.g. "pac-1").
-     * The same name always produces the same UUID within a JVM run.
+     * Returns a deterministic UUID for a symbolic subject name (e.g. "pac-1"). The same name always
+     * produces the same UUID within a JVM run.
      */
     public UUID subjectUUID(String name) {
         return subjectUUIDs.computeIfAbsent(
-                name, k -> UUID.nameUUIDFromBytes(("subject:" + k).getBytes(StandardCharsets.UTF_8)));
+                name,
+                k -> UUID.nameUUIDFromBytes(("subject:" + k).getBytes(StandardCharsets.UTF_8)));
     }
 
-    /**
-     * Returns a deterministic UUID for a symbolic caregiver name (e.g. "cg-1").
-     */
+    /** Returns a deterministic UUID for a symbolic caregiver name (e.g. "cg-1"). */
     public UUID caregiverUUID(String name) {
         return caregiverUUIDs.computeIfAbsent(
                 name,
                 k -> UUID.nameUUIDFromBytes(("caregiver:" + k).getBytes(StandardCharsets.UTF_8)));
     }
 
-    /**
-     * Returns a deterministic UUID for a symbolic factId (e.g. "018f-0001").
-     */
+    /** Returns a deterministic UUID for a symbolic factId (e.g. "018f-0001"). */
     public UUID factUUID(String name) {
         return factUUIDs.computeIfAbsent(
-                name, k -> UUID.nameUUIDFromBytes(("factId:" + k).getBytes(StandardCharsets.UTF_8)));
+                name,
+                k -> UUID.nameUUIDFromBytes(("factId:" + k).getBytes(StandardCharsets.UTF_8)));
     }
 
     // ---- Getters / setters ----

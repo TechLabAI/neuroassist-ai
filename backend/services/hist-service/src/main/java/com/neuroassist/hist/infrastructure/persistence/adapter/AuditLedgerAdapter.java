@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Infrastructure adapter — write-once insert of an {@link AuditRecord} into the tenant ledger
- * (ADR-004). Uses {@link EntityManager#persist} exclusively — never {@code save()} or
- * {@code merge()} — to enforce the write-once invariant at the persistence boundary.
+ * (ADR-004). Uses {@link EntityManager#persist} exclusively — never {@code save()} or {@code
+ * merge()} — to enforce the write-once invariant at the persistence boundary.
  */
 @Slf4j
 @Component

@@ -33,7 +33,7 @@ public class BddJwtTokenFactory {
      * Creates a signed JWT token for the given tenant and scopes.
      *
      * @param tenantId the tenant identifier (set in {@code tenant_id} and {@code tenant} claims)
-     * @param scopes   space-separated OAuth2 scopes (e.g. "hist:write")
+     * @param scopes space-separated OAuth2 scopes (e.g. "hist:write")
      * @return serialized signed JWT string
      */
     public String createToken(String tenantId, String scopes) {
@@ -41,8 +41,8 @@ public class BddJwtTokenFactory {
     }
 
     /**
-     * Creates a signed JWT token with an explicit subject (used for caregiver-scope tests where
-     * the {@code sub} claim identifies the caregiver).
+     * Creates a signed JWT token with an explicit subject (used for caregiver-scope tests where the
+     * {@code sub} claim identifies the caregiver).
      */
     public String createTokenWithSubject(String tenantId, String subject, String scopes) {
         try {

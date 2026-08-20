@@ -6,6 +6,8 @@ import com.neuroassist.hist.api.dto.RecordAuditFactResponse;
 import com.neuroassist.hist.api.dto.SubjectRefDto;
 import com.neuroassist.hist.application.port.in.HistoryQueryUseCase;
 import com.neuroassist.hist.domain.model.AuditRecord;
+import com.neuroassist.hist.domain.model.IncompleteSubjectFilterException;
+import com.neuroassist.hist.domain.model.InvalidTimeWindowException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -52,16 +54,24 @@ public class HistoryQueryController {
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) UUID subjectId,
             @RequestParam(required = false) String factType,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant to,
             @RequestParam(defaultValue = "desc") String order,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication authentication) {
+
+        // Validate: subjectId requires subjectType — both or neither (400 if only one supplied)
+        if (subjectId != null && (subjectType == null || subjectType.isBlank())) {
+            throw new IncompleteSubjectFilterException();
+        }
+
+        // Validate: from must be before to when both are provided
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new InvalidTimeWindowException(from, to);
+        }
 
         boolean isReadAll =
                 authentication.getAuthorities().stream()
@@ -82,7 +92,15 @@ public class HistoryQueryController {
 
         HistoryQueryUseCase.Query query =
                 new HistoryQueryUseCase.Query(
-                        subjectType, subjectId, factType, caregiverId, from, to, order, page, size,
+                        subjectType,
+                        subjectId,
+                        factType,
+                        caregiverId,
+                        from,
+                        to,
+                        order,
+                        page,
+                        size,
                         tenantId);
 
         HistoryQueryUseCase.HistoryPage result = historyQueryUseCase.queryTimeline(query);
@@ -139,4 +157,3 @@ public class HistoryQueryController {
                 record.correctsRecordId());
     }
 }
-

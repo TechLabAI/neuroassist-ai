@@ -14,9 +14,10 @@ import lombok.*;
 @Entity
 @Table(
         name = "audit_record",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uq_audit_record_fact_tenant",
-                columnNames = {"fact_id", "tenant_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_audit_record_fact_tenant",
+                        columnNames = {"fact_id", "tenant_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +26,6 @@ import lombok.*;
 public class AuditRecordJpaEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "audit_record_id", updatable = false, nullable = false)
     private UUID id;
 

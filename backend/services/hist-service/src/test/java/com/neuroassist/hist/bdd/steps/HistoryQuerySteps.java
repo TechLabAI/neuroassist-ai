@@ -20,31 +20,30 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 
 /**
- * Step definitions — History timeline query is filtered, paginated and tenant/scope bound.
- * Feature: history-query.feature
+ * Step definitions — History timeline query is filtered, paginated and tenant/scope bound. Feature:
+ * history-query.feature
  */
 public class HistoryQuerySteps {
 
-    @Autowired
-    private BddScenarioState state;
+    @Autowired private BddScenarioState state;
 
-    @Autowired
-    private BddJwtTokenFactory jwtFactory;
+    @Autowired private BddJwtTokenFactory jwtFactory;
 
-    @Autowired
-    private SharedSteps shared;
+    @Autowired private SharedSteps shared;
 
     // ── Scenario 1: coordinator query ordered newest-first ─────────────────
 
     // "the stream paciente:pac-1 has 3 records" is in SharedSteps
 
-    @When("GET /history is called with subjectType \"paciente\" and subjectId \"pac-1\"")
+    @When("GET \\/history is called with subjectType \"paciente\" and subjectId \"pac-1\"")
     public void whenGetHistoryIsCalledWithSubjecttypePacienteAnd() {
         String subjectId = state.subjectUUID("pac-1").toString();
-        state.setLastResponse(shared.getWithToken(
-                "/api/v1/hist/history?subjectType=paciente&subjectId=" + subjectId
-                        + "&order=desc",
-                state.getCurrentToken()));
+        state.setLastResponse(
+                shared.getWithToken(
+                        "/api/v1/hist/history?subjectType=paciente&subjectId="
+                                + subjectId
+                                + "&order=desc",
+                        state.getCurrentToken()));
     }
 
     @And("the items are ordered by recordedAt descending")
@@ -68,33 +67,53 @@ public class HistoryQuerySteps {
 
     // ── Scenario 2: factType filter ───────────────────────────────────────
 
-    @And("subject paciente \"pac-1\" has facts of types \"evento.confirmado\" and \"comando.recalibrado\"")
+    @And(
+            "subject paciente \"pac-1\" has facts of types \"evento.confirmado\" and \"comando.recalibrado\"")
     public void andSubjectPacientePac1HasFactsOfTypesEventoconfirmado() {
         UUID subjectId = state.subjectUUID("pac-1");
         String token = jwtFactory.createToken(state.getTenantId(), "hist:write");
         // Insert one fact of type evento.confirmado
-        Map<String, Object> req1 = shared.buildFactRequest(
-                UUID.randomUUID(), "evento.confirmado", "paciente", subjectId,
-                state.caregiverUUID("cg-1"), "Caregiver Filter",
-                Map.of("filter", "confirmado"), Instant.now().minusSeconds(20), null, null);
+        Map<String, Object> req1 =
+                shared.buildFactRequest(
+                        UUID.randomUUID(),
+                        "evento.confirmado",
+                        "paciente",
+                        subjectId,
+                        state.caregiverUUID("cg-1"),
+                        "Caregiver Filter",
+                        Map.of("filter", "confirmado"),
+                        Instant.now().minusSeconds(20),
+                        null,
+                        null);
         ResponseEntity<String> r1 = shared.postAuditFact(req1, token);
         assertThat(r1.getStatusCode().value()).isIn(200, 201);
         // Insert one fact of type comando.recalibrado
-        Map<String, Object> req2 = shared.buildFactRequest(
-                UUID.randomUUID(), "comando.recalibrado", "paciente", subjectId,
-                state.caregiverUUID("cg-1"), "Caregiver Filter",
-                Map.of("filter", "recalibrado"), Instant.now().minusSeconds(10), null, null);
+        Map<String, Object> req2 =
+                shared.buildFactRequest(
+                        UUID.randomUUID(),
+                        "comando.recalibrado",
+                        "paciente",
+                        subjectId,
+                        state.caregiverUUID("cg-1"),
+                        "Caregiver Filter",
+                        Map.of("filter", "recalibrado"),
+                        Instant.now().minusSeconds(10),
+                        null,
+                        null);
         ResponseEntity<String> r2 = shared.postAuditFact(req2, token);
         assertThat(r2.getStatusCode().value()).isIn(200, 201);
     }
 
-    @When("GET /history is called with subjectType \"paciente\" subjectId \"pac-1\" and factType \"evento.confirmado\"")
+    @When(
+            "GET \\/history is called with subjectType \"paciente\" subjectId \"pac-1\" and factType \"evento.confirmado\"")
     public void whenGetHistoryIsCalledWithSubjecttypePacienteSubjectid() {
         String subjectId = state.subjectUUID("pac-1").toString();
-        state.setLastResponse(shared.getWithToken(
-                "/api/v1/hist/history?subjectType=paciente&subjectId=" + subjectId
-                        + "&factType=evento.confirmado",
-                state.getCurrentToken()));
+        state.setLastResponse(
+                shared.getWithToken(
+                        "/api/v1/hist/history?subjectType=paciente&subjectId="
+                                + subjectId
+                                + "&factType=evento.confirmado",
+                        state.getCurrentToken()));
     }
 
     @And("every item has factType \"evento.confirmado\"")
@@ -116,23 +135,19 @@ public class HistoryQuerySteps {
         JsonNode items = body.path("items");
         for (JsonNode item : items) {
             JsonNode payload = item.path("payload");
-            assertThat(payload.isNull())
-                    .as("Payload must not be null")
-                    .isFalse();
-            assertThat(payload.isMissingNode())
-                    .as("Payload must not be missing")
-                    .isFalse();
+            assertThat(payload.isNull()).as("Payload must not be null").isFalse();
+            assertThat(payload.isMissingNode()).as("Payload must not be missing").isFalse();
         }
     }
 
     // ── Scenario 3: subjectId without subjectType → 400 ──────────────────
 
-    @When("GET /history is called with subjectId \"pac-1\" and no subjectType")
+    @When("GET \\/history is called with subjectId \"pac-1\" and no subjectType")
     public void whenGetHistoryIsCalledWithSubjectidPac1And() {
         String subjectId = state.subjectUUID("pac-1").toString();
-        state.setLastResponse(shared.getWithToken(
-                "/api/v1/hist/history?subjectId=" + subjectId,
-                state.getCurrentToken()));
+        state.setLastResponse(
+                shared.getWithToken(
+                        "/api/v1/hist/history?subjectId=" + subjectId, state.getCurrentToken()));
     }
 
     @Then("the response status is 400")
@@ -140,21 +155,23 @@ public class HistoryQuerySteps {
         assertThat(state.getLastResponse().getStatusCode().value()).isEqualTo(400);
     }
 
-    @And("the problem type is \"/errors/incomplete-subject-filter\"")
+    @And("the problem type is \"\\/errors\\/incomplete-subject-filter\"")
     public void andTheProblemTypeIsErrorsincompletesubjectfilter() {
         assertProblemType("/errors/incomplete-subject-filter");
     }
 
     // ── Scenario 4: inverted time window → 400 ───────────────────────────
 
-    @When("GET /history is called with from \"2026-08-16T10:00:00Z\" and to \"2026-08-15T10:00:00Z\"")
+    @When(
+            "GET \\/history is called with from \"2026-08-16T10:00:00Z\" and to \"2026-08-15T10:00:00Z\"")
     public void whenGetHistoryIsCalledWithFrom20260816t100000zAnd() {
-        state.setLastResponse(shared.getWithToken(
-                "/api/v1/hist/history?from=2026-08-16T10:00:00Z&to=2026-08-15T10:00:00Z",
-                state.getCurrentToken()));
+        state.setLastResponse(
+                shared.getWithToken(
+                        "/api/v1/hist/history?from=2026-08-16T10:00:00Z&to=2026-08-15T10:00:00Z",
+                        state.getCurrentToken()));
     }
 
-    @And("the problem type is \"/errors/invalid-time-window\"")
+    @And("the problem type is \"\\/errors\\/invalid-time-window\"")
     public void andTheProblemTypeIsErrorsinvalidtimewindow() {
         assertProblemType("/errors/invalid-time-window");
     }
@@ -165,8 +182,8 @@ public class HistoryQuerySteps {
     public void givenACaregiverTokenWithScopeHistread() {
         UUID caregiverId = state.caregiverUUID("cg-caregiver");
         state.setCurrentToken(
-                jwtFactory.createTokenWithSubject(state.getTenantId(),
-                        caregiverId.toString(), "hist:read"));
+                jwtFactory.createTokenWithSubject(
+                        state.getTenantId(), caregiverId.toString(), "hist:read"));
     }
 
     @And("ACS resolves the caregiver scope to patients \"pac-1\"")
@@ -176,18 +193,20 @@ public class HistoryQuerySteps {
         UUID pac1Id = state.subjectUUID("pac-1");
         BddWireMockHolder.ACS_WIREMOCK.stubFor(
                 get(urlPathMatching("/api/v1/acs/caregivers/" + caregiverId + "/patients"))
-                        .willReturn(aResponse()
-                                .withStatus(200)
-                                .withHeader("Content-Type", "application/json")
-                                .withBody("[\"" + pac1Id + "\"]")));
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody("[\"" + pac1Id + "\"]")));
     }
 
-    @When("GET /history is called with subjectType \"paciente\" and subjectId \"pac-9\"")
+    @When("GET \\/history is called with subjectType \"paciente\" and subjectId \"pac-9\"")
     public void whenGetHistoryIsCalledWithSubjecttypePacienteAnd_2() {
         String pac9Id = state.subjectUUID("pac-9").toString();
-        state.setLastResponse(shared.getWithToken(
-                "/api/v1/hist/history?subjectType=paciente&subjectId=" + pac9Id,
-                state.getCurrentToken()));
+        state.setLastResponse(
+                shared.getWithToken(
+                        "/api/v1/hist/history?subjectType=paciente&subjectId=" + pac9Id,
+                        state.getCurrentToken()));
     }
 
     @Then("the response items are empty")
@@ -212,8 +231,11 @@ public class HistoryQuerySteps {
         // Return a network fault so Feign throws an exception → circuit breaker → 503
         BddWireMockHolder.ACS_WIREMOCK.stubFor(
                 get(urlPathMatching("/api/v1/acs/caregivers/" + caregiverId + "/patients"))
-                        .willReturn(aResponse()
-                                .withFault(com.github.tomakehurst.wiremock.http.Fault.CONNECTION_RESET_BY_PEER)));
+                        .willReturn(
+                                aResponse()
+                                        .withFault(
+                                                com.github.tomakehurst.wiremock.http.Fault
+                                                        .CONNECTION_RESET_BY_PEER)));
     }
 
     @Then("the response status is 503")
@@ -221,7 +243,7 @@ public class HistoryQuerySteps {
         assertThat(state.getLastResponse().getStatusCode().value()).isEqualTo(503);
     }
 
-    @And("the problem type is \"/errors/scope-unavailable\"")
+    @And("the problem type is \"\\/errors\\/scope-unavailable\"")
     public void andTheProblemTypeIsErrorsscopeunavailable() {
         assertProblemType("/errors/scope-unavailable");
     }
@@ -231,7 +253,8 @@ public class HistoryQuerySteps {
     private void assertProblemType(String expectedSuffix) {
         JsonNode body = shared.parseBody(state.getLastResponse());
         String type = body.path("type").asText("");
-        assertThat(type).as("ProblemDetail 'type' should end with " + expectedSuffix)
+        assertThat(type)
+                .as("ProblemDetail 'type' should end with " + expectedSuffix)
                 .endsWith(expectedSuffix);
     }
 }

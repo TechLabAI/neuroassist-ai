@@ -24,6 +24,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Shared step definitions — steps common to two or more feature files.
@@ -32,20 +33,42 @@ import org.springframework.http.ResponseEntity;
  */
 public class SharedSteps {
 
-    @Autowired
-    private BddScenarioState state;
+    @Autowired private BddScenarioState state;
 
-    @Autowired
-    private BddJwtTokenFactory jwtFactory;
+    @Autowired private BddJwtTokenFactory jwtFactory;
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
-    final ObjectMapper mapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    @Autowired private JdbcTemplate jdbcTemplate;
 
-    @Before
+    final ObjectMapper mapper =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+    /**
+     * Truncates all tenant-specific ledger tables before each scenario so that sequenceNo counters
+     * and stream heads are reset to a clean state. Uses schema-qualified table names to bypass the
+     * multi-tenant search_path mechanism.
+     *
+     * <p>Order 0 — runs before all other @Before hooks (including resetWireMock).
+     */
+    @Before(order = 0)
+    public void cleanDatabase() {
+        String[] tenantSchemas = {"t_emp_test", "t_emp_other"};
+        String[] tables = {"audit_record", "audit_stream_head", "idempotency_entry"};
+        for (String schema : tenantSchemas) {
+            for (String table : tables) {
+                try {
+                    jdbcTemplate.execute("TRUNCATE " + schema + "." + table + " CASCADE");
+                } catch (Exception ignored) {
+                    // Schema or table may not exist for every test run — safe to skip
+                }
+            }
+        }
+    }
+
+    @Before(order = 1)
     public void resetWireMock() {
         com.neuroassist.hist.bdd.BddWireMockHolder.ACS_WIREMOCK.resetAll();
     }
@@ -83,9 +106,10 @@ public class SharedSteps {
 
     // ------------------------------------------------------------------ submission
 
-    @When("it is submitted to POST /audit-facts")
+    @When("it is submitted to POST \\/audit-facts")
     public void whenItIsSubmittedToPostAuditfacts() {
-        state.setLastResponse(postAuditFact(state.getPendingFactRequest(), state.getCurrentToken()));
+        state.setLastResponse(
+                postAuditFact(state.getPendingFactRequest(), state.getCurrentToken()));
     }
 
     // ------------------------------------------------------------------ common assertions
@@ -105,7 +129,19 @@ public class SharedSteps {
         assertThat(state.getLastResponse().getStatusCode().value()).isEqualTo(422);
     }
 
-    // ------------------------------------------------------------------ HTTP helpers (package-visible)
+    /**
+     * Unified sequenceNo assertion used by both audit-fact-ingestion.feature and the
+     * idempotency-and-concurrency.feature Scenario Outline. Uses {int} so literal "0", "1", "5" in
+     * feature text are matched without ambiguity.
+     */
+    @Then("the record has sequenceNo {int}")
+    public void thenTheRecordHasSequenceno(int expected) {
+        JsonNode body = parseBody(state.getLastResponse());
+        assertThat(body.path("sequenceNo").asLong()).isEqualTo((long) expected);
+    }
+
+    // ------------------------------------------------------------------ HTTP helpers
+    // (package-visible)
 
     ResponseEntity<String> postAuditFact(Map<String, Object> requestBody, String token) {
         HttpHeaders headers = new HttpHeaders();
@@ -137,10 +173,18 @@ public class SharedSteps {
         String producerToken = jwtFactory.createToken(state.getTenantId(), "hist:write");
         for (int i = 0; i < n; i++) {
             UUID factId = UUID.randomUUID();
-            Map<String, Object> req = buildFactRequest(
-                    factId, "evento.confirmado", subjectType, subjectId,
-                    state.caregiverUUID("cg-1"), "Caregiver Test",
-                    Map.of("step", i), Instant.now().minusSeconds(n - i), null, null);
+            Map<String, Object> req =
+                    buildFactRequest(
+                            factId,
+                            "evento.confirmado",
+                            subjectType,
+                            subjectId,
+                            state.caregiverUUID("cg-1"),
+                            "Caregiver Test",
+                            Map.of("step", i),
+                            Instant.now().minusSeconds(n - i),
+                            null,
+                            null);
             ResponseEntity<String> resp = postAuditFact(req, producerToken);
             assertThat(resp.getStatusCode().value())
                     .as("Setup ingestion of fact %d should succeed", i)
@@ -169,16 +213,17 @@ public class SharedSteps {
             UUID correctsFactId,
             String empresaId) {
         Map<String, Object> subject = Map.of("type", subjectType, "id", subjectId.toString());
-        Map<String, Object> actor = Map.of(
-                "caregiverId", caregiverId.toString(),
-                "displayNameSnapshot", caregiverName);
+        Map<String, Object> actor =
+                Map.of("caregiverId", caregiverId.toString(), "displayNameSnapshot", caregiverName);
         Map<String, Object> req = new HashMap<>();
         req.put("factId", factId.toString());
         req.put("factType", factType);
         req.put("subject", subject);
         req.put("actor", actor);
         req.put("payload", payload != null ? payload : Map.of("key", "value"));
-        req.put("occurredAt", occurredAt != null ? occurredAt.toString() : Instant.now().toString());
+        req.put(
+                "occurredAt",
+                occurredAt != null ? occurredAt.toString() : Instant.now().toString());
         if (correctsFactId != null) {
             req.put("correctsFactId", correctsFactId.toString());
         }

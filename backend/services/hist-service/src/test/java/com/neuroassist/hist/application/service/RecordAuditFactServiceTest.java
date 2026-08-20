@@ -26,9 +26,10 @@ import com.neuroassist.hist.domain.model.StreamHead;
 import com.neuroassist.hist.domain.model.SubjectRef;
 import com.neuroassist.hist.domain.model.SubjectType;
 import com.neuroassist.hist.domain.model.UnknownFactTypeException;
+import com.neuroassist.hist.infrastructure.config.FactTypeCatalogProperties;
 import com.neuroassist.hist.infrastructure.config.HistMetrics;
-import io.micrometer.core.instrument.Timer;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -81,8 +82,24 @@ class RecordAuditFactServiceTest {
         // HistMetrics mock — Timer.start() needs a non-null Timer to stop against
         io.micrometer.core.instrument.Timer timerMock =
                 org.mockito.Mockito.mock(io.micrometer.core.instrument.Timer.class);
-        org.mockito.Mockito.when(histMetrics.ingestionLatencyTimer(org.mockito.ArgumentMatchers.anyString()))
+        org.mockito.Mockito.when(
+                        histMetrics.ingestionLatencyTimer(org.mockito.ArgumentMatchers.anyString()))
                 .thenReturn(timerMock);
+
+        // FactTypeCatalogProperties — v1 seed matching the canonical enum codes (HIST-023)
+        FactTypeCatalogProperties catalogProperties = new FactTypeCatalogProperties();
+        catalogProperties.setAllowed(
+                List.of(
+                        "evento.confirmado",
+                        "evento.descartado",
+                        "evento.feedback.registrado",
+                        "comando.sensibilidade.editada",
+                        "comando.recalibrado",
+                        "acesso.concedido",
+                        "acesso.revogado",
+                        "dispositivo.pareado",
+                        "dispositivo.despareado",
+                        "registro.corrigido"));
 
         service =
                 new RecordAuditFactService(
@@ -92,7 +109,8 @@ class RecordAuditFactServiceTest {
                         auditLedgerPort,
                         auditRecordRepositoryPort,
                         lgpdPayloadGuard,
-                        histMetrics);
+                        histMetrics,
+                        catalogProperties);
     }
 
     @Test
@@ -119,7 +137,7 @@ class RecordAuditFactServiceTest {
         assertThat(result.record().factId()).isEqualTo(FACT_ID);
         assertThat(result.record().factType()).isEqualTo(FACT_TYPE);
         assertThat(result.record().recordHash()).isEqualTo(COMPUTED_HASH);
-        assertThat(result.record().sequenceNo()).isEqualTo(1L);
+        assertThat(result.record().sequenceNo()).isEqualTo(0L);
         assertThat(result.record().prevHash()).isEqualTo(HashChain.GENESIS_PREV_HASH);
 
         verify(auditLedgerPort).insert(any(AuditRecord.class), eq(TENANT_ID));

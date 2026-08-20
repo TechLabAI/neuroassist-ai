@@ -20,9 +20,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 /**
  * INT-HIST-003 — Multi-tenant isolation test (P5, HIST-015).
  *
- * <p>Verifies that a record stored for {@code empresa_a} is invisible to a query scoped to
- * {@code empresa_b}. Isolation is enforced by the tenantId column in every SQL query; this test
- * exercises the end-to-end path through the application service and persistence adapters.
+ * <p>Verifies that a record stored for {@code empresa_a} is invisible to a query scoped to {@code
+ * empresa_b}. Isolation is enforced by the tenantId column in every SQL query; this test exercises
+ * the end-to-end path through the application service and persistence adapters.
  *
  * <p>Requires: Testcontainers PostgreSQL (inherited from {@link BaseIntegrationTest}).
  */
@@ -31,11 +31,9 @@ class MultiTenantIsolationTest extends BaseIntegrationTest {
     private static final String TENANT_A = "empresa_a";
     private static final String TENANT_B = "empresa_b";
 
-    @Autowired
-    private RecordAuditFactUseCase recordAuditFactUseCase;
+    @Autowired private RecordAuditFactUseCase recordAuditFactUseCase;
 
-    @Autowired
-    private AuditRecordRepositoryPort auditRecordRepositoryPort;
+    @Autowired private AuditRecordRepositoryPort auditRecordRepositoryPort;
 
     @AfterEach
     void clearTenantContext() {
@@ -82,9 +80,7 @@ class MultiTenantIsolationTest extends BaseIntegrationTest {
         Optional<AuditRecord> foundForA = auditRecordRepositoryPort.findById(recordId, TENANT_A);
         TenantContextHolder.clear();
 
-        assertThat(foundForA)
-                .as("empresa_a should still see its own record")
-                .isPresent();
+        assertThat(foundForA).as("empresa_a should still see its own record").isPresent();
         assertThat(foundForA.get().tenantId()).isEqualTo(TENANT_A);
     }
 }

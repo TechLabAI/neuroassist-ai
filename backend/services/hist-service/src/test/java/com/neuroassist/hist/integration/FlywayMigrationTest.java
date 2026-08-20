@@ -10,17 +10,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Integration test — validates that the JPA entity mapping (HIST-009) produces the expected schema
- * structure matching the Flyway migration scripts V0001..V0005. The test profile uses
- * {@code ddl-auto: create-drop} so Hibernate creates the schema from entity annotations; this test
- * asserts that the generated schema has the required tables and key columns (INT-HIST-004).
+ * structure matching the Flyway migration scripts V0001..V0005. The test profile uses {@code
+ * ddl-auto: create-drop} so Hibernate creates the schema from entity annotations; this test asserts
+ * that the generated schema has the required tables and key columns (INT-HIST-004).
  *
  * <p>Note: In production, schema creation is delegated to {@code neuroassist-ai-migrations} which
  * applies the Flyway scripts directly. This test validates structural equivalence.
  */
 class FlywayMigrationTest extends BaseIntegrationTest {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("audit_record table exists with all required columns (V0001)")
@@ -56,11 +55,7 @@ class FlywayMigrationTest extends BaseIntegrationTest {
         assertThat(columns)
                 .as("audit_idempotency must contain PK + idempotency key fields")
                 .contains(
-                        "idempotency_id",
-                        "fact_id",
-                        "tenant_id",
-                        "audit_record_id",
-                        "recorded_at");
+                        "idempotency_id", "fact_id", "tenant_id", "audit_record_id", "recorded_at");
     }
 
     @Test

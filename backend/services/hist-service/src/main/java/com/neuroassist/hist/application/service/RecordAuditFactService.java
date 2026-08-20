@@ -8,14 +8,15 @@ import com.neuroassist.hist.application.port.out.IdempotencyPort;
 import com.neuroassist.hist.application.port.out.StreamHeadPort;
 import com.neuroassist.hist.domain.model.ActorRef;
 import com.neuroassist.hist.domain.model.AuditRecord;
-import com.neuroassist.hist.domain.model.FactType;
+import com.neuroassist.hist.domain.model.CorrectsTargetNotFoundException;
 import com.neuroassist.hist.domain.model.IdempotencyEntry;
+import com.neuroassist.hist.domain.model.InvalidFactTypeException;
 import com.neuroassist.hist.domain.model.OccurredAtInFutureException;
 import com.neuroassist.hist.domain.model.StreamHead;
 import com.neuroassist.hist.domain.model.SubjectRef;
 import com.neuroassist.hist.domain.model.SubjectType;
-import com.neuroassist.hist.domain.model.UnknownFactTypeException;
 import com.neuroassist.hist.domain.service.LgpdPayloadGuard;
+import com.neuroassist.hist.infrastructure.config.FactTypeCatalogProperties;
 import com.neuroassist.hist.infrastructure.config.HistMetrics;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -25,6 +26,9 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>8-step append flow (within a single {@code @Transactional} boundary):
  *
  * <ol>
- *   <li>Validate factType against the controlled vocabulary.
+ *   <li>Validate factType against the configured vocabulary ({@code hist.fact-types.allowed}).
  *   <li>Validate payload: reject biometric keys (LGPD guard).
  *   <li>Validate occurredAt: reject if more than 5 minutes in the future.
  *   <li>Idempotency check — if factId already recorded, return original record (ADR-005).
@@ -44,10 +48,20 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>Persist: insert ledger record + record idempotency entry + upsert stream head.
  * </ol>
  *
- * <p>TenantContextHolder (P5): security pin is applied by the filter layer in P5. In P2 the
- * tenantId is carried in the Command by the controller.
+ * <p>Stream-tip contention retry (HIST-022 / SPEC-05): {@code @Retryable} wraps the entire
+ * transactional append with {@code maxAttempts=3}, {@code backoff=50ms}. Only pessimistic-lock
+ * failures (deadlocks / lock-wait timeouts) trigger a retry — domain validation exceptions ({@link
+ * InvalidFactTypeException}, etc.) propagate immediately without retry.
  *
- * <p>{@code @Transactional} only on the public method (RULE-03).
+ * <p>FactType vocabulary (HIST-023 / SPEC-02): validated against {@code hist.fact-types.allowed} in
+ * {@code application.yml} — no recompilation required to extend the vocabulary.
+ *
+ * <p>TenantContextHolder (P5): security pin applied by the filter layer. tenantId is carried in the
+ * Command by the controller.
+ *
+ * <p>{@code @Transactional} only on the public method (RULE-03). {@code @Retryable} retry
+ * interceptor is outer; transaction interceptor is inner (new TX per attempt, required for
+ * pessimistic-lock replay semantics).
  */
 @Slf4j
 @Service
@@ -63,8 +77,21 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
     private final AuditRecordRepositoryPort auditRecordRepositoryPort;
     private final LgpdPayloadGuard lgpdPayloadGuard;
     private final HistMetrics histMetrics;
+    private final FactTypeCatalogProperties catalogProperties;
 
+    /**
+     * Appends an audit fact to the ledger.
+     *
+     * <p>Stream-tip contention retry — {@code maxAttempts=3}, {@code backoff=50ms} (HIST-022). Only
+     * {@link PessimisticLockingFailureException} (deadlock / lock timeout from {@code
+     * StreamHeadAdapter.lockAndFetchTip}) triggers a retry; domain validation exceptions propagate
+     * immediately.
+     */
     @Override
+    @Retryable(
+            retryFor = {PessimisticLockingFailureException.class},
+            maxAttemptsExpression = "${hist.retry.max-attempts:3}",
+            backoff = @Backoff(delayExpression = "${hist.retry.backoff-ms:50}"))
     @Transactional
     public AppendResult append(Command command) {
         Timer.Sample sample = Timer.start();
@@ -76,7 +103,7 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
     }
 
     private AppendResult doAppend(Command command) {
-        // Step 1: validate factType
+        // Step 1: validate factType against the configured vocabulary (HIST-023)
         validateFactType(command.factType());
 
         // Step 2: validate payload (LGPD guard — delegated to LgpdPayloadGuard domain service)
@@ -107,14 +134,27 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
             return new AppendResult(original, false);
         }
 
-        // Step 5: acquire pessimistic write lock on stream tip
+        // Step 4b: validate correctsFactId and resolve to the HIST internal record UUID.
+        // If correctsFactId is set but doesn't exist in this tenant → 422 (ADR-005).
+        UUID resolvedCorrectsRecordId = null;
+        if (command.correctsFactId() != null) {
+            Optional<IdempotencyEntry> correctsEntry =
+                    idempotencyPort.findByFactId(command.correctsFactId(), command.tenantId());
+            if (correctsEntry.isEmpty()) {
+                throw new CorrectsTargetNotFoundException(command.correctsFactId());
+            }
+            resolvedCorrectsRecordId = correctsEntry.get().auditRecordId();
+        }
+
+        // Step 5: acquire pessimistic write lock on stream tip (HIST-022: retried on contention)
         SubjectRef subject = resolveSubject(command.subject());
         String streamKey = subject.streamKey();
         Optional<StreamHead> tipOpt = streamHeadPort.lockAndFetchTip(streamKey, command.tenantId());
 
         // Step 6: derive prevHash and sequenceNo from the stream head (or genesis defaults)
+        // Genesis record gets sequenceNo=0 (first record in a new stream, 0-based).
         String prevHash = tipOpt.map(StreamHead::currentHash).orElse(hashChainPort.genesis());
-        long sequenceNo = tipOpt.map(head -> head.currentSequenceNo() + 1L).orElse(1L);
+        long sequenceNo = tipOpt.map(head -> head.currentSequenceNo() + 1L).orElse(0L);
 
         // Step 7: build record (without recordHash first) and compute hash
         Instant recordedAt = Instant.now();
@@ -138,7 +178,7 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         sequenceNo,
                         prevHash,
                         null, // recordHash placeholder — computed next
-                        command.correctsFactId());
+                        resolvedCorrectsRecordId); // HIST internal UUID, null if no correction
 
         String recordHash = hashChainPort.compute(prevHash, preHashRecord);
 
@@ -158,7 +198,7 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         sequenceNo,
                         prevHash,
                         recordHash,
-                        command.correctsFactId());
+                        resolvedCorrectsRecordId); // HIST internal UUID of corrected record
 
         // Step 8: persist — all three writes in the same transaction
         AuditRecord persisted = auditLedgerPort.insert(record, command.tenantId());
@@ -185,9 +225,16 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
 
     // ---- private helpers ----
 
+    /**
+     * Validates {@code factType} against the configured vocabulary list ({@code
+     * hist.fact-types.allowed}). Adding a type to {@code application.yml} is sufficient — no
+     * recompilation required (HIST-023 / SPEC-02).
+     *
+     * @throws InvalidFactTypeException (HTTP 422) when the type is not in the allowed list
+     */
     private void validateFactType(String factType) {
-        if (!FactType.isKnown(factType)) {
-            throw new UnknownFactTypeException(factType);
+        if (factType == null || !catalogProperties.getAllowed().contains(factType)) {
+            throw new InvalidFactTypeException(factType);
         }
     }
 

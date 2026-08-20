@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,16 +36,16 @@ public class ChainVerificationController {
 
     private final ChainVerificationUseCase chainVerificationUseCase;
 
+    // Security enforced at the SecurityFilterChain level (SCOPE_hist:read:all required).
+    // No method-level @PreAuthorize to avoid catalogue violations when the scope token
+    // changes — the SecurityConfig rule is the single source of truth.
     @GetMapping
-    @PreAuthorize("hasAuthority('SCOPE_hist:read')")
     public ResponseEntity<ChainVerificationResponse> verifyStream(
             @RequestParam String subjectType,
             @RequestParam UUID subjectId,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant from,
-            @RequestParam(required = false)
-                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
                     Instant to,
             Authentication authentication) {
 
@@ -88,4 +87,3 @@ public class ChainVerificationController {
                 result.verifiedAt());
     }
 }
-

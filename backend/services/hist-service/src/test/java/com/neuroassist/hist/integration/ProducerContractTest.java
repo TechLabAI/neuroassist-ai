@@ -42,8 +42,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * validation, and service layer accept the expected payload formats without an ACS or broker. The
  * full Pact consumer-driven contract suite is in P8 (BDD).
  *
- * <p>Producers covered: EVNT (alarm raised), PAC (command created), ACS (caregiver onboarded),
- * EDGE (device session started).
+ * <p>Producers covered: EVNT (alarm raised), PAC (command created), ACS (caregiver onboarded), EDGE
+ * (device session started).
  */
 @Tag("integration")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
@@ -72,11 +72,9 @@ class ProducerContractTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
 
-    @Autowired
-    private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-    @MockBean
-    private RecordAuditFactUseCase recordAuditFactUseCase;
+    @MockBean private RecordAuditFactUseCase recordAuditFactUseCase;
 
     private ObjectMapper objectMapper;
 
@@ -86,31 +84,50 @@ class ProducerContractTest {
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        // Default stub — service returns a valid result for any command
-        AuditRecord stubRecord =
-                new AuditRecord(
-                        UUID.randomUUID(),
-                        "t_empresa_a",
-                        UUID.randomUUID(),
-                        "evnt.alarm.raised",
-                        new SubjectRef(SubjectType.paciente, UUID.randomUUID()),
-                        new ActorRef(UUID.randomUUID(), "Cuidador Stub"),
-                        Map.of("severity", "HIGH"),
-                        Instant.now().minusSeconds(5),
-                        Instant.now(),
-                        "PACIENTE:" + UUID.randomUUID(),
-                        1L,
-                        "0000000000000000000000000000000000000000000000000000000000000000",
-                        "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222",
-                        null);
-
+        // Default stub — service echoes back the factType from the command so contract
+        // assertions match the request payload without requiring a real DB round-trip.
+        // Null guard: Mockito calls this lambda during stub-recording for thenThrow/thenReturn
+        // overrides — cmd will be null in that case (Mockito internal invocation).
         when(recordAuditFactUseCase.append(any()))
-                .thenReturn(new RecordAuditFactUseCase.AppendResult(stubRecord, true));
+                .thenAnswer(
+                        invocation -> {
+                            RecordAuditFactUseCase.Command cmd = invocation.getArgument(0);
+                            if (cmd == null) {
+                                return null; // Mockito stub-recording invocation — safe to return
+                                // null
+                            }
+                            // Resolve subjectType safely; fall back to paciente for unknown types
+                            SubjectType st;
+                            try {
+                                st = SubjectType.valueOf(cmd.subject().type().toLowerCase());
+                            } catch (IllegalArgumentException e) {
+                                st = SubjectType.paciente;
+                            }
+                            AuditRecord echoed =
+                                    new AuditRecord(
+                                            UUID.randomUUID(),
+                                            "t_empresa_a",
+                                            cmd.factId(),
+                                            cmd.factType(),
+                                            new SubjectRef(st, cmd.subject().id()),
+                                            new ActorRef(
+                                                    cmd.actor().caregiverId(),
+                                                    cmd.actor().displayNameSnapshot()),
+                                            cmd.payload(),
+                                            cmd.occurredAt(),
+                                            Instant.now(),
+                                            st.name().toLowerCase() + ":" + cmd.subject().id(),
+                                            0L,
+                                            "0000000000000000000000000000000000000000000000000000000000000000",
+                                            "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222",
+                                            null);
+                            return new RecordAuditFactUseCase.AppendResult(echoed, true);
+                        });
     }
 
     /**
-     * EVNT producer contract: alarm raised fact. FactType: {@code evnt.alarm.raised}.
-     * Subject: PACIENTE. Payload: severity, alarmCode.
+     * EVNT producer contract: alarm raised fact. FactType: {@code evnt.alarm.raised}. Subject:
+     * PACIENTE. Payload: severity, alarmCode.
      */
     @Test
     void evnt_alarmRaised_contractAccepted() throws Exception {
@@ -121,12 +138,16 @@ class ProducerContractTest {
                                 "factType", "evnt.alarm.raised",
                                 "subject",
                                         Map.of(
-                                                "type", "PACIENTE",
-                                                "id", UUID.randomUUID().toString()),
+                                                "type",
+                                                "PACIENTE",
+                                                "id",
+                                                UUID.randomUUID().toString()),
                                 "actor",
                                         Map.of(
-                                                "caregiverId", UUID.randomUUID().toString(),
-                                                "displayNameSnapshot", "Cuidador EVNT"),
+                                                "caregiverId",
+                                                UUID.randomUUID().toString(),
+                                                "displayNameSnapshot",
+                                                "Cuidador EVNT"),
                                 "payload",
                                         Map.of(
                                                 "severity", "HIGH",
@@ -139,15 +160,14 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .authorities(
-                                                        () -> "SCOPE_hist:write")))
+                                                .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("evnt.alarm.raised"));
     }
 
     /**
-     * PAC producer contract: command created fact. FactType: {@code pac.command.created}.
-     * Subject: COMANDO. Payload: commandCode, label.
+     * PAC producer contract: command created fact. FactType: {@code pac.command.created}. Subject:
+     * COMANDO. Payload: commandCode, label.
      */
     @Test
     void pac_commandCreated_contractAccepted() throws Exception {
@@ -158,12 +178,16 @@ class ProducerContractTest {
                                 "factType", "pac.command.created",
                                 "subject",
                                         Map.of(
-                                                "type", "COMANDO",
-                                                "id", UUID.randomUUID().toString()),
+                                                "type",
+                                                "COMANDO",
+                                                "id",
+                                                UUID.randomUUID().toString()),
                                 "actor",
                                         Map.of(
-                                                "caregiverId", UUID.randomUUID().toString(),
-                                                "displayNameSnapshot", "Cuidador PAC"),
+                                                "caregiverId",
+                                                UUID.randomUUID().toString(),
+                                                "displayNameSnapshot",
+                                                "Cuidador PAC"),
                                 "payload",
                                         Map.of(
                                                 "commandCode", "BLINK_LEFT",
@@ -176,8 +200,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .authorities(
-                                                        () -> "SCOPE_hist:write")))
+                                                .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("pac.command.created"));
     }
@@ -195,12 +218,16 @@ class ProducerContractTest {
                                 "factType", "acs.caregiver.onboarded",
                                 "subject",
                                         Map.of(
-                                                "type", "CUIDADOR",
-                                                "id", UUID.randomUUID().toString()),
+                                                "type",
+                                                "CUIDADOR",
+                                                "id",
+                                                UUID.randomUUID().toString()),
                                 "actor",
                                         Map.of(
-                                                "caregiverId", UUID.randomUUID().toString(),
-                                                "displayNameSnapshot", "Admin ACS"),
+                                                "caregiverId",
+                                                UUID.randomUUID().toString(),
+                                                "displayNameSnapshot",
+                                                "Admin ACS"),
                                 "payload",
                                         Map.of(
                                                 "role", "CAREGIVER",
@@ -213,8 +240,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .authorities(
-                                                        () -> "SCOPE_hist:write")))
+                                                .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("acs.caregiver.onboarded"));
 
@@ -222,8 +248,8 @@ class ProducerContractTest {
     }
 
     /**
-     * EDGE producer contract: device session started fact.
-     * FactType: {@code edge.session.started}. Subject: DISPOSITIVO. Payload: deviceId, sessionId.
+     * EDGE producer contract: device session started fact. FactType: {@code edge.session.started}.
+     * Subject: DISPOSITIVO. Payload: deviceId, sessionId.
      */
     @Test
     void edge_sessionStarted_contractAccepted() throws Exception {
@@ -234,16 +260,22 @@ class ProducerContractTest {
                                 "factType", "edge.session.started",
                                 "subject",
                                         Map.of(
-                                                "type", "DISPOSITIVO",
-                                                "id", UUID.randomUUID().toString()),
+                                                "type",
+                                                "DISPOSITIVO",
+                                                "id",
+                                                UUID.randomUUID().toString()),
                                 "actor",
                                         Map.of(
-                                                "caregiverId", UUID.randomUUID().toString(),
-                                                "displayNameSnapshot", "Cuidador EDGE"),
+                                                "caregiverId",
+                                                UUID.randomUUID().toString(),
+                                                "displayNameSnapshot",
+                                                "Cuidador EDGE"),
                                 "payload",
                                         Map.of(
-                                                "deviceId", "DEV-001",
-                                                "sessionId", UUID.randomUUID().toString()),
+                                                "deviceId",
+                                                "DEV-001",
+                                                "sessionId",
+                                                UUID.randomUUID().toString()),
                                 "occurredAt", Instant.now().minusSeconds(1).toString()));
 
         mockMvc.perform(
@@ -252,8 +284,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .authorities(
-                                                        () -> "SCOPE_hist:write")))
+                                                .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("edge.session.started"));
     }
@@ -268,16 +299,17 @@ class ProducerContractTest {
                                 "factType", "gest.gesture.detected",
                                 "subject",
                                         Map.of(
-                                                "type", "PACIENTE",
-                                                "id", UUID.randomUUID().toString()),
+                                                "type",
+                                                "PACIENTE",
+                                                "id",
+                                                UUID.randomUUID().toString()),
                                 "actor",
                                         Map.of(
-                                                "caregiverId", UUID.randomUUID().toString(),
-                                                "displayNameSnapshot", "Cuidador GEST"),
-                                "payload",
-                                        Map.of(
-                                                "image",
-                                                "base64-encoded-frame-forbidden"),
+                                                "caregiverId",
+                                                UUID.randomUUID().toString(),
+                                                "displayNameSnapshot",
+                                                "Cuidador GEST"),
+                                "payload", Map.of("image", "base64-encoded-frame-forbidden"),
                                 "occurredAt", Instant.now().minusSeconds(1).toString()));
 
         // ForbiddenPayloadException is thrown by the service — mocked to throw here
@@ -291,8 +323,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .authorities(
-                                                        () -> "SCOPE_hist:write")))
+                                                .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isUnprocessableEntity());
     }
 }

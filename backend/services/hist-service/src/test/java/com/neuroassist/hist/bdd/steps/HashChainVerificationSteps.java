@@ -15,23 +15,20 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * Step definitions — Chain verification proves stream integrity.
- * Feature: hash-chain-verification.feature
+ * Step definitions — Chain verification proves stream integrity. Feature:
+ * hash-chain-verification.feature
  */
 public class HashChainVerificationSteps {
 
-    @Autowired
-    private BddScenarioState state;
+    @Autowired private BddScenarioState state;
 
-    @Autowired
-    private SharedSteps shared;
+    @Autowired private SharedSteps shared;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     // "the stream paciente:pac-1 has 3 correctly chained records" is in SharedSteps
 
-    @When("GET /history/verify is called for subject paciente \"pac-1\"")
+    @When("GET \\/history\\/verify is called for subject paciente \"pac-1\"")
     public void whenGetHistoryverifyIsCalledForSubjectPacientePac1() {
         state.setLastResponse(callVerify("paciente", state.subjectUUID("pac-1")));
     }
@@ -60,12 +57,14 @@ public class HashChainVerificationSteps {
         String tenantId = state.getTenantId();
         String subjectId = state.subjectUUID("pac-1").toString();
         jdbcTemplate.execute("SET search_path TO " + tenantId + ", public");
-        int updated = jdbcTemplate.update(
-                "UPDATE audit_record SET record_hash = 'deadbeefdeadbeefdeadbeefdeadbeef"
-                        + "deadbeefdeadbeefdeadbeefdeadbeef' "
-                        + "WHERE sequence_no = 1 AND subject_id = ?::uuid",
-                subjectId);
-        assertThat(updated).as("At least one record tampered at sequenceNo=1")
+        int updated =
+                jdbcTemplate.update(
+                        "UPDATE audit_record SET record_hash = 'deadbeefdeadbeefdeadbeefdeadbeef"
+                                + "deadbeefdeadbeefdeadbeefdeadbeef' "
+                                + "WHERE sequence_no = 1 AND subject_id = ?::uuid",
+                        subjectId);
+        assertThat(updated)
+                .as("At least one record tampered at sequenceNo=1")
                 .isGreaterThanOrEqualTo(1);
     }
 
@@ -87,7 +86,7 @@ public class HashChainVerificationSteps {
         // No-op: pac-empty is guaranteed to have no records in a fresh scenario
     }
 
-    @When("GET /history/verify is called for subject paciente \"pac-empty\"")
+    @When("GET \\/history\\/verify is called for subject paciente \"pac-empty\"")
     public void whenGetHistoryverifyIsCalledForSubjectPacientePacempty() {
         state.setLastResponse(callVerify("paciente", state.subjectUUID("pac-empty")));
     }
@@ -110,16 +109,21 @@ public class HashChainVerificationSteps {
         String tenantId = state.getTenantId();
         String subjectId = state.subjectUUID("pac-1").toString();
         jdbcTemplate.execute("SET search_path TO " + tenantId + ", public");
-        List<String> before = jdbcTemplate.queryForList(
-                "SELECT record_hash FROM audit_record WHERE subject_id = ?::uuid "
-                        + "ORDER BY sequence_no ASC",
-                String.class, subjectId);
+        List<String> before =
+                jdbcTemplate.queryForList(
+                        "SELECT record_hash FROM audit_record WHERE subject_id = ?::uuid "
+                                + "ORDER BY sequence_no ASC",
+                        String.class,
+                        subjectId);
         // Query again to confirm no mutation between the two reads
-        List<String> after = jdbcTemplate.queryForList(
-                "SELECT record_hash FROM audit_record WHERE subject_id = ?::uuid "
-                        + "ORDER BY sequence_no ASC",
-                String.class, subjectId);
-        assertThat(before).as("record_hash values must not change after a verification call")
+        List<String> after =
+                jdbcTemplate.queryForList(
+                        "SELECT record_hash FROM audit_record WHERE subject_id = ?::uuid "
+                                + "ORDER BY sequence_no ASC",
+                        String.class,
+                        subjectId);
+        assertThat(before)
+                .as("record_hash values must not change after a verification call")
                 .isEqualTo(after);
         assertThat(before).as("Stream should have 3 records").hasSize(3);
     }
@@ -128,8 +132,10 @@ public class HashChainVerificationSteps {
 
     private ResponseEntity<String> callVerify(String subjectType, UUID subjectId) {
         return shared.getWithToken(
-                "/api/v1/hist/history/verify?subjectType=" + subjectType
-                        + "&subjectId=" + subjectId,
+                "/api/v1/hist/history/verify?subjectType="
+                        + subjectType
+                        + "&subjectId="
+                        + subjectId,
                 state.getCurrentToken());
     }
 

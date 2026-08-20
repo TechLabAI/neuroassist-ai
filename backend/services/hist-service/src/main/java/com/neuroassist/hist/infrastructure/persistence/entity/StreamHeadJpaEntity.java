@@ -6,16 +6,17 @@ import java.util.UUID;
 import lombok.*;
 
 /**
- * JPA entity — mutable stream-tip cache row for hash-chain append serialisation (ADR-006).
- * Updated on each successful append to the same {@code (stream_key, tenant_id)} stream. Distinct
- * from audit_record which is write-once (ADR-004).
+ * JPA entity — mutable stream-tip cache row for hash-chain append serialisation (ADR-006). Updated
+ * on each successful append to the same {@code (stream_key, tenant_id)} stream. Distinct from
+ * audit_record which is write-once (ADR-004).
  */
 @Entity
 @Table(
         name = "stream_head",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uq_stream_head_key_tenant",
-                columnNames = {"stream_key", "tenant_id"}))
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_stream_head_key_tenant",
+                        columnNames = {"stream_key", "tenant_id"}))
 @Getter
 @Setter
 @NoArgsConstructor

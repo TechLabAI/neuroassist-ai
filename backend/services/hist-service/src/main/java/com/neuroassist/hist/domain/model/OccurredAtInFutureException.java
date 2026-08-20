@@ -11,7 +11,7 @@ public class OccurredAtInFutureException extends HistDomainException {
 
     public OccurredAtInFutureException(Instant occurredAt) {
         super(
-                "occurred-at-in-future",
+                "future-occurred-at",
                 "occurredAt '"
                         + occurredAt
                         + "' is more than 5 minutes in the future — clock drift exceeded.");

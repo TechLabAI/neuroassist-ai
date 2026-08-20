@@ -13,10 +13,10 @@ import org.springframework.stereotype.Component;
  * Adapter implementing {@link ActorDirectoryPort} via {@link AcsActorDirectoryClient} (Feign) with
  * a Resilience4j circuit breaker (HIST-012, P4).
  *
- * <p>Fail-closed contract (HIST-012 instruction): the fallback method NEVER returns an empty list
- * — it always throws {@link ActorDirectoryUnavailableException}. Returning an empty list would
- * silently widen the data scope to zero records (instead of preventing the request), which is
- * worse than a 503 from the caller's perspective.
+ * <p>Fail-closed contract (HIST-012 instruction): the fallback method NEVER returns an empty list —
+ * it always throws {@link ActorDirectoryUnavailableException}. Returning an empty list would
+ * silently widen the data scope to zero records (instead of preventing the request), which is worse
+ * than a 503 from the caller's perspective.
  *
  * <p>RULE-06: Feign client and this adapter live in {@code infrastructure.clients}.
  */
@@ -30,8 +30,7 @@ public class ActorDirectoryAdapter implements ActorDirectoryPort {
     @Override
     @CircuitBreaker(name = "acs-directory", fallbackMethod = "patientScopeFallback")
     public List<UUID> resolvePatientScope(String tenantId, UUID caregiverId) {
-        log.debug(
-                "Resolving patient scope via ACS: caregiver={} tenant={}", caregiverId, tenantId);
+        log.debug("Resolving patient scope via ACS: caregiver={} tenant={}", caregiverId, tenantId);
         return acsClient.getPatientsByCaregiver(caregiverId);
     }
 

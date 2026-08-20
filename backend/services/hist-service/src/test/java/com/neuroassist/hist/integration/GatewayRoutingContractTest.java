@@ -24,8 +24,7 @@ import org.springframework.http.ResponseEntity;
  */
 class GatewayRoutingContractTest extends BaseIntegrationTest {
 
-    @Autowired
-    private TestRestTemplate restTemplate;
+    @Autowired private TestRestTemplate restTemplate;
 
     @Test
     @DisplayName("POST /api/v1/hist/audit-facts without token → 401 (endpoint mapped)")

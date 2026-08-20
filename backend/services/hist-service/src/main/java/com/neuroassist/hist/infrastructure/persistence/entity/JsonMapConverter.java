@@ -27,7 +27,9 @@ public class JsonMapConverter implements AttributeConverter<Map<String, Object>,
         try {
             return MAPPER.writeValueAsString(attribute);
         } catch (JsonProcessingException e) {
-            log.warn("Failed to serialise payload to JSON — storing empty object: {}", e.getMessage());
+            log.warn(
+                    "Failed to serialise payload to JSON — storing empty object: {}",
+                    e.getMessage());
             return "{}";
         }
     }
@@ -40,7 +42,9 @@ public class JsonMapConverter implements AttributeConverter<Map<String, Object>,
         try {
             return MAPPER.readValue(dbData, MAP_TYPE);
         } catch (JsonProcessingException e) {
-            log.warn("Failed to deserialise payload from JSON — returning empty map: {}", e.getMessage());
+            log.warn(
+                    "Failed to deserialise payload from JSON — returning empty map: {}",
+                    e.getMessage());
             return Map.of();
         }
     }

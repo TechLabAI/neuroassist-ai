@@ -74,7 +74,8 @@ public class CrossAspectArchTest {
                     "hist.fact-type-catalog.read",
                     "hist.history-query.read",
                     "hist.record-audit-fact.registrar",
-                    // OAuth2 scope format used by hist-service controllers (P5 will normalise to dotted)
+                    // OAuth2 scope format used by hist-service controllers (P5 will normalise to
+                    // dotted)
                     "SCOPE_hist:write",
                     "SCOPE_hist:read",
                     "pac.catalogo-ativo.read",

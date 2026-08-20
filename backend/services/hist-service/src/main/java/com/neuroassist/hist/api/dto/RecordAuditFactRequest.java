@@ -44,4 +44,10 @@ public record RecordAuditFactRequest(
          * Optional: if this record corrects a prior fact, the factId of that fact. The prior fact
          * must exist in the same tenant (resolved by the service in P2).
          */
-        UUID correctsFactId) {}
+        UUID correctsFactId,
+
+        /**
+         * Optional: client-supplied tenant identifier. When present, must match the {@code
+         * tenant_id} claim from the JWT — mismatch results in HTTP 403 tenant-mismatch.
+         */
+        String empresaId) {}

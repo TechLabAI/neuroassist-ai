@@ -22,8 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Canonical path: {@code GET /api/v1/hist/audit-records/{id}}.
  *
- * <p>Cross-tenant leakage prevention: the adapter always scopes the query to the caller's tenant.
- * A record in another tenant is treated as not found (never reveals cross-tenant existence).
+ * <p>Cross-tenant leakage prevention: the adapter always scopes the query to the caller's tenant. A
+ * record in another tenant is treated as not found (never reveals cross-tenant existence).
  *
  * <p>Tenant extraction: P4 stub reads {@code tenant} JWT claim; replaced by {@code
  * TenantContextFilter} in P5 (HIST-015).
@@ -79,4 +79,3 @@ public class AuditRecordQueryController {
                 record.correctsRecordId());
     }
 }
-

@@ -1,7 +1,9 @@
 package com.neuroassist.hist.api.exception;
 
 import com.neuroassist.hist.domain.model.ActorDirectoryUnavailableException;
+import com.neuroassist.hist.domain.model.HistBadRequestException;
 import com.neuroassist.hist.domain.model.HistDomainException;
+import com.neuroassist.hist.domain.model.TenantMismatchException;
 import com.neuroassist.hist.shared.error.CodedException;
 import com.neuroassist.hist.shared.error.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,8 +36,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final String TYPE_BASE = "https://neuroassist-ai.com/errors/";
 
     /**
+     * Bad request exceptions (incomplete filter, invalid time window, etc.) → 400 Bad Request.
+     * These are structural request issues distinct from domain business-rule violations (422).
+     */
+    @ExceptionHandler(HistBadRequestException.class)
+    public ProblemDetail handleHistBadRequest(HistBadRequestException ex, HttpServletRequest req) {
+        log.warn("Bad request errorCode={} message={}", ex.errorCode(), ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setTitle("Bad Request");
+        pd.setDetail(ex.getMessage());
+        pd.setType(URI.create(TYPE_BASE + ex.errorCode()));
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty(
+                "error",
+                Map.of(
+                        "code", ex.errorCode(),
+                        "category", "validation",
+                        "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
+                        "timestamp", OffsetDateTime.now().toString(),
+                        "context", Map.of()));
+        return pd;
+    }
+
+    /**
      * ACS actor directory unavailable (circuit breaker open or timeout) → 503 Service Unavailable.
-     * Fail-closed: never widen data scope when ACS is down (HIST-012, ADR-005).
+     * Fail-closed: never widen data scope when ACS is down (HIST-012, ADR-005). The type URI uses
+     * /errors/scope-unavailable to match the API contract.
      */
     @ExceptionHandler(ActorDirectoryUnavailableException.class)
     public ProblemDetail handleActorDirectoryUnavailable(
@@ -43,17 +69,38 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("ACS actor directory unavailable: {}", ex.getMessage());
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
         pd.setTitle("Service Unavailable");
-        pd.setDetail(
-                "The actor directory service is temporarily unavailable. Please retry later.");
-        pd.setType(URI.create(TYPE_BASE + "acs-directory-unavailable"));
+        pd.setDetail("The actor directory service is temporarily unavailable. Please retry later.");
+        pd.setType(URI.create(TYPE_BASE + "scope-unavailable"));
         pd.setInstance(URI.create(req.getRequestURI()));
         pd.setProperty(
                 "error",
                 Map.of(
                         "code", "acs-directory-unavailable",
                         "category", "external_service",
-                        "correlationId",
-                                Objects.requireNonNullElse(MDC.get("correlationId"), ""),
+                        "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
+                        "timestamp", OffsetDateTime.now().toString(),
+                        "context", Map.of()));
+        return pd;
+    }
+
+    /**
+     * Tenant mismatch — request body empresaId does not match the JWT tenant claim → 403 Forbidden.
+     * The type URI uses /errors/tenant-mismatch to match the API contract.
+     */
+    @ExceptionHandler(TenantMismatchException.class)
+    public ProblemDetail handleTenantMismatch(TenantMismatchException ex, HttpServletRequest req) {
+        log.warn("Tenant mismatch: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        pd.setTitle("Forbidden");
+        pd.setDetail(ex.getMessage());
+        pd.setType(URI.create(TYPE_BASE + ex.errorCode()));
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty(
+                "error",
+                Map.of(
+                        "code", ex.errorCode(),
+                        "category", "security",
+                        "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
                         "timestamp", OffsetDateTime.now().toString(),
                         "context", Map.of()));
         return pd;

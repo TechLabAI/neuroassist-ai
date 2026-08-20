@@ -15,17 +15,19 @@ public interface StreamHeadJpaRepository extends JpaRepository<StreamHeadJpaEnti
     List<StreamHeadJpaEntity> findByTenantId(String tenantId);
 
     /**
-     * Fetches the stream head with a PESSIMISTIC_WRITE lock to serialise concurrent appends (ADR-006).
-     * Called by {@link com.neuroassist.hist.infrastructure.persistence.adapter.StreamHeadAdapter#lockAndFetchTip}.
+     * Fetches the stream head with a PESSIMISTIC_WRITE lock to serialise concurrent appends
+     * (ADR-006). Called by {@link
+     * com.neuroassist.hist.infrastructure.persistence.adapter.StreamHeadAdapter#lockAndFetchTip}.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM StreamHeadJpaEntity s WHERE s.streamKey = :streamKey AND s.tenantId = :tenantId")
+    @Query(
+            "SELECT s FROM StreamHeadJpaEntity s WHERE s.streamKey = :streamKey AND s.tenantId = :tenantId")
     Optional<StreamHeadJpaEntity> findByStreamKeyAndTenantIdForUpdate(
             @Param("streamKey") String streamKey, @Param("tenantId") String tenantId);
 
     /**
-     * Plain lookup (no lock) used by the upsert path in
-     * {@link com.neuroassist.hist.infrastructure.persistence.adapter.StreamHeadAdapter#upsert}.
+     * Plain lookup (no lock) used by the upsert path in {@link
+     * com.neuroassist.hist.infrastructure.persistence.adapter.StreamHeadAdapter#upsert}.
      */
     Optional<StreamHeadJpaEntity> findByStreamKeyAndTenantId(String streamKey, String tenantId);
 }

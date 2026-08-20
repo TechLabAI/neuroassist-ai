@@ -12,8 +12,8 @@ public interface IdempotencyEntryJpaRepository
     List<IdempotencyEntryJpaEntity> findByTenantId(String tenantId);
 
     /**
-     * Looks up an idempotency entry by the producer-minted factId scoped to the given tenant.
-     * Used by {@link com.neuroassist.hist.infrastructure.persistence.adapter.IdempotencyAdapter}.
+     * Looks up an idempotency entry by the producer-minted factId scoped to the given tenant. Used
+     * by {@link com.neuroassist.hist.infrastructure.persistence.adapter.IdempotencyAdapter}.
      */
     Optional<IdempotencyEntryJpaEntity> findByFactIdAndTenantId(UUID factId, String tenantId);
 }

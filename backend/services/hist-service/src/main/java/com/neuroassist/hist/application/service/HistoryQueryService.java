@@ -29,8 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
  *       unavailable, {@code ActorDirectoryUnavailableException} propagates (fail-closed, HTTP 503).
  * </ul>
  *
- * <p>TenantContextHolder (P5): schema-pinning enforcement is added in P5. For P4 the tenantId
- * comes from the JWT {@code tenant} claim forwarded by the controller.
+ * <p>TenantContextHolder (P5): schema-pinning enforcement is added in P5. For P4 the tenantId comes
+ * from the JWT {@code tenant} claim forwarded by the controller.
  *
  * <p>{@code @Transactional(readOnly = true)} only here (RULE-03).
  */
@@ -74,10 +74,7 @@ public class HistoryQueryService implements HistoryQueryUseCase {
                 histMetrics.incrementAcsScopeResolutionTotal(query.tenantId(), "unavailable");
                 throw ex;
             }
-            items =
-                    items.stream()
-                            .filter(r -> allowedPatients.contains(r.subject().id()))
-                            .toList();
+            items = items.stream().filter(r -> allowedPatients.contains(r.subject().id())).toList();
             log.info(
                     "History query [hist:read]: tenant={} caregiver={} allowedPatients={} page={}"
                             + " total={}",
@@ -100,4 +97,3 @@ public class HistoryQueryService implements HistoryQueryUseCase {
         return new HistoryPage(items, query.page(), query.size(), page.total());
     }
 }
-

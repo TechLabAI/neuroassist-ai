@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 import com.neuroassist.hist.application.port.in.ChainVerificationUseCase.VerificationCommand;
 import com.neuroassist.hist.application.port.out.AuditRecordRepositoryPort;
 import com.neuroassist.hist.application.port.out.HashChainPort;
-import com.neuroassist.hist.infrastructure.config.HistMetrics;
 import com.neuroassist.hist.domain.model.ActorRef;
 import com.neuroassist.hist.domain.model.AuditRecord;
 import com.neuroassist.hist.domain.model.ChainStatus;
@@ -15,6 +14,7 @@ import com.neuroassist.hist.domain.model.ChainVerificationResult;
 import com.neuroassist.hist.domain.model.HashChain;
 import com.neuroassist.hist.domain.model.SubjectRef;
 import com.neuroassist.hist.domain.model.SubjectType;
+import com.neuroassist.hist.infrastructure.config.HistMetrics;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +54,8 @@ class ChainVerificationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChainVerificationService(auditRecordRepositoryPort, hashChainPort, histMetrics);
+        service =
+                new ChainVerificationService(auditRecordRepositoryPort, hashChainPort, histMetrics);
     }
 
     @Test
@@ -74,25 +75,25 @@ class ChainVerificationServiceTest {
     @Test
     @DisplayName("N records with valid hash chain → status=intact, recordsVerified=N")
     void verify_intactChain_returnsIntact() {
-        // Build a chain of 3 records with consistent hashes
-        String hash1 = "aaa" + "0".repeat(61);
-        String hash2 = "bbb" + "0".repeat(61);
-        String hash3 = "ccc" + "0".repeat(61);
+        // Build a chain of 3 records with consistent hashes (0-based sequencing)
+        String hash0 = "aaa" + "0".repeat(61);
+        String hash1 = "bbb" + "0".repeat(61);
+        String hash2 = "ccc" + "0".repeat(61);
 
         List<AuditRecord> records =
                 List.of(
-                        buildRecord(1L, GENESIS, hash1),
-                        buildRecord(2L, hash1, hash2),
-                        buildRecord(3L, hash2, hash3));
+                        buildRecord(0L, GENESIS, hash0),
+                        buildRecord(1L, hash0, hash1),
+                        buildRecord(2L, hash1, hash2));
 
         when(auditRecordRepositoryPort.findByStreamKeyOrderedBySequenceAsc(STREAM_KEY, TENANT_ID))
                 .thenReturn(records);
         when(hashChainPort.genesis()).thenReturn(GENESIS);
 
         // Mock recomputation: adapter returns the same hash as stored (= valid chain)
-        when(hashChainPort.compute(eq(GENESIS), eq(records.get(0)))).thenReturn(hash1);
-        when(hashChainPort.compute(eq(hash1), eq(records.get(1)))).thenReturn(hash2);
-        when(hashChainPort.compute(eq(hash2), eq(records.get(2)))).thenReturn(hash3);
+        when(hashChainPort.compute(eq(GENESIS), eq(records.get(0)))).thenReturn(hash0);
+        when(hashChainPort.compute(eq(hash0), eq(records.get(1)))).thenReturn(hash1);
+        when(hashChainPort.compute(eq(hash1), eq(records.get(2)))).thenReturn(hash2);
 
         ChainVerificationResult result = service.verifyStream(buildCommand());
 
@@ -104,13 +105,13 @@ class ChainVerificationServiceTest {
     @Test
     @DisplayName("single record in new stream → status=intact, recordsVerified=1")
     void verify_singleRecord_returnsIntact() {
-        String hash1 = "111" + "0".repeat(61);
-        AuditRecord record = buildRecord(1L, GENESIS, hash1);
+        String hash0 = "111" + "0".repeat(61);
+        AuditRecord record = buildRecord(0L, GENESIS, hash0);
 
         when(auditRecordRepositoryPort.findByStreamKeyOrderedBySequenceAsc(STREAM_KEY, TENANT_ID))
                 .thenReturn(List.of(record));
         when(hashChainPort.genesis()).thenReturn(GENESIS);
-        when(hashChainPort.compute(GENESIS, record)).thenReturn(hash1);
+        when(hashChainPort.compute(GENESIS, record)).thenReturn(hash0);
 
         ChainVerificationResult result = service.verifyStream(buildCommand());
 
@@ -121,48 +122,48 @@ class ChainVerificationServiceTest {
     @Test
     @DisplayName("record with tampered recordHash → status=broken at that sequenceNo")
     void verify_tamperedRecordHash_returnsBroken() {
-        String hash1 = "aaa" + "0".repeat(61);
-        String hash2Stored = "bbb" + "0".repeat(61); // stored (tampered)
-        String hash2Recomputed = "fff" + "0".repeat(61); // recomputed (different)
+        String hash0 = "aaa" + "0".repeat(61);
+        String hash1Stored = "bbb" + "0".repeat(61); // stored (tampered)
+        String hash1Recomputed = "fff" + "0".repeat(61); // recomputed (different)
 
         List<AuditRecord> records =
                 List.of(
-                        buildRecord(1L, GENESIS, hash1),
-                        buildRecord(2L, hash1, hash2Stored)); // record 2 has tampered hash
+                        buildRecord(0L, GENESIS, hash0),
+                        buildRecord(1L, hash0, hash1Stored)); // record 1 has tampered hash
 
         when(auditRecordRepositoryPort.findByStreamKeyOrderedBySequenceAsc(STREAM_KEY, TENANT_ID))
                 .thenReturn(records);
         when(hashChainPort.genesis()).thenReturn(GENESIS);
-        when(hashChainPort.compute(GENESIS, records.get(0))).thenReturn(hash1);
-        when(hashChainPort.compute(hash1, records.get(1))).thenReturn(hash2Recomputed); // mismatch!
+        when(hashChainPort.compute(GENESIS, records.get(0))).thenReturn(hash0);
+        when(hashChainPort.compute(hash0, records.get(1))).thenReturn(hash1Recomputed); // mismatch!
 
         ChainVerificationResult result = service.verifyStream(buildCommand());
 
         assertThat(result.status()).isEqualTo(ChainStatus.broken);
-        assertThat(result.brokenAtSequenceNo()).isEqualTo(2L);
-        assertThat(result.recordsVerified()).isEqualTo(1); // only record 1 verified before failure
+        assertThat(result.brokenAtSequenceNo()).isEqualTo(1L);
+        assertThat(result.recordsVerified()).isEqualTo(1); // only record 0 verified before failure
     }
 
     @Test
     @DisplayName("record with wrong prevHash linkage → status=broken at that sequenceNo")
     void verify_brokenPrevHashLink_returnsBroken() {
-        String hash1 = "aaa" + "0".repeat(61);
-        String wrongPrevHash = "zzz" + "0".repeat(61); // record 2 points to wrong prev
+        String hash0 = "aaa" + "0".repeat(61);
+        String wrongPrevHash = "zzz" + "0".repeat(61); // record 1 points to wrong prev
 
         List<AuditRecord> records =
                 List.of(
-                        buildRecord(1L, GENESIS, hash1),
-                        buildRecord(2L, wrongPrevHash, "ddd" + "0".repeat(61))); // broken link
+                        buildRecord(0L, GENESIS, hash0),
+                        buildRecord(1L, wrongPrevHash, "ddd" + "0".repeat(61))); // broken link
 
         when(auditRecordRepositoryPort.findByStreamKeyOrderedBySequenceAsc(STREAM_KEY, TENANT_ID))
                 .thenReturn(records);
         when(hashChainPort.genesis()).thenReturn(GENESIS);
-        when(hashChainPort.compute(GENESIS, records.get(0))).thenReturn(hash1);
+        when(hashChainPort.compute(GENESIS, records.get(0))).thenReturn(hash0);
 
         ChainVerificationResult result = service.verifyStream(buildCommand());
 
         assertThat(result.status()).isEqualTo(ChainStatus.broken);
-        assertThat(result.brokenAtSequenceNo()).isEqualTo(2L);
+        assertThat(result.brokenAtSequenceNo()).isEqualTo(1L);
     }
 
     // ---- helpers ----

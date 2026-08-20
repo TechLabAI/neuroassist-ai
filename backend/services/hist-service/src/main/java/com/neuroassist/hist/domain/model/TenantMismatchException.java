@@ -2,8 +2,8 @@ package com.neuroassist.hist.domain.model;
 
 /**
  * Thrown when the {@code empresaId} in the request body does not match the tenant from the JWT.
- * Maps to HTTP 403 / {@code type: /errors/tenant-mismatch}.
- * Zero Spring/JPA imports (RULE-01, RULE-02).
+ * Maps to HTTP 403 / {@code type: /errors/tenant-mismatch}. Zero Spring/JPA imports (RULE-01,
+ * RULE-02).
  */
 public class TenantMismatchException extends RuntimeException {
 
