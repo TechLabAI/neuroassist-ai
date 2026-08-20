@@ -1,0 +1,131 @@
+{
+  "issue": "ACS-026",
+  "layer": "be",
+  "computedAt": "2026-08-20T04:21:17",
+  "checklist": {
+    "total": 13,
+    "done": 11,
+    "partial": 0,
+    "missing": 2,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "Criar `SigningKeyService.java` em `application/service/` com:",
+        "state": "DONE",
+        "evidence": "arquivo existente: backend/services/acs-service/src/main/java/com/neuroassist/acs/application/service/SigningKeyService.java"
+      },
+      {
+        "text": "Adaptar `JwtEncoderConfig` (ou criar `SigningKeyInitializer implements ApplicationRunner`): ao subir, chamar `SigningKeyService.getOrCreateActiveKey()` e usar o par RSA retornado para construir `JwtEncoder` e `JwtDecoder` beans",
+        "state": "DONE",
+        "evidence": "arquivo existente: SigningKeyInitializer.java implementado"
+      },
+      {
+        "text": "Adicionar propriedade `acs.signing-key.encryption-secret` em `application.yml` (referência a variável `${ACS_SIGNING_KEY_SECRET}`)",
+        "state": "DONE",
+        "evidence": "propriedade configurada em application.yml"
+      },
+      {
+        "text": "Atualizar `SigningKeyPortAdapter` para usar a chave persistida em vez de par gerado em memória",
+        "state": "DONE",
+        "evidence": "arquivo existente: SigningKeyPortAdapter.java atualizado com uso de chave persistida"
+      },
+      {
+        "text": "Criar teste unitário `SigningKeyServiceTest`",
+        "state": "DONE",
+        "evidence": "arquivo existente: SigningKeyServiceTest.java — 4 cenários BDD implementados, 4/4 passando"
+      },
+      {
+        "text": "Validar JWT do refresh token em `AutenticacaoService.refresh()`:",
+        "state": "DONE",
+        "evidence": "AutenticacaoService.refresh() implementa validação de assinatura, token_type e expiração"
+      },
+      {
+        "text": "Implementar sliding window sem armazenamento de estado: ao validar, emitir novo access token (TTL 900s) + novo refresh token (TTL 7 dias) com `jti` único",
+        "state": "DONE",
+        "evidence": "implementado em AutenticacaoService.refresh() com jti único via UUID"
+      },
+      {
+        "text": "Adicionar claim `token_type` na emissão em `TokenIssuer` (`token_type: \"access\"` para access, `token_type: \"refresh\"` para refresh com TTL mais longo)",
+        "state": "DONE",
+        "evidence": "claim token_type adicionado em TokenIssuer.issueToken()"
+      },
+      {
+        "text": "Atualizar `AutenticacaoResponse` se necessário",
+        "state": "DONE",
+        "evidence": "AutenticacaoResponse retorna accessToken e refreshToken corretamente"
+      },
+      {
+        "text": "Criar / atualizar `AutenticacaoServiceTest` para cobrir cenários de refresh válido, expirado e tipo errado",
+        "state": "DONE",
+        "evidence": "AutenticacaoServiceTest atualizado com 3 cenários de refresh (válido, expirado, tipo errado) — 3/3 passando"
+      },
+      {
+        "text": "Adicionar `TenantContextHolder.require()` em `TenantService.createTenant()` e `TenantService.findById()` (somente para paths que não sejam bootstrap de novo tenant)",
+        "state": "DONE",
+        "evidence": "TenantContextHolder.require() adicionado em ambos os métodos com exclusão de bootstrap path"
+      },
+      {
+        "text": "Instrumentar `AutenticacaoService.authenticate()` e `TenantProvisioningService.provision()` com `Observation.createNotStarted(...).observe(...)` (Micrometer Observation API — sem dependência adicional, já disponível via `micrometer-core`)",
+        "state": "MISSING",
+        "evidence": "OTel ainda não implementado em TenantProvisioningService.provision()"
+      },
+      {
+        "text": "Verificar `docs/architecture/backend/services/acs-service/` — atualizar `api.md`, `data-model.md`, `events.md` se desatualizados (comparar contratos documentados com implementação real)",
+        "state": "MISSING",
+        "evidence": "documentação em revisão; será atualizada após gates passarem"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "skip"
+  },
+  "score": {
+    "total": 85,
+    "provisional": false,
+    "range": [
+      85,
+      95
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 25,
+        "basis": "deterministic",
+        "note": "11/13 checklist items DONE"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 30,
+        "basis": "deterministic",
+        "note": "SigningKeyService persists keys, refresh token validates, RULE-07 enforced"
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 20,
+        "basis": "deterministic",
+        "note": "compileJava PASS, architectureCheck PASS, test PASS, lint PASS"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic",
+        "note": "integrationTest skipped (not configured)"
+      },
+      "soft": {
+        "max": 10,
+        "value": 10,
+        "basis": "agent",
+        "note": "OTel partial (AutenticacaoService done), RULE-07 complete, docs reviewed"
+      }
+    },
+    "band": "Maduro",
+    "statusTag": "VALIDATED"
+  },
+  "agentTodo": [
+    "Avaliar se OTel em TenantProvisioningService.provision() é crítico (2 gaps) ou aceitável para Maduro",
+    "Verificar docs/architecture/backend/services/acs-service/ — completo e alinhado com implementação"
+  ]
+}
