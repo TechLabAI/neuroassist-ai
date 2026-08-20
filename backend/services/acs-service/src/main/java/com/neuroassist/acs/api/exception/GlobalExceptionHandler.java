@@ -4,6 +4,7 @@ import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
 import com.neuroassist.acs.shared.error.CodedException;
 import com.neuroassist.acs.shared.error.CrossTenantLinkException;
 import com.neuroassist.acs.shared.error.InvalidCredentialsException;
+import com.neuroassist.acs.shared.error.InvalidTokenTypeException;
 import com.neuroassist.acs.shared.error.LastCaregiverLinkException;
 import com.neuroassist.acs.shared.error.LoginDuplicateException;
 import com.neuroassist.acs.shared.error.ProblemDetailFactory;
@@ -60,6 +61,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail pd = ProblemDetailFactory.forCode(ex.code(), ex, req, ex.context());
         pd.setStatus(HttpStatus.UNAUTHORIZED.value());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(pd);
+    }
+
+    /**
+     * 400 — Token type mismatch (e.g. access token presented where refresh token expected). ACS-026
+     * / Item B7.
+     */
+    @ExceptionHandler(InvalidTokenTypeException.class)
+    public ResponseEntity<ProblemDetail> handleInvalidTokenType(
+            InvalidTokenTypeException ex, HttpServletRequest req) {
+        log.warn("Invalid token type presented: {}", ex.context());
+        ProblemDetail pd = ProblemDetailFactory.forCode(ex.code(), ex, req, ex.context());
+        pd.setStatus(HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.badRequest().body(pd);
     }
 
     /** 404 — Tenant not found. */

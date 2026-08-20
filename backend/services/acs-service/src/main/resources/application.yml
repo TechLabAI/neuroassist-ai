@@ -94,6 +94,11 @@ acs:
     expiry-seconds: ${ACS_JWT_EXPIRY_SECONDS:900}
     # Refresh token TTL in seconds (default 7 days)
     refresh-expiry-seconds: ${ACS_JWT_REFRESH_EXPIRY_SECONDS:604800}
+  signing-key:
+    # AES-256-GCM encryption secret for RSA private key storage.
+    # REQUIRED in production: set ACS_SIGNING_KEY_SECRET env var.
+    # Default "change-me-secret" is for local dev only — NEVER use in production.
+    encryption-secret: ${ACS_SIGNING_KEY_SECRET:change-me-secret}
 
 logging:
   pattern:

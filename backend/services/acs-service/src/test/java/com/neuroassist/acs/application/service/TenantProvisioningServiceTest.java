@@ -21,6 +21,7 @@ import com.neuroassist.acs.domain.model.TenantTipo;
 import com.neuroassist.acs.shared.error.TenantProvisioningTimeoutException;
 import com.neuroassist.acs.shared.error.UpstreamUnavailableException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,8 @@ class TenantProvisioningServiceTest {
                         tenantRepository,
                         migProvisioningPort,
                         histAuditPort,
-                        new SimpleMeterRegistry());
+                        new SimpleMeterRegistry(),
+                        ObservationRegistry.NOOP);
     }
 
     @Test

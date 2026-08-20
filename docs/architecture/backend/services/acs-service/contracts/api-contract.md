@@ -70,6 +70,7 @@ Resource-owner password grant (MVP; no self-service sign-up). Public endpoint (n
 ```json
 {
   "accessToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6…",
+  "refreshToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6…",
   "tokenType": "Bearer",
   "expiresIn": 900,
   "tenant": "t_0f8a…",
@@ -80,8 +81,11 @@ Resource-owner password grant (MVP; no self-service sign-up). Public endpoint (n
 ```
 
 - WHEN valid credentials are presented for an `active` caregiver, THE SYSTEM SHALL return `200` with a
-  signed JWT whose claims are `sub = cuidadorId`, `tenant = tenantId`, `authorities = roleToAuthorities(papel)`,
-  a short `exp` (default 900s), `iss = acs-service`, and `kid` referencing the active signing key.
+  signed JWT access token whose claims include `sub = cuidadorId`, `tenant = tenantId`,
+  `authorities = roleToAuthorities(papel)`, `token_type = "access"`, `exp = now + 900s`,
+  `iss = acs-service`, and `kid` referencing the active signing key.
+- THE SYSTEM SHALL also issue a refresh token (`token_type = "refresh"`, TTL 7 days, unique `jti`)
+  and return it in `refreshToken` field. The refresh token is a signed RS256 JWT (not opaque).
 - IF the login is unknown, the password does not match, or the caregiver `status = inactive`, THEN THE
   SYSTEM SHALL respond `401 Unauthorized` (`type: /errors/invalid-credentials`) with a body that does
   **not** distinguish which of those conditions failed (no user enumeration).
@@ -92,7 +96,29 @@ Resource-owner password grant (MVP; no self-service sign-up). Public endpoint (n
   the token response on HIST.
 - THE SYSTEM SHALL never return, log, or echo the raw password in any response, error body, or log line.
 
-### 2.2 `GET /oauth2/jwks` — public JWK set
+### 2.2 `POST /oauth2/token/refresh` — refresh access token (token rotation)
+
+Exchanges a valid refresh token for a new access + refresh token pair (stateless sliding window).
+Public endpoint — no bearer required (the refresh token itself is the credential).
+
+- Request:
+
+```json
+{ "refreshToken": "eyJhbGciOiJSUzI1NiIsImtpZCI6…" }
+```
+
+- Response `200 OK`: same shape as `POST /oauth2/token` — new access token + new refresh token.
+- WHEN a valid refresh token (`token_type = "refresh"`, signature valid, not expired) is presented,
+  THE SYSTEM SHALL issue a new access token (TTL 900s) and a new refresh token (TTL 7 days, new `jti`).
+- IF the refresh token is expired or the signature is invalid, THE SYSTEM SHALL respond `401 Unauthorized`
+  (`type: /errors/invalid-credentials`).
+- IF the refresh token has `token_type != "refresh"` (e.g. an access token submitted), THE SYSTEM SHALL
+  respond `400 Bad Request` (`type: /errors/invalid-token-type`).
+- IF the `sub` claim does not resolve to an existing caregiver, THE SYSTEM SHALL respond `404 Not Found`
+  (`type: /errors/caregiver-not-found`).
+- THE SYSTEM SHALL implement stateless token rotation: no server-side session or blacklist is maintained.
+
+### 2.3 `GET /oauth2/jwks` — public JWK set
 
 The public keys peers use to validate ACS-issued tokens. Public endpoint; this is the `jwk-set-uri`
 target every resource server (GEST/EDGE/EVNT/DASH/HIST/PAC) resolves via REG.

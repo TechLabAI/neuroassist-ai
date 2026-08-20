@@ -53,7 +53,8 @@ class CaregiverServiceTest {
     void setUp() {
         passwordEncoder = new BCryptPasswordEncoder(4); // strength 4 for fast tests
         caregiverService =
-                new CaregiverService(cuidadorRepository, tenantRepository, linkRepository, passwordEncoder);
+                new CaregiverService(
+                        cuidadorRepository, tenantRepository, linkRepository, passwordEncoder);
         // RULE-07: populate TenantContextHolder as TenantContextFilter would in real requests
         TenantContextHolder.set(tenantId.toString());
     }
@@ -73,7 +74,13 @@ class CaregiverServiceTest {
                 new CaregiverRequest("Maria Silva", "maria.silva", "CUIDADORA", "senhaSegura123");
 
         Tenant activeTenant =
-                new Tenant(tenantId, "Clínica Teste", TenantTipo.CLINICA, TenantStatus.ACTIVE, "t_abc", Instant.now());
+                new Tenant(
+                        tenantId,
+                        "Clínica Teste",
+                        TenantTipo.CLINICA,
+                        TenantStatus.ACTIVE,
+                        "t_abc",
+                        Instant.now());
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(activeTenant));
         when(cuidadorRepository.findByLogin("maria.silva")).thenReturn(Optional.empty());
 
@@ -108,7 +115,13 @@ class CaregiverServiceTest {
                 new CaregiverRequest("Ana Costa", "ana.costa", "COORDENADOR_CLINICA", "minhasenha");
 
         Tenant activeTenant =
-                new Tenant(tenantId, "Clínica Teste", TenantTipo.CLINICA, TenantStatus.ACTIVE, "t_abc", Instant.now());
+                new Tenant(
+                        tenantId,
+                        "Clínica Teste",
+                        TenantTipo.CLINICA,
+                        TenantStatus.ACTIVE,
+                        "t_abc",
+                        Instant.now());
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(activeTenant));
         when(cuidadorRepository.findByLogin("ana.costa")).thenReturn(Optional.empty());
 
@@ -142,7 +155,13 @@ class CaregiverServiceTest {
                 new CaregiverRequest("João Souza", "Joao.Souza", "PACIENTE_APOIO", "senha123");
 
         Tenant activeTenant =
-                new Tenant(tenantId, "Clínica Teste", TenantTipo.CLINICA, TenantStatus.ACTIVE, "t_abc", Instant.now());
+                new Tenant(
+                        tenantId,
+                        "Clínica Teste",
+                        TenantTipo.CLINICA,
+                        TenantStatus.ACTIVE,
+                        "t_abc",
+                        Instant.now());
         when(tenantRepository.findById(tenantId)).thenReturn(Optional.of(activeTenant));
         when(cuidadorRepository.findByLogin("joao.souza")).thenReturn(Optional.empty());
 

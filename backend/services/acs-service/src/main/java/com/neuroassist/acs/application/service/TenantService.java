@@ -7,6 +7,7 @@ import com.neuroassist.acs.application.port.out.TenantRepositoryPort;
 import com.neuroassist.acs.domain.model.Tenant;
 import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
+import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.TenantNotFoundException;
 import com.neuroassist.acs.shared.error.TenantSuspendedException;
 import java.time.Instant;
@@ -34,6 +35,9 @@ public class TenantService implements TenantUseCase {
     /**
      * Creates a new tenant and triggers MIG provisioning SAGA.
      *
+     * <p>Bootstrap path — intentionally does NOT call {@code TenantContextHolder.require()} because
+     * the tenant being created has no tenant context yet (C11 ACS-026 exception: bootstrap path).
+     *
      * @param request tenant creation data
      * @return TenantResponse once persisted (status=PROVISIONING initially)
      */
@@ -59,31 +63,41 @@ public class TenantService implements TenantUseCase {
     /**
      * Retrieves a tenant by UUID.
      *
+     * <p>RULE-07: calls {@code TenantContextHolder.require()} as first line — tenant context must
+     * be set by the caller (e.g. {@code TenantContextFilter}) before invoking this method.
+     *
      * @param tenantId the tenant UUID
      * @return TenantResponse
      * @throws TenantNotFoundException if tenant does not exist
+     * @throws IllegalStateException if tenant context is not set (RULE-07 enforcement)
      */
     @Override
     @Transactional(readOnly = true)
     public TenantResponse findById(UUID tenantId) {
+        TenantContextHolder.require(); // RULE-07: tenant context must be present
         return tenantRepository
                 .findById(tenantId)
-                .map(t -> {
-                    // Data integrity guard: ACTIVE tenant must always have a schema_nome
-                    if (t.status() == TenantStatus.ACTIVE && t.schemaNome() == null) {
-                        log.error(
-                                "DATA DEFECT: ACTIVE tenant {} has null schema_nome — violates ck_tenant_active_needs_schema",
-                                t.id());
-                        throw new IllegalStateException(
-                                "Data defect: active tenant has null schema_nome: " + t.id());
-                    }
-                    return toResponse(t);
-                })
+                .map(
+                        t -> {
+                            // Data integrity guard: ACTIVE tenant must always have a schema_nome
+                            if (t.status() == TenantStatus.ACTIVE && t.schemaNome() == null) {
+                                log.error(
+                                        "DATA DEFECT: ACTIVE tenant {} has null schema_nome — violates ck_tenant_active_needs_schema",
+                                        t.id());
+                                throw new IllegalStateException(
+                                        "Data defect: active tenant has null schema_nome: "
+                                                + t.id());
+                            }
+                            return toResponse(t);
+                        })
                 .orElseThrow(() -> new TenantNotFoundException(tenantId));
     }
 
     /**
      * Retries provisioning for a tenant stuck in PROVISIONING status.
+     *
+     * <p>RULE-07: calls {@code TenantContextHolder.require()} as first line — tenant context must
+     * be set by the caller before invoking this method.
      *
      * <p>Status routing:
      *
@@ -95,9 +109,11 @@ public class TenantService implements TenantUseCase {
      *
      * @param tenantId the tenant UUID
      * @return updated TenantResponse
+     * @throws IllegalStateException if tenant context is not set (RULE-07 enforcement)
      */
     @Override
     public TenantResponse retryProvisioning(UUID tenantId) {
+        TenantContextHolder.require(); // RULE-07: tenant context must be present
         Tenant existing =
                 tenantRepository
                         .findById(tenantId)

@@ -52,7 +52,8 @@ public class DirectoryService implements DirectoryUseCase {
 
         List<CaregiverPatientLink> activeLinks = linkRepository.findActiveByPacienteId(pacienteId);
 
-        List<UUID> cuidadorIds = activeLinks.stream().map(CaregiverPatientLink::cuidadorId).toList();
+        List<UUID> cuidadorIds =
+                activeLinks.stream().map(CaregiverPatientLink::cuidadorId).toList();
         Map<UUID, Cuidador> cuidadorMap =
                 cuidadorRepository.findAllByIds(cuidadorIds).stream()
                         .collect(Collectors.toMap(Cuidador::id, Function.identity()));
@@ -87,7 +88,8 @@ public class DirectoryService implements DirectoryUseCase {
 
         List<CaregiverPatientLink> activeLinks = linkRepository.findActiveByPacienteId(pacienteId);
 
-        List<UUID> cuidadorIds = activeLinks.stream().map(CaregiverPatientLink::cuidadorId).toList();
+        List<UUID> cuidadorIds =
+                activeLinks.stream().map(CaregiverPatientLink::cuidadorId).toList();
         Map<UUID, Cuidador> cuidadorMap =
                 cuidadorRepository.findAllByIds(cuidadorIds).stream()
                         .collect(Collectors.toMap(Cuidador::id, Function.identity()));

@@ -6,6 +6,7 @@ import com.neuroassist.acs.domain.model.Cuidador;
 import com.neuroassist.acs.domain.model.SigningKey;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,6 +71,7 @@ public class TokenIssuer {
                         .issuedAt(now)
                         .expiresAt(expiresAt)
                         .subject(cuidador.id().toString())
+                        .claim("token_type", "access")
                         .claim("tenant_id", cuidador.tenantId().toString())
                         .claim("papel", cuidador.papel().name())
                         .claim("authorities", authorities)
@@ -112,6 +114,7 @@ public class TokenIssuer {
                         .issuedAt(now)
                         .expiresAt(now.plusSeconds(refreshExpirySeconds))
                         .subject(cuidador.id().toString())
+                        .id(UUID.randomUUID().toString())
                         .claim("token_type", "refresh")
                         .claim("tenant_id", cuidador.tenantId().toString())
                         .build();

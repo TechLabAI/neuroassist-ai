@@ -1,30 +1,6 @@
 {
-  "timestamp": "2026-08-15T17:30:00Z",
-  "tier": "light",
-  "project": "edge-service",
-  "gates": {
-    "lint": {
-      "status": "pass",
-      "duration_ms": 5000,
-      "details": "spotlessCheck PASS — 44 files auto-formatted and verified"
-    },
-    "test": {
-      "status": "deferred",
-      "reason": "Modo 3 LIGHT — test gate deferred to FULL-VALIDACAO"
-    },
-    "build": {
-      "status": "deferred",
-      "reason": "Modo 3 LIGHT — build gate deferred to FULL-VALIDACAO"
-    },
-    "e2e": {
-      "status": "deferred",
-      "reason": "Modo 3 LIGHT — e2e gate deferred to FULL-VALIDACAO"
-    },
-    "arch-conformance": {
-      "status": "pass",
-      "duration_ms": 955,
-      "details": "ArchUnit PASS — all RULE-01..09 satisfied"
-    }
-  },
-  "summary": "Modo 3 LIGHT gates: lint PASS, arch-conformance PASS, test/build/e2e deferred"
+  "test": "skip",
+  "build": "skip",
+  "e2e": "skip",
+  "lint": "skip"
 }

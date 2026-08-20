@@ -63,8 +63,8 @@ public interface CaregiverPatientLinkJpaRepository
             UUID cuidadorId, LinkStatus status);
 
     /**
-     * Returns the most recent link (any status) between a caregiver and patient.
-     * Used for idempotent revocation — if already revoked, return the revoked link.
+     * Returns the most recent link (any status) between a caregiver and patient. Used for
+     * idempotent revocation — if already revoked, return the revoked link.
      */
     Optional<CaregiverPatientLinkJpaEntity> findFirstByCuidador_IdAndPacienteIdOrderByCriadoEmDesc(
             UUID cuidadorId, UUID pacienteId);
