@@ -3,7 +3,16 @@ spring:
     name: neuroassist-ai-api-gateway
   cloud:
     gateway:
-      routes: []  # TODO: definir rotas — ver issue GWY-002+
+      routes:
+        # EDGE-INT-003: route /api/v1/edge/** to edge-service via Eureka load balancer.
+        # POST /api/v1/edge/devices/enroll does NOT require Authorization (enrollmentToken auth).
+        # All other edge endpoints require Bearer JWT validated upstream (resource server config).
+        - id: edge-service-route
+          uri: lb://edge-service
+          predicates:
+            - Path=/api/v1/edge/**
+          filters:
+            - RewritePath=/api/v1/edge/(?<segment>.*), /api/v1/edge/${segment}
   security:
     oauth2:
       resourceserver:

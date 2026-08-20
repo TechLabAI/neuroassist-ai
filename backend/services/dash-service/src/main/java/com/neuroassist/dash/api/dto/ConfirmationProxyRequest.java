@@ -1,4 +1,8 @@
 package com.neuroassist.dash.api.dto;
 
-// TODO: define fields from api-contract.md
-public record ConfirmationProxyRequest(String tenantId /* TODO: add fields */) {}
+import jakarta.validation.constraints.NotBlank;
+
+/**
+ * Request DTO para confirmacao de evento via EVNT.
+ */
+public record ConfirmationProxyRequest(@NotBlank String eventId) {}

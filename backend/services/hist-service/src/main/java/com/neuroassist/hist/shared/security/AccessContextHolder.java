@@ -6,17 +6,16 @@ import java.util.List;
 /**
  * Holds the access state of the current request (permissions + data-scope).
  *
- * <p>Bound by the security filter chain after {@code JwtAuthenticationFilter}
- * has produced an {@code AccessDecision}; cleared in a {@code finally} block
- * to avoid leaking across requests reused by the servlet container.
+ * <p>Bound by the security filter chain after {@code JwtAuthenticationFilter} has produced an
+ * {@code AccessDecision}; cleared in a {@code finally} block to avoid leaking across requests
+ * reused by the servlet container.
  */
 public final class AccessContextHolder {
 
     private static final ThreadLocal<List<String>> PERMISSIONS = new ThreadLocal<>();
     private static final ThreadLocal<DataScope> DATA_SCOPE = new ThreadLocal<>();
 
-    private AccessContextHolder() {
-    }
+    private AccessContextHolder() {}
 
     public static void bind(List<String> permissions, DataScope dataScope) {
         PERMISSIONS.set(permissions == null ? Collections.emptyList() : List.copyOf(permissions));

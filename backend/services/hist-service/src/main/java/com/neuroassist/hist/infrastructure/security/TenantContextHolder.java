@@ -3,8 +3,7 @@ package com.neuroassist.hist.infrastructure.security;
 import org.slf4j.MDC;
 
 /**
- * Per-request tenant context (CLAUDE.md RULE-07).
- * - Sync requests: TenantContextFilter sets/clears.
+ * Per-request tenant context (CLAUDE.md RULE-07). - Sync requests: TenantContextFilter sets/clears.
  * - Async (@JmsListener, background): caller MUST set/clear explicitly.
  */
 public final class TenantContextHolder {
@@ -25,8 +24,7 @@ public final class TenantContextHolder {
     public static String require() {
         String t = CTX.get();
         if (t == null || t.isBlank()) {
-            throw new IllegalStateException(
-                "TenantContext not set — RULE-07 violation");
+            throw new IllegalStateException("TenantContext not set — RULE-07 violation");
         }
         return t;
     }

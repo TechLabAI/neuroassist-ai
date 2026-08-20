@@ -1,12 +1,10 @@
 package com.neuroassist.hist.domain.model;
 
 import java.util.UUID;
-import java.time.Instant;
 
-// TODO: complete fields from domain-model-diagram.puml — no Spring/JPA imports (RULE-01, RULE-02)
-public record ActorRef(
-    UUID id,
-    String tenantId,
-    Instant createdAt
-    // TODO: add domain fields
-) {}
+/**
+ * Value object — snapshot of the caregiver who triggered the audit fact at the time of ingestion.
+ * Stored as a denormalized snapshot so HIST never resolves ACS data during reads (ADR-005). Zero
+ * Spring/JPA imports (RULE-01, RULE-02).
+ */
+public record ActorRef(UUID caregiverId, String displayNameSnapshot) {}

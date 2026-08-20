@@ -1,10 +1,19 @@
 package com.neuroassist.dash.infrastructure.clients;
 
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
-@FeignClient(name = "acs-service", url = "${dash.acs.base-url}")
+import java.util.List;
+
+/**
+ * Feign client para o ACS (Cuidadores e Acesso).
+ * Resolve a lista de pacientes vinculados a um cuidador.
+ * RULE-06: FeignClient apenas em infrastructure.clients.
+ */
+@FeignClient(name = "acs-service", url = "${dash.acs.base-url:}", contextId = "acsClient")
 public interface AcsClient {
 
-    // TODO: add methods from techlab-ai-integration.md
+    @GetMapping("/api/v1/caregivers/{caregiverId}/patients")
+    List<String> getPatientsForCaregiver(@PathVariable("caregiverId") String caregiverId);
 }

@@ -53,11 +53,11 @@
 |---|---|---|---|---|---|
 | GEST | Detecção de Gesto (Edge) | `gest-service` | `libs/gest` | 8084 | ✅ scaffolded + P1-P9 done |
 | EVNT | Eventos e Alarmes | `evnt-service` | `libs/evnt` | 8085 | ✅ scaffolded + P1-P9 done |
-| PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded |
-| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | ✅ scaffolded |
-| EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | 🔄 scaffolded + P1-P6 done |
-| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | 🔄 scaffolded |
-| DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | 🔄 scaffolded |
+| PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded + P1-P9 done (160/160 BDD) |
+| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | 🔄 P1-P6 done (72/100) — P7 open (ACS-026: signing key persistida + refresh token real) |
+| EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | ✅ scaffolded + P1-P10 done |
+| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | 🔄 scaffolded (Layer 1) |
+| DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | 🔄 scaffolded (Layer 1) |
 
 Issue prefix: `<MODULE>-NNN` (e.g.: `GEST-001`, `EVNT-001`, `PAC-001`). Issues live in `docs/architecture/{backend,frontend}/issues/`. GitHub repository: `TechLabAI/neuroassist-ai`.
 
@@ -100,7 +100,7 @@ RULE-03  @Transactional only in application.service
 RULE-04  api.* does not depend on infrastructure.*
 RULE-05  infrastructure.* does not depend on api.*
 RULE-06  @FeignClient only in infrastructure.clients
-
+RULE-07  TenantContextHolder.require() is the FIRST call in every public method that touches empresa data
 RULE-08  spring.jpa.open-in-view=false mandatory
 RULE-09  mandatory base package: com.neuroassist.<module>
 ```
@@ -296,6 +296,7 @@ the command above is unchanged.
 | `docs/architecture/backend/standards/service-spec-authoring.md` | How to write per-service SPECs (Phase 1-3) |
 | `docs/architecture/backend/standards/api-mock-convention.md` | Mock profile, /api/v0/, fixtures |
 
+
 | `docs/architecture/frontend/standards/nx-boundaries.md` | Nx tags, allowed directions, ESLint config |
 | `docs/architecture/frontend/standards/access-layer-contracts.md` | AuthSession, AccessDecision |
 | `docs/architecture/shared/blueprint-core.md` | Mental model: app + modules + shared, golden rules |
@@ -315,6 +316,8 @@ the command above is unchanged.
 - **Never** use `@Testcontainers` + `@Container` -- singleton container pattern (static initializer)
 - **Never** forget `DomainServiceConfig.java` (domain services are POJOs and need `@Bean`)
 - **Never** run a microservice before `neuroassist-ai-migrations`
+- **Never** use `feign.client.config` prefix — since Spring Cloud 2025.0.1 it is silently ignored; always use `spring.cloud.openfeign.client.config` (infinite default timeout if wrong)
+- **Never** declare a Feign response record as package-private — JDK dynamic proxies (`jdk.proxy3.$ProxyN`) cannot access it; always `public record`
 
 ---
 

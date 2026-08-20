@@ -3,12 +3,11 @@ package com.neuroassist.hist.infrastructure.persistence.adapter;
 import com.neuroassist.hist.application.port.out.StreamHeadRepositoryPort;
 import com.neuroassist.hist.domain.model.StreamHead;
 import com.neuroassist.hist.infrastructure.persistence.repository.StreamHeadJpaRepository;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 
+/** P3 stub — stream-head cache adapter. Implemented in HIST-010. */
 @Component
 @RequiredArgsConstructor
 public class StreamHeadRepositoryAdapter implements StreamHeadRepositoryPort {
@@ -16,20 +15,14 @@ public class StreamHeadRepositoryAdapter implements StreamHeadRepositoryPort {
     private final StreamHeadJpaRepository repository;
 
     @Override
-    public StreamHead save(StreamHead entity) {
-        // TODO: map domain model → JPA entity → save → map back
-        throw new UnsupportedOperationException("not implemented");
+    public StreamHead save(StreamHead head, String tenantId) {
+        // TODO: P3 — map domain model → JPA entity → persist/merge → map back
+        throw new UnsupportedOperationException("not implemented — deferred to P3");
     }
 
     @Override
-    public Optional<StreamHead> findById(UUID id) {
-        // TODO: map JPA entity → domain model
-        throw new UnsupportedOperationException("not implemented");
-    }
-
-    @Override
-    public List<StreamHead> findByTenantId(String tenantId) {
-        // TODO: map JPA entities → domain models
-        throw new UnsupportedOperationException("not implemented");
+    public Optional<StreamHead> findByStreamKeyForUpdate(String streamKey, String tenantId) {
+        // TODO: P3 — query with PESSIMISTIC_WRITE lock via JPA @Lock
+        throw new UnsupportedOperationException("not implemented — deferred to P3");
     }
 }

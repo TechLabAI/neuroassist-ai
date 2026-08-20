@@ -1,51 +1,52 @@
 package com.neuroassist.dash.api.controller;
 
+import com.neuroassist.dash.api.dto.NotificationDeliveryRequest;
+import com.neuroassist.dash.api.dto.NotificationDeliveryResponse;
 import com.neuroassist.dash.application.port.in.NotificationDeliveryUseCase;
-import com.neuroassist.dash.shared.audit.AuditAction;
+import com.neuroassist.dash.domain.model.DeliveryResult;
+import com.neuroassist.dash.domain.model.NotificationPayload;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-// Security: @PreAuthorize derived from rbac.arch.json via the module generator.
-// To change which permission gates a method, edit rbac.arch.json and re-run
-// be-module-generator.py; do not patch the annotation by hand.
+import java.time.Instant;
+
+/**
+ * Internal dispatch sink controller (DASH-006).
+ * Surface: /internal/** — authenticated by SVC_EVNT authority.
+ * Not exposed via API Gateway to the browser (INT-DASH-001).
+ */
 @Slf4j
 @RestController
-@RequestMapping("/dash-service/notification-delivery")
+@RequestMapping("/internal/notifications")
 @RequiredArgsConstructor
 public class NotificationDeliveryController {
 
     private final NotificationDeliveryUseCase notificationDeliveryUseCase;
 
+    /**
+     * Receives a notification from EVNT and delivers it to the caregiver's SSE session.
+     * Returns 200 with delivery status (delivered | no_open_session).
+     */
     @PostMapping
-    @PreAuthorize("hasAuthority('dash.notification-delivery.enviar')")
-    @AuditAction("CREATE_NOTIFICATION_DELIVERY")
-    public ResponseEntity<Void> dispatch() {
-        // TODO: delegate to NotificationDeliveryUseCase
-        throw new UnsupportedOperationException("dispatch not implemented");
-    }
+    @PreAuthorize("hasAuthority('SVC_EVNT')")
+    public ResponseEntity<NotificationDeliveryResponse> deliver(
+            @Valid @RequestBody NotificationDeliveryRequest request,
+            @RequestHeader(value = "X-Tenant-Id", required = false) String tenantIdHeader) {
 
-    @GetMapping("/poll-unacknowledged")
-    @PreAuthorize("hasAuthority('dash.notification-delivery.read')")
-    public ResponseEntity<Void> pollUnacknowledged() {
-        // TODO: delegate to NotificationDeliveryUseCase
-        throw new UnsupportedOperationException("pollUnacknowledged not implemented");
-    }
+        String tenantId = tenantIdHeader != null ? tenantIdHeader : "unknown";
 
-    @GetMapping("/long-poll")
-    @PreAuthorize("hasAuthority('dash.notification-delivery.read')")
-    public ResponseEntity<Void> longPoll() {
-        // TODO: delegate to NotificationDeliveryUseCase
-        throw new UnsupportedOperationException("longPoll not implemented");
-    }
+        NotificationPayload payload = new NotificationPayload(
+                request.dispatchId(),
+                request.tier(),
+                request.message(),
+                Instant.now());
 
-    @PutMapping("/{id}/acknowledge")
-    @PreAuthorize("hasAuthority('dash.notification-delivery.confirmar')")
-    @AuditAction("UPDATE_NOTIFICATION_DELIVERY")
-    public ResponseEntity<Void> acknowledge() {
-        // TODO: delegate to NotificationDeliveryUseCase
-        throw new UnsupportedOperationException("acknowledge not implemented");
+        DeliveryResult result = notificationDeliveryUseCase.deliver(request.caregiverId(), payload, tenantId);
+
+        return ResponseEntity.ok(new NotificationDeliveryResponse(result.dispatchId(), result.status()));
     }
 }

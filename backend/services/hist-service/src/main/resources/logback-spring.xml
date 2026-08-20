@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Bind spring.application.name to logback context for JSON "appName" field -->
+    <springProperty scope="context" name="appName" source="spring.application.name"
+                    defaultValue="hist-service"/>
+
+    <!-- JSON structured logging via Logstash encoder (P7, HIST-018) -->
+    <appender name="JSON_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Always emit appName in every log line -->
+            <customFields>{"service":"${appName}"}</customFields>
+            <!-- MDC fields included: correlationId, tenant, factType, streamKey, tenantId, userId -->
+            <!-- payload is NEVER placed in MDC by any service (LGPD) -->
+        </encoder>
+    </appender>
+
+    <!-- Package-level loggers -->
+    <logger name="com.neuroassist.hist" level="INFO" additivity="false">
+        <appender-ref ref="JSON_STDOUT"/>
+    </logger>
+
+    <!-- Reduce noise from infrastructure libraries -->
+    <logger name="org.springframework" level="WARN" additivity="false">
+        <appender-ref ref="JSON_STDOUT"/>
+    </logger>
+    <logger name="org.hibernate" level="WARN" additivity="false">
+        <appender-ref ref="JSON_STDOUT"/>
+    </logger>
+    <logger name="com.netflix.eureka" level="WARN" additivity="false">
+        <appender-ref ref="JSON_STDOUT"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_STDOUT"/>
+    </root>
+
+</configuration>

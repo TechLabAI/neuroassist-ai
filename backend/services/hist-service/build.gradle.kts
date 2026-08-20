@@ -49,6 +49,7 @@ dependencies {
     // Observability
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("io.micrometer:micrometer-registry-prometheus")
+    implementation("net.logstash.logback:logstash-logback-encoder:8.0")
 
     // Lombok
     compileOnly("org.projectlombok:lombok:1.18.34")
@@ -64,6 +65,9 @@ dependencies {
     // ActiveMQ: Artemis embedded (spring.artemis.mode=embedded) — sem testcontainers:activemq
     testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 
+
+    // WireMock — ACS integration tests (INT-HIST-002, P4); standalone fat-jar (Jetty 12 + Jakarta)
+    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
 
     // BDD — Cucumber
     testImplementation("io.cucumber:cucumber-junit-platform-engine:7.18.0")

@@ -1,21 +1,23 @@
-# Profile 'test' — Testcontainers (PostgreSQL) + Artemis embedded.
-# DataSource sobrescrito via @DynamicPropertySource em BaseIntegrationTest.
+# Profile 'test' — Zero DB, Zero broker (ADR-004, ADR-005).
+# dash-service e stateless no MVP: sem datasource, sem JPA, sem Artemis.
+# spring.security.oauth2.resourceserver.jwt.jwk-set-uri e configurado via
+# @DynamicPropertySource em BaseIntegrationTest (aponta para WireMock acsWireMock).
 spring:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
   flyway:
     enabled: false
-  artemis:
-    mode: embedded
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+  cloud:
+    openfeign:
+      # Desabilita Feign circuit breaker em testes para evitar abertura do circuito
+      # por chamadas WireMock em cenarios de soft-degrade.
+      circuitbreaker:
+        enabled: false
+
 eureka:
   client:
     enabled: false
+
+# Upstream URLs sao configuradas via @DynamicPropertySource (WireMock dinamico).
+# Os valores abaixo sao placeholders descartados — necessarios para context load.
 dash:
   acs:
     base-url: http://localhost:0
@@ -27,3 +29,8 @@ dash:
     base-url: http://localhost:0
   edge:
     base-url: http://localhost:0
+
+logging:
+  level:
+    com.neuroassist.dash: WARN
+    com.github.tomakehurst.wiremock: WARN

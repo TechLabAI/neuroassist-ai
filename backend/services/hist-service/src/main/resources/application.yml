@@ -17,6 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
+          jwk-set-uri: ${ACS_JWK_URI:http://localhost:8088/.well-known/jwks.json}
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
 
 server:
@@ -34,13 +35,39 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
+
+feign:
+  client:
+    config:
+      acs-directory:
+        connectTimeout: 2000
+        readTimeout: 2000
+        loggerLevel: BASIC
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      acs-directory:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
 
 logging:
   pattern:

@@ -12,8 +12,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
- * Feign interceptors — propagate correlationId, tenantId and JWT bearer token
- * to downstream services (RULE-06: only in infrastructure.clients/config).
+ * Feign interceptors — propagate correlationId, tenantId and JWT bearer token to downstream
+ * services (RULE-06: only in infrastructure.clients/config).
  */
 @Configuration
 public class FeignClientConfig {

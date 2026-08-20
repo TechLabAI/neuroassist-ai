@@ -15,11 +15,12 @@ public abstract class BaseIntegrationTest {
     static final PostgreSQLContainer<?> POSTGRES;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
-            .withDatabaseName("neuroassist-ai_test")
-            .withUsername("test")
-            .withPassword("test")
-            .withInitScript("init-schema.sql");
+        POSTGRES =
+                new PostgreSQLContainer<>("postgres:16-alpine")
+                        .withDatabaseName("neuroassist-ai_test")
+                        .withUsername("test")
+                        .withPassword("test")
+                        .withInitScript("init-schema.sql");
         POSTGRES.start();
     }
 

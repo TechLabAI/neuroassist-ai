@@ -1,4 +1,12 @@
 package com.neuroassist.dash.api.dto;
 
-// TODO: define fields from api-contract.md
-public record CalibrationProxyRequest(String tenantId /* TODO: add fields */) {}
+import jakarta.validation.constraints.NotBlank;
+import java.util.Map;
+
+/**
+ * Request DTO para write-through de calibracao via PAC.
+ */
+public record CalibrationProxyRequest(
+        @NotBlank String sensitivity,
+        @NotBlank String threshold,
+        Map<String, String> extra) {}

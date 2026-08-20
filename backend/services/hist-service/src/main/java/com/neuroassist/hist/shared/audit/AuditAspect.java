@@ -1,5 +1,6 @@
 package com.neuroassist.hist.shared.audit;
 
+import java.time.Instant;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
@@ -9,12 +10,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
-
 /**
- * Logs every controller call annotated with {@link AuditAction}. The default
- * implementation emits a single slf4j INFO line; replace {@link #logAudit}
- * to ship to a persistent audit store.
+ * Logs every controller call annotated with {@link AuditAction}. The default implementation emits a
+ * single slf4j INFO line; replace {@link #logAudit} to ship to a persistent audit store.
  */
 @Slf4j
 @Aspect
@@ -34,7 +32,11 @@ public class AuditAspect {
     }
 
     protected void logAudit(String action, String principal, String method) {
-        log.info("audit action={} principal={} method={} ts={}",
-                 action, principal, method, Instant.now());
+        log.info(
+                "audit action={} principal={} method={} ts={}",
+                action,
+                principal,
+                method,
+                Instant.now());
     }
 }

@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.slf4j.MDC;
 
 /**
  * Reads tenantId from JWT claim ("tenant_id") and binds it to TenantContextHolder for the duration
@@ -38,11 +39,13 @@ public class TenantContextFilter extends OncePerRequestFilter {
                 return;
             }
             TenantContextHolder.set(tenantId);
+            MDC.put("tenantId", tenantId);
         }
         try {
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
+            MDC.remove("tenantId");
         }
     }
 

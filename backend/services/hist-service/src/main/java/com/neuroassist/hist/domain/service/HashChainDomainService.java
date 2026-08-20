@@ -1,7 +1,5 @@
 package com.neuroassist.hist.domain.service;
 
-import com.neuroassist.hist.domain.model.HashChain;
-
 // Pure POJO — zero Spring imports (RULE-01). Registered as @Bean in DomainServiceConfig.
 public class HashChainDomainService {
 
