@@ -1,4 +1,4 @@
-# Ref: SPEC-05-caregiver-linkage-coverage.md §5, SPEC-08-bdd-test-scenarios.md §5
+﻿# Ref: SPEC-05-caregiver-linkage-coverage.md §5, SPEC-08-bdd-test-scenarios.md §5
 Feature: Caregiver-Patient Linkage
 
   Background:

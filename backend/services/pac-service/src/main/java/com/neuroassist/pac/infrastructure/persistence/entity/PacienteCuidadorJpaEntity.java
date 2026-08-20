@@ -1,13 +1,25 @@
 package com.neuroassist.pac.infrastructure.persistence.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.EmbeddedId;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import java.time.Instant;
-import java.util.UUID;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
+/**
+ * JPA entity for the {@code paciente_cuidador} join table.
+ *
+ * <p>Composite PK: (paciente_id, cuidador_responsavel_id). {@code cuidador_responsavel_id} is a
+ * cross-service reference to ACS Cuidador (no FK — plain UUID). Schema: per-empresa (tenant row
+ * implicitly scoped via paciente FK).
+ */
 @Entity
 @Table(name = "paciente_cuidador")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,19 +27,8 @@ import lombok.*;
 @Builder
 public class PacienteCuidadorJpaEntity {
 
-    @Id
-    @GeneratedValue
-    @Column(name = "paciente_cuidador_id")
-    private UUID id;
+    @EmbeddedId private PacienteCuidadorId id;
 
-    @Column(name = "tenant_id", nullable = false)
-    private String tenantId;
-
-    @Column(name = "status")
-    private String status;
-
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
-
-    // TODO: complete fields from data-model.md
 }

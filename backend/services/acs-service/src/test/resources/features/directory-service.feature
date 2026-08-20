@@ -1,4 +1,4 @@
-# Ref: SPEC-01-api-surface.md §4, SPEC-05-caregiver-linkage-coverage.md §5 (directory consistency)
+﻿# Ref: SPEC-01-api-surface.md §4, SPEC-05-caregiver-linkage-coverage.md §5 (directory consistency)
 # Gap coverage: directory surface not covered by SPEC-08 original scenarios
 Feature: Directory Service
 

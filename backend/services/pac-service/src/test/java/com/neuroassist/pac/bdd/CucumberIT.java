@@ -1,6 +1,7 @@
 package com.neuroassist.pac.bdd;
 
 import io.cucumber.junit.platform.engine.Constants;
+import org.junit.jupiter.api.Tag;
 import org.junit.platform.suite.api.*;
 
 /**
@@ -12,6 +13,7 @@ import org.junit.platform.suite.api.*;
  * <p>DRY-RUN mode is active: stub steps with PendingException are SKIPPED, not FAILED. Remove
  * EXECUTION_DRY_RUN_PROPERTY_NAME once steps are wired.
  */
+@Tag("integration")
 @Suite
 @IncludeEngines("cucumber")
 @SelectClasspathResource("features")

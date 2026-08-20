@@ -16,6 +16,23 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:0/.well-known/jwks.json
+          issuer-uri: http://test-issuer
+  cloud:
+    openfeign:
+      client:
+        config:
+          gest-service:
+            connect-timeout: 500
+            read-timeout: 500
+          acs-service:
+            connect-timeout: 2000
+            read-timeout: 3000
+          edge-service:
+            connect-timeout: 2000
+            read-timeout: 3000
+          hist-service:
+            connect-timeout: 2000
+            read-timeout: 3000
 eureka:
   client:
     enabled: false
@@ -32,22 +49,6 @@ neuroassist:
       url: http://localhost:19993
     hist:
       url: http://localhost:19994
-# Feign client timeouts for test (short GEST timeout to trigger CB in emergency gate tests)
-feign:
-  client:
-    config:
-      gest-service:
-        connect-timeout: 500
-        read-timeout: 500
-      acs-service:
-        connect-timeout: 2000
-        read-timeout: 3000
-      edge-service:
-        connect-timeout: 2000
-        read-timeout: 3000
-      hist-service:
-        connect-timeout: 2000
-        read-timeout: 3000
 # Actuator endpoints for BDD health checks (SharedSteps.givenThePacServiceIsRunning)
 management:
   endpoints:

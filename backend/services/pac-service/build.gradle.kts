@@ -73,12 +73,21 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
     // INT-PAC-006 (P8) — WireMock for external service stubs (GEST/ACS/EDGE/HIST)
-    testImplementation("org.wiremock:wiremock:3.9.1")
+    // D-534 fix (Opção A): wiremock-standalone fat jar embeds Jetty 12 + Jakarta servlet.
+    // No explicit Jetty dependency needed — standalone ships its own; external Jetty jars conflict.
+    testImplementation("org.wiremock:wiremock-standalone:3.9.1")
 
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Unit tests only (excludes @Tag("integration") tests that require WireMock infra)
+tasks.register<Test>("testUnit") {
+    useJUnitPlatform() {
+        excludeTags("integration")
+    }
 }
 
 tasks.register("architectureCheck") {

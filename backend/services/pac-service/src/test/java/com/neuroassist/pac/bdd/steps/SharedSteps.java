@@ -64,6 +64,7 @@ public class SharedSteps {
     public void givenPatientExistsIn(String alias, String empresaId) {
         UUID id = data.createPaciente(alias, empresaId);
         ctx.putAlias(alias, id);
+        ctx.setLastEtag("\"1\"");
         // Set current empresa context for subsequent requests in this scenario
         if (ctx.getCurrentEmpresaId() == null) {
             ctx.setCurrentEmpresaId(empresaId);
@@ -81,7 +82,13 @@ public class SharedSteps {
         assertThat(patientId).as("pac-001 must be set up before cmd-pub").isNotNull();
         UUID id =
                 data.createComando(
-                        patientId, ctx.getCurrentEmpresaId(), "published", "rotina", 0, null, null);
+                        patientId,
+                        ctx.getCurrentEmpresaId(),
+                        "published",
+                        "rotina",
+                        0,
+                        TestDataHelper.primitiveUuid("gst-001"),
+                        null);
         ctx.putAlias("cmd-pub", id);
         ctx.setLastEtag("\"1\"");
     }
@@ -119,7 +126,7 @@ public class SharedSteps {
     // -------------------------------------------------------------------------
 
     @When(
-            "a POST request is made to \"/api/pac/v1/pacientes/pac-001/comandos/cmd-pub:recalibrate\" with matching ETag and body:")
+            "^a POST request is made to \"/api/pac/v1/pacientes/pac-001/comandos/cmd-pub:recalibrate\" with matching ETag and body:")
     public void whenAPostRequestIsMadeToApipacv1pacientespac001comandoscmdpubrecalibrateWith(
             String body) {
         UUID patientId = ctx.getAlias("pac-001");
@@ -140,7 +147,9 @@ public class SharedSteps {
     public void whenAPutRequestIsMadeToWith(String path, String body) {
         // Resolve any aliases in the path
         String resolvedPath = resolvePath(path);
-        ResponseEntity<String> response = http.put(resolvedPath, body, ctx.getLastEtag());
+        // Resolve primitive aliases in the body (e.g. "gst-001" → UUID)
+        String resolvedBody = resolvePrimitiveIds(body);
+        ResponseEntity<String> response = http.put(resolvedPath, resolvedBody, ctx.getLastEtag());
         ctx.setLastResponse(response);
         if (response.getHeaders().getETag() != null) {
             ctx.setLastEtag(response.getHeaders().getETag());
@@ -155,11 +164,15 @@ public class SharedSteps {
     public void thenTheResponseStatusIs(int status) {
         assertThat(ctx.getLastResponse()).as("No HTTP response recorded").isNotNull();
         assertThat(ctx.getLastResponse().getStatusCode().value())
-                .as("Expected HTTP status %d", status)
+                .as(
+                        "Expected HTTP status %d but got %d. Response body: %s",
+                        status,
+                        ctx.getLastResponse().getStatusCode().value(),
+                        ctx.getLastResponse().getBody())
                 .isEqualTo(status);
     }
 
-    @And("the response body field \"type\" is \"/errors/validation\"")
+    @And("^the response body field \"type\" is \"/errors/validation\"")
     public void andTheResponseBodyFieldTypeIsErrorsvalidation() {
         assertJsonField("type", "/errors/validation");
     }
@@ -214,6 +227,17 @@ public class SharedSteps {
         assertThat(actual)
                 .as("JSON field '%s' expected <%s>", field, expectedValue)
                 .isEqualTo(expectedValue);
+    }
+
+    private static String resolvePrimitiveIds(String body) {
+        for (String alias :
+                new String[] {"gst-001", "gst-unknown", "gst-pending", "gst-primary"}) {
+            body =
+                    body.replace(
+                            "\"" + alias + "\"",
+                            "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
+        }
+        return body;
     }
 
     /**

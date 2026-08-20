@@ -5,6 +5,7 @@ import com.neuroassist.pac.application.port.out.EmergencyEligibilityGate.Eligibi
 import com.neuroassist.pac.domain.model.Urgencia;
 import com.neuroassist.pac.shared.error.CodedException;
 import com.neuroassist.pac.shared.error.EligibilityGateUnavailableException;
+import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
@@ -63,6 +64,14 @@ public class EmergencyEligibilityGateImpl implements EmergencyEligibilityGate {
         } catch (CodedException e) {
             // Re-throw domain exceptions (e.g. emergency-not-detectable)
             throw e;
+        } catch (FeignException.NotFound e) {
+            // GEST returned 404: primitive is unknown to GEST — reject regardless of urgency
+            log.warn(
+                    "GEST returned 404 for primitive={} — primitive unknown to GEST",
+                    primitivoPrincipalId);
+            throw new CodedException(
+                    "pac.primitive.unknown-to-gest",
+                    "Primitive '" + primitivoPrincipalId + "' is not registered in GEST");
         } catch (CallNotPermittedException e) {
             // Circuit breaker is OPEN — fail-closed for emergency, advisory for routine
             log.warn(

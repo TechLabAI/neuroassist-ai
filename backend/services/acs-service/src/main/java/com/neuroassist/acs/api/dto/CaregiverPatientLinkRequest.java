@@ -1,4 +1,12 @@
 package com.neuroassist.acs.api.dto;
 
-// TODO: define fields from api-contract.md
-public record CaregiverPatientLinkRequest(String tenantId /* TODO: add fields */) {}
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
+
+/**
+ * Request DTO — Create Caregiver-Patient Link (POST
+ * /api/v1/acs/caregivers/{cuidadorId}/patients/{pacienteId}/link). Requires authority:
+ * acs.link.create.
+ */
+public record CaregiverPatientLinkRequest(
+        @NotNull(message = "pacienteId is required") UUID pacienteId) {}

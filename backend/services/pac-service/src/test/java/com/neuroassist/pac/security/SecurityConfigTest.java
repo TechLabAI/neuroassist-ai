@@ -14,6 +14,7 @@ import com.neuroassist.pac.application.port.in.CatalogoAtivoUseCase;
 import com.neuroassist.pac.application.port.in.ComandoAuthoringUseCase;
 import com.neuroassist.pac.application.port.in.ComandoLifecycleUseCase;
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
+import com.neuroassist.pac.integration.BaseIntegrationTest;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,12 +24,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Security configuration tests for PAC-021 (P7 — SPEC-06).
@@ -51,33 +48,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
-@ActiveProfiles("test")
-class SecurityConfigTest {
-
-    // ---------------------------------------------------------------------------
-    // Testcontainers PostgreSQL singleton — required by @SpringBootTest (full context)
-    // ---------------------------------------------------------------------------
-
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("neuroassist-ai_test")
-                    .withUsername("test")
-                    .withPassword("test")
-                    .withInitScript("init-schema.sql");
-
-    static {
-        POSTGRES.start();
-    }
-
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES::getUsername);
-        registry.add("spring.datasource.password", POSTGRES::getPassword);
-    }
+class SecurityConfigTest extends BaseIntegrationTest {
 
     // ---------------------------------------------------------------------------
     // MockMvc + mocked beans (no real Keycloak or service dependencies)
+    // BaseIntegrationTest provides PostgreSQL Testcontainer + WireMock servers
     // ---------------------------------------------------------------------------
 
     @Autowired MockMvc mvc;
@@ -144,7 +119,7 @@ class SecurityConfigTest {
         mvc.perform(
                         put("/api/pac/v1/pacientes/" + UUID.randomUUID())
                                 .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}")
+                                .content("{\"nome\":\"Paciente Teste\"}")
                                 .with(
                                         jwt().authorities(
                                                         new SimpleGrantedAuthority(

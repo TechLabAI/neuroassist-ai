@@ -38,12 +38,11 @@ public class CrossAspectArchTest {
     private static final Set<String> PERMISSION_CATALOGUE =
             Set.of(
                     "acs.autenticacao.autenticar",
-                    "acs.caregiver-patient-link.cancelar",
-                    "acs.caregiver-patient-link.read",
-                    "acs.caregiver-patient-link.vincular",
-                    "acs.caregiver.criar",
-                    "acs.caregiver.desativar",
-                    "acs.caregiver.read",
+                    "acs.vinculo.criar",
+                    "acs.vinculo.revogar",
+                    "acs.cuidador.criar",
+                    "acs.cuidador.desativar",
+                    "acs.cuidador.read",
                     "acs.directory.read",
                     "acs.jwk-set.read",
                     "acs.tenant.provisionar",

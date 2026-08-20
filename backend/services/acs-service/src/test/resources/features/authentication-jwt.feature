@@ -1,4 +1,4 @@
-# Ref: SPEC-03-authentication-jwt.md §6, SPEC-08-bdd-test-scenarios.md §4
+﻿# Ref: SPEC-03-authentication-jwt.md §6, SPEC-08-bdd-test-scenarios.md §4
 Feature: Authentication and JWT Issuance
 
   Scenario: Successful login returns a signed JWT

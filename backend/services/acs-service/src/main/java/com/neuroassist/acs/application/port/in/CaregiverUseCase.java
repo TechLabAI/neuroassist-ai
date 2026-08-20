@@ -1,16 +1,32 @@
 package com.neuroassist.acs.application.port.in;
 
+import com.neuroassist.acs.api.dto.CaregiverRequest;
+import com.neuroassist.acs.api.dto.CaregiverResponse;
+import com.neuroassist.acs.domain.model.CuidadorStatus;
+import java.util.List;
+import java.util.UUID;
+
 /**
- * Inbound port — CaregiverUseCase. Generated stub; define parameters and return types before
- * implementing.
+ * Inbound port — CaregiverUseCase. Use cases for caregiver (cuidador) administration. Implemented
+ * by CaregiverService (application layer).
  */
 public interface CaregiverUseCase {
 
-    void create(); // TODO: define parameters and return type
+    /**
+     * Creates a new caregiver for the given tenant. BCrypt-hashes the senha before persisting.
+     * Throws LoginDuplicateException (409) if login already active in tenant.
+     */
+    CaregiverResponse create(CaregiverRequest request, UUID tenantId);
 
-    void listAll(); // TODO: define parameters and return type
+    /** Finds a caregiver by ID. Throws CaregiverNotFoundException (404) if not found. */
+    CaregiverResponse findById(UUID cuidadorId);
 
-    void findById(); // TODO: define parameters and return type
+    /** Lists all caregivers for the given tenant. */
+    List<CaregiverResponse> listByTenant(UUID tenantId);
 
-    void deactivate(); // TODO: define parameters and return type
+    /**
+     * Updates the status of a caregiver (ACTIVE ↔ INACTIVE). Throws CaregiverNotFoundException
+     * (404) if not found.
+     */
+    CaregiverResponse updateStatus(UUID cuidadorId, CuidadorStatus status);
 }

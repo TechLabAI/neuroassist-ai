@@ -20,6 +20,7 @@ public class FeignClientConfig {
 
     private static final String CORRELATION_HEADER = "X-Correlation-Id";
     private static final String TENANT_HEADER = "X-Tenant-Id";
+    private static final String EMPRESA_HEADER = "X-Empresa-Id";
     private static final String AUTH_HEADER = "Authorization";
     private static final String MDC_CORRELATION_KEY = "correlationId";
 
@@ -39,6 +40,21 @@ public class FeignClientConfig {
             String tenantId = TenantContextHolder.getTenantIdOrNull();
             if (tenantId != null && !tenantId.isBlank()) {
                 template.header(TENANT_HEADER, tenantId);
+            }
+        };
+    }
+
+    /**
+     * INT-PAC-005 — propagates X-Empresa-Id on every outbound Feign call. In pac-service the tenant
+     * context IS the empresa id (schema-per-empresa multi-tenancy). SPEC-10 §3 requires
+     * X-Empresa-Id on all outbound calls to ACS, EDGE, GEST, HIST.
+     */
+    @Bean
+    public RequestInterceptor feignEmpresaIdInterceptor() {
+        return (RequestTemplate template) -> {
+            String empresaId = TenantContextHolder.getTenantIdOrNull();
+            if (empresaId != null && !empresaId.isBlank()) {
+                template.header(EMPRESA_HEADER, empresaId);
             }
         };
     }

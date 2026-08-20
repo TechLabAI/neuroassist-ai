@@ -1,4 +1,7 @@
 package com.neuroassist.acs.api.dto;
 
-// TODO: define fields from api-contract.md
-public record JwkSetRequest(String tenantId /* TODO: add fields */) {}
+/**
+ * Request DTO — JWK Set (GET /.well-known/jwks.json). Public endpoint — no authentication required.
+ * Optional kid filter: if provided, returns only the key with the matching kid.
+ */
+public record JwkSetRequest(String kid) {}
