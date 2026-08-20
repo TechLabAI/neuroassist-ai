@@ -3,18 +3,17 @@ package com.neuroassist.dash.application.service;
 import com.neuroassist.dash.application.port.in.PanelStreamUseCase;
 import com.neuroassist.dash.application.port.out.NotificationDispatchBackPort;
 import com.neuroassist.dash.infrastructure.sse.PanelSessionRegistry;
+import java.io.IOException;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.util.Map;
-
 /**
- * Application service for SSE panel session management (DASH-004).
- * No @Transactional: DASH has no database (ADR-004).
- * No TenantContextHolder.require(): DASH is a BFF; tenant comes from JWT, not empresa scope.
+ * Application service for SSE panel session management (DASH-004). No @Transactional: DASH has no
+ * database (ADR-004). No TenantContextHolder.require(): DASH is a BFF; tenant comes from JWT, not
+ * empresa scope.
  */
 @Slf4j
 @Service
@@ -32,17 +31,28 @@ public class PanelStreamService implements PanelStreamUseCase {
 
     @Override
     public void heartbeat(String caregiverId) {
-        panelSessionRegistry.get(caregiverId).ifPresentOrElse(emitter -> {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("heartbeat")
-                        .data(Map.of("type", "heartbeat")));
-                log.debug("Heartbeat sent to caregiver={}", caregiverId);
-            } catch (IOException e) {
-                log.warn("Failed to send heartbeat to caregiver={}: {}", caregiverId, e.getMessage());
-                panelSessionRegistry.close(caregiverId);
-            }
-        }, () -> log.debug("Heartbeat skipped — no active session for caregiver={}", caregiverId));
+        panelSessionRegistry
+                .get(caregiverId)
+                .ifPresentOrElse(
+                        emitter -> {
+                            try {
+                                emitter.send(
+                                        SseEmitter.event()
+                                                .name("heartbeat")
+                                                .data(Map.of("type", "heartbeat")));
+                                log.debug("Heartbeat sent to caregiver={}", caregiverId);
+                            } catch (IOException e) {
+                                log.warn(
+                                        "Failed to send heartbeat to caregiver={}: {}",
+                                        caregiverId,
+                                        e.getMessage());
+                                panelSessionRegistry.close(caregiverId);
+                            }
+                        },
+                        () ->
+                                log.debug(
+                                        "Heartbeat skipped — no active session for caregiver={}",
+                                        caregiverId));
     }
 
     @Override
@@ -56,11 +66,15 @@ public class PanelStreamService implements PanelStreamUseCase {
         log.info("Replay catch-up: caregiver={} tenant={}", caregiverId, tenantId);
         SseEmitter emitter = panelSessionRegistry.open(caregiverId, tenantId);
         try {
-            emitter.send(SseEmitter.event()
-                    .name("catchup-complete")
-                    .data(Map.of("type", "catchup-complete")));
+            emitter.send(
+                    SseEmitter.event()
+                            .name("catchup-complete")
+                            .data(Map.of("type", "catchup-complete")));
         } catch (IOException e) {
-            log.warn("Failed to send catchup-complete to caregiver={}: {}", caregiverId, e.getMessage());
+            log.warn(
+                    "Failed to send catchup-complete to caregiver={}: {}",
+                    caregiverId,
+                    e.getMessage());
             panelSessionRegistry.close(caregiverId);
         }
         return emitter;

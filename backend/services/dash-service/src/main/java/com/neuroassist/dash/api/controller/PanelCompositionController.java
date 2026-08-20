@@ -57,8 +57,13 @@ public class PanelCompositionController {
             @PathVariable String patientId, Authentication auth) {
         String caregiverId = auth.getName();
         String tenantId = extractTenantId(auth);
-        log.info("getPatientOverview caregiverId={} patientId={} tenantId={}", caregiverId, patientId, tenantId);
-        PatientOverview overview = panelCompositionUseCase.composePatientOverview(caregiverId, patientId, tenantId);
+        log.info(
+                "getPatientOverview caregiverId={} patientId={} tenantId={}",
+                caregiverId,
+                patientId,
+                tenantId);
+        PatientOverview overview =
+                panelCompositionUseCase.composePatientOverview(caregiverId, patientId, tenantId);
         return ResponseEntity.ok(overview);
     }
 
@@ -76,8 +81,15 @@ public class PanelCompositionController {
             Authentication auth) {
         String caregiverId = auth.getName();
         String tenantId = extractTenantId(auth);
-        log.info("getHistory caregiverId={} patientId={} page={} size={} tenantId={}", caregiverId, patientId, page, size, tenantId);
-        HistoryPage historyPage = panelCompositionUseCase.queryHistory(caregiverId, patientId, page, size, tenantId);
+        log.info(
+                "getHistory caregiverId={} patientId={} page={} size={} tenantId={}",
+                caregiverId,
+                patientId,
+                page,
+                size,
+                tenantId);
+        HistoryPage historyPage =
+                panelCompositionUseCase.queryHistory(caregiverId, patientId, page, size, tenantId);
         return ResponseEntity.ok(historyPage);
     }
 
@@ -92,8 +104,13 @@ public class PanelCompositionController {
             @PathVariable String patientId, Authentication auth) {
         String caregiverId = auth.getName();
         String tenantId = extractTenantId(auth);
-        log.info("getDeviceStatus caregiverId={} patientId={} tenantId={}", caregiverId, patientId, tenantId);
-        DeviceStatus status = panelCompositionUseCase.queryDeviceStatus(caregiverId, patientId, tenantId);
+        log.info(
+                "getDeviceStatus caregiverId={} patientId={} tenantId={}",
+                caregiverId,
+                patientId,
+                tenantId);
+        DeviceStatus status =
+                panelCompositionUseCase.queryDeviceStatus(caregiverId, patientId, tenantId);
         return ResponseEntity.ok(status);
     }
 

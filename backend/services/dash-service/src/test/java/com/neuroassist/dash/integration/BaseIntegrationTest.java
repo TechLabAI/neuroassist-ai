@@ -5,9 +5,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import com.neuroassist.dash.infrastructure.sse.PanelSessionRegistry;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.neuroassist.dash.infrastructure.sse.PanelSessionRegistry;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
@@ -23,8 +23,8 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Base para testes de integracao do dash-service. Zero datasource (ADR-004: BFF zero-state).
- * Nao usa Testcontainers PostgreSQL nem Artemis — servico e totalmente stateless no MVP.
+ * Base para testes de integracao do dash-service. Zero datasource (ADR-004: BFF zero-state). Nao
+ * usa Testcontainers PostgreSQL nem Artemis — servico e totalmente stateless no MVP.
  *
  * <p>Inicializa 5 WireMock servers (um por upstream: ACS, PAC, EVNT, HIST, EDGE) em portas
  * dinamicas. As URLs sao injetadas via @DynamicPropertySource antes do Spring context ser criado.
@@ -97,11 +97,14 @@ public abstract class BaseIntegrationTest {
         edgeWireMock.stop();
     }
 
-    @Autowired
     protected TestRestTemplate restTemplate;
-
-    @Autowired
     protected PanelSessionRegistry panelSessionRegistry;
+
+    public BaseIntegrationTest(
+            TestRestTemplate restTemplate, PanelSessionRegistry panelSessionRegistry) {
+        this.restTemplate = restTemplate;
+        this.panelSessionRegistry = panelSessionRegistry;
+    }
 
     @BeforeEach
     void resetAllWireMocks() {

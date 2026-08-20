@@ -1,18 +1,17 @@
 package com.neuroassist.dash.infrastructure.sse;
 
 import com.neuroassist.dash.domain.model.PanelSession;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * In-memory SSE session store (ADR-004: zero tables MVP).
- * Key: caregiverId. Thread-safe via ConcurrentHashMap.
+ * In-memory SSE session store (ADR-004: zero tables MVP). Key: caregiverId. Thread-safe via
+ * ConcurrentHashMap.
  */
 @Slf4j
 @Component
@@ -21,25 +20,31 @@ public class PanelSessionRegistry {
     private final ConcurrentHashMap<String, SseRegistration> sessions = new ConcurrentHashMap<>();
 
     /**
-     * Opens a new SSE emitter for the given caregiver. If a session already exists,
-     * completes the old one before opening the new session.
+     * Opens a new SSE emitter for the given caregiver. If a session already exists, completes the
+     * old one before opening the new session.
      */
     public SseEmitter open(String caregiverId, String tenantId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-        PanelSession session = new PanelSession(caregiverId, tenantId, UUID.randomUUID().toString(), Instant.now());
+        PanelSession session =
+                new PanelSession(
+                        caregiverId, tenantId, UUID.randomUUID().toString(), Instant.now());
 
-        emitter.onCompletion(() -> {
-            log.debug("SSE emitter completed for caregiver={}", caregiverId);
-            close(caregiverId);
-        });
-        emitter.onTimeout(() -> {
-            log.debug("SSE emitter timed out for caregiver={}", caregiverId);
-            close(caregiverId);
-        });
-        emitter.onError(ex -> {
-            log.warn("SSE emitter error for caregiver={}: {}", caregiverId, ex.getMessage());
-            close(caregiverId);
-        });
+        emitter.onCompletion(
+                () -> {
+                    log.debug("SSE emitter completed for caregiver={}", caregiverId);
+                    close(caregiverId);
+                });
+        emitter.onTimeout(
+                () -> {
+                    log.debug("SSE emitter timed out for caregiver={}", caregiverId);
+                    close(caregiverId);
+                });
+        emitter.onError(
+                ex -> {
+                    log.warn(
+                            "SSE emitter error for caregiver={}: {}", caregiverId, ex.getMessage());
+                    close(caregiverId);
+                });
 
         SseRegistration existing = sessions.put(caregiverId, new SseRegistration(emitter, session));
         if (existing != null) {

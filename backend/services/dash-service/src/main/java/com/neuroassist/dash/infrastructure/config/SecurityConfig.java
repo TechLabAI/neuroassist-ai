@@ -17,9 +17,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /**
  * Seguranca DASH: duas superficies de autenticacao.
+ *
  * <ul>
- *   <li>/panel/** — JWT cuidador (ROLE_CAREGIVER) — roteado pelo Gateway</li>
- *   <li>/internal/** — JWT servico (SVC_EVNT) — chamado direto pelo EVNT service</li>
+ *   <li>/panel/** — JWT cuidador (ROLE_CAREGIVER) — roteado pelo Gateway
+ *   <li>/internal/** — JWT servico (SVC_EVNT) — chamado direto pelo EVNT service
  * </ul>
  */
 @Configuration
@@ -31,9 +32,10 @@ public class SecurityConfig {
     private final MdcUserContextFilter mdcUserContextFilter;
     private final TenantContextFilter tenantContextFilter;
 
-    public SecurityConfig(CorrelationIdFilter correlationIdFilter,
-                          MdcUserContextFilter mdcUserContextFilter,
-                          TenantContextFilter tenantContextFilter) {
+    public SecurityConfig(
+            CorrelationIdFilter correlationIdFilter,
+            MdcUserContextFilter mdcUserContextFilter,
+            TenantContextFilter tenantContextFilter) {
         this.correlationIdFilter = correlationIdFilter;
         this.mdcUserContextFilter = mdcUserContextFilter;
         this.tenantContextFilter = tenantContextFilter;
@@ -41,24 +43,32 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(csrf -> csrf.disable())
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/actuator/health", "/actuator/prometheus", "/actuator/sessions").permitAll()
-                .requestMatchers("/internal/**").hasAuthority("SVC_EVNT")
-                .requestMatchers("/panel/**").hasAuthority("ROLE_CAREGIVER")
-                .anyRequest().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 ->
-                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())))
-            // Correlation ID is earliest: even 401 responses carry X-Correlation-Id
-            .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
-            // Tenant context: after JWT auth is resolved
-            .addFilterBefore(tenantContextFilter, UsernamePasswordAuthenticationFilter.class)
-            // MDC userId: after Bearer token filter validates the JWT
-            .addFilterAfter(mdcUserContextFilter, BearerTokenAuthenticationFilter.class);
+        http.csrf(csrf -> csrf.disable())
+                .sessionManagement(
+                        session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(
+                        auth ->
+                                auth.requestMatchers(
+                                                "/actuator/health",
+                                                "/actuator/prometheus",
+                                                "/actuator/sessions")
+                                        .permitAll()
+                                        .requestMatchers("/internal/**")
+                                        .hasAuthority("SVC_EVNT")
+                                        .requestMatchers("/panel/**")
+                                        .hasAuthority("ROLE_CAREGIVER")
+                                        .anyRequest()
+                                        .authenticated())
+                .oauth2ResourceServer(
+                        oauth2 ->
+                                oauth2.jwt(
+                                        jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())))
+                // Correlation ID is earliest: even 401 responses carry X-Correlation-Id
+                .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
+                // Tenant context: after JWT auth is resolved
+                .addFilterBefore(tenantContextFilter, UsernamePasswordAuthenticationFilter.class)
+                // MDC userId: after Bearer token filter validates the JWT
+                .addFilterAfter(mdcUserContextFilter, BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }

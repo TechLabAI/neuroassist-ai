@@ -13,9 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Write-through de calibracao para o PAC. Superficie /panel/** (JWT do cuidador).
- */
+/** Write-through de calibracao para o PAC. Superficie /panel/** (JWT do cuidador). */
 @Slf4j
 @RestController
 @RequestMapping("/panel")
@@ -24,10 +22,7 @@ public class CalibrationProxyController {
 
     private final CalibrationProxyUseCase calibrationProxyUseCase;
 
-    /**
-     * POST /panel/calibration
-     * Envia calibracao para o PAC e retorna eco do resultado.
-     */
+    /** POST /panel/calibration Envia calibracao para o PAC e retorna eco do resultado. */
     @PostMapping("/calibration")
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
     public ResponseEntity<CalibrationProxyResponse> calibrate(
@@ -40,18 +35,16 @@ public class CalibrationProxyController {
         // tenantId extraido do principal via claim "tenant" (preenchido pelo SecurityConfig / P6)
         String tenantId = extractTenantId(auth);
 
-        CalibrationParams params = new CalibrationParams(
-                request.sensitivity(),
-                request.threshold(),
-                request.extra());
+        CalibrationParams params =
+                new CalibrationParams(request.sensitivity(), request.threshold(), request.extra());
 
-        CalibrationResult result = calibrationProxyUseCase.calibrate(
-                caregiverId, patientId, commandId, params, tenantId);
+        CalibrationResult result =
+                calibrationProxyUseCase.calibrate(
+                        caregiverId, patientId, commandId, params, tenantId);
 
-        CalibrationProxyResponse response = new CalibrationProxyResponse(
-                result.commandId(),
-                result.newCalibrationState(),
-                result.success());
+        CalibrationProxyResponse response =
+                new CalibrationProxyResponse(
+                        result.commandId(), result.newCalibrationState(), result.success());
 
         return ResponseEntity.ok(response);
     }

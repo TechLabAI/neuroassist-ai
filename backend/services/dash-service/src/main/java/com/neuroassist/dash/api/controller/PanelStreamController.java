@@ -13,9 +13,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * SSE panel stream controller (DASH-004/DASH-005).
- * Surface: /panel/** — authenticated by caregiver JWT.
- * Security fully configured in P6 (DASH-021); @PreAuthorize annotations prepared here.
+ * SSE panel stream controller (DASH-004/DASH-005). Surface: /panel/** — authenticated by caregiver
+ * JWT. Security fully configured in P6 (DASH-021); @PreAuthorize annotations prepared here.
  */
 @Slf4j
 @RestController
@@ -26,8 +25,8 @@ public class PanelStreamController {
     private final PanelStreamUseCase panelStreamUseCase;
 
     /**
-     * Opens an SSE stream for the authenticated caregiver.
-     * GET is mandatory for SSE: browsers cannot POST with EventSource API.
+     * Opens an SSE stream for the authenticated caregiver. GET is mandatory for SSE: browsers
+     * cannot POST with EventSource API.
      */
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
@@ -42,9 +41,7 @@ public class PanelStreamController {
                 .body(emitter);
     }
 
-    /**
-     * Sends a heartbeat to keep the SSE connection alive.
-     */
+    /** Sends a heartbeat to keep the SSE connection alive. */
     @PostMapping("/stream/heartbeat")
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
     public ResponseEntity<Void> heartbeat(Authentication auth) {
@@ -53,9 +50,7 @@ public class PanelStreamController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Closes the active SSE session for the caregiver.
-     */
+    /** Closes the active SSE session for the caregiver. */
     @DeleteMapping("/stream")
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
     public ResponseEntity<Void> closeSession(Authentication auth) {
@@ -64,9 +59,7 @@ public class PanelStreamController {
         return ResponseEntity.noContent().build();
     }
 
-    /**
-     * Reconnects and replays unacknowledged notifications (catch-up).
-     */
+    /** Reconnects and replays unacknowledged notifications (catch-up). */
     @GetMapping(value = "/stream/catchup", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
     public ResponseEntity<SseEmitter> replayCatchup(Authentication auth) {

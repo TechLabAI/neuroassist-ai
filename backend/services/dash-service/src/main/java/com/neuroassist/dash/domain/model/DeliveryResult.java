@@ -1,9 +1,6 @@
 package com.neuroassist.dash.domain.model;
 
-/**
- * Result of a notification delivery attempt via SSE.
- * Zero JPA/Spring — pure domain record.
- */
+/** Result of a notification delivery attempt via SSE. Zero JPA/Spring — pure domain record. */
 public record DeliveryResult(String dispatchId, String status) {
 
     /** Notification was successfully sent to the caregiver's SSE session. */

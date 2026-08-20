@@ -17,9 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    /**
-     * PatientNotInScopeException — cuidador nao tem acesso ao paciente. HTTP 403.
-     */
+    /** PatientNotInScopeException — cuidador nao tem acesso ao paciente. HTTP 403. */
     @ExceptionHandler(PatientNotInScopeException.class)
     public ResponseEntity<ProblemDetail> handlePatientNotInScope(
             PatientNotInScopeException ex, HttpServletRequest req) {
@@ -29,19 +27,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         pd.setProperty(
                 "error",
                 java.util.Map.of(
-                        "code", ex.code(),
-                        "category", "forbidden",
+                        "code",
+                        ex.code(),
+                        "category",
+                        "forbidden",
                         "correlationId",
                         java.util.Objects.requireNonNullElse(
                                 org.slf4j.MDC.get("correlationId"), ""),
-                        "timestamp", java.time.OffsetDateTime.now().toString(),
-                        "context", ex.context()));
+                        "timestamp",
+                        java.time.OffsetDateTime.now().toString(),
+                        "context",
+                        ex.context()));
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(pd);
     }
 
     /**
-     * FeignException — upstream hard-dependency indisponivel. HTTP 503.
-     * PAC, ACS e HIST sao hard: erro e propagado sem silenciar.
+     * FeignException — upstream hard-dependency indisponivel. HTTP 503. PAC, ACS e HIST sao hard:
+     * erro e propagado sem silenciar.
      */
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<ProblemDetail> handleUpstreamUnavailable(
@@ -52,14 +54,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (upstreamStatus >= 400 && upstreamStatus < 500) {
             ProblemDetail pd = ProblemDetail.forStatus(upstreamStatus);
             pd.setDetail("upstream-error: " + ex.getMessage());
-            pd.setProperty("correlationId",
+            pd.setProperty(
+                    "correlationId",
                     java.util.Objects.requireNonNullElse(org.slf4j.MDC.get("correlationId"), ""));
             return ResponseEntity.status(upstreamStatus).body(pd);
         }
         // 5xx ou erro de conexao → 503
         ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
         pd.setDetail("upstream-unavailable: " + ex.getMessage());
-        pd.setProperty("correlationId",
+        pd.setProperty(
+                "correlationId",
                 java.util.Objects.requireNonNullElse(org.slf4j.MDC.get("correlationId"), ""));
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(pd);
     }

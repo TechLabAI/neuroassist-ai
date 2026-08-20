@@ -7,8 +7,8 @@ import org.springframework.stereotype.Component;
 /**
  * Contexto compartilhado entre step definitions BDD do dash-service.
  *
- * <p>Escopo {@code cucumber-glue} (ScenarioScope) garante uma nova instancia por cenario,
- * evitando vazamento de estado entre cenarios.
+ * <p>Escopo {@code cucumber-glue} (ScenarioScope) garante uma nova instancia por cenario, evitando
+ * vazamento de estado entre cenarios.
  */
 @Component
 @ScenarioScope

@@ -1,0 +1,1 @@
+{"score":81,"maturity":"Maduro","checklist":{"done":6,"total":9,"gaps":["P4: Feign real + resilience","P5: OAuth2 + ACS","P6: domain events","P7: custom metrics","P8: BDD coverage","P9: hardening"]},"gates":{"lint":"pass","arch":"pass","test":"deferred","build":"deferred","e2e":"deferred"},"next_action":"IMPLEMENTADOR","priority":"P3"}

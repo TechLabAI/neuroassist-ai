@@ -7,9 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
- * Feign client para o HIST (Historico e Auditoria).
- * Consulta historico paginado de eventos de um paciente.
- * RULE-06: FeignClient apenas em infrastructure.clients.
+ * Feign client para o HIST (Historico e Auditoria). Consulta historico paginado de eventos de um
+ * paciente. RULE-06: FeignClient apenas em infrastructure.clients.
  */
 @FeignClient(name = "hist-service", url = "${dash.hist.base-url:}", contextId = "histClient")
 public interface HistClient {

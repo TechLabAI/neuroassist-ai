@@ -1,0 +1,38 @@
+﻿> Task :services:dash-service:compileJava UP-TO-DATE
+> Task :services:dash-service:processResources UP-TO-DATE
+> Task :services:dash-service:classes UP-TO-DATE
+> Task :services:dash-service:compileTestJava UP-TO-DATE
+> Task :services:dash-service:processTestResources UP-TO-DATE
+> Task :services:dash-service:testClasses UP-TO-DATE
+
+> Task :services:dash-service:test
+
+ApplicationContextLoadsIT > contextLoads() FAILED
+    java.lang.IncompatibleClassChangeError at ClassLoader.java:-2
+
+ApplicationContextLoadsIT > executionError FAILED
+    java.lang.NoClassDefFoundError at Unsafe.java:-2
+        Caused by: java.lang.ExceptionInInitializerError at ClassLoader.java:-2
+gradlew.bat : 
+No linha:1 caractere:367
++ ... i\backend"; & .\gradlew.bat :services:dash-service:test --tests "com. ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2 tests completed, 2 failed
+
+> Task :services:dash-service:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':services:dash-service:test'.
+> There were failing tests. See the report at: file:///D:/01_Trabalho/Cybersoft/TechLab%20
+IA/neuroassist-ai/backend/services/dash-service/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 4s
+5 actionable tasks: 1 executed, 4 up-to-date

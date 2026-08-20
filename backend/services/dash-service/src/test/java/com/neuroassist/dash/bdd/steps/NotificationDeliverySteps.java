@@ -35,11 +35,9 @@ public class NotificationDeliverySteps {
 
     final DashBddContext ctx;
 
-    @Autowired
-    PanelSessionRegistry registry;
+    @Autowired PanelSessionRegistry registry;
 
-    @Autowired
-    TestRestTemplate restTemplate;
+    @Autowired TestRestTemplate restTemplate;
 
     // ==================== Given ====================
 
@@ -95,7 +93,8 @@ public class NotificationDeliverySteps {
 
     // ==================== When ====================
 
-    @When("EVNT dispatches notification \"d-1\" with tier \"full_screen_alarm\" for caregiver \"Jamilly\"")
+    @When(
+            "EVNT dispatches notification \"d-1\" with tier \"full_screen_alarm\" for caregiver \"Jamilly\"")
     public void whenEvntDispatchesNotificationD1WithTierFullscreenalarmFor() {
         stubEvntDelivered("d-1");
         ctx.lastResponse = dispatchNotification("jamilly", "d-1", "full_screen_alarm");

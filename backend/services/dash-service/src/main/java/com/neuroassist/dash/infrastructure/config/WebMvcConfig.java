@@ -4,9 +4,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * MVC configuration for dash-service.
- * X-Correlation-Id handling is performed at servlet filter level (CorrelationIdFilter),
- * so no HandlerInterceptor registration is needed here.
+ * MVC configuration for dash-service. X-Correlation-Id handling is performed at servlet filter
+ * level (CorrelationIdFilter), so no HandlerInterceptor registration is needed here.
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {

@@ -9,9 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter outbound: implementa {@link DeviceLivenessPort} delegando ao {@link EdgeClient}.
- * Consulta liveness do dispositivo edge associado ao paciente.
- * Degradacao soft: qualquer excecao retorna {@link DeviceStatus} com degraded=true (ADR-005).
+ * Adapter outbound: implementa {@link DeviceLivenessPort} delegando ao {@link EdgeClient}. Consulta
+ * liveness do dispositivo edge associado ao paciente. Degradacao soft: qualquer excecao retorna
+ * {@link DeviceStatus} com degraded=true (ADR-005).
  */
 @Component
 @RequiredArgsConstructor
@@ -29,7 +29,10 @@ public class DeviceLivenessAdapter implements DeviceLivenessPort {
             DeviceStatusResponse response = edgeClient.getDeviceLiveness(patientId);
             return new DeviceStatus(response.deviceId(), response.status(), response.degraded());
         } catch (Exception ex) {
-            log.warn("EDGE indisponivel para paciente [{}] — retornando status degradado: {}", patientId, ex.getMessage());
+            log.warn(
+                    "EDGE indisponivel para paciente [{}] — retornando status degradado: {}",
+                    patientId,
+                    ex.getMessage());
             return new DeviceStatus(null, DEGRADED_STATUS, true);
         }
     }

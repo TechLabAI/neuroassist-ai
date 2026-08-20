@@ -2,11 +2,10 @@ package com.neuroassist.dash.infrastructure.clients.adapter;
 
 import com.neuroassist.dash.application.port.out.IdentityDirectoryPort;
 import com.neuroassist.dash.infrastructure.clients.AcsClient;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Adapter outbound: implementa {@link IdentityDirectoryPort} delegando ao {@link AcsClient}.

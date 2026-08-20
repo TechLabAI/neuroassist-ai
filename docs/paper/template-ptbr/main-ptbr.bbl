@@ -1,0 +1,122 @@
+\begin{thebibliography}{}
+
+\bibitem[Atkeson et~al. 2011]{atkeson2011pva}
+Atkeson, A.~D., RoyChoudhury, A., Harrington-Moroney, G., Shah, B., Mitsumoto,
+  H., and Basner, R.~C. (2011).
+\newblock Patient-ventilator asynchrony with nocturnal noninvasive ventilation
+  in {ALS}.
+\newblock {\em Neurology}, 77(6):549--555.
+
+\bibitem[Bentivoglio et~al. 1997]{bentivoglio1997}
+Bentivoglio, A.~R., Bressman, S.~B., Cassetta, E., Carretta, D., Tonali, P.,
+  and Albanese, A. (1997).
+\newblock Analysis of blink rate patterns in normal subjects.
+\newblock {\em Movement Disorders}, 12(6):1028--1034.
+
+\bibitem[Berlowitz et~al. 2025]{berlowitz2025tla}
+Berlowitz, D.~J., Rowe, D., Howard, M.~E., Piper, A., Graco, M., et~al. (2025).
+\newblock Polysomnographic titration of non-invasive ventilation in motor
+  neurone disease ({3TLA}): study protocol for a randomised controlled trial.
+\newblock {\em Trials}, 26(1).
+
+\bibitem[Berlowitz and Sheers 2021]{berlowitz2021niv}
+Berlowitz, D.~J. and Sheers, N. (2021).
+\newblock Not only about the drugs.
+\newblock {\em Annals of the American Thoracic Society}, 18(3):419--420.
+
+\bibitem[Beukelman and Mirenda 2013]{beukelman2013aac}
+Beukelman, D.~R. and Mirenda, P. (2013).
+\newblock {\em Augmentative and Alternative Communication: Supporting Children
+  and Adults with Complex Communication Needs}.
+\newblock Paul H.\ Brookes Publishing, 4 edition.
+
+\bibitem[Clarke et~al. 2021]{clarke2021aac}
+Clarke, M., Dowden, P., and Beukelman, D.~R. (2021).
+\newblock {AAC} provision for people with {ALS}: an update.
+\newblock {\em Disability and Rehabilitation: Augmentative and Alternative
+  Communication}, 35(1):1--10.
+
+\bibitem[Cockburn 2005]{cockburn2005hexagonal}
+Cockburn, A. (2005).
+\newblock Hexagonal architecture.
+\newblock Accessed: 2026.
+
+\bibitem[{European Data Protection Board} 2020]{edpb2020privacy}
+{European Data Protection Board} (2020).
+\newblock Guidelines 4/2019 on article 25 data protection by design and by
+  default.
+\newblock Technical report, EDPB.
+
+\bibitem[Haas et~al. 2017]{haas2017wasm}
+Haas, A., Rossberg, A., Schuff, D.~L., Titzer, B.~L., Holman, M., Gohman, D.,
+  Wagner, L., Zakai, A., and Bastian, J. (2017).
+\newblock Bringing the web up to speed with {WebAssembly}.
+\newblock In {\em Proceedings of the 38th {ACM} {SIGPLAN} Conference on
+  Programming Language Design and Implementation ({PLDI})}, pages 185--200.
+
+\bibitem[King 2009]{king2009dlib}
+King, D.~E. (2009).
+\newblock Dlib-ml: {A} machine learning toolkit.
+\newblock {\em Journal of Machine Learning Research}, 10:1755--1758.
+
+\bibitem[Lugaresi et~al. 2019]{lugaresi2019mediapipe}
+Lugaresi, C., Tang, J., Nash, H., McClanahan, C., Uboweja, E., Hays, M., Zhang,
+  F., Chang, C.-L., Yong, M.~G., Lee, J., Chang, W.-T., Hua, W., Georg, M., and
+  Grundmann, M. (2019).
+\newblock {MediaPipe}: {A} framework for building perception pipelines.
+\newblock {\em arXiv preprint arXiv:1906.08172}.
+
+\bibitem[Majaranta and R{\"a}ih{\"a} 2002]{majaranta2002eyetyping}
+Majaranta, P. and R{\"a}ih{\"a}, K.-J. (2002).
+\newblock Twenty years of eye typing: Systems and design issues.
+\newblock In {\em Proceedings of the 2002 Symposium on Eye Tracking Research \&
+  Applications ({ETRA})}, pages 15--22.
+
+\bibitem[Mehta et~al. 2018]{mehta2018mnd}
+Mehta, P., Kaye, W., Bryan, L., Larson, T., Copeland, G., Wu, J., Muravov, O.,
+  and Horton, D.~K. (2018).
+\newblock Prevalence of {ALS} in the {United States} using established
+  criteria.
+\newblock {\em Neuroepidemiology}, 50(1--2):1--9.
+\newblock Used for global incidence estimate (2--3/100,000/year).
+
+\bibitem[Richardson 2018]{richardson2018microservices}
+Richardson, C. (2018).
+\newblock {\em Microservices Patterns: With Examples in {Java}}.
+\newblock Manning Publications.
+
+\bibitem[Soukupov{\'a} and {\v{C}}ech 2016]{soukupova2016}
+Soukupov{\'a}, T. and {\v{C}}ech, J. (2016).
+\newblock Real-time eye blink detection using facial landmarks.
+\newblock In {\em 21st Computer Vision Winter Workshop ({CVWW})}.
+
+\bibitem[Stell et~al. 2024]{stell2024pva}
+Stell, A.~J., Caparo, E.~C., Wang, Z., Wang, C., Berlowitz, D.~J., Howard,
+  M.~E., Sinnott, R.~O., and Aickelin, U. (2024).
+\newblock Identification of patient ventilator asynchrony in physiological data
+  through integrating machine-learning.
+\newblock In {\em BIOSTEC/HEALTHINF}, pages 436--443.
+
+\bibitem[{TNG Technology Consulting GmbH} 2023]{archunit}
+{TNG Technology Consulting GmbH} (2023).
+\newblock {ArchUnit}: Unit testing architecture for {Java}.
+
+\bibitem[Viola and Jones 2004]{violajones2004}
+Viola, P. and Jones, M.~J. (2004).
+\newblock Robust real-time face detection.
+\newblock {\em International Journal of Computer Vision}, 57(2):137--154.
+
+\bibitem[Yang et~al. 2026]{yang2026pva}
+Yang, J., Wang, C., Caparo, E.~C., Stell, A.~J., Howard, M.~E., Aickelin, U.,
+  and Berlowitz, D.~J. (2026).
+\newblock Using machine learning to identify patient–ventilator asynchrony
+  during non-invasive ventilation in patients with motor neurone disease.
+\newblock {\em Sleep Medicine}.
+
+\bibitem[Zander and Kothe 2011]{zander2011passive}
+Zander, T.~O. and Kothe, C. (2011).
+\newblock Towards passive brain--computer interfaces: applying brain--computer
+  interface technology to human systems in general.
+\newblock {\em Journal of Neural Engineering}, 8(2):025005.
+
+\end{thebibliography}

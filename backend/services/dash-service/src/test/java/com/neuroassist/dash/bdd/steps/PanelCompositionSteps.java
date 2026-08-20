@@ -35,23 +35,20 @@ public class PanelCompositionSteps {
 
     final DashBddContext ctx;
 
-    @Autowired
-    TestRestTemplate restTemplate;
+    @Autowired TestRestTemplate restTemplate;
 
     // ==================== Background ====================
 
-    @Given("a caregiver \"Jamilly\" authenticated with a valid ACS JWT for tenant \"familia-amaral\"")
+    @Given(
+            "a caregiver \"Jamilly\" authenticated with a valid ACS JWT for tenant \"familia-amaral\"")
     public void givenACaregiverJamillyAuthenticatedWithAValidAcs() {
         ctx.caregiverId = "jamilly";
         ctx.tenantId = "familia-amaral";
         ctx.jamillyToken =
                 JwtTestHelper.caregiverToken(
-                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY,
-                        ctx.caregiverId,
-                        ctx.tenantId);
+                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, ctx.caregiverId, ctx.tenantId);
         ctx.evntServiceToken =
-                JwtTestHelper.serviceToken(
-                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, "SVC_EVNT");
+                JwtTestHelper.serviceToken(BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, "SVC_EVNT");
     }
 
     @And("Jamilly's ACS scope contains patient \"Marcio\"")
@@ -69,9 +66,11 @@ public class PanelCompositionSteps {
         // EVNT soft: nao necessario para summary, mas stub para evitar erros
         BaseIntegrationTest.evntWireMock.stubFor(
                 get(urlPathEqualTo("/api/v1/notifications/unacknowledged"))
-                        .willReturn(aResponse().withStatus(200)
-                                .withHeader("Content-Type", "application/json")
-                                .withBody("[]")));
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody("[]")));
     }
 
     @Given("EDGE is unreachable")
@@ -121,7 +120,8 @@ public class PanelCompositionSteps {
         ctx.lastResponse = httpGet("/panel/patients/Marcio/overview");
     }
 
-    @When("Jamilly requests GET \\/panel\\/patients\\/Marcio\\/history with from \"2026-08-01\" and size \"200\"")
+    @When(
+            "Jamilly requests GET \\/panel\\/patients\\/Marcio\\/history with from \"2026-08-01\" and size \"200\"")
     public void whenJamillyRequestsGetPanelpatientsmarciohistoryWithFrom20260801And() {
         // size=200 e passado; o servico capa em 100 antes de chamar HIST
         ctx.lastResponse = httpGet("/panel/patients/Marcio/history?page=0&size=200");
@@ -211,8 +211,7 @@ public class PanelCompositionSteps {
     private org.springframework.http.ResponseEntity<String> httpGet(String path) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(ctx.jamillyToken);
-        return restTemplate.exchange(
-                path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return restTemplate.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
     }
 
     private void stubAcsScope(String caregiverId, String patientsJson) {

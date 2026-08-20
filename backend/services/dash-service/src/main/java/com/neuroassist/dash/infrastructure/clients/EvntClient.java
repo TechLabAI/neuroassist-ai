@@ -1,18 +1,17 @@
 package com.neuroassist.dash.infrastructure.clients;
 
 import com.neuroassist.dash.infrastructure.clients.dto.NotificationPayloadResponse;
+import java.util.List;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.List;
-
 /**
- * Feign client para o EVNT (Eventos e Alarmes).
- * Confirma eventos, lista notificacoes nao reconhecidas e reporta resultado de entrega SSE.
- * RULE-06: FeignClient apenas em infrastructure.clients.
+ * Feign client para o EVNT (Eventos e Alarmes). Confirma eventos, lista notificacoes nao
+ * reconhecidas e reporta resultado de entrega SSE. RULE-06: FeignClient apenas em
+ * infrastructure.clients.
  */
 @FeignClient(name = "evnt-service", url = "${dash.evnt.base-url:}", contextId = "evntClient")
 public interface EvntClient {

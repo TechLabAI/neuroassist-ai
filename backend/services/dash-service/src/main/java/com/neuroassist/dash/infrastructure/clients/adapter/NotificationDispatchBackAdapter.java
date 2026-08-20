@@ -7,8 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter outbound: implementa {@link NotificationDispatchBackPort} delegando ao {@link EvntClient}.
- * Reporta ao EVNT o resultado da tentativa de entrega SSE de notificacoes ao cuidador.
+ * Adapter outbound: implementa {@link NotificationDispatchBackPort} delegando ao {@link
+ * EvntClient}. Reporta ao EVNT o resultado da tentativa de entrega SSE de notificacoes ao cuidador.
  */
 @Component
 @RequiredArgsConstructor
@@ -25,13 +25,16 @@ public class NotificationDispatchBackAdapter implements NotificationDispatchBack
 
     @Override
     public void reportAcknowledged(String dispatchId) {
-        log.debug("Reportando EVNT: notificacao [{}] reconhecida pelo cuidador via SSE", dispatchId);
+        log.debug(
+                "Reportando EVNT: notificacao [{}] reconhecida pelo cuidador via SSE", dispatchId);
         evntClient.reportAcknowledgedCallback(dispatchId);
     }
 
     @Override
     public void reportNoSession(String dispatchId) {
-        log.debug("Reportando EVNT: sem sessao SSE aberta para entrega da notificacao [{}]", dispatchId);
+        log.debug(
+                "Reportando EVNT: sem sessao SSE aberta para entrega da notificacao [{}]",
+                dispatchId);
         evntClient.reportNoSession(dispatchId);
     }
 }

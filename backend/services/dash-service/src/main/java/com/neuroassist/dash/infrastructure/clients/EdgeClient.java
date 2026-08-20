@@ -6,9 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
 /**
- * Feign client para o EDGE (Integracao de Dispositivo Edge).
- * Consulta o status de liveness do dispositivo associado ao paciente.
- * RULE-06: FeignClient apenas em infrastructure.clients.
+ * Feign client para o EDGE (Integracao de Dispositivo Edge). Consulta o status de liveness do
+ * dispositivo associado ao paciente. RULE-06: FeignClient apenas em infrastructure.clients.
  */
 @FeignClient(name = "edge-service", url = "${dash.edge.base-url:}", contextId = "edgeClient")
 public interface EdgeClient {

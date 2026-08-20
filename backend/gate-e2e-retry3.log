@@ -1,0 +1,48 @@
+﻿> Task :services:gest-service:compileJava UP-TO-DATE
+> Task :services:gest-service:processResources UP-TO-DATE
+> Task :services:gest-service:classes UP-TO-DATE
+> Task :services:gest-service:compileTestJava UP-TO-DATE
+> Task :services:gest-service:processTestResources
+> Task :services:gest-service:testClasses
+> Task :services:gest-service:integrationTest
+
+.\gradlew.bat : OpenJDK 64-Bit Server VM warning: Sharing 
+is only supported for boot loader classes because bootstrap 
+classpath has been appended
+No linha:1 caractere:368
++ ... \backend" ; .\gradlew.bat 
+:services:gest-service:integrationTest 2>&1 ...
++                 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (OpenJDK 64-Bit 
+    ...s been appended:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:26:40 INFO  [] [] [] org.apache.activemq.audit.resource - AMQ601768: CORE connection b065b955-96f0-11f1-b9a9-00155db176b0 for user anonymous@invm:0 destroyed
+05:26:40 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [98643f14-96f0-11f1-b9a9-00155db176b0] stopped, uptime 48.334 seconds
+05:26:40 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:26:40 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [a78dee0a-96f0-11f1-b9a9-00155db176b0] stopped, uptime 22.928 seconds
+05:26:40 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:26:40 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [ae34a880-96f0-11f1-b9a9-00155db176b0] stopped, uptime 11.803 seconds
+05:26:40 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:26:40 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:26:40 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [b39fd5ba-96f0-11f1-b9a9-00155db176b0] stopped, uptime 2.746 seconds
+05:26:40 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+05:26:40 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+
+BUILD SUCCESSFUL in 1m 35s
+5 actionable tasks: 2 executed, 3 up-to-date

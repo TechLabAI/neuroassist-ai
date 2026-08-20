@@ -1,8 +1,6 @@
 package com.neuroassist.dash.application.port.in;
 
-/**
- * Inbound port — proxy de confirmacao de evento e ack de notificacao para o EVNT.
- */
+/** Inbound port — proxy de confirmacao de evento e ack de notificacao para o EVNT. */
 public interface ConfirmationProxyUseCase {
 
     /** Confirma um evento no EVNT (write-through). Retorna void; HTTP 204. */

@@ -1,0 +1,76 @@
+﻿> Task :services:gest-service:compileJava UP-TO-DATE
+> Task :services:gest-service:processResources UP-TO-DATE
+> Task :services:gest-service:classes UP-TO-DATE
+> Task :services:gest-service:compileTestJava UP-TO-DATE
+> Task :services:gest-service:processTestResources
+> Task :services:gest-service:testClasses
+> Task :services:gest-service:integrationTest
+
+.\gradlew.bat : OpenJDK 64-Bit Server VM warning: Sharing 
+is only supported for boot loader classes because bootstrap 
+classpath has been appended
+No linha:1 caractere:368
++ ... \backend" ; .\gradlew.bat 
+:services:gest-service:integrationTest 2>&1 ...
++                 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (OpenJDK 64-Bit 
+    ...s been appended:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> Task :services:gest-service:integrationTest
+
+EdgePairingCircuitBreakerIT > circuitBreaker_remainsClosedForBusinessErrors() FAILED
+    org.assertj.core.error.AssertJMultipleFailuresError at EdgePairingCircuitBreakerIT.java:123
+
+EdgePairingClientIT > checkPairingAndGetTenant_whenDeviceNotFound_throwsDeviceNotPaired() FAILED
+    org.assertj.core.error.AssertJMultipleFailuresError at EdgePairingClientIT.java:92
+
+05:24:11 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:24:11 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:24:11 INFO  [] [] [] org.apache.activemq.audit.resource - AMQ601768: CORE connection 53eec440-96f0-11f1-b2c3-00155db176b0 for user anonymous@invm:0 destroyed
+05:24:12 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [3758317f-96f0-11f1-b2c3-00155db176b0] stopped, uptime 1 minute
+05:24:12 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:24:12 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [456b6765-96f0-11f1-b2c3-00155db176b0] stopped, uptime 39.522 seconds
+05:24:12 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:24:12 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [4fcdf15b-96f0-11f1-b2c3-00155db176b0] stopped, uptime 22.198 seconds
+05:24:12 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Commencing graceful shutdown. Waiting for active requests to complete
+05:24:12 INFO  [] [] [] o.s.b.w.e.tomcat.GracefulShutdown - Graceful shutdown complete
+05:24:12 INFO  [] [] [] o.a.activemq.artemis.core.server - AMQ221002: Apache ActiveMQ Artemis Message Broker version 2.40.0 [59cbed25-96f0-11f1-b2c3-00155db176b0] stopped, uptime 5.520 seconds
+05:24:12 INFO  [] [] [] o.s.o.j.LocalContainerEntityManagerFactoryBean - Closing JPA EntityManagerFactory for persistence unit 'default'
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+05:24:12 INFO  [] [] [] com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+
+> Task :services:gest-service:integrationTest
+
+29 tests completed, 2 failed
+
+> Task :services:gest-service:integrationTest FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task 
+':services:gest-service:integrationTest'.
+> There were failing tests. See the report at: file:///D:/01
+_Trabalho/Cybersoft/TechLab%20IA/neuroassist-ai/backend/serv
+ices/gest-service/build/reports/tests/integrationTest/index.
+html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 1m 52s
+5 actionable tasks: 2 executed, 3 up-to-date

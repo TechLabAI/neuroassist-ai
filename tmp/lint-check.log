@@ -1,0 +1,7 @@
+﻿> Task :spotlessInternalRegisterDependencies UP-TO-DATE
+> Task :services:gest-service:spotlessJava UP-TO-DATE
+> Task :services:gest-service:spotlessJavaCheck UP-TO-DATE
+> Task :services:gest-service:spotlessCheck UP-TO-DATE
+
+BUILD SUCCESSFUL in 1s
+3 actionable tasks: 3 up-to-date

@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 /**
- * Feign client para o PAC (Pacientes e Catalogo de Comandos).
- * Consulta catalogo de comandos, estado de calibracao e executa write-through de calibracao.
- * RULE-06: FeignClient apenas em infrastructure.clients.
+ * Feign client para o PAC (Pacientes e Catalogo de Comandos). Consulta catalogo de comandos, estado
+ * de calibracao e executa write-through de calibracao. RULE-06: FeignClient apenas em
+ * infrastructure.clients.
  */
 @FeignClient(name = "pac-service", url = "${dash.pac.base-url:}", contextId = "pacClient")
 public interface PacClient {

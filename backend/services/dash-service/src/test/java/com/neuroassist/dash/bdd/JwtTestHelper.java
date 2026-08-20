@@ -8,7 +8,6 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import java.security.interfaces.RSAPrivateKey;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -16,10 +15,11 @@ import java.util.List;
  * Utilitario de teste para geracao de JWTs assinados com a chave RSA de teste.
  *
  * <p>Os tokens sao validos por 1 hora e incluem as claims necessarias para o dash-service:
+ *
  * <ul>
- *   <li>{@code sub} — caregiverId ou service identity</li>
- *   <li>{@code authorities} — lista de roles/authorities</li>
- *   <li>{@code tenant_id} — extraido pelo TenantContextFilter</li>
+ *   <li>{@code sub} — caregiverId ou service identity
+ *   <li>{@code authorities} — lista de roles/authorities
+ *   <li>{@code tenant_id} — extraido pelo TenantContextFilter
  * </ul>
  */
 public final class JwtTestHelper {
@@ -29,8 +29,8 @@ public final class JwtTestHelper {
     /**
      * Gera um JWT para um cuidador autenticado.
      *
-     * <p>Inclui automaticamente {@code ROLE_CAREGIVER} e
-     * {@code dash.panel-composition.read} para acesso total ao painel.
+     * <p>Inclui automaticamente {@code ROLE_CAREGIVER} e {@code dash.panel-composition.read} para
+     * acesso total ao painel.
      */
     public static String caregiverToken(
             RSAPrivateKey privateKey, String caregiverId, String tenantId) {
@@ -52,10 +52,7 @@ public final class JwtTestHelper {
     // ---- private ----
 
     private static String buildToken(
-            RSAPrivateKey privateKey,
-            String subject,
-            String tenantId,
-            List<String> authorities) {
+            RSAPrivateKey privateKey, String subject, String tenantId, List<String> authorities) {
         try {
             JWSHeader header =
                     new JWSHeader.Builder(JWSAlgorithm.RS256).keyID("test-key-id").build();

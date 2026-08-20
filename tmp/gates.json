@@ -1,6 +1,6 @@
 {
-  "test": "skip",
-  "build": "skip",
-  "e2e": "skip",
-  "lint": "skip"
+  "lint": "pass",
+  "build": "pass",
+  "test": "fail",
+  "e2e": "fail"
 }

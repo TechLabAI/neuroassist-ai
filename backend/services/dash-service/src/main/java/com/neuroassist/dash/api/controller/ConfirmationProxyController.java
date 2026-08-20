@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Write-throughs de confirmacao de evento e ack de notificacao para o EVNT.
- * Superficie /panel/** (JWT do cuidador).
+ * Write-throughs de confirmacao de evento e ack de notificacao para o EVNT. Superficie /panel/**
+ * (JWT do cuidador).
  */
 @Slf4j
 @RestController
@@ -27,9 +27,9 @@ public class ConfirmationProxyController {
     private static final Set<String> VALID_FEEDBACK = Set.of("real", "false", "uncertain");
 
     /**
-     * POST /panel/events/{eventId}/confirm?feedback={feedback}
-     * Confirma um evento no EVNT. O feedback deve ser um dos valores aceitos.
-     * Retorna 204 No Content; 422 se o feedback for invalido.
+     * POST /panel/events/{eventId}/confirm?feedback={feedback} Confirma um evento no EVNT. O
+     * feedback deve ser um dos valores aceitos. Retorna 204 No Content; 422 se o feedback for
+     * invalido.
      */
     @PostMapping("/events/{eventId}/confirm")
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
@@ -52,14 +52,13 @@ public class ConfirmationProxyController {
     }
 
     /**
-     * POST /panel/notifications/{dispatchId}/ack
-     * Registra ack de notificacao no EVNT. Retorna 204 No Content.
+     * POST /panel/notifications/{dispatchId}/ack Registra ack de notificacao no EVNT. Retorna 204
+     * No Content.
      */
     @PostMapping("/notifications/{dispatchId}/ack")
     @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
     public ResponseEntity<Void> acknowledgeNotification(
-            @PathVariable String dispatchId,
-            Authentication auth) {
+            @PathVariable String dispatchId, Authentication auth) {
 
         String caregiverId = auth.getName();
         String tenantId = extractTenantId(auth);

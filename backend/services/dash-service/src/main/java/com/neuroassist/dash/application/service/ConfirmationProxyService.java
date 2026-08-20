@@ -8,8 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Implementa write-throughs de confirmacao e ack para o EVNT.
- * DASH nao armazena resultado — puro proxy. ADR-006.
+ * Implementa write-throughs de confirmacao e ack para o EVNT. DASH nao armazena resultado — puro
+ * proxy. ADR-006.
  */
 @Slf4j
 @Service
@@ -19,12 +19,14 @@ public class ConfirmationProxyService implements ConfirmationProxyUseCase {
     private final EventStatePort eventStatePort;
     private final NotificationDispatchBackPort notificationDispatchBackPort;
 
-    /**
-     * Confirma um evento no EVNT. Write-through: erro do EVNT e propagado (503).
-     */
+    /** Confirma um evento no EVNT. Write-through: erro do EVNT e propagado (503). */
     @Override
     public void confirmEvent(String caregiverId, String eventId, String tenantId) {
-        log.info("confirmEvent caregiverId={} eventId={} tenantId={}", caregiverId, eventId, tenantId);
+        log.info(
+                "confirmEvent caregiverId={} eventId={} tenantId={}",
+                caregiverId,
+                eventId,
+                tenantId);
         // Delega ao EVNT — hard dependency: erro propagado (503)
         eventStatePort.confirmEvent(eventId, caregiverId);
         log.info("confirmEvent ok eventId={}", eventId);
@@ -38,7 +40,9 @@ public class ConfirmationProxyService implements ConfirmationProxyUseCase {
     public void acknowledgeNotification(String caregiverId, String dispatchId, String tenantId) {
         log.info(
                 "acknowledgeNotification caregiverId={} dispatchId={} tenantId={}",
-                caregiverId, dispatchId, tenantId);
+                caregiverId,
+                dispatchId,
+                tenantId);
         // Reporta ack ao EVNT — hard dependency: erro propagado (503)
         notificationDispatchBackPort.reportAcknowledged(dispatchId);
         log.info("acknowledgeNotification ok dispatchId={}", dispatchId);

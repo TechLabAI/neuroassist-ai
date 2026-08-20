@@ -11,8 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Implementa o write-through de calibracao: valida escopo via ACS, delega ao PAC,
- * retorna resultado. DASH nao armazena nada — puro proxy.
+ * Implementa o write-through de calibracao: valida escopo via ACS, delega ao PAC, retorna
+ * resultado. DASH nao armazena nada — puro proxy.
  */
 @Slf4j
 @Service
@@ -32,11 +32,17 @@ public class CalibrationProxyService implements CalibrationProxyUseCase {
 
         log.info(
                 "calibrate caregiverId={} patientId={} commandId={} tenantId={}",
-                caregiverId, patientId, commandId, tenantId);
+                caregiverId,
+                patientId,
+                commandId,
+                tenantId);
 
         var allowedPatients = identityDirectoryPort.getPatientIdsForCaregiver(caregiverId);
         if (!allowedPatients.contains(patientId)) {
-            log.warn("Scope violation: caregiverId={} patientId={} not in scope", caregiverId, patientId);
+            log.warn(
+                    "Scope violation: caregiverId={} patientId={} not in scope",
+                    caregiverId,
+                    patientId);
             throw new PatientNotInScopeException(patientId);
         }
 
@@ -44,7 +50,9 @@ public class CalibrationProxyService implements CalibrationProxyUseCase {
         CalibrationResult result = commandCatalogPort.calibrate(patientId, commandId, params);
         log.info(
                 "calibrate result commandId={} state={} success={}",
-                result.commandId(), result.newCalibrationState(), result.success());
+                result.commandId(),
+                result.newCalibrationState(),
+                result.success());
         return result;
     }
 }

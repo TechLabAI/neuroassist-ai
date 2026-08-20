@@ -1,0 +1,113 @@
+{
+  "issue": "DASH-001",
+  "layer": "be",
+  "computedAt": "2026-08-20T05:09:11",
+  "checklist": {
+    "total": 10,
+    "done": 0,
+    "partial": 1,
+    "missing": 9,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "Criar modulo Gradle `:dash-service` em `backend/settings.gradle.kts`",
+        "state": "PARTIAL",
+        "evidence": "arquivo presente porem stub: backend/settings.gradle.kts"
+      },
+      {
+        "text": "Estrutura de pacotes: `com.neuroassist.dash.{api,application,domain,infrastructure}`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`build.gradle.kts`: dependencias Spring Boot Web, Spring Boot Actuator, Spring Security OAuth2 Resource Server, Spring Cloud Netflix Eureka Client, Feign. Sem JPA, sem datasource, sem Flyway.",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: build.gradle.kts"
+      },
+      {
+        "text": "`application.yml` com `server.port=8090`, Eureka client URL, JWK-set-uri, timeouts e URLs dos upstreams (via env vars conforme setup-local.md)",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: application.yml"
+      },
+      {
+        "text": "Classe principal `DashServiceApplication` com `@SpringBootApplication`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`./gradlew :dash-service:build` passa sem erros",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`/actuator/health` retorna `200 {\"status\":\"UP\"}` com Eureka em modo `prefer-ip-address`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Nenhuma dependencia `spring-boot-starter-data-jpa`, `flyway-core` ou `spring-datasource` no classpath",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Pacote root `com.neuroassist.dash` com subpacotes `api`, `application`, `domain`, `infrastructure`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Variaveis de ambiente de setup-local.md documentadas em `application.yml` com `${ENV_VAR:default}`",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: application.yml"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "fail",
+    "e2e": "fail"
+  },
+  "score": {
+    "total": 19,
+    "provisional": true,
+    "range": [
+      19,
+      29
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 19,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 0,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

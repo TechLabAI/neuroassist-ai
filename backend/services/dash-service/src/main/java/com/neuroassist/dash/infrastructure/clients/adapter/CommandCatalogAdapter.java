@@ -13,8 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter outbound: implementa {@link CommandCatalogPort} delegando ao {@link PacClient}.
- * Consulta catalogo de comandos, estado de calibracao e executa write-through de calibracao via PAC.
+ * Adapter outbound: implementa {@link CommandCatalogPort} delegando ao {@link PacClient}. Consulta
+ * catalogo de comandos, estado de calibracao e executa write-through de calibracao via PAC.
  */
 @Component
 @RequiredArgsConstructor
@@ -37,16 +37,14 @@ public class CommandCatalogAdapter implements CommandCatalogPort {
     }
 
     @Override
-    public CalibrationResult calibrate(String patientId, String commandId, CalibrationParams params) {
+    public CalibrationResult calibrate(
+            String patientId, String commandId, CalibrationParams params) {
         log.debug("Write-through PAC: calibracao paciente [{}] comando [{}]", patientId, commandId);
-        CalibrationRequestBody body = new CalibrationRequestBody(
-                params.sensitivity(),
-                params.threshold(),
-                params.extra());
+        CalibrationRequestBody body =
+                new CalibrationRequestBody(
+                        params.sensitivity(), params.threshold(), params.extra());
         CalibrationResultResponse response = pacClient.calibrate(patientId, commandId, body);
         return new CalibrationResult(
-                response.commandId(),
-                response.newCalibrationState(),
-                response.success());
+                response.commandId(), response.newCalibrationState(), response.success());
     }
 }

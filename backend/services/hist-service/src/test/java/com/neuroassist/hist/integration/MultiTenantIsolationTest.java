@@ -54,7 +54,7 @@ class MultiTenantIsolationTest extends BaseIntegrationTest {
                 new Command(
                         factId,
                         "evento.confirmado",
-                        new RecordAuditFactUseCase.SubjectCommand("PATIENT", subjectId),
+                        new RecordAuditFactUseCase.SubjectCommand("paciente", subjectId),
                         new RecordAuditFactUseCase.ActorCommand(caregiverId, "Test Caregiver"),
                         Map.of("action", "button_press"),
                         Instant.now(),

@@ -24,8 +24,8 @@ public class SharedSteps {
     final DashBddContext ctx;
 
     /**
-     * Configura o contexto do cuidador Jamilly e gera seus tokens JWT.
-     * Usado como Background em notification-delivery e write-through-actions.
+     * Configura o contexto do cuidador Jamilly e gera seus tokens JWT. Usado como Background em
+     * notification-delivery e write-through-actions.
      */
     @Given("a caregiver \"Jamilly\" for tenant \"familia-amaral\"")
     public void givenACaregiverJamillyForTenantFamiliaamaral() {
@@ -33,17 +33,14 @@ public class SharedSteps {
         ctx.tenantId = "familia-amaral";
         ctx.jamillyToken =
                 JwtTestHelper.caregiverToken(
-                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY,
-                        ctx.caregiverId,
-                        ctx.tenantId);
+                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, ctx.caregiverId, ctx.tenantId);
         ctx.evntServiceToken =
-                JwtTestHelper.serviceToken(
-                        BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, "SVC_EVNT");
+                JwtTestHelper.serviceToken(BaseIntegrationTest.TEST_RSA_PRIVATE_KEY, "SVC_EVNT");
     }
 
     /**
-     * Stub ACS: GET /api/v1/caregivers/jamilly/patients retorna ["Marcio"].
-     * Usado em varios features para indicar que Marcio esta no escopo de Jamilly.
+     * Stub ACS: GET /api/v1/caregivers/jamilly/patients retorna ["Marcio"]. Usado em varios
+     * features para indicar que Marcio esta no escopo de Jamilly.
      */
     @And("patient \"Marcio\" is in Jamilly's scope")
     public void andPatientMarcioIsInJamillysScope() {
@@ -53,7 +50,8 @@ public class SharedSteps {
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
-                                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                                        .withHeader(
+                                                "Content-Type", MediaType.APPLICATION_JSON_VALUE)
                                         .withBody("[\"Marcio\"]")));
     }
 }

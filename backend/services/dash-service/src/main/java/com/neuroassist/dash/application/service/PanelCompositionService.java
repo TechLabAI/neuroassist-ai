@@ -21,11 +21,12 @@ import org.springframework.stereotype.Service;
  * Servico de composicao de leitura do painel do cuidador.
  *
  * <p>Politica de degradacao (ADR-004, matriz P3):
+ *
  * <ul>
- *   <li>ACS (IdentityDirectoryPort) — hard: falha propaga como 503</li>
- *   <li>PAC (CommandCatalogPort)    — hard: falha propaga como 503</li>
- *   <li>HIST (HistoryQueryPort)     — hard: falha propaga como 503</li>
- *   <li>EDGE (DeviceLivenessPort)   — soft: falha retorna DeviceStatus degraded=true</li>
+ *   <li>ACS (IdentityDirectoryPort) — hard: falha propaga como 503
+ *   <li>PAC (CommandCatalogPort) — hard: falha propaga como 503
+ *   <li>HIST (HistoryQueryPort) — hard: falha propaga como 503
+ *   <li>EDGE (DeviceLivenessPort) — soft: falha retorna DeviceStatus degraded=true
  * </ul>
  *
  * <p>DASH e BFF stateless — tenant vem do JWT, sem TenantContextHolder.
@@ -36,7 +37,8 @@ import org.springframework.stereotype.Service;
 public class PanelCompositionService implements PanelCompositionUseCase {
 
     private static final int MAX_HISTORY_SIZE = 100;
-    private static final DeviceStatus DEGRADED_DEVICE = new DeviceStatus("unknown", "unknown", true);
+    private static final DeviceStatus DEGRADED_DEVICE =
+            new DeviceStatus("unknown", "unknown", true);
 
     private final IdentityDirectoryPort identityDirectoryPort;
     private final CommandCatalogPort commandCatalogPort;
@@ -46,8 +48,8 @@ public class PanelCompositionService implements PanelCompositionUseCase {
     /**
      * Compoe o resumo do painel para o cuidador.
      *
-     * <p>ACS e hard: se falhar, propaga excecao (503). EDGE e soft: falha por paciente
-     * resulta em entrada com deviceStatus="unknown" e degraded=true.
+     * <p>ACS e hard: se falhar, propaga excecao (503). EDGE e soft: falha por paciente resulta em
+     * entrada com deviceStatus="unknown" e degraded=true.
      */
     @Override
     public PanelSummary composeSummary(String caregiverId, String tenantId) {
@@ -55,11 +57,13 @@ public class PanelCompositionService implements PanelCompositionUseCase {
 
         // ACS — hard dependency: se falhar propaga 503
         List<String> patientIds = identityDirectoryPort.getPatientIdsForCaregiver(caregiverId);
-        log.debug("composeSummary found {} patients for caregiverId={}", patientIds.size(), caregiverId);
+        log.debug(
+                "composeSummary found {} patients for caregiverId={}",
+                patientIds.size(),
+                caregiverId);
 
-        List<PatientSummaryEntry> entries = patientIds.stream()
-                .map(patientId -> buildSummaryEntry(patientId))
-                .toList();
+        List<PatientSummaryEntry> entries =
+                patientIds.stream().map(patientId -> buildSummaryEntry(patientId)).toList();
 
         return new PanelSummary(entries);
     }
@@ -70,8 +74,13 @@ public class PanelCompositionService implements PanelCompositionUseCase {
      * <p>Valida escopo via ACS (hard). PAC e hard. EDGE e soft.
      */
     @Override
-    public PatientOverview composePatientOverview(String caregiverId, String patientId, String tenantId) {
-        log.debug("composePatientOverview caregiverId={} patientId={} tenantId={}", caregiverId, patientId, tenantId);
+    public PatientOverview composePatientOverview(
+            String caregiverId, String patientId, String tenantId) {
+        log.debug(
+                "composePatientOverview caregiverId={} patientId={} tenantId={}",
+                caregiverId,
+                patientId,
+                tenantId);
 
         // ACS — hard: valida escopo
         validateScope(caregiverId, patientId);
@@ -79,7 +88,8 @@ public class PanelCompositionService implements PanelCompositionUseCase {
         // PAC — hard: catalogo de comandos e calibracao
         CommandCatalogSnapshot catalog = commandCatalogPort.getCommandCatalog(patientId);
         String calibrationState = commandCatalogPort.getCalibrationState(patientId);
-        CommandCatalogSnapshot enriched = new CommandCatalogSnapshot(catalog.commands(), calibrationState);
+        CommandCatalogSnapshot enriched =
+                new CommandCatalogSnapshot(catalog.commands(), calibrationState);
 
         // EDGE — soft: liveness do dispositivo
         DeviceStatus device = safeGetDeviceStatus(patientId);
@@ -93,8 +103,15 @@ public class PanelCompositionService implements PanelCompositionUseCase {
      * <p>Valida escopo via ACS (hard). HIST e hard. Size capado a 100.
      */
     @Override
-    public HistoryPage queryHistory(String caregiverId, String patientId, int page, int size, String tenantId) {
-        log.debug("queryHistory caregiverId={} patientId={} page={} size={} tenantId={}", caregiverId, patientId, page, size, tenantId);
+    public HistoryPage queryHistory(
+            String caregiverId, String patientId, int page, int size, String tenantId) {
+        log.debug(
+                "queryHistory caregiverId={} patientId={} page={} size={} tenantId={}",
+                caregiverId,
+                patientId,
+                page,
+                size,
+                tenantId);
 
         // ACS — hard: valida escopo
         validateScope(caregiverId, patientId);
@@ -116,7 +133,11 @@ public class PanelCompositionService implements PanelCompositionUseCase {
      */
     @Override
     public DeviceStatus queryDeviceStatus(String caregiverId, String patientId, String tenantId) {
-        log.debug("queryDeviceStatus caregiverId={} patientId={} tenantId={}", caregiverId, patientId, tenantId);
+        log.debug(
+                "queryDeviceStatus caregiverId={} patientId={} tenantId={}",
+                caregiverId,
+                patientId,
+                tenantId);
 
         // ACS — hard: valida escopo
         validateScope(caregiverId, patientId);
@@ -138,7 +159,10 @@ public class PanelCompositionService implements PanelCompositionUseCase {
     private void validateScope(String caregiverId, String patientId) {
         List<String> patientIds = identityDirectoryPort.getPatientIdsForCaregiver(caregiverId);
         if (!patientIds.contains(patientId)) {
-            log.warn("Scope violation: caregiverId={} attempted access to patientId={}", caregiverId, patientId);
+            log.warn(
+                    "Scope violation: caregiverId={} attempted access to patientId={}",
+                    caregiverId,
+                    patientId);
             throw new PatientNotInScopeException(patientId);
         }
     }

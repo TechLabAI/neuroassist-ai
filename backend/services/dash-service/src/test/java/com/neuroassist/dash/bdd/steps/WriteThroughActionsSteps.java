@@ -7,8 +7,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.neuroassist.dash.integration.BaseIntegrationTest;
 import com.neuroassist.dash.bdd.DashBddContext;
+import com.neuroassist.dash.integration.BaseIntegrationTest;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -25,24 +25,26 @@ import org.springframework.http.MediaType;
  * Step definitions — Caregiver actions are proxied to the owner service; DASH stores no domain
  * truth. Feature: write-through-actions.feature
  *
- * <p>Estrategia: stubs WireMock para PAC (calibracao) e EVNT (confirmacao/ack). Chamadas HTTP
- * reais via TestRestTemplate com JWT de cuidador. Verificacao de WireMock para confirmar que DASH
- * nao armazena estado e apenas proxeia.
+ * <p>Estrategia: stubs WireMock para PAC (calibracao) e EVNT (confirmacao/ack). Chamadas HTTP reais
+ * via TestRestTemplate com JWT de cuidador. Verificacao de WireMock para confirmar que DASH nao
+ * armazena estado e apenas proxeia.
  */
 @RequiredArgsConstructor
 public class WriteThroughActionsSteps {
 
     final DashBddContext ctx;
 
-    @Autowired
-    TestRestTemplate restTemplate;
+    @Autowired TestRestTemplate restTemplate;
 
     // ==================== Given ====================
 
     @And("command \"cmd-water\" belongs to \"Marcio\"")
     public void andCommandCmdwaterBelongsToMarcio() {
         // PAC retorna cmd-water no catalogo de Marcio
-        stubPacCalibrate("Marcio", "cmd-water", 200,
+        stubPacCalibrate(
+                "Marcio",
+                "cmd-water",
+                200,
                 "{\"commandId\":\"cmd-water\",\"newCalibrationState\":\"media\",\"success\":true}");
     }
 
@@ -150,9 +152,10 @@ public class WriteThroughActionsSteps {
 
     @And("the ProblemDetail is relayed from PAC")
     public void andTheProblemdetailIsRelayedFromPac() {
-        assertThat(ctx.lastResponse.getBody()).contains("conflict")
-                .or()
-                .satisfiesAnyOf(body -> assertThat(body.getBody()).contains("409"));
+        assertThat(ctx.lastResponse.getBody())
+                .satisfiesAnyOf(
+                        body -> assertThat(body).contains("conflict"),
+                        body -> assertThat(body).contains("409"));
     }
 
     @Then("DASH forwards feedback \"real\" to EVNT")
@@ -205,8 +208,7 @@ public class WriteThroughActionsSteps {
     private org.springframework.http.ResponseEntity<String> httpGet(String path) {
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(ctx.jamillyToken);
-        return restTemplate.exchange(
-                path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+        return restTemplate.exchange(path, HttpMethod.GET, new HttpEntity<>(headers), String.class);
     }
 
     private org.springframework.http.ResponseEntity<String> postCalibration(
@@ -242,7 +244,10 @@ public class WriteThroughActionsSteps {
             String patientId, String commandId, int status, String responseBody) {
         BaseIntegrationTest.pacWireMock.stubFor(
                 post(urlPathEqualTo(
-                                "/api/v1/patients/" + patientId + "/commands/" + commandId
+                                "/api/v1/patients/"
+                                        + patientId
+                                        + "/commands/"
+                                        + commandId
                                         + "/calibrate"))
                         .willReturn(
                                 aResponse()

@@ -1,0 +1,17 @@
+{
+  "score": 55,
+  "maturity": "Parcial",
+  "checklist": {
+    "done": 2,
+    "total": 9,
+    "gaps": ["P3 JPA+migrations", "P4 ACS integration", "P5 OAuth2+TenantContext", "P7 metrics", "P8 BDD", "P9 retry+vocab"]
+  },
+  "gates": {
+    "test": "deferred",
+    "build": "deferred",
+    "lint": "skip",
+    "e2e": "deferred"
+  },
+  "arch_conformance": "PASS",
+  "next_action": "IMPLEMENTADOR"
+}
