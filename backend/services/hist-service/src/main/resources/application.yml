@@ -85,6 +85,11 @@ hist:
       - dispositivo.despareado
       - registro.corrigido
 
+  # LGPD crypto-shredding master key (P10 / HIST-024).
+  # Override via env var HIST_MASTER_KEY in production — never use the zero default in prod.
+  crypto:
+    master-key: ${HIST_MASTER_KEY:0000000000000000000000000000000000000000000000000000000000000000}
+
   # Stream-tip contention retry (HIST-022 / SPEC-05).
   # maxAttempts=3, backoff=50ms — applied only on PessimisticLockingFailureException.
   retry:

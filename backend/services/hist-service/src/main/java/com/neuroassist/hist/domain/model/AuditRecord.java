@@ -67,4 +67,11 @@ public record AuditRecord(
          * If this record corrects a prior fact, the id of the corrected {@link AuditRecord}. Null
          * otherwise.
          */
-        UUID correctsRecordId) {}
+        UUID correctsRecordId,
+
+        /**
+         * Derived read-time flag — always {@code false} at write time. Set to {@code true} when
+         * the per-patient encryption key has been erased (LGPD crypto-shredding, P10 / HIST-024),
+         * making the {@code payload} unreadable. The hash chain structure remains intact.
+         */
+        boolean erased) {}

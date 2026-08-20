@@ -187,6 +187,7 @@ class ChainVerificationServiceTest {
                 sequenceNo,
                 prevHash,
                 recordHash,
-                null);
+                null,
+                false);
     }
 }

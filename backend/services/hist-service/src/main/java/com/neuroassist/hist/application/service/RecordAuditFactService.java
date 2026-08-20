@@ -182,7 +182,8 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         sequenceNo,
                         prevHash,
                         null, // recordHash placeholder — computed next
-                        resolvedCorrectsRecordId); // HIST internal UUID, null if no correction
+                        resolvedCorrectsRecordId, // HIST internal UUID, null if no correction
+                        false); // erased — always false at write time (P10 / HIST-024)
 
         String recordHash = hashChainPort.compute(prevHash, preHashRecord);
 
@@ -202,7 +203,8 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         sequenceNo,
                         prevHash,
                         recordHash,
-                        resolvedCorrectsRecordId); // HIST internal UUID of corrected record
+                        resolvedCorrectsRecordId, // HIST internal UUID of corrected record
+                        false); // erased — always false at write time (P10 / HIST-024)
 
         // Step 8: persist — all three writes in the same transaction
         AuditRecord persisted = auditLedgerPort.insert(record, command.tenantId());

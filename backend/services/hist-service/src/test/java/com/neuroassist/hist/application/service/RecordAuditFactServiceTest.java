@@ -313,6 +313,7 @@ class RecordAuditFactServiceTest {
                 1L,
                 HashChain.GENESIS_PREV_HASH,
                 COMPUTED_HASH,
-                null);
+                null,
+                false);
     }
 }

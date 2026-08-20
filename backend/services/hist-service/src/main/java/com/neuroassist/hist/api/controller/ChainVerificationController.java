@@ -83,6 +83,7 @@ public class ChainVerificationController {
                 result.streamKey(),
                 result.status().name(),
                 result.recordsVerified(),
+                result.erasedCount(),
                 result.brokenAtSequenceNo(),
                 result.verifiedAt());
     }

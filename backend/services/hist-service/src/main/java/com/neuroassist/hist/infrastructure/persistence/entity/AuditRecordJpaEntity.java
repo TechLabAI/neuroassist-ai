@@ -2,7 +2,6 @@ package com.neuroassist.hist.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 import lombok.*;
 
@@ -52,9 +51,14 @@ public class AuditRecordJpaEntity {
     @Column(name = "actor_display_name", updatable = false)
     private String actorDisplayName;
 
-    @Convert(converter = JsonMapConverter.class)
+    /**
+     * AES-256-GCM ciphertext of the JSON payload, encoded as "base64(iv):base64(ciphertext)".
+     * Null when the original payload was null. After LGPD erasure the decryption key is gone —
+     * this column retains the ciphertext (harmless without key) and {@code updatable = false}
+     * ensures it is never overwritten (ADR-004).
+     */
     @Column(name = "payload", columnDefinition = "text", updatable = false)
-    private Map<String, Object> payload;
+    private String payload;
 
     @Column(name = "occurred_at", nullable = false, updatable = false)
     private Instant occurredAt;

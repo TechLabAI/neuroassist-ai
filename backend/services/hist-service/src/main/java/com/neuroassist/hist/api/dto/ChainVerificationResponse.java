@@ -7,15 +7,18 @@ public record ChainVerificationResponse(
         /** Canonical stream key: {@code "<subjectType>:<subjectId>"}. */
         String streamKey,
 
-        /** Verification outcome: {@code intact | broken | empty}. */
+        /** Verification outcome: {@code intact | broken | empty | partially_erased}. */
         String status,
 
-        /** Number of records whose hash was verified. */
+        /** Number of records whose hash was successfully verified. */
         int recordsVerified,
 
+        /** Number of records whose payload was LGPD-erased and hash re-computation was skipped. */
+        int erasedCount,
+
         /**
-         * First {@code sequenceNo} where verification failed. Null when status is {@code intact} or
-         * {@code empty}.
+         * First {@code sequenceNo} where verification failed. Null when status is {@code intact},
+         * {@code empty}, or {@code partially_erased}.
          */
         Long brokenAtSequenceNo,
 

@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
 
     private final AuditRecordJpaRepository repository;
+    private final AuditLedgerAdapter auditLedgerAdapter;
 
     @Override
     public AuditRecord save(AuditRecord entity) {
@@ -40,7 +41,7 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
     public Optional<AuditRecord> findById(UUID id, String tenantId) {
         // Queries with both id AND tenantId to enforce row-level isolation in addition to
         // schema-level search_path routing (MultiTenantConnectionProvider sets search_path).
-        return repository.findByIdAndTenantId(id, tenantId).map(AuditLedgerAdapter::toDomain);
+        return repository.findByIdAndTenantId(id, tenantId).map(auditLedgerAdapter::toDomain);
     }
 
     @Override
@@ -49,7 +50,7 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
         return repository
                 .findByStreamKeyAndTenantIdOrderBySequenceNoAsc(streamKey, tenantId)
                 .stream()
-                .map(AuditLedgerAdapter::toDomain)
+                .map(auditLedgerAdapter::toDomain)
                 .toList();
     }
 
@@ -65,7 +66,7 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
         Page<AuditRecordJpaEntity> page = repository.findAll(spec, pageable);
 
         List<AuditRecord> items =
-                page.getContent().stream().map(AuditLedgerAdapter::toDomain).toList();
+                page.getContent().stream().map(auditLedgerAdapter::toDomain).toList();
         return new FilteredPage(items, page.getTotalElements());
     }
 
@@ -73,7 +74,7 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
     public Optional<AuditRecord> findByFactId(UUID factId, String tenantId) {
         return repository
                 .findByFactIdAndTenantId(factId, tenantId)
-                .map(AuditLedgerAdapter::toDomain);
+                .map(auditLedgerAdapter::toDomain);
     }
 
     // ---- helpers ----

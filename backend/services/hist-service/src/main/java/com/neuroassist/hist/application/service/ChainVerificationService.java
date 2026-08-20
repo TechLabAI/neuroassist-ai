@@ -55,12 +55,13 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                     "Chain verification: empty stream streamKey={} tenant={}", streamKey, tenantId);
             histMetrics.incrementChainVerificationTotal(tenantId, "empty");
             return new ChainVerificationResult(
-                    streamKey, ChainStatus.empty, 0, null, Instant.now());
+                    streamKey, ChainStatus.empty, 0, 0, null, Instant.now());
         }
 
         String expectedPrevHash = hashChainPort.genesis();
         long expectedSequenceNo = 0L; // first record has seq=0 (0-based)
         int verifiedCount = 0;
+        int erasedCount = 0;
 
         for (AuditRecord record : records) {
             // Check consecutive sequenceNo — no gaps allowed
@@ -73,14 +74,11 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey,
-                        ChainStatus.broken,
-                        verifiedCount,
-                        expectedSequenceNo,
-                        Instant.now());
+                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
+                        expectedSequenceNo, Instant.now());
             }
 
-            // Check prevHash linkage
+            // Check prevHash linkage — verifiable even for erased records (stored recordHash intact)
             if (!expectedPrevHash.equals(record.prevHash())) {
                 log.warn(
                         "Chain broken: prevHash mismatch at sequenceNo={} streamKey={} tenant={}",
@@ -89,11 +87,21 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey,
-                        ChainStatus.broken,
-                        verifiedCount,
-                        record.sequenceNo(),
-                        Instant.now());
+                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
+                        record.sequenceNo(), Instant.now());
+            }
+
+            // If patient key was erased (LGPD crypto-shredding), skip hash re-computation.
+            // The chain structure (prevHash linkage) is still verified above — only the payload
+            // content integrity cannot be re-checked after erasure.
+            if (record.erased()) {
+                log.debug(
+                        "LGPD-erased record at sequenceNo={} streamKey={} — skipping hash re-computation",
+                        record.sequenceNo(), streamKey);
+                erasedCount++;
+                expectedPrevHash = record.recordHash();
+                expectedSequenceNo++;
+                continue;
             }
 
             // Recompute recordHash and compare with stored value
@@ -106,27 +114,23 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey,
-                        ChainStatus.broken,
-                        verifiedCount,
-                        record.sequenceNo(),
-                        Instant.now());
+                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
+                        record.sequenceNo(), Instant.now());
             }
 
             // Record successfully verified
             verifiedCount++;
-            // Advance to the next expected state
             expectedPrevHash = record.recordHash();
             expectedSequenceNo++;
         }
 
+        ChainStatus finalStatus = erasedCount > 0 ? ChainStatus.partially_erased : ChainStatus.intact;
+        String outcome = erasedCount > 0 ? "partially_erased" : "ok";
         log.info(
-                "Chain verification intact: streamKey={} tenant={} recordsVerified={}",
-                streamKey,
-                tenantId,
-                verifiedCount);
-        histMetrics.incrementChainVerificationTotal(tenantId, "ok");
+                "Chain verification {}: streamKey={} tenant={} verified={} erased={}",
+                finalStatus, streamKey, tenantId, verifiedCount, erasedCount);
+        histMetrics.incrementChainVerificationTotal(tenantId, outcome);
         return new ChainVerificationResult(
-                streamKey, ChainStatus.intact, verifiedCount, null, Instant.now());
+                streamKey, finalStatus, verifiedCount, erasedCount, null, Instant.now());
     }
 }

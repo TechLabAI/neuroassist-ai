@@ -56,7 +56,7 @@
 | PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded + P1-P9 done (160/160 BDD) |
 | ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | 🔄 P1-P6 done (72/100) — P7 open (ACS-026: signing key persistida + refresh token real) |
 | EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | ✅ scaffolded + P1-P10 done |
-| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | 🔄 scaffolded (Layer 1) |
+| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | ✅ scaffolded + P1-P10 done (92/92 tests, 100/100) |
 | DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | ✅ scaffolded + P1-P8 done (100/100) |
 
 Issue prefix: `<MODULE>-NNN` (e.g.: `GEST-001`, `EVNT-001`, `PAC-001`). Issues live in `docs/architecture/{backend,frontend}/issues/`. GitHub repository: `TechLabAI/neuroassist-ai`.

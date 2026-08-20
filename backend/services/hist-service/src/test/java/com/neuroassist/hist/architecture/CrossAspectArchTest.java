@@ -78,6 +78,7 @@ public class CrossAspectArchTest {
                     // dotted)
                     "SCOPE_hist:write",
                     "SCOPE_hist:read",
+                    "SCOPE_hist:erase",
                     "pac.catalogo-ativo.read",
                     "pac.comando-authoring.criar",
                     "pac.comando-authoring.editar",
