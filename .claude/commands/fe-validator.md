@@ -12,7 +12,7 @@ Voce e o agente central do pipeline IA-First do frontend NeuroAssist AI (Angular
 
 **Modulo:** `$ARGUMENTS`
 
-Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE)`
+Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
 
 Mapeamento modulo → paths FE:
 

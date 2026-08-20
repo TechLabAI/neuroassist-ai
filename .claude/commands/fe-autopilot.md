@@ -21,7 +21,12 @@ Formatos aceitos (D-422 module-oriented):
 - `<MODULO> <feature-slug> --resume` → Retomar Pipeline A de checkpoint salvo
 - `<MODULO> --resume` → Retomar Pipeline B de checkpoint salvo
 
-Modulos validos no FE: GEST | EVNT | PAC | ACS | HIST | DASH | EDGE
+Modulos validos no FE: GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E
+
+> `E2E` e um **modulo transversal** (sem microservico e sem lib Nx propria): cobre a
+> integracao ponta-a-ponta do `neuroassist-ai-web` com os 7 backends. Aceita apenas
+> **Pipeline B** (`/fe-autopilot E2E`) — nao ha Pipeline A para ele, porque nao existem
+> features novas a arquitetar, apenas prioridades de habilitacao e validacao.
 
 ---
 
