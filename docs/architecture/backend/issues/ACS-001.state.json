@@ -1,0 +1,123 @@
+{
+  "issue": "ACS-001",
+  "layer": "be",
+  "computedAt": "2026-08-19T16:03:04",
+  "checklist": {
+    "total": 12,
+    "done": 0,
+    "partial": 1,
+    "missing": 11,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "criar `backend/acs-service/build.gradle.kts` com dependências:",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: backend/acs-service/build.gradle.kts"
+      },
+      {
+        "text": "criar `backend/acs-service/src/main/resources/application.yml` com:",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: backend/acs-service/src/main/resources/application.yml"
+      },
+      {
+        "text": "criar `backend/acs-service/src/main/java/com/neuroassist/acs/AcsServiceApplication.java`",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: backend/acs-service/src/main/java/com/neuroassist/acs/AcsServiceApplication.java"
+      },
+      {
+        "text": "criar estrutura de packages:",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "registrar `acs-service` em `backend/settings.gradle.kts` como subprojeto",
+        "state": "PARTIAL",
+        "evidence": "arquivo presente porem stub: backend/settings.gradle.kts"
+      },
+      {
+        "text": "garantir que `./gradlew :acs-service:compileJava` completa sem erros",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`./gradlew :acs-service:compileJava` completa sem erros",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`./gradlew :acs-service:test` (unit tests vazios) passa",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`AcsServiceApplication` sobe com Spring context completo em ambiente local (sem datasource)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`GET /actuator/health` retorna `200 {\"status\":\"UP\"}`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`server.port` configurado como 8088",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Estrutura de packages conforme hexagonal (api / application / domain / infrastructure)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "unknown",
+    "lint": "skip",
+    "test": "unknown",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 4,
+    "provisional": true,
+    "range": [
+      4,
+      14
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 4,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 0,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

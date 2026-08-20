@@ -1,0 +1,43 @@
+{
+  "issue": "ACS-026",
+  "layer": "be",
+  "computedAt": "2026-08-20T03:54:25",
+  "checklist": {
+    "total": 13,
+    "done": 0,
+    "partial": 0,
+    "missing": 13,
+    "blocked": 0
+  },
+  "priorPlan": {
+    "exists": false,
+    "file": null,
+    "phases": []
+  },
+  "delta": {
+    "done": [],
+    "partial": [],
+    "notStarted": [
+      "Criar `SigningKeyService.java` em `application/service/` com:",
+      "Adaptar `JwtEncoderConfig` (ou criar `SigningKeyInitializer implements ApplicationRunner`): ao subir, chamar `SigningKeyService.getOrCreateActiveKey()` e usar o par RSA retornado para construir `JwtEncoder` e `JwtDecoder` beans",
+      "Adicionar propriedade `acs.signing-key.encryption-secret` em `application.yml` (referência a variável `${ACS_SIGNING_KEY_SECRET}`)",
+      "Atualizar `SigningKeyPortAdapter` para usar a chave persistida em vez de par gerado em memória",
+      "Criar teste unitário `SigningKeyServiceTest`",
+      "Validar JWT do refresh token em `AutenticacaoService.refresh()`:",
+      "Implementar sliding window sem armazenamento de estado: ao validar, emitir novo access token (TTL 900s) + novo refresh token (TTL 7 dias) com `jti` único",
+      "Adicionar claim `token_type` na emissão em `TokenIssuer` (`token_type: \"access\"` para access, `token_type: \"refresh\"` para refresh com TTL mais longo)",
+      "Atualizar `AutenticacaoResponse` se necessário",
+      "Criar / atualizar `AutenticacaoServiceTest` para cobrir cenários de refresh válido, expirado e tipo errado",
+      "Adicionar `TenantContextHolder.require()` em `TenantService.createTenant()` e `TenantService.findById()` (somente para paths que não sejam bootstrap de novo tenant)",
+      "Instrumentar `AutenticacaoService.authenticate()` e `TenantProvisioningService.provision()` com `Observation.createNotStarted(...).observe(...)` (Micrometer Observation API — sem dependência adicional, já disponível via `micrometer-core`)",
+      "Verificar `docs/architecture/backend/services/acs-service/` — atualizar `api.md`, `data-model.md`, `events.md` se desatualizados (comparar contratos documentados com implementação real)"
+    ],
+    "inconsistencies": []
+  },
+  "dependencies": {
+    "issues": [],
+    "notes": []
+  },
+  "suggestedPlanType": "INCREMENTAL",
+  "needsAgentConfirm": true
+}

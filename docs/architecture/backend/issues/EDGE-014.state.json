@@ -1,0 +1,118 @@
+{
+  "issue": "EDGE-014",
+  "layer": "be",
+  "computedAt": "2026-08-15T14:39:48",
+  "checklist": {
+    "total": 11,
+    "done": 0,
+    "partial": 0,
+    "missing": 11,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "criar `domain/port/DetectionProfilePort.java` com metodo `Optional<Long> currentPointerForTenant(String tenantId)`",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: domain/port/DetectionProfilePort.java"
+      },
+      {
+        "text": "criar `infrastructure/integration/DetectionProfileClientAdapter.java` implementando `DetectionProfilePort`",
+        "state": "MISSING",
+        "evidence": "arquivo citado ausente: infrastructure/integration/DetectionProfileClientAdapter.java"
+      },
+      {
+        "text": "configurar `@FeignClient(name='gest-service', path='/api/v1/gest')` para discovery via REG; endpoint: GET /detection-profiles/active",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "configurar timeouts (read=2000ms, connect=500ms) e 1 retry em `ConnectException/ReadTimeoutException`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "configurar Resilience4j circuit breaker: threshold 50% / 10-call window; wait 30s para HALF_OPEN; fallback retorna `Optional.empty()` (degraded)",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "propagar `X-Correlation-Id` no header da chamada Feign; usar service token (`edge.internal`) para autenticar na chamada GEST",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "GEST disponivel: `currentProfileVersion` preenchido na heartbeat response",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "GEST retorna 404 no-active-profile: `currentProfileVersion=null, profileDrift=false`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "GEST indisponivel (simulado com WireMock): heartbeat retorna 200 com `profilePointerDegraded=true`",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Circuit breaker abre apos 50% de falhas em 10 chamadas",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`X-Correlation-Id` presente em toda chamada Feign para GEST",
+        "state": "MISSING",
+        "evidence": "desmarcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "deferred",
+    "lint": "pass",
+    "test": "deferred",
+    "e2e": "deferred"
+  },
+  "score": {
+    "total": 0,
+    "provisional": true,
+    "range": [
+      0,
+      10
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 0,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "INTACT"
+  },
+  "agentTodo": [
+    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

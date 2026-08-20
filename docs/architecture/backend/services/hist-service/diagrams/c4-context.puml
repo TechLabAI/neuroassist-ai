@@ -1,0 +1,33 @@
+@startuml hist-service-context
+!include <C4/C4_Context>
+title HIST (hist-service) — System Context
+
+Person(coordinator, "Coordinator / DPO", "Reviews history, proves chain integrity")
+Person(caregiver, "Caregiver (cuidadora)", "Reviews own patients' history")
+
+System_Boundary(neuro, "NeuroAssist AI") {
+  System(hist, "hist-service", "Immutable append-only audit ledger (write-once, hash-chained)")
+  System(evnt, "evnt-service", "Event verdicts + feedback (producer)")
+  System(pac, "pac-service", "Patient/command config (producer)")
+  System(acs, "acs-service", "Identity, access, caregiver-patient links")
+  System(edge, "edge-service", "Device pairing (producer)")
+  System(dash, "dash", "Dashboard / composes /historico")
+  System(gwy, "api-gateway", "Edge routing")
+}
+
+Rel(evnt, hist, "POST /audit-facts (idempotent factId)", "REST/JSON")
+Rel(pac, hist, "POST /audit-facts", "REST/JSON")
+Rel(acs, hist, "POST /audit-facts", "REST/JSON")
+Rel(edge, hist, "POST /audit-facts", "REST/JSON")
+Rel(dash, hist, "GET /history, /history/verify", "REST/JSON")
+Rel(caregiver, gwy, "GET /historico (scoped)", "HTTPS")
+Rel(coordinator, gwy, "GET /historico + verify", "HTTPS")
+Rel(gwy, hist, "routes", "REST")
+Rel(hist, acs, "GET caregiver patient-scope (reads only, fail-closed)", "REST/JSON")
+
+note right of hist
+  No broker (messaging disabled).
+  No AI/hub dependency.
+  Never stores biometric data.
+end note
+@enduml
