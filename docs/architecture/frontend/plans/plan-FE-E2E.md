@@ -148,7 +148,7 @@ Enquanto P1 não fechar, **nenhuma** chamada real é multi-empresa-safe.
 | G4 | GEST aponta direto para `:8084`, fora do GWY | `gest-service.config.ts` |
 | G5 | 58 `test.skip()` com asserção vazia (`toHaveURL(/.*/)`) | acs-e2e, hist-e2e |
 | G6 | 8 `describe` vazios que passam sem testar nada | dash-e2e, evnt-e2e |
-| G7 | SSE do DASH nunca exercitado — só simulado por mock | `dash-notifications-http.adapter.ts` |
+| G7 | **Dois** canais SSE nunca exercitados — EVNT `/api/v1/events/stream` (alarme) e DASH `/panel/stream` (painel); `openStream()` do EVNT erra de propósito para degradar a polling | `evnt-client-http.adapter.ts`, `dash-notifications-http.adapter.ts` |
 | G8 | 4 rotas de API do GWY não alcançam o controller (PAC, EVNT, DASH, GEST) | `application-docker.yml` sem `RewritePath` vs `@RequestMapping` |
 
 Gaps encerrados pela revalidação de 2026-08-20:
@@ -167,7 +167,7 @@ Gaps encerrados pela revalidação de 2026-08-20:
 | Fora do compose, `issuer-uri` ainda cai no default Keycloak | `401` sem causa óbvia ao rodar o GWY solto | Subir sempre pelo compose; pedir renomeação `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` |
 | Porta do GWY mudou para `18080` no host | Proxy do FE apontando para `8080` falha em silêncio | Porta parametrizada no `proxy.conf.json` (P2), não hard-coded |
 | Flip `mock`→`http` quebrar os 44 testes verdes | Perda da suíte hermética | P2 entrega o flip como **configuração**, nunca substituição |
-| `EventSource` não envia headers customizados | P6 (SSE) sem auth possível | Decisão conjunta com BE antes de implementar |
+| `EventSource` não envia headers customizados | P6 (SSE) sem auth | **Não é decisão em aberto:** rastreado em `FE-EVNT-007`; escolher entre `fetch`+`ReadableStream`, polyfill com transporte `fetch`, ou `HttpClient observe:'events'`. Query param **rejeitado** (JWT em log — LGPD). Nenhuma exige mudança no BE |
 | Remover `.skip` sem trocar a asserção | Teste verde que não testa nada | Critério de aceite de P5 proíbe `toHaveURL(/.*/)` |
 | `getUserMedia` em CI headless | 3 specs de câmera do GEST | Permanecem mock-only; documentado, não é lacuna |
 
@@ -777,39 +777,55 @@ Categoria: FUNCIONAL
 **Objetivo:** provar pelo browser os dois fluxos que definem o produto — onboarding completo
 e gesto → alarme → confirmação.
 
-**Problema:** o transporte SSE do DASH nunca foi exercitado; o push é simulado pelo mock.
+**Problema:** nenhum dos **dois** canais SSE foi exercitado; o push é simulado pelos mocks.
 
 **Resultado esperado:** o alarme chega ao browser por SSE real, é confirmado, e fica auditado
 no HIST.
 
+#### Correção de premissa (2026-08-20)
+
+A versão anterior deste plano dizia que o SSE era do DASH e que o transporte era decisão em
+aberto. Ambas erradas. Existem **dois** canais, com propósitos distintos:
+
+| Canal | Endpoint | Escopo | Replay | Serve para |
+|---|---|---|---|---|
+| **EVNT** | `GET /api/v1/events/stream` | tenant | `Last-Event-ID` → backfill por `seq` | **alarme** |
+| **DASH** | `GET /panel/stream` | cuidador + tenant | `/panel/stream/catchup` | painel (sessão por cuidador) |
+
+O canal do alarme é o do **EVNT**, e isso já está decidido em `ADR-005` (EVNT, module-local):
+o `EvntClient` abre `/events/stream` e degrada para polling em `/events/active`.
+
 #### Problemas identificados
 
-1. `dash-notifications-http.adapter.ts` existe, mas o push real nunca rodou. É a maior lacuna
-   de risco do plano: todo o resto do sistema existe para alimentar esse push.
-2. `EventSource` **não** envia headers customizados — o interceptor de P1 não se aplica ao SSE.
+1. `evnt-client-http.adapter.ts` → `openStream()` **erra de propósito** para forçar o caminho
+   degradado (`TODO[FE-EVNT-007]`). `evnt.providers.ts` proíbe o flip para `'http'` antes disso.
+2. `dash-notifications-http.adapter.ts` carrega a mesma ressalva para `/panel/stream`.
+3. `EventSource` **não** envia headers customizados — o interceptor de P1 não alcança o SSE.
 
 #### Correções mandatórias
 
-Decidir e registrar o mecanismo de auth do canal SSE. Opções, com o trade-off:
+Escolher entre as três estratégias **já enumeradas no código** (`FE-EVNT-007`):
 
-| Opção | Custo |
+| Opção | Observação |
 |---|---|
-| Token em query param | Registra JWT em log de acesso — ruim para dados de saúde/LGPD |
-| Cookie de sessão httpOnly | Exige mudança no `dash-service` |
-| `fetch` + `ReadableStream` | Permite headers; abandona `EventSource` |
-| WebSocket | Maior mudança; afeta o contrato do BE |
+| `fetch()` + `ReadableStream` | exige CORS + `Sec-Fetch-Mode` |
+| polyfill `eventsource-parser` com transporte `fetch` | — |
+| `HttpClient` com `observe:'events'` + `responseType:'text'` | os interceptors carregam o `Authorization` |
 
-**Esta decisão envolve o backend — não é do FE sozinho.** ADR se mudar o contrato.
+**Rejeitados, com justificativa registrada:** token em query param (JWT em log de acesso — LGPD)
+e WebSocket (`ADR-005` o descartou para o MVP; `stack.messaging.enabled = false`).
+
+As três opções são resolvíveis no frontend — **nenhuma exige mudança de contrato no backend.**
 
 #### Arquivos-alvo
 
 ```
-frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts   (transporte SSE real)
-frontend/libs/dash/src/lib/api/dash-notifications.port.ts           (se o contrato mudar)
-frontend/apps/dash-e2e/src/notification-delivery.spec.ts            (SSE-01..06)
-frontend/apps/neuroassist-ai-web/src/app/shell/app-shell.component.ts (outlet do alarme)
+frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts          (canal do alarme)
+frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts   (canal do painel)
+frontend/apps/evnt-e2e/src/{confirmar-atendimento,alarme-emergencia-preempcao}.spec.ts
+frontend/apps/dash-e2e/src/notification-delivery.spec.ts            (SSE-11..15)
+frontend/apps/neuroassist-ai-web/src/app/shell/app-shell.component.ts (AlarmOutlet global)
 frontend/apps/acs-e2e/src/tenant-onboarding.spec.ts                 (FE-Flow-01)
-frontend/apps/evnt-e2e/src/confirmar-atendimento.spec.ts            (FE-Flow-03)
 ```
 
 #### Contrato de tipo
@@ -828,10 +844,16 @@ export interface NotificationStream {
 
 #### Sequência de execução
 
-1. Decisão de auth do canal SSE (com o BE) — **bloqueia o resto**.
-2. `data-access`: transporte SSE real + reconexão com backoff.
-3. `feature-*`: outlet de alarme consumindo o stream.
-4. `testes`: SSE-01..06 → FE-Flow-01 → FE-Flow-03.
+1. `FE-EVNT-007`: escolher a estratégia de transporte e implementar `openStream()` — **bloqueia o resto**.
+2. `data-access`: canal do EVNT + reconexão com backoff + `Last-Event-ID`.
+3. `feature-*`: AlarmOutlet global consumindo o signal `activeEvent`.
+4. `data-access`: canal do DASH — **só depois** de resolver o open item abaixo.
+5. `testes`: SSE-01..10 (alarme) → SSE-11..15 (painel) → FE-Flow-01 → FE-Flow-03.
+
+> **Open item que muda o passo 4:** o `ADR-005` diz que `activeEvent` é *"a single signal reused
+> by Home/DASH"* — o que sugere **um** stream de alarme, com o DASH consumindo o signal em vez
+> de abrir conexão própria. Decidir antes de implementar SSE-11..15, para não abrir uma conexão
+> redundante por cuidador.
 
 #### Generators Nx obrigatórios
 
