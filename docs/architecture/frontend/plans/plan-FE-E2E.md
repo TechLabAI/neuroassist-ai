@@ -2,7 +2,8 @@
 
 **Projeto:** NeuroAssist AI · **Módulo:** E2E (transversal — sem lib Nx própria)
 **Stack:** Angular 21, Nx, Signals-first (sem NgRx) · **Playwright** 1.60
-**Backends:** os 7 microserviços via GWY `:8080` · **Gerado em:** 2026-08-20
+**Backends:** os 7 microserviços via GWY (host `:18080`) · **Gerado em:** 2026-08-20
+**Revalidado em:** 2026-08-20 contra a integração BE em andamento (`E2E-001` DONE)
 
 > Módulo transversal: opera sobre `libs/{gest,evnt,pac,acs,edge,hist,dash}`,
 > `libs/shared/*` e `apps/{neuroassist-ai-web,*-e2e}`. Não cria lib nova.
@@ -43,10 +44,60 @@ Levantamento direto do código em 2026-08-20:
 - Suíte Playwright: **44 testes ativos** (edge 18, gest 14, pac 12 — todos contra mocks),
   **58 `test.skip()`** (acs 45, hist 13) e **8 `describe` vazios** (dash 3, evnt 5).
 
+### Estado do backend (revalidação de 2026-08-20)
+
+BE `E2E-001` está **DONE**: INF-01 (8 registros no Eureka), INF-02 (`/api/v1/<svc>/actuator/health`
+→ `200` nos 7) e INF-03 (`/oauth2/jwks` via GWY, 1 chave RSA). Isso muda três premissas
+deste plano:
+
+1. **O GWY agora roteia os 7 serviços** (`application-docker.yml`, perfil `docker`), não
+   mais só `/api/v1/edge/**`.
+2. **O GWY mudou de porta no host: `18080`**, não `8080` (o container continua em 8080).
+   `evnt` foi para `18085` e `dash` para `18090` — irrelevante para o FE, que fala só com o GWY.
+3. **O issuer foi corrigido**: o GWY ganhou `jwk-set-uri: ${ACS_JWK_URI:...:8088/oauth2/jwks}`
+   e o compose define `ACS_JWK_URI` + `KEYCLOAK_ISSUER_URI` apontando para o ACS.
+
+### ⚠️ Achado da revalidação: 4 das 7 rotas do GWY não alcançam o controller
+
+O GWY normalizou o roteamento para `/api/v1/<svc>/**`, **sem filtro de rewrite** nas rotas de
+API (só as rotas de *health* têm `StripPrefix=3`). Como o path é encaminhado inalterado, ele
+precisa bater com o `@RequestMapping` do serviço — e em 4 casos não bate:
+
+| Serviço | Rota no GWY | `@RequestMapping` real | Alcança? |
+|---|---|---|---|
+| ACS | `/api/v1/acs/**` | `/api/v1/acs/{tenants,caregivers,directory}` | ✅ |
+| HIST | `/api/v1/hist/**` | `/api/v1/hist/*` | ✅ |
+| EDGE | `/api/v1/edge/**` | `/api/v1/edge/{devices,heartbeat}` | ✅ |
+| PAC | `/api/v1/pac/**` | `/api/pac/v1/pacientes` | ❌ 404 no serviço |
+| EVNT | `/api/v1/evnt/**` | `/api/v1/events`, `/api/v1/reports` | ❌ 404 no serviço |
+| DASH | `/api/v1/dash/**` | `/panel`, `/internal/notifications` | ❌ 404 no serviço |
+| GEST | `/api/v1/gest/**` | `/gest-service/*` | ❌ 404 no serviço |
+
+Nenhum serviço declara `server.servlet.context-path` (verificado nos 7), então não há
+prefixo implícito que reconcilie a diferença.
+
+**Por que INF-02 passou mesmo assim:** as rotas de health têm `StripPrefix=3`, então
+`/api/v1/pac/actuator/health` vira `/actuator/health` e responde `200`. O check prova que o
+GWY resolve o serviço no Eureka — **não** prova que as rotas de API alcançam os controllers.
+São predicados diferentes.
+
+**Decisão necessária antes de P2** (é do backend, não do FE):
+
+- **(a) Normalizar** — o GWY ganha `RewritePath` por serviço (`/api/v1/pac/**` → `/api/pac/v1/**`,
+  `/api/v1/evnt/**` → `/api/v1/events`, `/api/v1/dash/**` → `/panel`, `/api/v1/gest/**` →
+  `/gest-service/**`) e o FE passa a chamar os paths normalizados. Superfície pública uniforme;
+  exige mudar 4 dos 15 adapters do FE.
+- **(b) Espelhar** — o GWY ganha rotas com os paths reais (`/api/pac/v1/**`, `/api/v1/events/**`,
+  `/panel/**`, `/gest-service/**`). Zero mudança no FE; mantém a API pública inconsistente.
+
+**Recomendação: (a)** — é o que a normalização já iniciada no `application-docker.yml` indica
+como intenção, e resolve de uma vez o problema de o proxy do FE precisar de 9 prefixos distintos
+(passaria a precisar de 2: `/api/v1/**` e `/oauth2/**`).
+
 ### Continuidade da última rodada
 
-Primeira rodada do módulo. Não há `plan-FE-E2E.md` anterior nem estado em ES.
-O insumo é o levantamento acima e o plano espelho do backend.
+Primeira rodada do módulo. Não há estado em ES. O insumo é o levantamento acima, revalidado
+contra a integração BE em andamento.
 
 ### Diagnóstico executivo
 
@@ -54,9 +105,10 @@ A diferença estrutural em relação ao plano BE: lá a integração já existia
 *verificada*; aqui ela **ainda não existe**. Por isso as prioridades são metade
 **habilitação** (P1–P3) e metade **validação** (P4–P7).
 
-Achado que economiza trabalho: os base paths dos adapters do FE foram conferidos um a um
-contra os `@RequestMapping` reais dos 7 serviços e **estão alinhados**. O backend não
-precisa mudar paths — o risco remanescente é de *shape*, não de rota.
+Os base paths dos adapters do FE batem com os `@RequestMapping` reais dos 7 serviços — ou
+seja, **em acesso direto ao serviço** eles estão corretos. O que a revalidação mostrou é que
+isso não basta: com o GWY no caminho, o que importa é o path *do gateway*, e ele diverge em
+4 serviços (ver acima). Rota voltou a ser risco; *shape* continua sendo (P3).
 
 ### Multi-empresa: interceptor `@neuroassist/shared/access-http-base` configurado?
 
@@ -78,7 +130,9 @@ Enquanto P1 não fechar, **nenhuma** chamada real é multi-empresa-safe.
 
 - O switch `'mock' | 'http'` já está implementado nos 7 `provide<Module>()` — o flip é
   configuração, não reescrita.
-- Base paths FE ↔ BE alinhados nos 7 módulos (verificado contra os `@RequestMapping`).
+- Base paths dos adapters batem com os `@RequestMapping` dos 7 serviços (acesso direto).
+- Stack BE de pé e validado: `E2E-001` DONE — Eureka, roteamento e JWK Set verificados.
+- GWY já roteia os 7 serviços e expõe `/oauth2/**` sem autenticação.
 - Os `playwright.config.ts` já leem `baseURL: process.env['APP_URL'] ?? 'http://localhost:4200'`,
   o que permite apontar a suíte para um app integrado sem tocar em código de teste.
 - `docker/docker-compose.dev.yml` já sobe os 9 componentes com healthcheck.
@@ -95,13 +149,23 @@ Enquanto P1 não fechar, **nenhuma** chamada real é multi-empresa-safe.
 | G5 | 58 `test.skip()` com asserção vazia (`toHaveURL(/.*/)`) | acs-e2e, hist-e2e |
 | G6 | 8 `describe` vazios que passam sem testar nada | dash-e2e, evnt-e2e |
 | G7 | SSE do DASH nunca exercitado — só simulado por mock | `dash-notifications-http.adapter.ts` |
+| G8 | 4 rotas de API do GWY não alcançam o controller (PAC, EVNT, DASH, GEST) | `application-docker.yml` sem `RewritePath` vs `@RequestMapping` |
+
+Gaps encerrados pela revalidação de 2026-08-20:
+
+| # | Gap anterior | Situação |
+|---|---|---|
+| ~~G0a~~ | GWY roteava apenas `/api/v1/edge/**` | **Resolvido** — os 7 têm rota (`application-docker.yml`) |
+| ~~G0b~~ | Issuer apontando para Keycloak inexistente | **Resolvido no compose** — `jwk-set-uri` + `ACS_JWK_URI`/`KEYCLOAK_ISSUER_URI` → ACS |
 
 ### Riscos
 
 | Risco | Impacto | Mitigação |
 |---|---|---|
-| GWY roteia **apenas** `/api/v1/edge/**` — 6 serviços sem rota | P2 parada | Dependência externa de BE `E2E-001`; não iniciar em paralelo |
-| Default do GWY aponta para Keycloak inexistente; só o compose corrige | P3 falha com `401` sem causa óbvia | Subir sempre pelo compose; pedir renomeação `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` |
+| **G8** — 4 rotas do GWY caem em `404` do serviço | P2 e P3 falham de forma confusa: o gateway resolve, o serviço nega | Fechar a decisão (a)/(b) com o BE **antes** de iniciar P2 |
+| INF-02 valida health, não API — pode dar falsa confiança de que o roteamento está pronto | Começar P2 sobre premissa falsa | Critério de aceite de P2 exige `200` num endpoint de **negócio** de cada serviço, não em `/actuator/health` |
+| Fora do compose, `issuer-uri` ainda cai no default Keycloak | `401` sem causa óbvia ao rodar o GWY solto | Subir sempre pelo compose; pedir renomeação `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` |
+| Porta do GWY mudou para `18080` no host | Proxy do FE apontando para `8080` falha em silêncio | Porta parametrizada no `proxy.conf.json` (P2), não hard-coded |
 | Flip `mock`→`http` quebrar os 44 testes verdes | Perda da suíte hermética | P2 entrega o flip como **configuração**, nunca substituição |
 | `EventSource` não envia headers customizados | P6 (SSE) sem auth possível | Decisão conjunta com BE antes de implementar |
 | Remover `.skip` sem trocar a asserção | Teste verde que não testa nada | Critério de aceite de P5 proíbe `toHaveURL(/.*/)` |
@@ -168,7 +232,13 @@ autenticada, tenant-scoped e rastreável, com erro RFC 7807 já normalizado.
 1. `libs/shared/access-http-base/src/lib/access-http-base.ts` — só `export const ACCESS_HTTP_BASE = '/api'`.
 2. `libs/shared/auth-session/src/lib/auth-session.ts` — só `interface AuthSession { token }`.
 3. `app.config.ts` — `provideHttpClient(withInterceptors([]))`.
-4. Blocker externo: o default do GWY aponta para um Keycloak inexistente (só o compose corrige).
+4. ~~Blocker externo do issuer~~ — **resolvido na revalidação de 2026-08-20**: o GWY ganhou
+   `jwk-set-uri: ${ACS_JWK_URI:http://localhost:8088/oauth2/jwks}` e o compose define
+   `ACS_JWK_URI` + `KEYCLOAK_ISSUER_URI` apontando para o `acs-service`. `/oauth2/**` também
+   passou a ser `permitAll` no `SecurityConfig` do GWY. Ressalva: fora do compose o
+   `issuer-uri` ainda cai no default Keycloak — subir sempre pelo compose.
+
+**P1 não tem mais dependência externa bloqueante.** É a prioridade a iniciar.
 
 #### Correções mandatórias
 
@@ -289,19 +359,42 @@ sem backend nenhum.
 1. Sem `proxy.conf.json`; sem `environment*`.
 2. `serve` só tem `development` e `production`, ambas em mock.
 3. `GEST_SERVICE_BASE_URL` → `http://<host>:8084`, absoluta, fora do GWY.
-4. **Externo:** o GWY roteia apenas `/api/v1/edge/**`.
+4. **Externo (G8):** 4 rotas de API do GWY não alcançam o controller — PAC, EVNT, DASH e GEST
+   respondem `404` porque o gateway encaminha `/api/v1/<svc>/**` sem rewrite.
+5. **Externo:** o GWY escuta em `18080` no host, não `8080`.
+
+#### Pré-condição bloqueante
+
+A decisão **(a) normalizar** vs **(b) espelhar** (ver §0) precisa estar fechada com o backend
+antes de escrever o proxy. Ela determina se o FE muda 4 adapters ou nenhum — e escrever o
+proxy antes significa reescrevê-lo depois.
+
+O restante desta prioridade assume a recomendação **(a)**.
 
 #### Correções mandatórias
 
-- Proxy cobrindo os **9 prefixos** (os base paths não são uniformes — não existe regra única):
+- Proxy com **2 prefixos** (na hipótese (a), o GWY passa a expor superfície uniforme):
 
 ```
-/api/v1/acs/**     /api/pac/v1/**     /api/v1/events/**   /api/v1/reports/**
-/api/v1/hist/**    /api/v1/edge/**    /panel/**           /gest-service/**
-/oauth2/**
+/api/v1/**   →  http://localhost:${GWY_PORT:-18080}
+/oauth2/**   →  http://localhost:${GWY_PORT:-18080}
 ```
 
+  Na hipótese (b), voltam a ser 9 prefixos — mais frágil, e é o argumento a favor de (a).
+
+- Porta do GWY **parametrizada**, nunca hard-coded: já mudou de `8080` para `18080` uma vez.
 - Token `APP_ADAPTER_MODE: 'mock' | 'http'`; `app.config.ts` deriva os 7 `provide<Module>()` dele.
+- Na hipótese (a), **4 adapters mudam de base path**:
+
+| Módulo | Base path hoje | Base path normalizado |
+|---|---|---|
+| PAC | `/api/pac/v1/pacientes` | `/api/v1/pac/pacientes` |
+| EVNT | `/api/v1/events` | `/api/v1/evnt/events` |
+| DASH | `/panel`, `/panel/notifications` | `/api/v1/dash/panel...` |
+| GEST | `<abs>:8084` + `/gest-service/eligibility` | `/api/v1/gest/eligibility` |
+
+  ACS, HIST e EDGE ficam inalterados.
+
 - `GEST_SERVICE_BASE_URL` = `''` (URL relativa) no perfil `integrated`, por override de provider —
   **não** editando o factory default.
 - **Não tocar** em `EDGE_BRIDGE_WS_URL`: a ponte WS do edge-agent local nunca passa pelo GWY, por design.
@@ -315,6 +408,15 @@ frontend/apps/neuroassist-ai-web/src/app/app.config.ts              (APP_ADAPTER
 frontend/apps/neuroassist-ai-web/src/app/config/adapter-mode.ts     (novo — token)
 frontend/libs/gest/src/lib/api/eligibility-http.adapter.spec.ts     (caso base-url vazia)
 frontend/apps/neuroassist-ai-web/README.md                          (documentar os 2 perfis)
+```
+
+Somente na hipótese (a) — normalização de base path:
+
+```
+frontend/libs/pac/src/lib/api/{paciente,comando,tipos-gesto-read}-http.adapter.ts
+frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts
+frontend/libs/dash/src/lib/api/{dash-summary,dash-notifications}-http.adapter.ts
+frontend/libs/gest/src/lib/api/{eligibility,edge-detection}-http.adapter.ts
 ```
 
 #### Contrato de tipo
@@ -358,12 +460,29 @@ npx nx run-many --target=lint --all                  # PASS
 npx nx e2e edge-e2e && npx nx e2e gest-e2e && npx nx e2e pac-e2e   # 44/44 verdes (perfil mock)
 ```
 
+**TRN-03 revisado — health não conta.** O critério é `200` (ou `401`/`403`, nunca `404`) num
+endpoint de **negócio** de cada um dos 7 serviços através do GWY:
+
+```bash
+GWY=http://localhost:${GWY_PORT:-18080}
+curl -si $GWY/api/v1/acs/tenants/x       # ACS
+curl -si $GWY/api/v1/pac/pacientes       # PAC   ← hoje 404 (G8)
+curl -si $GWY/api/v1/evnt/events         # EVNT  ← hoje 404 (G8)
+curl -si $GWY/api/v1/hist/history        # HIST
+curl -si $GWY/api/v1/edge/devices        # EDGE
+curl -si $GWY/api/v1/dash/panel          # DASH  ← hoje 404 (G8)
+curl -si $GWY/api/v1/gest/eligibility    # GEST  ← hoje 404 (G8)
+```
+
+`404` reprova a prioridade, mesmo com `/actuator/health` verde.
+
 #### Riscos
 
-- **Dependência externa bloqueante:** sem as rotas do GWY (BE `E2E-001`), TRN-03 não passa.
-  Não iniciar P2 em paralelo com esse issue.
+- **Dependência externa bloqueante:** a decisão (a)/(b) sobre G8. `E2E-001` está DONE, mas
+  cobriu Eureka + health + JWK Set — **não** a alcançabilidade das rotas de API.
 - Ordem de flip sugerida, do menos ao mais acoplado, para isolar falhas:
-  `HIST → ACS → PAC → EDGE → GEST → EVNT → DASH` (DASH por último: depende de SSE, P6).
+  `HIST → ACS → EDGE → PAC → GEST → EVNT → DASH`. Os 3 primeiros são justamente os que já
+  alcançam o controller hoje — dão sinal verde real antes de mexer nos 4 afetados por G8.
 
 #### Instrução para implementador
 
@@ -872,31 +991,39 @@ existentes — provavelmente várias colapsam os dois hoje.
 
 ### Endpoints BE consumidos
 
-| Módulo | Base path | Serviço | Porta |
-|---|---|---|---|
-| ACS | `/api/v1/acs/{tenants,caregivers,directory}` + `/oauth2` | acs-service | 8088 |
-| PAC | `/api/pac/v1/pacientes` (+ `/{id}/comandos`) | pac-service | 8082 |
-| EVNT | `/api/v1/events`, `/api/v1/reports` | evnt-service | 8085 |
-| HIST | `/api/v1/hist/{history,audit-facts,audit-records,patients}` | hist-service | 8089 |
-| EDGE | `/api/v1/edge/{devices,heartbeat}` | edge-service | 8087 |
-| DASH | `/panel`, `/panel/notifications` | dash-service | 8090 |
-| GEST | `/gest-service/{eligibility,detection-profile}` | gest-service | 8084 |
+O FE fala **apenas com o GWY** (host `:18080`). As portas de serviço estão aqui só para
+diagnóstico; nenhum adapter deve apontar direto para elas.
 
-Verificado contra os `@RequestMapping` reais: **alinhado**. Os paths não são uniformes,
-o que impede regra única no GWY — o proxy e as rotas são por serviço.
+| Módulo | Rota no GWY | `@RequestMapping` no serviço | Alcança hoje? | Porta (diag.) |
+|---|---|---|---|---|
+| ACS | `/api/v1/acs/**` + `/oauth2/**` | `/api/v1/acs/{tenants,caregivers,directory}`, `/oauth2` | ✅ | 8088 |
+| HIST | `/api/v1/hist/**` | `/api/v1/hist/{history,audit-facts,audit-records,patients}` | ✅ | 8089 |
+| EDGE | `/api/v1/edge/**` | `/api/v1/edge/{devices,heartbeat}` | ✅ | 8087 |
+| PAC | `/api/v1/pac/**` | `/api/pac/v1/pacientes` | ❌ G8 | 8082 |
+| EVNT | `/api/v1/evnt/**` | `/api/v1/events`, `/api/v1/reports` | ❌ G8 | 18085 |
+| DASH | `/api/v1/dash/**` | `/panel`, `/internal/notifications` | ❌ G8 | 18090 |
+| GEST | `/api/v1/gest/**` | `/gest-service/{eligibility,detection-profile}` | ❌ G8 | 8084 |
 
-### Issues BE bloqueantes
+Rotas de *health* (`/api/v1/<svc>/actuator/**`, com `StripPrefix=3`) funcionam nos 7 — é o
+que `INF-02` validou. As rotas de **API** não têm rewrite, daí o G8.
 
-| Issue BE | O que bloqueia aqui |
-|---|---|
-| `E2E-001` | **P2** — o GWY roteia apenas `/api/v1/edge/**`; faltam 6 rotas |
-| `E2E-002` | **P1** — default do GWY aponta para Keycloak inexistente (`KEYCLOAK_ISSUER_URI`) |
+### Issues BE — estado revalidado
+
+| Issue BE | Estado | Efeito aqui |
+|---|---|---|
+| `E2E-001` | ✅ DONE | Desbloqueou o roteamento base e o JWK Set. **Não** cobriu alcançabilidade das rotas de API (G8) |
+| `E2E-002` | OPEN | P1 pode começar: o `jwk-set-uri` já aponta para o ACS no compose |
+
+Nenhum issue BE bloqueia P1 hoje. **P2 está bloqueada pela decisão (a)/(b) sobre G8** —
+que ainda não tem issue BE própria e talvez precise de uma.
 
 ### Decisões pendentes com o backend
 
-1. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE.
-2. Claims exatos emitidos pelo ACS (`hist:read`, `hist:read:all`) → `shared/access-decision`.
-3. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join?
+1. **G8 — normalizar (a) ou espelhar (b) as rotas do GWY.** Bloqueia P2. Recomendação: (a).
+2. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE.
+3. Claims exatos emitidos pelo ACS (`hist:read`, `hist:read:all`) → `shared/access-decision`.
+4. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join?
+5. Renomear `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` com default no ACS (higiene; não bloqueia).
 
 ### Contratos de tipo dependentes
 
