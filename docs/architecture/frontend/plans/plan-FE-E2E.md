@@ -1029,15 +1029,95 @@ diagnóstico; nenhum adapter deve apontar direto para elas.
 Rotas de *health* (`/api/v1/<svc>/actuator/**`, com `StripPrefix=3`) funcionam nos 7 — é o
 que `INF-02` validou. As rotas de **API** não têm rewrite, daí o G8.
 
-### Issues BE — estado revalidado
+### Issues BE — estado revalidado (2026-08-21, pós-Sessão 2 do BE)
 
 | Issue BE | Estado | Efeito aqui |
 |---|---|---|
 | `E2E-001` | ✅ DONE | Desbloqueou o roteamento base e o JWK Set. **Não** cobriu alcançabilidade das rotas de API (G8) |
-| `E2E-002` | OPEN | P1 pode começar: o `jwk-set-uri` já aponta para o ACS no compose |
+| `E2E-002` | ✅ DONE | JWT do ACS validado pelos resource servers. P1 desbloqueada de fato |
+| `E2E-009` | ✅ DONE (15/15) | Flow-01 completo: o backend **funciona** de ponta a ponta em acesso direto |
+| `E2E-003` / `E2E-004` | 🟡 parciais | DIR-01/04 e AUD-03/04/05 verdes; DIR-02 e AUD-01/02 são features ausentes |
+| `E2E-014` | ✅ **DONE** (2026-08-21) | `RewritePath` implementado; **G8 resolvido** — as 7 rotas alcançam o controller. P2 desbloqueada |
 
-Nenhum issue BE bloqueia P1 hoje. **P2 está bloqueada pela decisão (a)/(b) sobre G8** —
-que ainda não tem issue BE própria e talvez precise de uma.
+**G8 confirmado empiricamente em 2026-08-21** contra o stack no ar (token de coordenador):
+
+```
+/api/v1/acs/directory/tenants/{id}  -> 200      /api/v1/pac/pacientes      -> 404
+/api/v1/hist/history                -> 200      /api/v1/evnt/events/active -> 404
+/api/v1/edge/devices                -> 200      /api/v1/dash/panel         -> 404
+                                                /api/v1/gest/tipo-gesto    -> 404
+```
+
+O diagnóstico do plano estava certo. **Resolvido em 2026-08-21** por `E2E-014`
+(ADR-008, opção (a)): o GWY ganhou `RewritePath` por serviço e as 7 rotas passaram a
+alcançar o controller. Reverificado após a mudança:
+
+```
+/api/v1/pac/pacientes      -> 200      /api/v1/acs/... -> 200
+/api/v1/evnt/events/active -> 500*     /api/v1/hist/... -> 200
+/api/v1/dash/summary       -> 503*     /api/v1/edge/... -> 200
+/api/v1/gest/tipo-gesto    -> 200
+* alcançam o controller e falham por razão interna (EVNT em modo PoC; DASH depende do EVNT)
+```
+
+Superfície interna continua fechada: `/api/v1/dash/internal/notifications`,
+`/api/v1/gest/detection-{contract,profile}` → 404 no gateway.
+
+### O que a Sessão 2 do BE mudou para este plano
+
+A Sessão 2 encontrou **16 defeitos de contrato cross-service** com todos os gates unitários
+verdes. Impactos diretos aqui:
+
+1. **A premissa "o backend responde" agora é verdadeira — para ACS, PAC, HIST, GEST e EDGE.**
+   Antes da Sessão 2, qualquer chamada autenticada dava **403** (C-1: authorities no claim
+   `authorities`, resource servers liam `scope`) e a primeira escrita dava `relation does not
+   exist` (C-10: tenant id usado como nome de schema). O FE teria batido nisso em P2 sem
+   entender a causa.
+2. **Os claims do ACS estão definidos** — resolve a *decisão pendente nº 3*:
+   `authorities` (não `scope`), `tenant_id` + aliases `tenant`/`empresaId`, `papel`, `nome`.
+   Para o HIST a forma é `hist:read` / `hist:read:all` (com prefixo `SCOPE_` aplicado pelo
+   próprio HIST). **`hist:write` não é mais emitido para nenhum papel** — audit fact passou a
+   ser escrito por identidade de serviço, não pelo token do usuário.
+3. **`X-Empresa-Id` (P1) é obrigatório e validado.** O PAC compara o header com o claim do JWT
+   e responde 403 em divergência. Confirma o gap crítico de P1 — mas atenção: **o GWY não
+   injeta tenant header nenhum**; a responsabilidade é inteiramente do FE.
+4. **EVNT e DASH não estão prontos para P6.** O EVNT tem os 4 ports de saída como adapters
+   fake `@Primary`, `NotificationOrchestrationController` lança 501 e o tenant é hardcoded
+   `"poc"`. O DASH é agregador puro (sem tabelas, ADR-004) e depende do EVNT. Os fluxos de
+   alarme ponta-a-ponta de P6 **não têm backend** hoje, independentemente de G8.
+5. **O heartbeat do EDGE não é alcançável** — `ProfilePointerController` lança 501 e
+   `edge.device` não tem emissor. Afeta qualquer cenário E2E de dispositivo.
+
+### Decisões pendentes — reavaliadas
+
+| # | Decisão | Estado |
+|---|---|---|
+| 1 | G8 normalizar (a) / espelhar (b) | ✅ **decidida e implementada** — ADR-008 = (a), E2E-014 DONE. P2 **desbloqueada** |
+| 2 | Auth do canal SSE (P6) | ⛔ **prematura** — o EVNT não produz notificação real; decidir junto com a implementação do EVNT |
+| 3 | Claims emitidos pelo ACS | ✅ **resolvida** — ver item 2 acima |
+| 4 | `rotulo`/`urgencia` server-side ou client-join | ⏳ aberta |
+| 5 | `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` | ⏳ aberta (higiene) |
+
+### Ordem sugerida após a revalidação
+
+P1 (interceptor + sessão) e **P2 (proxy + flip de adapter)** estão livres: `E2E-014` fechou
+em 2026-08-21 e as 7 rotas alcançam o controller. P3/P4/P5 seguem P2. **P6 continua
+bloqueada** — o EVNT não produz notificação real (adapters fake + tenant `"poc"`).
+
+**Mudança de base path exigida no FE** (6 constantes, sem mudança de lógica — a superfície
+pública agora é `/api/v1/<svc>/**` para tudo):
+
+| Módulo | De | Para |
+|---|---|---|
+| PAC | `/api/pac/v1/pacientes` | `/api/v1/pac/pacientes` |
+| EVNT | `/api/v1/events` | `/api/v1/evnt/events` |
+| DASH | `/panel` | `/api/v1/dash` |
+| DASH | `/panel/notifications` | `/api/v1/dash/notifications` |
+| GEST | `<abs>:8084/gest-service/eligibility` | `/api/v1/gest/eligibility` |
+| GEST | `/api/gest/v1/tipos-gesto` (quebrado) | `/api/v1/gest/tipo-gesto` |
+
+ACS, HIST e EDGE ficam inalterados. O proxy do FE passa a precisar de **2 prefixos**
+(`/api/v1/**` e `/oauth2/**`) em vez de 9.
 
 ### Decisões pendentes com o backend
 

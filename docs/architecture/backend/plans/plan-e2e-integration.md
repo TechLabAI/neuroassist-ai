@@ -368,7 +368,8 @@ O módulo de integração E2E está DONE quando:
 | Issue | Status | Concluído em |
 |---|---|---|
 | E2E-001 | ✅ DONE | 2026-08-20 |
-| E2E-002 | ✅ DONE (parcial — EVNT/GEST stub security) | 2026-08-21 |
+| E2E-002 | ✅ DONE (parcial — EVNT stub security; GEST corrigido) | 2026-08-21 |
+| E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
 | E2E-003 | 🟡 PARCIAL — DIR-01/DIR-04 DONE; DIR-02 feature ausente (EVNT stub); DIR-03/DIR-05 na Sessão 5 | 2026-08-21 |
 | E2E-004 | 🟡 PARCIAL — AUD-03/04/05 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-06..10 na Sessão 4 | 2026-08-21 |
 | E2E-005 | OPEN | — |
