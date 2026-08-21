@@ -80,6 +80,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/oauth2/token",
                                                 "/oauth2/token/refresh",
+                                                // Service identity: authenticated inside the
+                                                // service against the configured BCrypt hash
+                                                "/oauth2/token/service",
                                                 "/.well-known/jwks.json",
                                                 "/oauth2/jwks",
                                                 "/actuator/health",
@@ -91,14 +94,12 @@ public class SecurityConfig {
 
                 // Wire custom entry point for 401 at both the security exception handler level
                 // and inside the resource server (covers both missing and invalid tokens)
-                .exceptionHandling(
-                        ex -> ex.authenticationEntryPoint(unauthenticatedEntryPoint))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthenticatedEntryPoint))
 
                 // JWT Resource Server — validates tokens using local RSA public key
                 .oauth2ResourceServer(
                         oauth2 ->
-                                oauth2
-                                        .authenticationEntryPoint(unauthenticatedEntryPoint)
+                                oauth2.authenticationEntryPoint(unauthenticatedEntryPoint)
                                         .jwt(
                                                 jwt ->
                                                         jwt.decoder(jwtDecoder)

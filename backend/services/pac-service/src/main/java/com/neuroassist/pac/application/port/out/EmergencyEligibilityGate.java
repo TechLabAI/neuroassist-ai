@@ -42,6 +42,24 @@ public interface EmergencyEligibilityGate {
             UUID primitivoPrincipalId, UUID primitivoSecundarioId, Urgencia urgencia);
 
     /**
+     * Verifies that every referenced primitive is known to GEST. Used by the {@code :validate}
+     * transition, which must reject unknown primitive references with HTTP 422 (SPEC-02 EARS).
+     *
+     * <p>The eligibility check above evaluates the tenant's primitive set as a whole and therefore
+     * cannot answer this question — the implementation resolves each primitive individually.
+     *
+     * <p>GEST unavailability is advisory here: if the lookup cannot be performed the primitives are
+     * treated as known and validation proceeds.
+     *
+     * @param primitivoPrincipalId UUID of the principal gesture primitive (required)
+     * @param primitivoSecundarioId UUID of the secondary primitive (null for single-gesture
+     *     commands)
+     * @throws com.neuroassist.pac.shared.error.CodedException with code {@code
+     *     pac.primitive.unknown-to-gest} if GEST answers 404 for a referenced primitive
+     */
+    void verifyPrimitivesKnown(UUID primitivoPrincipalId, UUID primitivoSecundarioId);
+
+    /**
      * Result of an eligibility check.
      *
      * @param eligible whether the command is eligible to publish (always true for emergencia if no

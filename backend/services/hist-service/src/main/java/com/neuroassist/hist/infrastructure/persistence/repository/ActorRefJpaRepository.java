@@ -1,9 +1,9 @@
 package com.neuroassist.hist.infrastructure.persistence.repository;
 
 import com.neuroassist.hist.infrastructure.persistence.entity.ActorRefJpaEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ActorRefJpaRepository extends JpaRepository<ActorRefJpaEntity, UUID> {
 

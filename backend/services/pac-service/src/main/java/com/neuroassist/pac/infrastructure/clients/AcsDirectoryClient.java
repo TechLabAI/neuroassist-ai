@@ -28,7 +28,7 @@ public interface AcsDirectoryClient {
      * @return {@link AcsEmpresaResponse} with id and valid flag
      * @throws feign.FeignException.NotFound (404) if empresa is unknown — caller handles
      */
-    @GetMapping("/api/acs/v1/empresas/{id}")
+    @GetMapping("/api/v1/acs/directory/tenants/{id}")
     AcsEmpresaResponse getEmpresa(@PathVariable("id") UUID id);
 
     /**
@@ -37,6 +37,6 @@ public interface AcsDirectoryClient {
      * @return {@link AcsCuidadorResponse} with id and empresaId
      * @throws feign.FeignException.NotFound (404) if cuidador is unknown — caller handles
      */
-    @GetMapping("/api/acs/v1/cuidadores/{id}")
+    @GetMapping("/api/v1/acs/caregivers/{id}")
     AcsCuidadorResponse getCuidador(@PathVariable("id") UUID id);
 }

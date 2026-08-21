@@ -48,7 +48,9 @@ class CaregiverPatientLinkServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CaregiverPatientLinkService(linkRepository, cuidadorRepository, pacPatientResolvePort);
+        service =
+                new CaregiverPatientLinkService(
+                        linkRepository, cuidadorRepository, pacPatientResolvePort);
         // RULE-07: populate TenantContextHolder as TenantContextFilter would in real requests
         TenantContextHolder.set(tenantId.toString());
     }
@@ -91,7 +93,10 @@ class CaregiverPatientLinkServiceTest {
         when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidador));
         // PAC resolves patient in same tenant
         when(pacPatientResolvePort.resolvePatient(pacienteId, tenantId))
-                .thenReturn(Optional.of(new PacPatientResolvePort.PatientResolveResponse(pacienteId, tenantId, "Paciente Teste", "ACTIVE")));
+                .thenReturn(
+                        Optional.of(
+                                new PacPatientResolvePort.PatientResolveResponse(
+                                        pacienteId, tenantId, "Paciente Teste", "ACTIVE")));
         when(linkRepository.save(any())).thenReturn(saved);
 
         CaregiverPatientLinkResponse response =
@@ -109,8 +114,10 @@ class CaregiverPatientLinkServiceTest {
                 .thenReturn(Optional.empty());
         // PAC must resolve patient first (service calls PAC before caregiver check)
         when(pacPatientResolvePort.resolvePatient(pacienteId, tenantId))
-                .thenReturn(Optional.of(new PacPatientResolvePort.PatientResolveResponse(
-                        pacienteId, tenantId, "Paciente", "ACTIVE")));
+                .thenReturn(
+                        Optional.of(
+                                new PacPatientResolvePort.PatientResolveResponse(
+                                        pacienteId, tenantId, "Paciente", "ACTIVE")));
         when(cuidadorRepository.findById(any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.createLink(cuidadorId, pacienteId, tenantId))
@@ -126,8 +133,10 @@ class CaregiverPatientLinkServiceTest {
                 .thenReturn(Optional.empty());
         // PAC must resolve patient first (service calls PAC before caregiver check)
         when(pacPatientResolvePort.resolvePatient(pacienteId, tenantId))
-                .thenReturn(Optional.of(new PacPatientResolvePort.PatientResolveResponse(
-                        pacienteId, tenantId, "Paciente", "ACTIVE")));
+                .thenReturn(
+                        Optional.of(
+                                new PacPatientResolvePort.PatientResolveResponse(
+                                        pacienteId, tenantId, "Paciente", "ACTIVE")));
         when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidador));
 
         assertThatThrownBy(() -> service.createLink(cuidadorId, pacienteId, tenantId))

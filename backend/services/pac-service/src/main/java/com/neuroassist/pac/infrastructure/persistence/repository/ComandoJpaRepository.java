@@ -28,7 +28,8 @@ public interface ComandoJpaRepository extends JpaRepository<ComandoJpaEntity, UU
     List<ComandoJpaEntity> findByPacienteIdOrderByCreatedAtDesc(UUID pacienteId);
 
     /** Returns non-retired commands for a patient, ordered by creation time descending. */
-    List<ComandoJpaEntity> findByPacienteIdAndEstadoNotOrderByCreatedAtDesc(UUID pacienteId, String estado);
+    List<ComandoJpaEntity> findByPacienteIdAndEstadoNotOrderByCreatedAtDesc(
+            UUID pacienteId, String estado);
 
     /** Returns only published commands for a patient — feeds {@code GET .../catalogo-ativo}. */
     List<ComandoJpaEntity> findByPacienteIdAndEstado(UUID pacienteId, String estado);

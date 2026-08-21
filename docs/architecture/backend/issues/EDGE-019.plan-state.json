@@ -1,0 +1,41 @@
+{
+  "issue": "EDGE-019",
+  "layer": "be",
+  "computedAt": "2026-08-18T19:23:27",
+  "checklist": {
+    "total": 8,
+    "done": 0,
+    "partial": 0,
+    "missing": 8,
+    "blocked": 0
+  },
+  "priorPlan": {
+    "exists": false,
+    "file": null,
+    "phases": []
+  },
+  "delta": {
+    "done": [],
+    "partial": [],
+    "notStarted": [
+      "configurar `CucumberSpringContext.java` (ja existe do M3 BDD scaffold) com `@SpringBootTest(webEnvironment=RANDOM_PORT)` + `@Testcontainers` + PostgreSQL container",
+      "criar (ou completar) `SharedSteps.java` com: setup de tenant schema (CREATE SCHEMA t_test), criacao de JWT de teste (human/device/service via TestJwtFactory), configuracao de WireMock para GEST (`/api/v1/gest/detection-profiles/active`)",
+      "criar `application-test.yml` com: datasource apontando para Testcontainers, `jwk-set-uri` apontando para stub local, GEST URL apontando para WireMock",
+      "verificar que os 4 StepDefs ja gerados no M3 (DeviceRegistrationSteps, DevicePairingSteps, HeartbeatLivenessSteps, ProfilePointerDriftSteps) compilam com o contexto e `CucumberIT` encontra as features",
+      "Testcontainers inicia PostgreSQL e aplica V0700 migration corretamente",
+      "JWT de teste (human com `edge.manage` e device com `edge.device`) e aceito pelo SecurityConfig de teste",
+      "WireMock stub para GEST configurado e chamado pelo HeartbeatService no teste",
+      "`CucumberIT` executa os 4 arquivos de feature sem `ClassNotFoundException` ou `AmbiguousStepDefinitionsException`"
+    ],
+    "inconsistencies": []
+  },
+  "dependencies": {
+    "issues": [
+      "EDGE-011",
+      "EDGE-012"
+    ],
+    "notes": []
+  },
+  "suggestedPlanType": "INCREMENTAL",
+  "needsAgentConfirm": true
+}

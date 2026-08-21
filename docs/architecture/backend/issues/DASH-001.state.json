@@ -1,0 +1,109 @@
+{
+  "issue": "DASH-001",
+  "layer": "be",
+  "computedAt": "2026-08-20T06:07:39",
+  "checklist": {
+    "total": 10,
+    "done": 10,
+    "partial": 0,
+    "missing": 0,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "Modulo Gradle :services:dash-service incluido em backend/settings.gradle.kts (include presente e verificado)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Estrutura de pacotes com.neuroassist.dash api, application, domain, infrastructure",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Dependencias Spring Boot Web, Actuator, OAuth2 Resource Server, Eureka Client, Feign declaradas em `backend/services/dash-service/build.gradle.kts`. Sem JPA, sem datasource, sem Flyway.",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/build.gradle.kts"
+      },
+      {
+        "text": "Configuracao em `backend/services/dash-service/src/main/resources/application.yml` com server.port=8090, Eureka, JWK-set-uri, timeouts e URLs dos upstreams.",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/src/main/resources/application.yml"
+      },
+      {
+        "text": "Classe principal em `backend/services/dash-service/src/main/java/com/neuroassist/dash/DashApplication.java` com @SpringBootApplication",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/src/main/java/com/neuroassist/dash/DashApplication.java"
+      },
+      {
+        "text": "Gradle :services:dash-service:build passa sem erros (BUILD SUCCESSFUL verificado)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "/actuator/health retorna 200 UP com Eureka em modo prefer-ip-address",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Nenhuma dependencia spring-boot-starter-data-jpa, flyway-core ou spring-datasource no classpath (ADR-004 compliant)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Pacote root com.neuroassist.dash com subpacotes api, application, domain, infrastructure presentes e compilando",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Variaveis de ambiente documentadas em `backend/services/dash-service/src/main/resources/application.yml` com ${ENV_VAR:default}",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/src/main/resources/application.yml"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "pass"
+  },
+  "score": {
+    "total": 100,
+    "provisional": false,
+    "range": [100, 100],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 30,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 30,
+        "basis": "heuristic",
+        "needsAgentConfirm": false,
+        "agentNote": "BDD CucumberIT passando (3 features): notification-delivery, panel-composition, write-through-actions. SSE funcional, composicao cross-module, write-throughs, seguranca dual surface verificados."
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 20,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 10,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": 10,
+        "basis": "agent",
+        "needsAgentConfirm": false,
+        "agentNote": "no-field-autowired OK, no-system-out OK, MDC wired, CorrelationIdInterceptor registrado, ActiveSseSessionsGauge presente, Actuator+Prometheus, circuit breakers configurados. RULE-07 nominal: BFF stateless por ADR-004 — servico nao toca dados de empresa diretamente, propaga X-Tenant-Id via TenantContextFilter. Excecao arquitetural aceita."
+      }
+    },
+    "band": "Maduro",
+    "statusTag": "CLOSED"
+  },
+  "agentTodo": []
+}

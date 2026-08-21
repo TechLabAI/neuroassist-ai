@@ -20,12 +20,12 @@ import com.github.tomakehurst.wiremock.WireMockServer;
  * <p>Stub scenarios covered:
  *
  * <ul>
- *   <li><b>GEST</b>: {@code POST /api/gest/v1/detectability/check} — supported, not-supported,
- *       timeout (>500ms, triggers Feign read-timeout in test profile)
- *   <li><b>ACS</b>: {@code GET /api/acs/v1/empresas/{id}} (resolveTenant), {@code GET
- *       /api/acs/v1/cuidadores/{id}} (resolveCuidador, 404)
+ *   <li><b>GEST</b>: {@code POST /gest-service/eligibility} — supported, not-supported, timeout
+ *       (>500ms, triggers Feign read-timeout in test profile)
+ *   <li><b>ACS</b>: {@code GET /api/v1/acs/directory/tenants/{id}} (resolveTenant), {@code GET
+ *       /api/v1/acs/caregivers/{id}} (resolveCuidador, 404)
  *   <li><b>EDGE</b>: {@code GET /api/edge/v1/dispositivos/{id}} (resolveDispositivo, 404)
- *   <li><b>HIST</b>: {@code POST /hist-service/api/v1/facts} — 200 success, 500 failure
+ *   <li><b>HIST</b>: {@code POST /api/v1/hist/audit-facts} — 200 success, 500 failure
  * </ul>
  */
 public final class PacWireMockStubs {
@@ -35,7 +35,7 @@ public final class PacWireMockStubs {
     private PacWireMockStubs() {}
 
     // =========================================================================
-    // GEST — POST /api/gest/v1/detectability/check
+    // GEST — POST /gest-service/eligibility
     // =========================================================================
 
     /**
@@ -46,15 +46,32 @@ public final class PacWireMockStubs {
      */
     public static void stubGestDetectability_Supported(WireMockServer gest) {
         gest.stubFor(
-                post(urlEqualTo("/api/gest/v1/detectability/check"))
+                post(urlEqualTo("/gest-service/eligibility"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 """
-                                                {"supported":true,"status":"active"}
+                                                {"eligible":true,"missingStates":[]}
                                                 """)));
+    }
+
+    /**
+     * Stub: GEST resolves any primitive id (200) — i.e. every referenced primitive is known.
+     *
+     * <p>The {@code :validate} transition resolves each primitive via {@code GET
+     * /gest-service/tipo-gesto/{id}} and treats a 404 as {@code pac.primitive.unknown-to-gest}
+     * (422), so this default keeps WireMock's own 404 from failing unrelated scenarios.
+     */
+    public static void stubGestPrimitiveKnown(WireMockServer gest) {
+        gest.stubFor(
+                get(urlPathMatching("/gest-service/tipo-gesto/.*"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", APPLICATION_JSON)
+                                        .withBody("{}")));
     }
 
     /**
@@ -65,14 +82,14 @@ public final class PacWireMockStubs {
      */
     public static void stubGestDetectability_NotSupported(WireMockServer gest) {
         gest.stubFor(
-                post(urlEqualTo("/api/gest/v1/detectability/check"))
+                post(urlEqualTo("/gest-service/eligibility"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 """
-                                                {"supported":false,"status":"pending-training"}
+                                                {"eligible":false,"missingStates":["gst-001:PENDING_TRAINING"]}
                                                 """)));
     }
 
@@ -86,14 +103,14 @@ public final class PacWireMockStubs {
      */
     public static void stubGestDetectability_Timeout(WireMockServer gest) {
         gest.stubFor(
-                post(urlEqualTo("/api/gest/v1/detectability/check"))
+                post(urlEqualTo("/gest-service/eligibility"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 """
-                                                {"supported":true,"status":"active"}
+                                                {"eligible":true,"missingStates":[]}
                                                 """)
                                         .withFixedDelay(1500))); // 1500ms > 500ms test read-timeout
     }
@@ -105,12 +122,51 @@ public final class PacWireMockStubs {
      */
     public static void stubGestDetectability_ServiceUnavailable(WireMockServer gest) {
         gest.stubFor(
-                post(urlEqualTo("/api/gest/v1/detectability/check"))
+                post(urlEqualTo("/gest-service/eligibility"))
                         .willReturn(aResponse().withStatus(503)));
     }
 
     // =========================================================================
-    // ACS — GET /api/acs/v1/empresas/{id}  (resolveTenant)
+    // ACS — POST /oauth2/token/service  (service identity, ACS-030)
+    // =========================================================================
+
+    /**
+     * The {@code accessToken} the ACS stub hands out for {@code POST /oauth2/token/service}.
+     *
+     * <p>Deliberately NOT a JWT: any assertion that the header sent to HIST equals {@code "Bearer "
+     * + SERVICE_TOKEN} therefore proves the caregiver's (RS256, WireMock-verified) token was
+     * replaced rather than merely appended to.
+     */
+    public static final String SERVICE_TOKEN = "stub-pac-service-identity-token";
+
+    /** Stub: ACS mints a service-identity token for pac-service (200). */
+    public static void stubAcsServiceToken(WireMockServer acs) {
+        acs.stubFor(
+                post(urlEqualTo("/oauth2/token/service"))
+                        .willReturn(
+                                ok().withHeader("Content-Type", APPLICATION_JSON)
+                                        .withBody(
+                                                String.format(
+                                                        """
+                                                        {"accessToken":"%s","refreshToken":null,\
+                                                        "tokenType":"Bearer","expiresIn":900,\
+                                                        "sub":null,"papel":null,\
+                                                        "authorities":["hist:write"]}
+                                                        """,
+                                                        SERVICE_TOKEN))));
+    }
+
+    /**
+     * Stub: ACS rejects the service-identity request (401) — fail-closed path. The HIST call then
+     * never leaves pac-service and the fact stays {@code pending} in the outbox.
+     */
+    public static void stubAcsServiceToken_Unauthorized(WireMockServer acs) {
+        acs.stubFor(
+                post(urlEqualTo("/oauth2/token/service")).willReturn(aResponse().withStatus(401)));
+    }
+
+    // =========================================================================
+    // ACS — GET /api/v1/acs/directory/tenants/{id}  (resolveTenant)
     // =========================================================================
 
     /**
@@ -120,13 +176,13 @@ public final class PacWireMockStubs {
      */
     public static void stubAcsResolveTenant_Valid(WireMockServer acs, String empresaId) {
         acs.stubFor(
-                get(urlPathEqualTo("/api/acs/v1/empresas/" + empresaId))
+                get(urlPathEqualTo("/api/v1/acs/directory/tenants/" + empresaId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","valid":true}
+                                                        {"tenantId":"%s","status":"ACTIVE","tipo":"CLINICA","valid":true}
                                                         """,
                                                         empresaId))));
     }
@@ -134,12 +190,12 @@ public final class PacWireMockStubs {
     /** Stub: ACS returns 404 for an unknown empresa. */
     public static void stubAcsResolveTenant_NotFound(WireMockServer acs, String empresaId) {
         acs.stubFor(
-                get(urlPathEqualTo("/api/acs/v1/empresas/" + empresaId))
+                get(urlPathEqualTo("/api/v1/acs/directory/tenants/" + empresaId))
                         .willReturn(aResponse().withStatus(404)));
     }
 
     // =========================================================================
-    // ACS — GET /api/acs/v1/cuidadores/{id}  (resolveCuidador)
+    // ACS — GET /api/v1/acs/caregivers/{id}  (resolveCuidador)
     // =========================================================================
 
     /**
@@ -151,13 +207,13 @@ public final class PacWireMockStubs {
     public static void stubAcsResolveCuidador(
             WireMockServer acs, String cuidadorId, String empresaId) {
         acs.stubFor(
-                get(urlPathEqualTo("/api/acs/v1/cuidadores/" + cuidadorId))
+                get(urlPathEqualTo("/api/v1/acs/caregivers/" + cuidadorId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","empresaId":"%s"}
+                                                        {"id":"%s","tenant":"%s","papel":"CUIDADORA","status":"ACTIVE"}
                                                         """,
                                                         cuidadorId, empresaId))));
     }
@@ -169,7 +225,7 @@ public final class PacWireMockStubs {
      */
     public static void stubAcsResolveCuidador_NotFound(WireMockServer acs, String cuidadorId) {
         acs.stubFor(
-                get(urlPathEqualTo("/api/acs/v1/cuidadores/" + cuidadorId))
+                get(urlPathEqualTo("/api/v1/acs/caregivers/" + cuidadorId))
                         .willReturn(aResponse().withStatus(404)));
     }
 
@@ -179,7 +235,7 @@ public final class PacWireMockStubs {
      */
     public static void stubAcsResolveCuidador_AnyBelongsTo(WireMockServer acs, String empresaId) {
         acs.stubFor(
-                get(urlPathMatching("/api/acs/v1/cuidadores/.*"))
+                get(urlPathMatching("/api/v1/acs/caregivers/.*"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
@@ -187,7 +243,7 @@ public final class PacWireMockStubs {
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"00000000-0000-0000-0000-000000000001","empresaId":"%s"}
+                                                        {"id":"00000000-0000-0000-0000-000000000001","tenant":"%s","papel":"CUIDADORA","status":"ACTIVE"}
                                                         """,
                                                         empresaId))));
     }
@@ -261,7 +317,7 @@ public final class PacWireMockStubs {
     }
 
     // =========================================================================
-    // HIST — POST /hist-service/api/v1/facts  (recordFact)
+    // HIST — POST /api/v1/hist/audit-facts  (recordFact)
     // =========================================================================
 
     /**
@@ -272,7 +328,7 @@ public final class PacWireMockStubs {
      */
     public static void stubHistRecordFact_Success(WireMockServer hist) {
         hist.stubFor(
-                post(urlEqualTo("/hist-service/api/v1/facts"))
+                post(urlEqualTo("/api/v1/hist/audit-facts"))
                         .willReturn(aResponse().withStatus(200)));
     }
 
@@ -284,7 +340,7 @@ public final class PacWireMockStubs {
      */
     public static void stubHistRecordFact_Failure(WireMockServer hist) {
         hist.stubFor(
-                post(urlEqualTo("/hist-service/api/v1/facts"))
+                post(urlEqualTo("/api/v1/hist/audit-facts"))
                         .willReturn(aResponse().withStatus(500)));
     }
 

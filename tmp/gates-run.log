@@ -1,0 +1,2 @@
+gates [be:acs-service] test=skip build=skip e2e=skip lint=skip -> tmp/gates.json
+OK: gates {'test': 'skip', 'build': 'skip', 'e2e': 'skip', 'lint': 'skip'} -> tmp/gates.json

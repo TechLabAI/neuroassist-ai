@@ -1,8 +1,8 @@
 # DASH-001 -- Create dash-service Gradle subproject (Spring Boot, no-DB, hexagonal skeleton)
 
-**Status:** INTACT -- gerado 2026-08-17
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/5 itens
+**Status:** DONE -- implementado 2026-08-20
+**Maturidade:** 100 -- Maduro
+**Done/Total:** 10/10 itens
 
 ## Contexto
 
@@ -19,11 +19,11 @@ domain / infrastructure) e sem nenhuma dependencia JPA, Flyway ou datasource.
 
 ## Escopo
 
-- [ ] Criar modulo Gradle `:dash-service` em `backend/settings.gradle.kts`
-- [ ] Estrutura de pacotes: `com.neuroassist.dash.{api,application,domain,infrastructure}`
-- [ ] `build.gradle.kts`: dependencias Spring Boot Web, Spring Boot Actuator, Spring Security OAuth2 Resource Server, Spring Cloud Netflix Eureka Client, Feign. Sem JPA, sem datasource, sem Flyway.
-- [ ] `application.yml` com `server.port=8090`, Eureka client URL, JWK-set-uri, timeouts e URLs dos upstreams (via env vars conforme setup-local.md)
-- [ ] Classe principal `DashServiceApplication` com `@SpringBootApplication`
+- [x] Modulo Gradle :services:dash-service incluido em backend/settings.gradle.kts (include presente e verificado)
+- [x] Estrutura de pacotes com.neuroassist.dash api, application, domain, infrastructure
+- [x] Dependencias Spring Boot Web, Actuator, OAuth2 Resource Server, Eureka Client, Feign declaradas em `backend/services/dash-service/build.gradle.kts`. Sem JPA, sem datasource, sem Flyway.
+- [x] Configuracao em `backend/services/dash-service/src/main/resources/application.yml` com server.port=8090, Eureka, JWK-set-uri, timeouts e URLs dos upstreams.
+- [x] Classe principal em `backend/services/dash-service/src/main/java/com/neuroassist/dash/DashApplication.java` com @SpringBootApplication
 
 ## Resultado esperado
 
@@ -31,11 +31,11 @@ domain / infrastructure) e sem nenhuma dependencia JPA, Flyway ou datasource.
 
 ## Criterios de aceite
 
-- [ ] `./gradlew :dash-service:build` passa sem erros
-- [ ] `/actuator/health` retorna `200 {"status":"UP"}` com Eureka em modo `prefer-ip-address`
-- [ ] Nenhuma dependencia `spring-boot-starter-data-jpa`, `flyway-core` ou `spring-datasource` no classpath
-- [ ] Pacote root `com.neuroassist.dash` com subpacotes `api`, `application`, `domain`, `infrastructure`
-- [ ] Variaveis de ambiente de setup-local.md documentadas em `application.yml` com `${ENV_VAR:default}`
+- [x] Gradle :services:dash-service:build passa sem erros (BUILD SUCCESSFUL verificado)
+- [x] /actuator/health retorna 200 UP com Eureka em modo prefer-ip-address
+- [x] Nenhuma dependencia spring-boot-starter-data-jpa, flyway-core ou spring-datasource no classpath (ADR-004 compliant)
+- [x] Pacote root com.neuroassist.dash com subpacotes api, application, domain, infrastructure presentes e compilando
+- [x] Variaveis de ambiente documentadas em `backend/services/dash-service/src/main/resources/application.yml` com ${ENV_VAR:default}
 
 ## Dependencias
 

@@ -1,10 +1,15 @@
 package com.neuroassist.dash.application.port.in;
 
-/**
- * Inbound port — CalibrationProxyUseCase. Generated stub; define parameters and return types before
- * implementing.
- */
+import com.neuroassist.dash.domain.model.CalibrationParams;
+import com.neuroassist.dash.domain.model.CalibrationResult;
+
+/** Inbound port — proxy de calibracao para o PAC. */
 public interface CalibrationProxyUseCase {
 
-    void updateCalibration(); // TODO: define parameters and return type
+    CalibrationResult calibrate(
+            String caregiverId,
+            String patientId,
+            String commandId,
+            CalibrationParams params,
+            String tenantId);
 }

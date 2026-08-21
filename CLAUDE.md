@@ -53,11 +53,11 @@
 |---|---|---|---|---|---|
 | GEST | Detecção de Gesto (Edge) | `gest-service` | `libs/gest` | 8084 | ✅ scaffolded + P1-P9 done |
 | EVNT | Eventos e Alarmes | `evnt-service` | `libs/evnt` | 8085 | ✅ scaffolded + P1-P9 done |
-| PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded |
-| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | ✅ scaffolded |
-| EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | 🔄 scaffolded + P1-P6 done |
-| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | 🔄 scaffolded |
-| DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | 🔄 scaffolded |
+| PAC | Pacientes e Catálogo de Comandos | `pac-service` | `libs/pac` | 8082 | ✅ scaffolded + P1-P9 done (160/160 BDD) |
+| ACS | Cuidadores e Acesso | `acs-service` | `libs/acs` | 8088 | ✅ scaffolded + P1-P7 done (26/26 issues, 85/100 Maduro) — PRODUCTION-READY |
+| EDGE | Integração de Dispositivo Edge | `edge-service` | `libs/edge` | 8087 | ✅ scaffolded + P1-P10 done |
+| HIST | Histórico e Auditoria | `hist-service` | `libs/hist` | 8089 | ✅ scaffolded + P1-P10 done (92/92 tests, 100/100) |
+| DASH | Dashboard e Notificações | `dash-service` | `libs/dash` | 8090 | ✅ scaffolded + P1-P8 done (100/100) |
 
 Issue prefix: `<MODULE>-NNN` (e.g.: `GEST-001`, `EVNT-001`, `PAC-001`). Issues live in `docs/architecture/{backend,frontend}/issues/`. GitHub repository: `TechLabAI/neuroassist-ai`.
 
@@ -100,7 +100,7 @@ RULE-03  @Transactional only in application.service
 RULE-04  api.* does not depend on infrastructure.*
 RULE-05  infrastructure.* does not depend on api.*
 RULE-06  @FeignClient only in infrastructure.clients
-
+RULE-07  TenantContextHolder.require() is the FIRST call in every public method that touches empresa data
 RULE-08  spring.jpa.open-in-view=false mandatory
 RULE-09  mandatory base package: com.neuroassist.<module>
 ```
@@ -291,10 +291,12 @@ the command above is unchanged.
 | `docs/architecture/backend/standards/java-conventions.md` | Lombok, SLF4J, DI, JPA, naming, validation |
 | `docs/architecture/backend/standards/snippets.md` | Snippets reference (ports, adapters, services, JMS, Feign, tests) |
 | `docs/architecture/backend/standards/platform-patterns.md` | JMS Artemis, Feign+Resilience4j, centralized Flyway, MDC, Saga |
+| `docs/architecture/backend/standards/service-identity.md` | **Service-to-service auth**: when to propagate the caller's JWT vs. use a service token, the `POST /oauth2/token/service` contract, and the interceptor-ordering trap |
 | `docs/architecture/backend/standards/testing-conventions.md` | Pyramid, Testcontainers, Cucumber, Pact |
 | `docs/architecture/backend/standards/services-catalog.md` | Catalog of microservices + canonical packages + events + Feign clients |
 | `docs/architecture/backend/standards/service-spec-authoring.md` | How to write per-service SPECs (Phase 1-3) |
 | `docs/architecture/backend/standards/api-mock-convention.md` | Mock profile, /api/v0/, fixtures |
+
 
 | `docs/architecture/frontend/standards/nx-boundaries.md` | Nx tags, allowed directions, ESLint config |
 | `docs/architecture/frontend/standards/access-layer-contracts.md` | AuthSession, AccessDecision |
@@ -315,6 +317,111 @@ the command above is unchanged.
 - **Never** use `@Testcontainers` + `@Container` -- singleton container pattern (static initializer)
 - **Never** forget `DomainServiceConfig.java` (domain services are POJOs and need `@Bean`)
 - **Never** run a microservice before `neuroassist-ai-migrations`
+- **Never** use `feign.client.config` prefix — since Spring Cloud 2025.0.1 it is silently ignored; always use `spring.cloud.openfeign.client.config` (infinite default timeout if wrong)
+- **Never** declare a Feign response record as package-private — JDK dynamic proxies (`jdk.proxy3.$ProxyN`) cannot access it; always `public record`
+- **Never** write a Feign client (path, body or response DTO) from the consumer's assumption — open the producer's `@RestController` and its request/response records and mirror them. A WireMock stub written from the same assumption makes the test pass *precisely when the assumption is wrong* (E2E Session 2: 10 of 16 defects)
+- **Never** invent an authority name in `RoleAuthorityPolicy` — every value must match a literal `@PreAuthorize` / SecurityConfig rule in the owning service, verbatim
+- **Never** treat the tenant identifier as a schema name — see "Cross-service contracts" below
+- **Never** rely on a green module gate as proof of integration — the 7 modules were all green while 16 cross-service defects were live
+
+---
+
+## TODOs are not reminders — report every one
+
+**Whenever you encounter a `TODO`, `FIXME`, `XXX`, `HACK`, a fake `@Primary` adapter, an
+empty `@FeignClient`, or a method that throws `UnsupportedOperationException`: report it to
+the user AND emit an ES signal.** Even when it is outside the scope of the task at hand.
+Include the same instruction in any subagent briefing you write.
+
+```bash
+python scripts/pipeline_events.py emit --category LEARNING --actor <who> --module <MODULE> \
+  --status blocked --message "[TODO-LIVE][<SVC>] <location> — <what is missing>" \
+  --details '{"kind":"live-stub","location":"...","missing":"...","blocks":"..."}'
+```
+
+In this repo a TODO is rarely a reminder — it is **absent capability disguised as present
+capability**, and the module gates go green anyway because the logic is tested against its
+own fakes. Distinguish two kinds:
+
+- **Live stub** (`blocked`) — reachable at runtime and lies about working: an endpoint that
+  throws 501, a fake `@Primary` adapter, an empty Feign client whose adapter silently skips
+  the call. These are the ones that bite in a later session.
+- **Dead scaffolding** (`completed`, minor) — a generated port/adapter that throws but is
+  never referenced by any application service. Harmless at runtime, still misleading.
+
+Current inventory and what each item blocks:
+`docs/architecture/backend/plans/plan-e2e-integration.md` §11.3.
+
+**Related trap — a guard that guards nothing.** Two variants seen in this repo: a
+`@CircuitBreaker` without `ignoreExceptions` turns a 403 into "service degraded" (an
+authorization bug becomes indistinguishable from an outage), and an ArchUnit catalogue pinned
+inline that contains *both* sides of a divergence it is supposed to detect. When a guard is
+green, check what it actually compares.
+
+**The `:test` gate does not run `integrationTest`.** `./gradlew :services:<svc>:test
+:services:<svc>:architectureCheck` can stay green while an `*IT` class breaks. When Docker is
+available, run `integrationTest` too before declaring a change safe.
+
+---
+
+## Cross-service contracts (learned the hard way — E2E Session 2)
+
+Catalogue of the 16 defects with root cause and why the unit gates missed each:
+`docs/architecture/backend/plans/plan-e2e-integration.md` §11.
+
+### Auth backbone — the canonical shapes
+
+`acs-service` (`TokenIssuer`) issues an RS256 JWT with:
+
+| Claim | Value | Note |
+|---|---|---|
+| `authorities` | list of fine-grained authorities | **This is where authorities live — NOT `scope`** |
+| `tenant_id` | tenant UUID | canonical |
+| `tenant`, `empresaId` | same UUID | compat aliases; converge on `tenant_id` |
+| `papel`, `nome`, `sub` | role, display name, caregiver id | |
+
+Every resource server MUST therefore configure its converter to read the **union** of
+`scope` and `authorities` — the Spring default reads only `scope`, which yields zero
+authorities and a 403 on every `@PreAuthorize`:
+
+```java
+JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+scopeConverter.setAuthorityPrefix("");                      // or "SCOPE_" — see below
+JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+authoritiesConverter.setAuthorityPrefix("");
+authoritiesConverter.setAuthoritiesClaimName("authorities"); // ← the claim ACS populates
+// converter = union of both
+```
+
+Authority naming is `<service>.<resource>.<action>` with **empty prefix** everywhere,
+except `hist-service`, which enforces the colon form with the `SCOPE_` prefix
+(`SCOPE_hist:read`, `hist:read:all`, `hist:write`). Do not mix the two in one service.
+
+### Multi-tenancy — tenant id ≠ schema name
+
+ACS issues the tenant **UUID**; the provisioned schema is recorded in
+`neuroassist_global.tenant.schema_nome` (e.g. `t_emp_dev`). `MultiTenantConnectionProvider`
+must resolve `tenant_id → schema_nome` (cached) before `SET search_path`, falling back to
+the identifier when the catalogue has no row. Never derive the schema from the identifier
+(neither raw nor `t_<id>`) — that reintroduces the defect.
+
+### Schema drift: the suites do not validate the real schema
+
+Module suites run `ddl-auto=create-drop`, so **Hibernate designs the schema in tests while
+Flyway designs it in production**. Any divergence between a migration and a JPA mapping is
+invisible until runtime (a Postgres `ENUM` column mapped as `String` broke every outbox
+write). When you touch a migration or an entity, check the other side by hand.
+
+Flyway `out-of-order: true` is required by the per-module V-range convention (PAC
+V0200-V0299, GEST V0400-V0499, EDGE V0700-V0799, ACS V0800-V0899…): a new migration in a
+low range is by construction out of order against higher ranges already applied.
+
+### Service ports (host → container, docker-compose.dev.yml)
+
+`acs 8088 · pac 8082 · gest 8084 · edge 8087 · hist 8089 · evnt 18085 · dash 18090 · gwy 18080 · eureka 18761 · pg 5433`
+
+Feign `url` defaults pointing at `localhost` resolve to **the calling container itself**.
+Always provide the docker env var (`ACS_SERVICE_URL`, etc.) in `docker-compose.dev.yml`.
 
 ---
 

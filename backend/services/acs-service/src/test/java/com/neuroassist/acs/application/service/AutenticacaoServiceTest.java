@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.neuroassist.acs.api.dto.AutenticacaoRequest;
 import com.neuroassist.acs.api.dto.AutenticacaoResponse;
+import com.neuroassist.acs.api.dto.RefreshTokenRequest;
 import com.neuroassist.acs.application.port.out.CuidadorRepositoryPort;
 import com.neuroassist.acs.application.port.out.HistAuditPort;
 import com.neuroassist.acs.application.port.out.TenantRepositoryPort;
@@ -20,8 +21,11 @@ import com.neuroassist.acs.domain.model.CuidadorStatus;
 import com.neuroassist.acs.domain.model.Tenant;
 import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
+import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
 import com.neuroassist.acs.shared.error.InvalidCredentialsException;
+import com.neuroassist.acs.shared.error.InvalidTokenTypeException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -30,10 +34,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtException;
 
 /**
- * Unit tests for AutenticacaoService (ACS-006). All ports are mocked — no Spring context required.
+ * Unit tests for AutenticacaoService (ACS-006, ACS-007, ACS-026). All ports are mocked — no Spring
+ * context required.
  */
 class AutenticacaoServiceTest {
 
@@ -59,7 +66,14 @@ class AutenticacaoServiceTest {
         jwtDecoder = mock(JwtDecoder.class);
         passwordEncoder = new BCryptPasswordEncoder(4); // fast for tests
 
-        Tenant activeTenant = new Tenant(TENANT_ID, "Test Tenant", TenantTipo.CLINICA, TenantStatus.ACTIVE, "schema_test", Instant.now());
+        Tenant activeTenant =
+                new Tenant(
+                        TENANT_ID,
+                        "Test Tenant",
+                        TenantTipo.CLINICA,
+                        TenantStatus.ACTIVE,
+                        "schema_test",
+                        Instant.now());
         when(tenantRepository.findById(TENANT_ID)).thenReturn(Optional.of(activeTenant));
 
         service =
@@ -70,8 +84,13 @@ class AutenticacaoServiceTest {
                         tokenIssuer,
                         passwordEncoder,
                         jwtDecoder,
-                        new SimpleMeterRegistry());
+                        new SimpleMeterRegistry(),
+                        ObservationRegistry.NOOP);
     }
+
+    // -----------------------------------------------------------------------
+    // authenticate() tests — ACS-006
+    // -----------------------------------------------------------------------
 
     @Test
     void authenticate_validCredentials_returnsToken() {
@@ -80,7 +99,6 @@ class AutenticacaoServiceTest {
 
         when(cuidadorRepository.findByLogin(LOGIN)).thenReturn(Optional.of(cuidador));
         when(tokenIssuer.issue(cuidador)).thenReturn(buildResponse());
-        // recordFact is void — default mock behavior is do-nothing (no stubbing needed)
 
         AutenticacaoResponse result =
                 service.authenticate(new AutenticacaoRequest("password", LOGIN, SENHA));
@@ -138,7 +156,6 @@ class AutenticacaoServiceTest {
 
         when(cuidadorRepository.findByLogin(LOGIN)).thenReturn(Optional.of(cuidador));
         when(tokenIssuer.issue(cuidador)).thenReturn(buildResponse());
-        // Simulate audit failure — use doThrow for void methods
         org.mockito.Mockito.doThrow(new RuntimeException("audit down"))
                 .when(histAuditPort)
                 .recordFact(any());
@@ -149,6 +166,73 @@ class AutenticacaoServiceTest {
 
         assertThat(result).isNotNull();
     }
+
+    // -----------------------------------------------------------------------
+    // refresh() tests — ACS-007 / ACS-026 Item B10
+    // -----------------------------------------------------------------------
+
+    /** B10-1: Refresh válido → retorna novo access + novo refresh token. */
+    @Test
+    void refresh_validRefreshToken_returnsNewTokenPair() {
+        Cuidador cuidador = buildCuidador("hashed");
+        Jwt refreshJwt = buildRefreshJwt("refresh");
+
+        when(jwtDecoder.decode("valid-refresh-token")).thenReturn(refreshJwt);
+        when(cuidadorRepository.findById(CUIDADOR_ID)).thenReturn(Optional.of(cuidador));
+        when(tokenIssuer.issue(cuidador)).thenReturn(buildResponse());
+
+        AutenticacaoResponse result =
+                service.refresh(new RefreshTokenRequest("valid-refresh-token"));
+
+        assertThat(result).isNotNull();
+        assertThat(result.accessToken()).isEqualTo("access-token-value");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token-value");
+        verify(tokenIssuer).issue(cuidador);
+    }
+
+    /**
+     * B10-2: Refresh expirado → 401 InvalidCredentialsException. The JwtDecoder throws JwtException
+     * for expired tokens.
+     */
+    @Test
+    void refresh_expiredToken_throws401() {
+        when(jwtDecoder.decode("expired-token")).thenThrow(new JwtException("Token expired"));
+
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("expired-token")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        verify(cuidadorRepository, never()).findById(any());
+    }
+
+    /** B10-3: Refresh com token_type != "refresh" → 400 InvalidTokenTypeException. */
+    @Test
+    void refresh_wrongTokenType_throws400() {
+        Jwt accessJwt = buildRefreshJwt("access"); // wrong type!
+        when(jwtDecoder.decode("access-token-as-refresh")).thenReturn(accessJwt);
+
+        assertThatThrownBy(
+                        () -> service.refresh(new RefreshTokenRequest("access-token-as-refresh")))
+                .isInstanceOf(InvalidTokenTypeException.class);
+
+        verify(cuidadorRepository, never()).findById(any());
+    }
+
+    /** B10-4: Cuidador não encontrado no sub → 404 CaregiverNotFoundException. */
+    @Test
+    void refresh_caregiverNotFound_throws404() {
+        Jwt refreshJwt = buildRefreshJwt("refresh");
+        when(jwtDecoder.decode("valid-refresh-token")).thenReturn(refreshJwt);
+        when(cuidadorRepository.findById(CUIDADOR_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.refresh(new RefreshTokenRequest("valid-refresh-token")))
+                .isInstanceOf(CaregiverNotFoundException.class);
+
+        verify(tokenIssuer, never()).issue(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
 
     private Cuidador buildCuidador(String credentialHash) {
         return new Cuidador(
@@ -173,5 +257,16 @@ class AutenticacaoServiceTest {
                 CUIDADOR_ID,
                 CuidadorPapel.CUIDADORA.name(),
                 List.of("acs.cuidador.read", "acs.directory.read"));
+    }
+
+    /** Builds a mock Jwt with the given token_type claim and subject = CUIDADOR_ID. */
+    private Jwt buildRefreshJwt(String tokenType) {
+        return Jwt.withTokenValue("jwt-value")
+                .header("alg", "RS256")
+                .subject(CUIDADOR_ID.toString())
+                .claim("token_type", tokenType)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .issuedAt(Instant.now())
+                .build();
     }
 }

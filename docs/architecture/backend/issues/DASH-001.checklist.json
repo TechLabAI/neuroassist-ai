@@ -1,0 +1,63 @@
+{
+  "issue": "DASH-001",
+  "layer": "be",
+  "checklist": {
+    "total": 10,
+    "done": 8,
+    "partial": 1,
+    "missing": 1,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "Criar modulo Gradle `:dash-service` em `backend/settings.gradle.kts`",
+        "state": "PARTIAL",
+        "evidence": "arquivo presente porem stub: backend/settings.gradle.kts"
+      },
+      {
+        "text": "Estrutura de pacotes com.neuroassist.dash api, application, domain, infrastructure",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Dependencias Spring Boot Web, Actuator, OAuth2 Resource Server, Eureka Client, Feign declaradas em `backend/services/dash-service/build.gradle.kts`. Sem JPA, sem datasource, sem Flyway.",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/build.gradle.kts"
+      },
+      {
+        "text": "Configuracao em `backend/services/dash-service/src/main/resources/application.yml` com server.port=8090, Eureka, JWK-set-uri, timeouts e URLs dos upstreams.",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/src/main/resources/application.yml"
+      },
+      {
+        "text": "Classe principal em `backend/services/dash-service/src/main/java/com/neuroassist/dash/DashServiceApplication.java` com @SpringBootApplication",
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: backend/services/dash-service/src/main/java/com/neuroassist/dash/DashServiceApplication.java"
+      },
+      {
+        "text": "Gradle :services:dash-service:build passa sem erros (BUILD SUCCESSFUL verificado)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "/actuator/health retorna 200 UP com Eureka em modo prefer-ip-address",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Nenhuma dependencia spring-boot-starter-data-jpa, flyway-core ou spring-datasource no classpath (ADR-004 compliant)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Pacote root com.neuroassist.dash com subpacotes api, application, domain, infrastructure presentes e compilando",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Variaveis de ambiente documentadas em `backend/services/dash-service/src/main/resources/application.yml` com ${ENV_VAR:default}",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: backend/services/dash-service/src/main/resources/application.yml"
+      }
+    ]
+  }
+}

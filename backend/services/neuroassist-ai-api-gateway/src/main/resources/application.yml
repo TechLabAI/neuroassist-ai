@@ -3,11 +3,135 @@ spring:
     name: neuroassist-ai-api-gateway
   cloud:
     gateway:
-      routes: []  # TODO: definir rotas — ver issue GWY-002+
+      routes:
+        # ── ACS OAuth2 ──────────────────────────────────────────────────────────
+        - id: acs-oauth2-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/oauth2/**,.well-known/**
+
+        # ── Actuator health routes (strip /api/v1/<svc>, forward to /actuator/health)
+        - id: acs-health-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/api/v1/acs/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: gest-health-route
+          uri: lb://gest-service
+          predicates:
+            - Path=/api/v1/gest/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: evnt-health-route
+          uri: lb://evnt-service
+          predicates:
+            - Path=/api/v1/evnt/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: pac-health-route
+          uri: lb://pac-service
+          predicates:
+            - Path=/api/v1/pac/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: edge-health-route
+          uri: lb://edge-service
+          predicates:
+            - Path=/api/v1/edge/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: hist-health-route
+          uri: lb://hist-service
+          predicates:
+            - Path=/api/v1/hist/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: dash-health-route
+          uri: lb://dash-service
+          predicates:
+            - Path=/api/v1/dash/actuator/**
+          filters:
+            - StripPrefix=3
+
+        # ── Service API routes (E2E-014 / ADR-008) ───────────────────────────────
+        # A superfície pública é /api/v1/<svc>/** para os 7 serviços. Os @RequestMapping
+        # dos controllers NÃO mudam — o GWY reconcilia com RewritePath, e o contrato
+        # público passa a ser propriedade do gateway.
+        #
+        # O RewritePath também funciona como allow-list: o que não tem rota aqui é
+        # inalcançável pela borda por construção (/internal/**, /edge-service/**,
+        # /evnt-service/** e a superfície interna do GEST).
+
+        # ACS / HIST / EDGE — o @RequestMapping já está na convenção pública, sem rewrite
+        - id: acs-service-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/api/v1/acs/**
+
+        - id: hist-service-route
+          uri: lb://hist-service
+          predicates:
+            - Path=/api/v1/hist/**
+
+        - id: edge-service-route
+          uri: lb://edge-service
+          predicates:
+            - Path=/api/v1/edge/**
+
+        # PAC — controller usa /api/pac/v1/**
+        - id: pac-service-route
+          uri: lb://pac-service
+          predicates:
+            - Path=/api/v1/pac/**
+          filters:
+            - RewritePath=/api/v1/pac/(?<segment>.*), /api/pac/v1/$\{segment}
+
+        # EVNT — controllers usam /api/v1/{events,reports}
+        - id: evnt-service-route
+          uri: lb://evnt-service
+          predicates:
+            - Path=/api/v1/evnt/**
+          filters:
+            - RewritePath=/api/v1/evnt/(?<segment>.*), /api/v1/$\{segment}
+
+        # DASH — controller usa /panel/**. /internal/notifications fica de fora: é
+        # service-to-service (EVNT→DASH) e não deve ser alcançável pela borda (RWT-07).
+        - id: dash-service-route
+          uri: lb://dash-service
+          predicates:
+            - Path=/api/v1/dash/**
+          filters:
+            - RewritePath=/api/v1/dash/(?<segment>.*), /panel/$\{segment}
+
+        # GEST — sem superfície pública própria: os 4 mappings estão todos na convenção
+        # interna /gest-service/**. Rota POR ENDPOINT, não wildcard (ADR-008 regra 2):
+        # publicar /api/v1/gest/** exporia também detection-profile (consumido pelo EDGE)
+        # e detection-contract (interno) — ver RWT-08.
+        - id: gest-eligibility-route
+          uri: lb://gest-service
+          predicates:
+            - Path=/api/v1/gest/eligibility
+          filters:
+            - RewritePath=/api/v1/gest/eligibility, /gest-service/eligibility
+
+        - id: gest-tipo-gesto-route
+          uri: lb://gest-service
+          predicates:
+            - Path=/api/v1/gest/tipo-gesto,/api/v1/gest/tipo-gesto/**
+          filters:
+            - RewritePath=/api/v1/gest/tipo-gesto(?<segment>.*), /gest-service/tipo-gesto$\{segment}
   security:
     oauth2:
       resourceserver:
         jwt:
+          jwk-set-uri: ${ACS_JWK_URI:http://localhost:8088/oauth2/jwks}
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
 
 server:

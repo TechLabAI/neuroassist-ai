@@ -1,0 +1,41 @@
+﻿gradle : 
+No linha:1 caractere:360
++ ... ssist-ai" ; gradle :gest-service:clean 
+:gest-service:compileJava :ges ...
++                 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], R 
+   emoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Directory 'D:\01_Trabalho\Cybersoft\TechLab 
+IA\neuroassist-ai' does not contain a Gradle build.
+
+A Gradle build's root directory should contain one of the 
+possible settings files: settings.gradle, 
+settings.gradle.kts, settings.gradle.dcl.It may also 
+contain one of the possible build files: build.gradle, 
+build.gradle.kts, build.gradle.dcl.
+
+To create a new Gradle build in this directory run 'gradle 
+init'
+
+For more information about the 'init' task, please refer to 
+https://docs.gradle.org/8.13/userguide/build_init_plugin.htm
+l in the Gradle documentation.
+
+For more details on creating a Gradle build, please refer 
+to https://docs.gradle.org/8.13/userguide/tutorial_using_tas
+ks.html in the Gradle documentation.
+
+* Try:
+> Run gradle init to create a new Gradle build in this 
+directory.
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1s

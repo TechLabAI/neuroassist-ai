@@ -1,0 +1,10 @@
+﻿> Task :services:gest-service:compileJava UP-TO-DATE
+> Task :services:gest-service:processResources UP-TO-DATE
+> Task :services:gest-service:classes UP-TO-DATE
+> Task :services:gest-service:compileTestJava UP-TO-DATE
+> Task :services:gest-service:processTestResources UP-TO-DATE
+> Task :services:gest-service:testClasses UP-TO-DATE
+> Task :services:gest-service:test UP-TO-DATE
+
+BUILD SUCCESSFUL in 5s
+5 actionable tasks: 5 up-to-date

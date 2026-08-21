@@ -37,3 +37,5 @@ acs:
   jwt:
     expiry-seconds: 300
     refresh-expiry-seconds: 3600
+  signing-key:
+    encryption-secret: test-signing-key-secret-for-integration-tests

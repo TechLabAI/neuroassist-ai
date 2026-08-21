@@ -7,7 +7,6 @@ import lombok.*;
 
 @Entity
 @Table(name = "tipo_gesto_ref")
-// Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,18 +15,18 @@ import lombok.*;
 public class TipoGestoRefJpaEntity {
 
     @Id
-    @GeneratedValue
-    @Column(name = "tipo_gesto_ref_id")
+    @Column(name = "tipo_gesto_id")
     private UUID id;
 
-    @Column(name = "tenant_id", nullable = false)
+    @Column(name = "nome", nullable = false)
+    private String nome;
+
+    @Column(name = "supported", nullable = false)
+    private boolean supported;
+
+    @Column(name = "synced_at", nullable = false)
+    private Instant syncedAt;
+
+    @Column(name = "tenant_id")
     private String tenantId;
-
-    @Column(name = "status")
-    private String status;
-
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
-    // TODO: complete fields from data-model.md
 }

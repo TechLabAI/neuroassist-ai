@@ -1,6 +1,7 @@
 package com.neuroassist.edge.infrastructure.clients;
 
 import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.infrastructure.security.ServiceTokenUnavailableException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.util.Optional;
 import java.util.UUID;
@@ -54,6 +55,16 @@ public class DetectionProfileFeignAdapter implements DetectionProfilePort {
      */
     @SuppressWarnings("unused")
     Optional<Long> fallback(UUID deviceId, String tenantId, Throwable cause) {
+        // Fail-closed: a missing service identity is a configuration/authentication defect, not a
+        // transient GEST outage. Degrading it to Optional.empty() is exactly the silent failure
+        // that produced C-19, so it is rethrown and surfaces to the caller.
+        if (cause instanceof ServiceTokenUnavailableException stue) {
+            log.error(
+                    "Service identity unavailable for GEST call (deviceId='{}'): {}",
+                    deviceId,
+                    stue.getMessage());
+            throw stue;
+        }
         log.warn(
                 "GEST circuit breaker fallback (degraded) for deviceId='{}': {}",
                 deviceId,

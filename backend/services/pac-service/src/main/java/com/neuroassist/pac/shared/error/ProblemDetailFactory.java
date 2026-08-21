@@ -28,10 +28,16 @@ public final class ProblemDetailFactory {
 
     private static final Map<String, String> TYPE_OVERRIDES =
             Map.ofEntries(
-                    Map.entry("pac.comando.duplicate-active-mapping", "/errors/duplicate-active-mapping"),
-                    Map.entry("pac.comando.invalid-lifecycle-transition", "/errors/invalid-lifecycle-transition"),
+                    Map.entry(
+                            "pac.comando.duplicate-active-mapping",
+                            "/errors/duplicate-active-mapping"),
+                    Map.entry(
+                            "pac.comando.invalid-lifecycle-transition",
+                            "/errors/invalid-lifecycle-transition"),
                     Map.entry("pac.emergency.not-detectable", "/errors/emergency-not-detectable"),
-                    Map.entry("pac.emergency.gate-unavailable", "/errors/eligibility-gate-unavailable"),
+                    Map.entry(
+                            "pac.emergency.gate-unavailable",
+                            "/errors/eligibility-gate-unavailable"),
                     Map.entry("conflict-precondition", "/errors/conflict-precondition"),
                     Map.entry("missing-tenant", "/errors/missing-tenant"),
                     Map.entry("tenant-mismatch", "/errors/tenant-mismatch"),
@@ -162,8 +168,9 @@ public final class ProblemDetailFactory {
                         ? ex.getMessage()
                         : meta.title());
         String resolvedCode = code == null ? "internal_error" : code;
-        String typeUri = TYPE_OVERRIDES.getOrDefault(
-                resolvedCode, TYPE_URI_TEMPLATE.replace("{code}", resolvedCode));
+        String typeUri =
+                TYPE_OVERRIDES.getOrDefault(
+                        resolvedCode, TYPE_URI_TEMPLATE.replace("{code}", resolvedCode));
         pd.setType(URI.create(typeUri));
         if (req != null) {
             pd.setInstance(URI.create(req.getRequestURI()));

@@ -211,15 +211,13 @@ public class TipoGestoLifecycleSteps {
 
     @And("the detectabilityState of \"piscar duplo\" remains \"pending_training\"")
     public void andTheDetectabilitystateOfPiscarDuploRemainsPendingtraining() {
-        ResponseEntity<String> current =
-                restTemplate.getForEntity(BASE_PATH + "/" + state.lastEntityId, String.class);
+        ResponseEntity<String> current = getById(state.lastEntityId);
         assertThat(fieldFrom(current, "detectabilityState")).isEqualTo("pending_training");
     }
 
     @And("the detectabilityState of \"piscar duplo\" remains \"registered\"")
     public void andTheDetectabilitystateOfPiscarDuploRemainsRegistered() {
-        ResponseEntity<String> current =
-                restTemplate.getForEntity(BASE_PATH + "/" + state.lastEntityId, String.class);
+        ResponseEntity<String> current = getById(state.lastEntityId);
         assertThat(fieldFrom(current, "detectabilityState")).isEqualTo("registered");
     }
 
@@ -419,9 +417,20 @@ public class TipoGestoLifecycleSteps {
         }
     }
 
-    private HttpEntity<String> jsonEntity(String body) {
+    /**
+     * Authenticated GET of a single TipoGesto. gest-service now enforces {@code
+     * anyRequest().authenticated()}, so an anonymous GET returns an empty-bodied 401 and the
+     * response-field assertions would read null instead of the entity.
+     */
+    private ResponseEntity<String> getById(String id) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        applyCredentials(headers);
+        return restTemplate.exchange(
+                BASE_PATH + "/" + id, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+    }
+
+    /** Adds the scenario's HTTP Basic credentials to the given headers, when set. */
+    private void applyCredentials(HttpHeaders headers) {
         if (state.currentCredentials != null) {
             String encoded =
                     Base64.getEncoder()
@@ -429,6 +438,12 @@ public class TipoGestoLifecycleSteps {
                                     state.currentCredentials.getBytes(StandardCharsets.UTF_8));
             headers.set("Authorization", "Basic " + encoded);
         }
+    }
+
+    private HttpEntity<String> jsonEntity(String body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        applyCredentials(headers);
         return new HttpEntity<>(body, headers);
     }
 

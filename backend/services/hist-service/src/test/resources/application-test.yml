@@ -16,3 +16,19 @@ spring:
 eureka:
   client:
     enabled: false
+
+hist:
+  crypto:
+    master-key: "0000000000000000000000000000000000000000000000000000000000000000"
+
+# Feign timeouts — explicit for test profile so the AcsIntegrationTest timeout scenario works
+# even when the named client config from application.yml is not applied to URL-based clients.
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 2000
+        readTimeout: 2000
+      acs-directory:
+        connectTimeout: 2000
+        readTimeout: 2000

@@ -1,0 +1,41 @@
+# generator-config.yml — HIST (Histórico e Auditoria) — Frontend
+# Schema: libs/internal-nx-plugin/src/generator-config.schema.json
+# Input for the FE scaffold/promote stage (@neuroassist prototype-first, D-493).
+service: hist
+issue_prefix: HIST
+shell_route: /historico
+features:
+  - name: timeline
+    routes:
+      - /historico
+      - /historico/:eventId            # post-MVP, gated by feature flag `detailRoute` (gap G5)
+    components:
+      - HistoryTimelineComponent
+      - EventDetailComponent
+data_access:
+  - resource: History
+    base_path: /api/v1/hist/history
+    operations: [list]                 # period → from/to; paged; read-only (api-contract §3.1)
+  - resource: HistoryRecord
+    base_path: /api/v1/hist/audit-facts/{id}
+    operations: [get]                  # single record (post-MVP detail); FE never calls POST ingestion
+  - resource: ChainVerification
+    base_path: /api/v1/hist/history/verify
+    operations: [list]                 # coordinator tamper-evidence badge (api-contract §3.2)
+  - resource: FactTypes
+    base_path: /api/v1/hist/fact-types
+    operations: [list]                 # controlled vocabulary (api-contract §5)
+  - resource: Feedback
+    base_path: /api/v1/evnt/events/{eventId}/feedback
+    operations: [create]               # verdict write targets evnt-service (gap G1 / flag feedbackTarget)
+backend_contract: ../../../../backend/services/hist-service/contracts/api-contract.md
+state_management: signals
+ui_libs_used:
+  - '@neuroassist/shared/ui-layout'
+  - '@neuroassist/shared/ui-feedback'
+  - '@neuroassist/shared/ui-tokens'
+  - '@neuroassist/shared/access-http-base'
+  - '@neuroassist/shared/error-model'
+extra_dependencies: []
+e2e:
+  features_path: docs/architecture/frontend/modules/hist/e2e/

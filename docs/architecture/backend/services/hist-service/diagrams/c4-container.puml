@@ -1,0 +1,32 @@
+@startuml hist-service-container
+!include <C4/C4_Container>
+title HIST (hist-service) — Container
+
+System_Boundary(hist, "hist-service") {
+  Container(api, "REST API", "Spring Web", "Ingestion + History surfaces; tenant-context filter; OAuth2 resource server")
+  Container(app, "Application", "Java 21", "RecordAuditFact / QueryHistory / VerifyChain use cases; ports")
+  Container(domain, "Domain", "POJO", "AuditRecord aggregate, HashChain VO, FactType, invariants")
+  Container(infra, "Infrastructure", "Spring Data JPA / RestClient", "Append-only repo, hash service, idempotency store, ACS client")
+}
+
+ContainerDb(pg, "PostgreSQL", "schema-per-empresa (t_<empresa>)", "audit_record (no UPDATE/DELETE grant), audit_idempotency, stream_head")
+System_Ext(acs, "acs-service", "ActorDirectory (caregiver->patient scope)")
+System_Ext(reg, "service-registry", "Eureka")
+System_Ext(gwy, "api-gateway", "Edge routing")
+System_Ext(mig, "migrations (MIG)", "Flyway — applies V<n>__hist_*.sql")
+
+Rel(gwy, api, "routes", "REST")
+Rel(api, app, "invokes use cases")
+Rel(app, domain, "uses")
+Rel(app, infra, "via ports")
+Rel(infra, pg, "INSERT/SELECT (append-only)", "JDBC")
+Rel(infra, acs, "GET patient-scope (reads, fail-closed)", "REST")
+Rel(api, reg, "registers/discovers", "Eureka")
+Rel(mig, pg, "applies migrations", "DDL")
+
+note right of pg
+  Immutability GRANT posture:
+  service role has INSERT/SELECT
+  but no UPDATE/DELETE on ledger.
+end note
+@enduml

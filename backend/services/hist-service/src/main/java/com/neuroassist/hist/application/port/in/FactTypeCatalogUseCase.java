@@ -1,11 +1,21 @@
 package com.neuroassist.hist.application.port.in;
 
+import java.util.List;
+
 /**
- * Inbound port — FactTypeCatalogUseCase.
- * Generated stub; define parameters and return types before implementing.
+ * Inbound port — read-only access to the active controlled vocabulary. Exposed at {@code GET
+ * /api/v1/hist/fact-types}.
  */
 public interface FactTypeCatalogUseCase {
 
-    void listActive(); // TODO: define parameters and return type
+    /**
+     * A single entry in the active vocabulary.
+     *
+     * @param code dot-notation code, e.g. {@code "evento.confirmado"}
+     * @param version vocabulary version this code belongs to, e.g. {@code "v1"}
+     */
+    record FactTypeEntry(String code, String version) {}
 
+    /** Returns the list of all active fact-type codes in the current vocabulary version. */
+    List<FactTypeEntry> listActive();
 }

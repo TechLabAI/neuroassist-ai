@@ -1,10 +1,9 @@
 package com.neuroassist.pac.infrastructure.clients;
 
-import java.util.UUID;
-
 /**
- * Request body for the GEST detectability check endpoint (INT-PAC-001).
+ * Request body for the GEST eligibility check endpoint (INT-PAC-001).
  *
- * <p>Carries both primitives — secondary is optional (null = single-gesture command).
+ * <p>GEST evaluates eligibility based on urgency level: for EMERGENCIA, all tenant primitives must
+ * be in SUPPORTED state; for any other level, it always returns eligible=true (ADR-006).
  */
-public record GestDetectabilityRequest(UUID primitivoPrincipalId, UUID primitivoSecundarioId) {}
+public record GestDetectabilityRequest(String urgencyLevel) {}

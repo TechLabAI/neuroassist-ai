@@ -1,0 +1,206 @@
+﻿> Task :services:acs-service:compileJava UP-TO-DATE
+> Task :services:acs-service:processResources UP-TO-DATE
+> Task :services:acs-service:classes UP-TO-DATE
+> Task :services:acs-service:compileTestJava UP-TO-DATE
+> Task :services:acs-service:processTestResources UP-TO-DATE
+> Task :services:acs-service:testClasses UP-TO-DATE
+
+> Task :services:acs-service:test
+
+ApplicationContextLoadsIT > contextLoads() FAILED
+    org.junit.jupiter.api.extension.ParameterResolutionException at Optional.java:364
+        Caused by: java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:180
+            Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+                Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+                    Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+                        Caused by: org.springframework.beans.factory.BeanCreationException at AbstractAutowireCapableBeanFactory.java:1826
+                            Caused by: org.springframework.data.repository.query.QueryCreationException at QueryCreationException.java:101
+                                Caused by: java.lang.IllegalArgumentException at PartTreeJpaQuery.java:107
+                                    Caused by: org.springframework.data.mapping.PropertyReferenceException at PropertyPath.java:94
+
+gradlew.bat : OpenJDK 64-Bit Server 
+VM warning: Sharing is only 
+supported for boot loader classes 
+because bootstrap classpath has been 
+appended
+No linha:1 caractere:367
++ ... i\backend"; & ".\gradlew.bat" 
+":services:acs-service:test" 2>&1 > 
+tes ...
++                 ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~
+    + CategoryInfo          : NotSpe 
+   cified: (OpenJDK 64-Bit ...s bee  
+  n appended:String) [], RemoteExc   
+ eption
+    + FullyQualifiedErrorId : Native 
+   CommandError
+ 
+
+> Task :services:acs-service:test
+
+CrossAspectArchTest > cra01_preauthorize_in_catalogue FAILED
+    java.lang.AssertionError at ArchRule.java:94
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.Successful login returns a signed JWT FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:180
+        Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+            Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+                Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException at ConstructorResolver.java:804
+                    Caused by: org.springframework.beans.factory.BeanCreationException at AbstractAutowireCapableBeanFactory.java:1826
+                        Caused by: org.springframework.data.repository.query.QueryCreationException at QueryCreationException.java:101
+                            Caused by: java.lang.IllegalArgumentException at PartTreeJpaQuery.java:107
+                                Caused by: org.springframework.data.mapping.PropertyReferenceException at PropertyPath.java:94
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.Wrong password returns 401 without user enumeration FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.Inactive caregiver login is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.Login against a non-active tenant is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.JWK set is accessible without authentication FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.Raw password is not present in any response or log FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.JWT authorities match the caregiver papel (cuidadora) FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Authentication and JWT Issuance > com.neuroassist.acs.bdd.CucumberIT.JWT authorities match the caregiver papel (coordenador_clinica) FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Create a caregiver in an active tenant FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Duplicate login in same tenant is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Create caregiver against a non-active tenant is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Deactivate a caregiver with no active patient links FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Deactivated caregiver cannot authenticate afterwards FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Deactivate last alarm-eligible caregiver is rejected by coverage invariant FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > com.neuroassist.acs.bdd.CucumberIT.Caller without acs.cuidador.criar is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > Invalid papel value is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.1 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > Invalid papel value is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.2 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver Management > Invalid papel value is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.3 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Successfully link a caregiver to a patient FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Duplicate active link is idempotent (200 not 201) FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Cross-tenant link is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Link to unknown patient is rejected with 422 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Link creation fails with 502 when PAC is unreachable FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Revoke the last caregiver link is blocked by coverage invariant FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Revoke a link when another caregiver still covers the patient FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Revoke already-revoked link is idempotent FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Caregiver-Patient Linkage > com.neuroassist.acs.bdd.CucumberIT.Caller without acs.vinculo.criar is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Routing query returns active caregivers for a patient FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Routing query returns empty array (not 404) when no active caregivers exist FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Directory reflects link revocation immediately (same-transaction consistency) FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Tenant validity query returns active tenant record FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Tenant validity query returns 404 for unknown tenant FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Caregiver scope query returns patient-scope for data access FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Directory endpoint responds within 100ms p99 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Directory Service > com.neuroassist.acs.bdd.CucumberIT.Unauthenticated request to directory surface is rejected FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Successful tenant provisioning when MIG is available FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Tenant provisioning returns 202 when MIG times out FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Retry a stuck tenant provisioning FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Retry an already active tenant is a no-op FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Retry a suspended tenant returns 409 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > Invalid tipo is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.1 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > Invalid tipo is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.2 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > Invalid tipo is rejected > Examples > com.neuroassist.acs.bdd.CucumberIT.Example #1.3 FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+CucumberIT > Cucumber > Tenant Provisioning > com.neuroassist.acs.bdd.CucumberIT.Tenant cannot be returned as active with null schema_name FAILED
+    java.lang.IllegalStateException at DefaultCacheAwareContextLoaderDelegate.java:145
+
+113 tests completed, 46 failed
+
+> Task :services:acs-service:test FAILED
+
+FAILURE: Build failed with an 
+exception.
+
+* What went wrong:
+Execution failed for task 
+':services:acs-service:test'.
+> There were failing tests. See the 
+report at: file:///D:/01_Trabalho/Cyb
+ersoft/TechLab%20IA/neuroassist-ai/ba
+ckend/services/acs-service/build/repo
+rts/tests/test/index.html
+
+* Try:
+> Run with --scan to get full 
+insights.
+
+BUILD FAILED in 1m 18s
+5 actionable tasks: 1 executed, 4 up-to-date

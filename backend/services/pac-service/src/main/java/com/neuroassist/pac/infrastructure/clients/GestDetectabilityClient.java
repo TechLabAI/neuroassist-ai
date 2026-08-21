@@ -1,6 +1,9 @@
 package com.neuroassist.pac.infrastructure.clients;
 
+import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
@@ -26,12 +29,25 @@ import org.springframework.web.bind.annotation.RequestBody;
 public interface GestDetectabilityClient {
 
     /**
-     * Checks whether a gesture primitive combination is detectable by the GEST ML model.
+     * Checks whether the tenant's gesture primitives satisfy the emergency eligibility invariant.
+     * GEST evaluates the urgency level: for EMERGENCIA all registered primitives must be SUPPORTED;
+     * for other levels always returns eligible=true.
      *
-     * @param request carries primitivoPrincipalId and optional primitivoSecundarioId
-     * @return detectability result — {@code supported=true} means the gesture is ready
+     * @param request carries the urgencyLevel string (e.g. "EMERGENCIA", "ROTINA")
+     * @return eligibility result — {@code eligible=true} means the command may be published
      * @throws feign.FeignException on HTTP 4xx/5xx or network failure; caller handles resilience
      */
-    @PostMapping("/api/gest/v1/detectability/check")
+    @PostMapping("/gest-service/eligibility")
     GestDetectabilityResponse checkDetectability(@RequestBody GestDetectabilityRequest request);
+
+    /**
+     * Resolves a single gesture primitive by id. The eligibility endpoint above evaluates the
+     * tenant's primitive set as a whole and cannot answer "is THIS primitive known", so the
+     * per-primitive guard on {@code :validate} uses this lookup instead (E2E-009).
+     *
+     * @param id the primitive id referenced by a Comando
+     * @throws feign.FeignException.NotFound when GEST does not know the primitive
+     */
+    @GetMapping("/gest-service/tipo-gesto/{id}")
+    void getPrimitive(@PathVariable("id") UUID id);
 }

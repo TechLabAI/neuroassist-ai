@@ -1,0 +1,52 @@
+{
+  "id": "HIST",
+  "pipeline": "architecture-fullstack",
+  "modulo": "HIST",
+  "service": "hist-service",
+  "module": "hist",
+  "type": "standard",
+  "mode": "full",
+  "beStep": "scaffold",
+  "feStep": "backlog",
+  "currentPhase": "M5",
+  "nextPhase": "M6",
+  "timestamp": "2026-08-16T02:00:00Z",
+  "notes": "M5 complete. BE Scaffold OK (108 files, compileTestJava BUILD SUCCESSFUL, D-539). FE Backlog OK (33 issues: 27 functional + 6 integration; plan-FE-HIST.md). Stray issues dir cleaned. trace_id=tr_f310e7e50351",
+  "handoff": {
+    "M1": { "status": "OK", "artifacts": ["BE: 11 docs+ADRs+_brief", "FE: 9 docs+ADR+_brief"], "key_decisions": ["ADR-004: write-once ledger", "ADR-005: sync REST idempotent", "ADR-006: hash-chained tamper-evidence", "HIST is sink; EVNT owns feedback verdict", "FE: signals-first /historico library"], "warnings": ["LGPD vs immutability open", "factType vocab open", "G1 feedback owner", "G3 HIST vs DASH overlap"] },
+    "M1.5": { "status": "OK", "artifacts": ["_brief.md synced (BE authoritative)"], "key_decisions": [], "warnings": [] },
+    "M2": { "status": "OK", "artifacts": ["contracts/api-contract.md (BARRIER)", "data-model.md", "event-contracts.md", "integration-contracts.md", "SPEC-01..10", "4 cucumber features", "3 C4 diagrams", "generator-config.yml port=8089"], "key_decisions": ["Two REST surfaces POST /audit-facts + GET /history + /verify", "No UPDATE/DELETE", "genesis=64-zeros", "port 8089"], "warnings": ["LGPD erasure D-NNN needed", "factType co-owned by producers", "ES reindex pending"] },
+    "M2.5": { "status": "OK", "artifacts": ["SPEC-VAL-bdd-coverage-report.md", "security-and-auth.feature (5 gaps closed)"], "key_decisions": ["EARS PASS all 10 SPECs + 4 contracts"], "warnings": ["GAP-06 deferred to component test"] },
+    "M3": { "status": "OK", "artifacts": ["frontend-spec/SPEC-01..08", "generator-config.yml", "contracts/backend-api-cross-link.md", "e2e/history-timeline.feature", "e2e/feedback-verdict.feature"], "key_decisions": ["FE never POST /audit-facts", "Feedback->evnt-service (feedbackTarget=evnt)", "Period filter facade-side", "Non-optimistic feedback", "Signals-first HistoryFacade"], "warnings": ["PATH DIVERGENCE: modules/hist/frontend-spec/ vs frontend/frontend-spec/", "G1 open", "G2 read-model open"] },
+    "M3.5": { "status": "OK", "artifacts": ["SPEC-VAL-fe-coverage-report.md"], "key_decisions": ["EARS PASS (0 violations)", "19 genuine gaps (40 tool due to PT-BR/EN-US)", "13 e2e scenarios", "Component tree COMPLETE (9 components)"], "warnings": ["FE-GAP-13..19: WCAG 2.1 AA missing (health platform!)", "FE-GAP-09..12: 403/401/503/correlationId missing", "PATH DIVERGENCE persists"] },
+    "M4": { "status": "OK", "artifacts": ["HIST-001..023.md (23 issues)", "INT-HIST-001..006.md (6)", "issues_map-HIST.md", "plan-HIST.md"], "key_decisions": ["29 issues P1-P5/P7-P9 (P6=messaging N/A)", "AuditLedgerPort insert-only (ADR-004)", "StreamHeadPort SELECT FOR UPDATE", "ActorDirectoryPort fail-closed", "LGPD erasure D-NNN needed"], "warnings": ["uuid_generate_v7 needs uuid-ossp", "ACS JWK URI per profile", "JCS RFC 8785 lib to verify", "Flyway ${hist_service_role} placeholder"] },
+    "M5": {
+      "status": "OK",
+      "artifacts": [
+        "backend/services/hist-service/ (108 files — hexagonal skeleton)",
+        "V1__create_initial_schema.sql (audit_record + audit_idempotency + stream_head)",
+        "5 BDD feature files + 6 step definition classes (compileTestJava BUILD SUCCESSFUL)",
+        "backend/settings.gradle.kts (hist-service registered)",
+        "docs/architecture/frontend/issues/FE-HIST-001..027.md (27 issues)",
+        "docs/architecture/frontend/issues/INT-FE-HIST-001..006.md (6 integration issues)",
+        "docs/architecture/frontend/issues/issues_map-FE-HIST.md",
+        "docs/architecture/frontend/plans/plan-FE-HIST.md"
+      ],
+      "key_decisions": [
+        "D-539: 3 generator bugs fixed (enum YAML comment regex, dot-sanitize, enum/record collision)",
+        "JCS dep deferred to Layer 2 be-implement HIST-P3 (not on Maven Central)",
+        "WCAG 2.1 AA elevated to wave P6 (3 dedicated issues FE-HIST-020/021/022) — blocks promote",
+        "FeedbackClient separate from HistClient with feedbackTarget flag (G1 resolution)",
+        "Error mapping centralized (11 cases RFC 7807 including FE-GAP-09..12)"
+      ],
+      "warnings": [
+        "JCS (org.erdtman:java-json-canonicalization:1.1) not on Maven Central — verify or implement inline at P3",
+        "WireMock stub for ACS JWK (localhost:9999) needed in BaseIntegrationTest",
+        "Flyway ${hist_service_role} in V1 — configure in neuroassist-ai-migrations",
+        "uuid_generate_v7() needs CREATE EXTENSION uuid-ossp (V0001 in migrations service)",
+        "G1 feedback evnt-service path still open — confirm before INT-FE-HIST-005 wiring",
+        "apps/hist-e2e may not exist — register via fe-nx-register-module.py (D-487) before P9"
+      ]
+    }
+  }
+}

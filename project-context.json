@@ -316,6 +316,16 @@
         "frontendLib": "edge",
         "hasUi": true,
         "isInfrastructure": false
+      },
+      {
+        "prefix": "E2E",
+        "displayName": "Integracao E2E (cross-module)",
+        "description": "Modulo transversal de validacao ponta-a-ponta: habilitacao do transporte HTTP, auth backbone no browser, paridade de contrato mock/http e os fluxos de negocio que cruzam 3+ servicos. Nao possui microservico nem lib Nx propria; opera sobre os 7 modulos existentes.",
+        "backendService": null,
+        "frontendLib": null,
+        "hasUi": false,
+        "isInfrastructure": true,
+        "status": "declared"
       }
     ]
   },

@@ -8,7 +8,7 @@ Voce NAO e o entry point. O Validator-Orchestrator (`/fe-validator`) aciona voce
 
 **Modulo:** `$ARGUMENTS`
 
-Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE)`
+Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
 
 **Validar módulo antes de continuar (D-393):** `python scripts/pipeline-guard.py resolve --module <MODULO>`
 

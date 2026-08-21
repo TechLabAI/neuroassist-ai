@@ -288,13 +288,13 @@ public class EmergencyEligibilityGateSteps {
         // Stub with 2500ms delay, exceeding the 500ms test-profile read-timeout
         ExternalServicesWireMock.gest()
                 .stubFor(
-                        WireMock.post(WireMock.urlEqualTo("/api/gest/v1/detectability/check"))
+                        WireMock.post(WireMock.urlEqualTo("/gest-service/eligibility"))
                                 .willReturn(
                                         WireMock.aResponse()
                                                 .withStatus(200)
                                                 .withHeader("Content-Type", "application/json")
                                                 .withBody(
-                                                        "{\"supported\":true,\"status\":\"active\"}")
+                                                        "{\"eligible\":true,\"missingStates\":[]}")
                                                 .withFixedDelay(2500)));
     }
 

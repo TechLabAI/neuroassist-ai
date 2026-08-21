@@ -1,0 +1,97 @@
+service: hist-service
+type: standard
+port: 8089
+package: com.neuroassist.hist
+
+domain:
+  aggregates:
+    - AuditRecord     # empresa schema (t_<empresa>) — write-once ledger entry; the only aggregate (ADR-004)
+  value_objects:
+    - SubjectRef      # {type: paciente|comando|cuidador|dispositivo, id: uuid} — opaque, never resolved
+    - ActorRef        # {caregiverId: uuid, displayNameSnapshot} — snapshotted at record time
+    - HashChain       # prevHash + recordHash = sha256(prevHash || canonical(record)) (ADR-006)
+    - FactType        # controlled vocabulary member (versioned)
+  entities:
+    - IdempotencyEntry  # empresa schema — fact_id -> record_id (ADR-005)
+    - StreamHead        # empresa schema — derived tip cache (O(1) append)
+
+application_services:
+  - name: RecordAuditFactService
+    operations:
+      - append          # POST /api/v1/hist/audit-facts — idempotent write-once append + chain (201/200)
+  - name: AuditRecordQueryService
+    operations:
+      - findById        # GET /api/v1/hist/audit-facts/{id}
+  - name: HistoryQueryService
+    operations:
+      - queryTimeline   # GET /api/v1/hist/history — paginated, filtered, scope-restricted
+  - name: ChainVerificationService
+    operations:
+      - verifyStream    # GET /api/v1/hist/history/verify — intact | broken@N | empty
+  - name: FactTypeCatalogService
+    operations:
+      - listActive      # GET /api/v1/hist/fact-types — active vocabulary version
+
+enums:
+  SubjectType:
+    - paciente
+    - comando
+    - cuidador
+    - dispositivo
+  ChainStatus:
+    - intact
+    - broken
+    - empty
+  FactType:            # controlled vocabulary v1 (co-owned with producers; extended in each producer's Specs)
+    - evento.confirmado
+    - evento.descartado
+    - evento.feedback.registrado
+    - comando.sensibilidade.editada
+    - comando.recalibrado
+    - acesso.concedido
+    - acesso.revogado
+    - dispositivo.pareado
+    - dispositivo.despareado
+    - registro.corrigido
+
+security:
+  resource_server: true          # validates ACS-issued JWTs against ACS JWK set (local, no callback)
+  scopes:
+    - hist:write                 # producer service credentials (EVNT/PAC/ACS/EDGE)
+    - hist:read                  # caregivers + DASH (own patient-scope)
+    - hist:read:all              # coordinators/DPO (tenant-wide)
+
+feign_clients:
+  - name: AcsActorDirectoryClient
+    service: acs-service
+    url_prop: neuroassist.acs.url   # resolve caregiver->patient scope on caregiver-scoped reads
+
+# No consumed_events and no events.published — messaging disabled in MVP (stack.messaging.enabled = false).
+# Ingestion is synchronous REST from producers, idempotent on factId (ADR-005). Broker-deferred.
+
+outbound_ports:
+  - AuditLedgerPort          # append-only JPA repo (INSERT/SELECT only; no UPDATE/DELETE)
+  - IdempotencyPort          # fact_id -> record_id lookup/insert (ADR-005)
+  - StreamHeadPort           # O(1) chain-tip fetch + update under row lock (ADR-006)
+  - HashChainPort            # canonical(record) + sha256 chaining (ADR-006)
+  - ActorDirectoryPort       # ACS caregiver->patient scope resolution; fail-closed on caregiver reads
+
+inbound_ports:
+  - RecordAuditFactUseCase
+  - QueryHistoryUseCase
+  - VerifyChainUseCase
+
+persistence:
+  multi_tenant: schema-per-empresa
+  tenant_schema_prefix: "t_"
+  global_schema: neuroassist_global
+  migrations: centralized-mig          # neuroassist-ai-migrations owns Flyway; no boot-time DDL
+  tables:
+    - audit_record        # empresa — append-only (no UPDATE/DELETE grant)
+    - audit_idempotency   # empresa — append-only
+    - stream_head         # empresa — derived cache (updatable)
+
+adrs:
+  - ADR-004-immutable-append-only-ledger
+  - ADR-005-synchronous-audit-ingestion
+  - ADR-006-hash-chained-tamper-evidence

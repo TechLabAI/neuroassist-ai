@@ -1,14 +1,18 @@
 package com.neuroassist.hist.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
 import java.time.Instant;
 import java.util.UUID;
+import lombok.*;
 
 @Entity
 @Table(name = "fact_type")
 // Schema resolvido via hibernate.default_schema por profile + TenantContextHolder em runtime
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class FactTypeJpaEntity {
 
     @Id

@@ -1,0 +1,12 @@
+{
+  "id": "DASH",
+  "module": "DASH",
+  "service": "dash-service",
+  "pipeline": "implement",
+  "currentStep": "implement-p8",
+  "nextStep": "full-validacao",
+  "progressUnit": "P8",
+  "iteration": 5,
+  "timestamp": "2026-08-20T04:59:58",
+  "capReached": false
+}

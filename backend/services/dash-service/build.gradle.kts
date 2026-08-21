@@ -29,17 +29,13 @@ dependencies {
     // Web
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-aop")
 
     // Security
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-    // Persistence (schema gerenciado pelo neuroassist-ai-migrations)
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    runtimeOnly("org.postgresql:postgresql")
-
-    // Messaging (D-490: spring-boot-starter-kafka does not exist; correct artifact is spring-kafka)
-    implementation("org.springframework.boot:spring-boot-starter-artemis")
+    // Zero-DB + Zero-broker MVP (ADR-004, ADR-005): sem JPA, sem PostgreSQL, sem Artemis
 
     // Service Discovery + HTTP Clients
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
@@ -60,9 +56,6 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
     testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
-    // ActiveMQ: Artemis embedded (spring.artemis.mode=embedded) — sem testcontainers:activemq
-    testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 
 
     // BDD — Cucumber
@@ -71,6 +64,9 @@ dependencies {
     testImplementation("io.cucumber:cucumber-spring:7.18.0")
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
+
+    // WireMock standalone — HTTP doubles for 5 upstream services (standalone shades Jetty to avoid classpath conflict)
+    testImplementation("org.wiremock:wiremock-standalone:3.3.1")
 
 }
 

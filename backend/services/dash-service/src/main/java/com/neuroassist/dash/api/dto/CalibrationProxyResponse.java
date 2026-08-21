@@ -1,6 +1,5 @@
 package com.neuroassist.dash.api.dto;
 
-import java.util.UUID;
-
-// TODO: define fields from api-contract.md
-public record CalibrationProxyResponse(UUID id, String status /* TODO: add fields */) {}
+/** Response DTO para write-through de calibracao (eco do resultado do PAC). */
+public record CalibrationProxyResponse(
+        String commandId, String newCalibrationState, boolean success) {}

@@ -48,7 +48,7 @@ public class EmergencyEligibilityGateImpl implements EmergencyEligibilityGate {
             UUID primitivoPrincipalId, UUID primitivoSecundarioId, Urgencia urgencia) {
 
         GestDetectabilityRequest request =
-                new GestDetectabilityRequest(primitivoPrincipalId, primitivoSecundarioId);
+                new GestDetectabilityRequest(urgencia.name().toUpperCase());
 
         CircuitBreaker cb = circuitBreakerRegistry.circuitBreaker(CB_NAME);
 
@@ -65,30 +65,51 @@ public class EmergencyEligibilityGateImpl implements EmergencyEligibilityGate {
             // Re-throw domain exceptions (e.g. emergency-not-detectable)
             throw e;
         } catch (FeignException.NotFound e) {
-            // GEST returned 404: primitive is unknown to GEST — reject regardless of urgency
+            // GEST returned 404 — eligibility endpoint not found; treat as service unavailable
             log.warn(
-                    "GEST returned 404 for primitive={} — primitive unknown to GEST",
-                    primitivoPrincipalId);
-            throw new CodedException(
-                    "pac.primitive.unknown-to-gest",
-                    "Primitive '" + primitivoPrincipalId + "' is not registered in GEST");
+                    "GEST returned 404 for eligibility check (urgencia={}) — endpoint not found",
+                    urgencia);
+            return handleGestUnavailable(urgencia, "GEST eligibility endpoint not found (404)", e);
         } catch (CallNotPermittedException e) {
             // Circuit breaker is OPEN — fail-closed for emergency, advisory for routine
             log.warn(
-                    "Emergency eligibility gate: CB '{}' is OPEN for primitive={} urgencia={}",
+                    "Emergency eligibility gate: CB '{}' is OPEN for urgencia={}",
                     CB_NAME,
-                    primitivoPrincipalId,
                     urgencia);
             return handleGestUnavailable(urgencia, "Circuit breaker is OPEN for gest-service", e);
         } catch (Exception e) {
             // Network error, timeout, or unexpected failure from GEST
             log.warn(
-                    "Emergency eligibility gate: GEST unreachable for primitive={} urgencia={} cause={}",
-                    primitivoPrincipalId,
+                    "Emergency eligibility gate: GEST unreachable for urgencia={} cause={}",
                     urgencia,
                     e.getMessage());
             return handleGestUnavailable(
                     urgencia, "GEST service unreachable: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void verifyPrimitivesKnown(UUID primitivoPrincipalId, UUID primitivoSecundarioId) {
+        verifyPrimitiveKnown(primitivoPrincipalId);
+        verifyPrimitiveKnown(primitivoSecundarioId);
+    }
+
+    private void verifyPrimitiveKnown(UUID primitiveId) {
+        if (primitiveId == null) {
+            return;
+        }
+        try {
+            gestClient.getPrimitive(primitiveId);
+        } catch (FeignException.NotFound e) {
+            throw new CodedException(
+                    "pac.primitive.unknown-to-gest",
+                    "Referenced gesture primitive is unknown to GEST: " + primitiveId);
+        } catch (Exception e) {
+            // Advisory: a lookup we cannot perform must not block the validate transition
+            log.warn(
+                    "Primitive lookup unavailable for id={} — proceeding without check: {}",
+                    primitiveId,
+                    e.getMessage());
         }
     }
 
@@ -108,26 +129,29 @@ public class EmergencyEligibilityGateImpl implements EmergencyEligibilityGate {
      */
     private EligibilityResult evaluateResponse(
             GestDetectabilityResponse response, Urgencia urgencia) {
-        if (response.supported()) {
-            log.debug("GEST detectability check passed: status={}", response.status());
+        if (response.eligible()) {
+            log.debug("GEST eligibility check passed for urgencia={}", urgencia);
             return EligibilityResult.ok();
         }
 
-        // GEST reported not-supported
+        String missingInfo =
+                response.missingStates() != null ? response.missingStates().toString() : "unknown";
+
+        // GEST reported not-eligible
         if (urgencia == Urgencia.emergencia) {
-            log.warn("Emergency command not detectable by GEST — status={}", response.status());
+            log.warn("Emergency command not eligible by GEST — missing={}", missingInfo);
             throw new CodedException(
                     "pac.emergency.not-detectable",
-                    "Emergency command cannot be published: GEST reports gesture as '"
-                            + response.status()
-                            + "'. The patient's safety depends on gesture detectability.");
+                    "Emergency command cannot be published: GEST reports gesture primitives as not supported: "
+                            + missingInfo
+                            + ". The patient's safety depends on gesture detectability.");
         }
 
-        // Routine: advisory — not detectable but we allow publish with a warning
+        // Routine: advisory — not eligible but we allow publish with a warning
         log.info(
-                "GEST reports routine command as not-detectable (advisory): status={}",
-                response.status());
-        return EligibilityResult.withWarnings(List.of("gest-not-detectable: " + response.status()));
+                "GEST reports routine command primitives as not-eligible (advisory): missing={}",
+                missingInfo);
+        return EligibilityResult.withWarnings(List.of("gest-not-detectable: " + missingInfo));
     }
 
     /**

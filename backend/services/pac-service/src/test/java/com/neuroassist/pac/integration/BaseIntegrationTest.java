@@ -71,6 +71,12 @@ public abstract class BaseIntegrationTest {
         registry.add("neuroassist.integration.edge.url", ExternalServicesWireMock::edgeBaseUrl);
         registry.add("neuroassist.integration.hist.url", ExternalServicesWireMock::histBaseUrl);
 
+        // Service identity — the ACS WireMock also serves POST /oauth2/token/service, so the
+        // hist-service Feign client can swap the caregiver token for pac-service's own token.
+        registry.add(
+                "neuroassist.service-identity.token-uri",
+                () -> ExternalServicesWireMock.acsBaseUrl() + "/oauth2/token/service");
+
         // OAuth2 JWT validation — JWK WireMock serves the RSA public key (P9, PASSO-0 fix)
         registry.add(
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",

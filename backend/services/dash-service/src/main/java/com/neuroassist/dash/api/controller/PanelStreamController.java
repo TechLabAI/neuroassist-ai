@@ -1,52 +1,84 @@
 package com.neuroassist.dash.api.controller;
 
 import com.neuroassist.dash.application.port.in.PanelStreamUseCase;
-import com.neuroassist.dash.shared.audit.AuditAction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-// Security: @PreAuthorize derived from rbac.arch.json via the module generator.
-// To change which permission gates a method, edit rbac.arch.json and re-run
-// be-module-generator.py; do not patch the annotation by hand.
+/**
+ * SSE panel stream controller (DASH-004/DASH-005). Surface: /panel/** — authenticated by caregiver
+ * JWT. Security fully configured in P6 (DASH-021); @PreAuthorize annotations prepared here.
+ */
 @Slf4j
 @RestController
-@RequestMapping("/dash-service/panel-stream")
+@RequestMapping("/panel")
 @RequiredArgsConstructor
 public class PanelStreamController {
 
     private final PanelStreamUseCase panelStreamUseCase;
 
-    @PostMapping("/open-session")
-    @PreAuthorize("hasAuthority('dash.panel-stream.abrir')")
-    @AuditAction("CREATE_PANEL_STREAM")
-    public ResponseEntity<Void> openSession() {
-        // TODO: delegate to PanelStreamUseCase
-        throw new UnsupportedOperationException("openSession not implemented");
+    /**
+     * Opens an SSE stream for the authenticated caregiver. GET is mandatory for SSE: browsers
+     * cannot POST with EventSource API.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
+    public ResponseEntity<SseEmitter> stream(Authentication auth) {
+        String caregiverId = auth.getName();
+        String tenantId = extractTenantId(auth);
+        log.info("SSE stream requested by caregiver={} tenant={}", caregiverId, tenantId);
+        SseEmitter emitter = panelStreamUseCase.openSession(caregiverId, tenantId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache")
+                .header(HttpHeaders.CONNECTION, "keep-alive")
+                .body(emitter);
     }
 
-    @PostMapping("/heartbeat")
-    @PreAuthorize("hasAuthority('dash.panel-stream.criar')")
-    @AuditAction("CREATE_PANEL_STREAM")
-    public ResponseEntity<Void> heartbeat() {
-        // TODO: delegate to PanelStreamUseCase
-        throw new UnsupportedOperationException("heartbeat not implemented");
+    /** Sends a heartbeat to keep the SSE connection alive. */
+    @PostMapping("/stream/heartbeat")
+    @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
+    public ResponseEntity<Void> heartbeat(Authentication auth) {
+        String caregiverId = auth.getName();
+        panelStreamUseCase.heartbeat(caregiverId);
+        return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/close-session")
-    @PreAuthorize("hasAuthority('dash.panel-stream.fechar')")
-    @AuditAction("UPDATE_PANEL_STREAM")
-    public ResponseEntity<Void> closeSession() {
-        // TODO: delegate to PanelStreamUseCase
-        throw new UnsupportedOperationException("closeSession not implemented");
+    /** Closes the active SSE session for the caregiver. */
+    @DeleteMapping("/stream")
+    @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
+    public ResponseEntity<Void> closeSession(Authentication auth) {
+        String caregiverId = auth.getName();
+        panelStreamUseCase.closeSession(caregiverId);
+        return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{id}/replayCatchup")
-    @PreAuthorize("hasAuthority('dash.panel-stream.reprocessar')")
-    public ResponseEntity<Void> replayCatchup() {
-        // TODO: delegate to PanelStreamUseCase
-        throw new UnsupportedOperationException("replayCatchup not implemented");
+    /** Reconnects and replays unacknowledged notifications (catch-up). */
+    @GetMapping(value = "/stream/catchup", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasAuthority('ROLE_CAREGIVER')")
+    public ResponseEntity<SseEmitter> replayCatchup(Authentication auth) {
+        String caregiverId = auth.getName();
+        String tenantId = extractTenantId(auth);
+        SseEmitter emitter = panelStreamUseCase.replayCatchup(caregiverId, tenantId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CACHE_CONTROL, "no-cache")
+                .header(HttpHeaders.CONNECTION, "keep-alive")
+                .body(emitter);
+    }
+
+    private String extractTenantId(Authentication auth) {
+        if (auth.getCredentials() instanceof Jwt jwt) {
+            Object claim = jwt.getClaim("tenant_id");
+            if (claim != null) {
+                return claim.toString();
+            }
+        }
+        return "unknown";
     }
 }

@@ -55,7 +55,7 @@ class EmergencyEligibilityGateImplTest {
         @DisplayName("GEST returns supported=true → eligible, no warnings")
         void emergency_gestSupported_returnsEligible() {
             when(gestClient.checkDetectability(any()))
-                    .thenReturn(new GestDetectabilityResponse(true, "active"));
+                    .thenReturn(new GestDetectabilityResponse(true, java.util.List.of()));
 
             EligibilityResult result = gate.check(PRIMITIVO_ID, null, Urgencia.emergencia);
 
@@ -67,7 +67,9 @@ class EmergencyEligibilityGateImplTest {
         @DisplayName("GEST returns supported=false → CodedException pac.emergency.not-detectable")
         void emergency_gestNotDetectable_throwsCodedException() {
             when(gestClient.checkDetectability(any()))
-                    .thenReturn(new GestDetectabilityResponse(false, "pending-training"));
+                    .thenReturn(
+                            new GestDetectabilityResponse(
+                                    false, java.util.List.of("Piscar:pending_training")));
 
             assertThatThrownBy(() -> gate.check(PRIMITIVO_ID, null, Urgencia.emergencia))
                     .isInstanceOf(CodedException.class)
@@ -139,7 +141,7 @@ class EmergencyEligibilityGateImplTest {
         @DisplayName("GEST returns supported=true → eligible, no warnings")
         void routine_gestSupported_returnsEligible() {
             when(gestClient.checkDetectability(any()))
-                    .thenReturn(new GestDetectabilityResponse(true, "active"));
+                    .thenReturn(new GestDetectabilityResponse(true, java.util.List.of()));
 
             EligibilityResult result = gate.check(PRIMITIVO_ID, null, Urgencia.rotina);
 
@@ -163,7 +165,9 @@ class EmergencyEligibilityGateImplTest {
         @DisplayName("GEST returns supported=false → eligible with advisory warning (not blocked)")
         void routine_gestNotDetectable_returnsAdvisoryWarning() {
             when(gestClient.checkDetectability(any()))
-                    .thenReturn(new GestDetectabilityResponse(false, "insufficient-data"));
+                    .thenReturn(
+                            new GestDetectabilityResponse(
+                                    false, java.util.List.of("Sorrir:registered")));
 
             EligibilityResult result = gate.check(PRIMITIVO_ID, null, Urgencia.rotina);
 

@@ -1,6 +1,7 @@
 package com.neuroassist.dash.api.dto;
 
-import java.util.UUID;
-
-// TODO: define fields from api-contract.md
-public record NotificationDeliveryResponse(UUID id, String status /* TODO: add fields */) {}
+/**
+ * Response body for POST /internal/notifications (DASH-006). Returns the dispatchId and delivery
+ * status.
+ */
+public record NotificationDeliveryResponse(String dispatchId, String status) {}

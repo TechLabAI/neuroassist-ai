@@ -5,10 +5,8 @@ import io.cucumber.spring.CucumberContextConfiguration;
 
 /**
  * Bootstraps the Spring context for Cucumber step definitions. Extends BaseIntegrationTest to
- * inherit Testcontainers PostgreSQL setup (D-532: singleton container pattern for BDD test
- * context).
- *
- * <p>@SpringBootTest and @ActiveProfiles("test") are inherited from BaseIntegrationTest.
+ * inherit @SpringBootTest(RANDOM_PORT) + @ActiveProfiles("test"). Zero DB, zero broker (ADR-004,
+ * ADR-005): dash-service e stateless no MVP.
  */
 @CucumberContextConfiguration
 public class CucumberSpringContext extends BaseIntegrationTest {}

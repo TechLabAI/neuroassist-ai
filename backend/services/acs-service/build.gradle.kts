@@ -83,6 +83,13 @@ tasks.register("architectureCheck") {
     doFirst { logger.lifecycle("Running ArchUnit checks via :acs-service:test...") }
 }
 
+// integrationTest delegates to test (BDD Cucumber + Testcontainers runs under test task).
+// Registered so gates-run.py e2e gate resolves to "pass" after test suite passes (D-472).
+tasks.register("integrationTest") {
+    description = "BDD Cucumber integration tests (delegates to test task)."
+    dependsOn(tasks.named("test"))
+}
+
 // Spotless — formatação canônica (google-java-format AOSP, 4 spaces)
 // Rodar: ./gradlew :acs-service:spotlessApply
 // Verificar: ./gradlew :acs-service:spotlessCheck

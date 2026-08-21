@@ -3,13 +3,13 @@ package com.neuroassist.hist.shared.error;
 import java.util.Map;
 
 /**
- * Domain exception carrying a stable error code (e.g. "cad.cliente.duplicado")
- * declared in error-model.arch.json. Throw this (or a subclass) from
- * application/domain services; the framework's GlobalExceptionHandler turns
- * it into a ProblemDetail response with the right HTTP status and extension
- * fields.
+ * Domain exception carrying a stable error code (e.g. "cad.cliente.duplicado") declared in
+ * error-model.arch.json. Throw this (or a subclass) from application/domain services; the
+ * framework's GlobalExceptionHandler turns it into a ProblemDetail response with the right HTTP
+ * status and extension fields.
  *
  * <p>For a soft-typed fluent throw site:
+ *
  * <pre>
  *   throw new CodedException("cad.cliente.duplicado")
  *       .withContext(Map.of("clienteIdExistente", existingId));

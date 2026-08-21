@@ -29,8 +29,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 /**
  * Unit tests for {@link DetectionProfileController} — ETag/304 conditional-GET logic (P4,
- * GEST-016). Uses {@code @WebMvcTest} slice (no full Spring Boot context). Security is {@code
- * permitAll()} in the current PoC config.
+ * GEST-016). Uses {@code @WebMvcTest} slice (no full Spring Boot context): the security
+ * auto-configuration is excluded and {@code SecurityConfig} (which carries
+ * {@code @EnableMethodSecurity}) is not part of the slice, so the controller's
+ * {@code @PreAuthorize} is not evaluated here. Authorization is covered by {@code SecurityIT} and
+ * the RBAC BDD scenarios.
  */
 @WebMvcTest(
         value = DetectionProfileController.class,

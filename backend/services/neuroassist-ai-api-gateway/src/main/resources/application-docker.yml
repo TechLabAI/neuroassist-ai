@@ -1,0 +1,8 @@
+# Perfil docker do neuroassist-ai-api-gateway.
+#
+# As rotas vivem em application.yml (base) desde E2E-014: mantê-las só aqui fazia o GWY
+# rodar com roteamento diferente dentro e fora do compose — o base declarava apenas
+# edge-service-route. As rotas usam `lb://`, que funciona igual nos dois ambientes, e o
+# que é específico de ambiente (EUREKA_URI, ACS_JWK_URI) já vem por env var no base.
+#
+# Este arquivo fica para overrides genuinamente específicos de container.

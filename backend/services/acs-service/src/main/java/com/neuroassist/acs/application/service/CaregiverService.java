@@ -127,17 +127,23 @@ public class CaregiverService implements CaregiverUseCase {
                         .findById(cuidadorId)
                         .orElseThrow(() -> new CaregiverNotFoundException(cuidadorId));
 
-        // SAFETY-CRITICAL (D-204): block deactivation if caregiver is last active link for any patient
+        // SAFETY-CRITICAL (D-204): block deactivation if caregiver is last active link for any
+        // patient
         if (status == CuidadorStatus.INACTIVE) {
-            linkRepository.findActiveByCuidadorId(cuidadorId).forEach(link -> {
-                long activeCount = linkRepository.countActiveByPacienteId(link.pacienteId());
-                if (activeCount <= 1) {
-                    log.error(
-                            "SAFETY-CRITICAL: Caregiver {} is the last active link for patient {} (D-204)",
-                            cuidadorId, link.pacienteId());
-                    throw new LastCaregiverLinkException(cuidadorId);
-                }
-            });
+            linkRepository
+                    .findActiveByCuidadorId(cuidadorId)
+                    .forEach(
+                            link -> {
+                                long activeCount =
+                                        linkRepository.countActiveByPacienteId(link.pacienteId());
+                                if (activeCount <= 1) {
+                                    log.error(
+                                            "SAFETY-CRITICAL: Caregiver {} is the last active link for patient {} (D-204)",
+                                            cuidadorId,
+                                            link.pacienteId());
+                                    throw new LastCaregiverLinkException(cuidadorId);
+                                }
+                            });
         }
 
         Cuidador updated =

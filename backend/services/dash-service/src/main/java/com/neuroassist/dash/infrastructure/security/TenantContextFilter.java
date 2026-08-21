@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.core.Authentication;
@@ -38,11 +39,13 @@ public class TenantContextFilter extends OncePerRequestFilter {
                 return;
             }
             TenantContextHolder.set(tenantId);
+            MDC.put("tenantId", tenantId);
         }
         try {
             chain.doFilter(request, response);
         } finally {
             TenantContextHolder.clear();
+            MDC.remove("tenantId");
         }
     }
 

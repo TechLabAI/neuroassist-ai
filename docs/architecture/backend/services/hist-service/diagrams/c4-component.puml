@@ -1,0 +1,46 @@
+@startuml hist-service-component
+!include <C4/C4_Component>
+title HIST (hist-service) — Components (hexagonal, com.neuroassist.hist)
+
+Container_Boundary(api, "api (inbound adapters)") {
+  Component(auditCtl, "AuditFactController", "Spring Web", "POST /audit-facts, GET /audit-facts/{id}")
+  Component(histCtl, "HistoryController", "Spring Web", "GET /history, GET /history/verify, GET /fact-types")
+  Component(tenantFilter, "TenantContextFilter", "Servlet filter", "Pins t_<empresa> from JWT tenant claim")
+}
+
+Container_Boundary(app, "application") {
+  Component(recordUC, "RecordAuditFactService", "use case", "append: idempotency -> chain -> persist")
+  Component(queryUC, "HistoryQueryService", "use case", "timeline + findById + scope filter")
+  Component(verifyUC, "ChainVerificationService", "use case", "verify stream -> intact/broken/empty")
+  Component(ports, "Ports", "interfaces", "AuditLedgerPort, IdempotencyPort, StreamHeadPort, HashChainPort, ActorDirectoryPort")
+}
+
+Container_Boundary(domain, "domain") {
+  Component(record, "AuditRecord", "aggregate root", "write-once; recorded terminal")
+  Component(chain, "HashChain", "VO", "prevHash, recordHash = sha256(prevHash || canonical)")
+  Component(factType, "FactType", "VO", "controlled vocabulary")
+}
+
+Container_Boundary(infra, "infrastructure (outbound adapters)") {
+  Component(repo, "JpaAuditLedgerAdapter", "Spring Data JPA", "INSERT/SELECT only")
+  Component(idem, "JpaIdempotencyAdapter", "JPA", "fact_id -> record_id")
+  Component(head, "JpaStreamHeadAdapter", "JPA", "tip lookup FOR UPDATE")
+  Component(hash, "Sha256HashChainAdapter", "MessageDigest", "canonical(record) v1 + sha256")
+  Component(acsCli, "AcsActorDirectoryAdapter", "RestClient", "caregiver->patient scope, fail-closed")
+}
+
+Rel(auditCtl, recordUC, "append")
+Rel(auditCtl, queryUC, "findById")
+Rel(histCtl, queryUC, "queryTimeline")
+Rel(histCtl, verifyUC, "verifyStream")
+Rel(recordUC, ports, "uses")
+Rel(queryUC, ports, "uses")
+Rel(verifyUC, ports, "uses")
+Rel(recordUC, record, "creates")
+Rel(recordUC, chain, "computes")
+Rel(ports, repo, "AuditLedgerPort")
+Rel(ports, idem, "IdempotencyPort")
+Rel(ports, head, "StreamHeadPort")
+Rel(ports, hash, "HashChainPort")
+Rel(ports, acsCli, "ActorDirectoryPort")
+@enduml

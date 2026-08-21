@@ -264,9 +264,8 @@ public class CatalogPublicationSteps {
     @When("a GET request is made to {string} with header {string}")
     public void whenAGetRequestIsMadeToWithHeader(String pathAlias, String header) {
         UUID patientId = ctx.getAlias("pac-001");
-        String path = patientId != null
-                ? pathAlias.replace("/pac-001", "/" + patientId)
-                : pathAlias;
+        String path =
+                patientId != null ? pathAlias.replace("/pac-001", "/" + patientId) : pathAlias;
         // Parse header name and value: e.g. "If-None-Match: \"42\""
         String[] parts = header.split(":", 2);
         String headerName = parts[0].trim();

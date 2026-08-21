@@ -8,8 +8,29 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- gen_random_uuid() used in seed mig
 CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- Trigram indexes for substring search on names, codes and descriptions.
 CREATE EXTENSION IF NOT EXISTS "unaccent"; -- Accent-insensitive search (LOWER(unaccent(nome)) LIKE ...).
 
-CREATE SCHEMA IF NOT EXISTS t_emp_test;
+CREATE SCHEMA IF NOT EXISTS neuroassist_global;
+GRANT ALL PRIVILEGES ON SCHEMA neuroassist_global TO test;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA neuroassist_global TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA neuroassist_global TO test;
 
+CREATE SCHEMA IF NOT EXISTS t_emp_test;
 GRANT ALL PRIVILEGES ON SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_test TO test;
+
+-- Additional tenant schema for cross-tenant isolation tests
+CREATE SCHEMA IF NOT EXISTS t_emp_other;
+GRANT ALL PRIVILEGES ON SCHEMA t_emp_other TO test;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_other TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_other TO test;
+
+-- Schemas for multi-tenant isolation unit tests
+CREATE SCHEMA IF NOT EXISTS empresa_a;
+GRANT ALL PRIVILEGES ON SCHEMA empresa_a TO test;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA empresa_a TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA empresa_a TO test;
+
+CREATE SCHEMA IF NOT EXISTS empresa_b;
+GRANT ALL PRIVILEGES ON SCHEMA empresa_b TO test;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA empresa_b TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA empresa_b TO test;

@@ -18,10 +18,10 @@ import com.neuroassist.pac.bdd.TestJwtHelper;
  * <p>Servers:
  *
  * <ul>
- *   <li>GEST — {@code /api/gest/v1/detectability/check}
- *   <li>ACS — {@code /api/acs/v1/empresas/{id}}, {@code /api/acs/v1/cuidadores/{id}}
+ *   <li>GEST — {@code /gest-service/eligibility}
+ *   <li>ACS — {@code /api/v1/acs/directory/tenants/{id}}, {@code /api/v1/acs/caregivers/{id}}
  *   <li>EDGE — {@code /api/edge/v1/dispositivos/{id}}
- *   <li>HIST — {@code /hist-service/api/v1/facts}
+ *   <li>HIST — {@code /api/v1/hist/audit-facts}
  *   <li>JWK — {@code /.well-known/jwks.json} (RSA public key for OAuth2 JWT validation)
  * </ul>
  *
@@ -91,7 +91,13 @@ public final class ExternalServicesWireMock {
         // Prevents WireMock's 404 from triggering FeignException.NotFound → 422.
         // Scenario-specific stubs (timeout, 503, not-supported) override this.
         PacWireMockStubs.stubGestDetectability_Supported(gestServer);
+        // Default stub: every primitive is known to GEST. Scenario-specific stubs override this
+        // with a 404 for a particular primitive id.
+        PacWireMockStubs.stubGestPrimitiveKnown(gestServer);
         acsServer.resetAll();
+        // Default stub: ACS always mints a service-identity token. Without it every HIST call
+        // would fail closed (token unavailable) and the facts would stay pending in the outbox.
+        PacWireMockStubs.stubAcsServiceToken(acsServer);
         edgeServer.resetAll();
         histServer.resetAll();
         // Do NOT reset jwkServer — the JWK stub must remain active across all tests.

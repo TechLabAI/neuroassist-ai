@@ -2,9 +2,12 @@ package com.neuroassist.hist.infrastructure.config;
 
 import com.neuroassist.hist.infrastructure.security.TenantContextHolder;
 import feign.Logger;
+import feign.Request;
 import feign.RequestInterceptor;
 import feign.RequestTemplate;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -12,8 +15,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 
 /**
- * Feign interceptors — propagate correlationId, tenantId and JWT bearer token
- * to downstream services (RULE-06: only in infrastructure.clients/config).
+ * Feign interceptors — propagate correlationId, tenantId and JWT bearer token to downstream
+ * services (RULE-06: only in infrastructure.clients/config).
  */
 @Configuration
 public class FeignClientConfig {
@@ -59,5 +62,19 @@ public class FeignClientConfig {
     @Bean
     public Logger.Level feignLoggerLevel() {
         return Logger.Level.BASIC;
+    }
+
+    /**
+     * Explicit Feign timeout — programmatic fallback to ensure the timeout is applied regardless of
+     * which underlying HTTP client (JDK, Apache HC5, OkHttp) is auto-configured. Properties {@code
+     * feign.client.config.acs-directory.*} in YAML may not propagate to all client implementations;
+     * this bean guarantees the 2 s connect + 2 s read limit (HIST-012, P4).
+     */
+    @Bean
+    public Request.Options requestOptions(
+            @Value("${feign.client.config.acs-directory.connectTimeout:2000}") int connectTimeout,
+            @Value("${feign.client.config.acs-directory.readTimeout:2000}") int readTimeout) {
+        return new Request.Options(
+                connectTimeout, TimeUnit.MILLISECONDS, readTimeout, TimeUnit.MILLISECONDS, true);
     }
 }

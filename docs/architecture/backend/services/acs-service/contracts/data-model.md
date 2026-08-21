@@ -117,7 +117,7 @@ CREATE UNIQUE INDEX ux_signing_key_single_active ON signing_key (status) WHERE s
 CREATE INDEX ix_signing_key_status ON signing_key (status);
 
 COMMENT ON TABLE signing_key IS 'ACS: JWT signing keys; only public_jwk is published at /oauth2/jwks (ADR-005).';
-COMMENT ON COLUMN signing_key.private_key_enc IS 'Encrypted private key material; never exposed via any API.';
+COMMENT ON COLUMN signing_key.private_key_enc IS 'AES-256-GCM encrypted RSA private key (PKCS8); IV prepended. Secret via ${ACS_SIGNING_KEY_SECRET}. Never exposed via any API.';
 ```
 
 **Invariants:**

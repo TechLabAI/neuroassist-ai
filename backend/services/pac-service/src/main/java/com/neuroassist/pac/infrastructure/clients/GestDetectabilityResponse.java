@@ -1,10 +1,11 @@
 package com.neuroassist.pac.infrastructure.clients;
 
+import java.util.List;
+
 /**
- * Response from the GEST detectability check endpoint (INT-PAC-001).
+ * Response from the GEST eligibility check endpoint (INT-PAC-001).
  *
- * <p>{@code supported} = true means the gesture combination is ready for detection by the ML model.
- * {@code status} carries a human-readable reason (e.g. "active", "pending-training",
- * "insufficient-data") for logging and advisory messages.
+ * <p>{@code eligible=true} means the gesture primitive set is ready for emergency dispatch. {@code
+ * missingStates} lists primitives not yet in SUPPORTED state (used for advisory messages).
  */
-public record GestDetectabilityResponse(boolean supported, String status) {}
+public record GestDetectabilityResponse(boolean eligible, List<String> missingStates) {}

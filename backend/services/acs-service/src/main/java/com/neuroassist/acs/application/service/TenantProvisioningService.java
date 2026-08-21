@@ -12,6 +12,8 @@ import com.neuroassist.acs.shared.error.TenantProvisioningTimeoutException;
 import com.neuroassist.acs.shared.error.UpstreamUnavailableException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -47,11 +49,13 @@ public class TenantProvisioningService {
     private static final long INITIAL_BACKOFF_MS = 1_000L;
     private static final long MAX_BACKOFF_MS = 5_000L;
     private static final String METRIC_PROVISIONING_DURATION = "acs.tenant.provisioning.duration";
+    private static final String OBS_PROVISION = "acs.tenant.provision";
 
     private final TenantRepositoryPort tenantRepository;
     private final MigProvisioningPort migProvisioningPort;
     private final HistAuditPort histAuditPort;
     private final MeterRegistry meterRegistry;
+    private final ObservationRegistry observationRegistry;
 
     /**
      * Provisions a new tenant schema via MIG service (SAGA, fail-soft on MIG request).
@@ -66,15 +70,23 @@ public class TenantProvisioningService {
      */
     @Transactional
     public Tenant provision(Tenant tenant) {
-        Timer.Sample sample = Timer.start(meterRegistry);
-        try {
-            Tenant activated = doProvision(tenant);
-            sample.stop(meterRegistry.timer(METRIC_PROVISIONING_DURATION, "status", "success"));
-            return activated;
-        } catch (Exception e) {
-            sample.stop(meterRegistry.timer(METRIC_PROVISIONING_DURATION, "status", "failure"));
-            throw e;
-        }
+        return Observation.createNotStarted(OBS_PROVISION, observationRegistry)
+                .observe(
+                        () -> {
+                            Timer.Sample sample = Timer.start(meterRegistry);
+                            try {
+                                Tenant activated = doProvision(tenant);
+                                sample.stop(
+                                        meterRegistry.timer(
+                                                METRIC_PROVISIONING_DURATION, "status", "success"));
+                                return activated;
+                            } catch (Exception e) {
+                                sample.stop(
+                                        meterRegistry.timer(
+                                                METRIC_PROVISIONING_DURATION, "status", "failure"));
+                                throw e;
+                            }
+                        });
     }
 
     private Tenant doProvision(Tenant tenant) {

@@ -3,12 +3,17 @@ package com.neuroassist.dash.integration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 
-class ApplicationContextLoadsIT extends BaseIntegrationTest {
+class ApplicationContextLoadsIT extends BaseIntegrationTest implements ApplicationContextAware {
 
-    @Autowired private ApplicationContext context;
+    private ApplicationContext context;
+
+    @Override
+    public void setApplicationContext(ApplicationContext ctx) {
+        this.context = ctx;
+    }
 
     @Test
     void contextLoads() {

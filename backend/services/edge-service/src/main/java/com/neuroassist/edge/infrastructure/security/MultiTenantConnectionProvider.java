@@ -1,8 +1,12 @@
 package com.neuroassist.edge.infrastructure.security;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +30,14 @@ public class MultiTenantConnectionProvider
 
     private static final String GLOBAL_SCHEMA = "neuroassist_global";
 
+    /**
+     * Maps a tenant identifier to the Postgres schema that holds its data. ACS issues the tenant
+     * UUID in the JWT, while the schema it provisioned is recorded in {@code
+     * neuroassist_global.tenant.schema_nome} (e.g. {@code t_emp_dev}) — routing on the raw
+     * identifier would look for a schema that does not exist (E2E-003 / C-10).
+     */
+    private final Map<String, String> schemaByTenant = new ConcurrentHashMap<>();
+
     private final DataSource dataSource;
 
     @Override
@@ -44,12 +56,48 @@ public class MultiTenantConnectionProvider
         String tenant = tenantIdentifier == null ? null : tenantIdentifier.toString();
         try (Statement st = connection.createStatement()) {
             if (tenant != null && !tenant.isBlank() && !GLOBAL_SCHEMA.equals(tenant)) {
-                st.execute("SET search_path TO \"" + tenant + "\", " + GLOBAL_SCHEMA + ", public");
+                String schema = resolveSchema(connection, tenant);
+                st.execute("SET search_path TO \"" + schema + "\", " + GLOBAL_SCHEMA + ", public");
             } else {
                 st.execute("SET search_path TO " + GLOBAL_SCHEMA + ", public");
             }
         }
         return connection;
+    }
+
+    /**
+     * Resolves the schema for a tenant identifier, caching the result.
+     *
+     * <p>Looks the identifier up in {@code neuroassist_global.tenant} and returns its {@code
+     * schema_nome}. When no row matches — a tenant identifier that is already a schema name, as
+     * used by the test suites — the identifier is used as-is, preserving the previous behaviour.
+     */
+    private String resolveSchema(Connection connection, String tenant) {
+        return schemaByTenant.computeIfAbsent(tenant, id -> lookupSchema(connection, id));
+    }
+
+    private String lookupSchema(Connection connection, String tenant) {
+        String sql =
+                "SELECT schema_nome FROM "
+                        + GLOBAL_SCHEMA
+                        + ".tenant WHERE tenant_id::text = ? AND schema_nome IS NOT NULL";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, tenant);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    String schema = rs.getString(1);
+                    log.debug("Tenant {} routes to schema {}", tenant, schema);
+                    return schema;
+                }
+            }
+        } catch (SQLException e) {
+            // Non-UUID identifiers make the cast fail — that is the test-suite shape, not an error
+            log.debug(
+                    "Could not resolve schema for tenant {} ({}); using it as the schema name",
+                    tenant,
+                    e.getMessage());
+        }
+        return tenant;
     }
 
     @Override

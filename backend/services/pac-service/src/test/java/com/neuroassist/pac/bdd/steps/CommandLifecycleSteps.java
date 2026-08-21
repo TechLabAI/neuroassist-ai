@@ -148,12 +148,14 @@ public class CommandLifecycleSteps {
 
     @And("GEST returns 404 for primitive \"gst-unknown\"")
     public void andGestReturns404ForPrimitiveGstunknown() {
-        // Stub GEST to return 404 for any detectability check (simulates unknown primitive)
+        // The validate transition resolves each primitive individually via
+        // GET /gest-service/tipo-gesto/{id} — 404 there means "unknown to GEST".
+        UUID gstUnknown = TestDataHelper.primitiveUuid("gst-unknown");
         ExternalServicesWireMock.gest()
                 .stubFor(
-                        com.github.tomakehurst.wiremock.client.WireMock.post(
+                        com.github.tomakehurst.wiremock.client.WireMock.get(
                                         com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo(
-                                                "/api/gest/v1/detectability/check"))
+                                                "/gest-service/tipo-gesto/" + gstUnknown))
                                 .willReturn(
                                         com.github.tomakehurst.wiremock.client.WireMock.aResponse()
                                                 .withStatus(404)));
@@ -189,6 +191,33 @@ public class CommandLifecycleSteps {
                         com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(
                                 com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching(
                                         ".*facts.*")));
+        assertHistCallUsedServiceIdentityAndCaregiverActor();
+    }
+
+    /**
+     * Service identity (standards/service-identity.md §6): the outbound HIST call must carry
+     * pac-service's own token, while the fact body must still name the caregiver as actor.
+     *
+     * <p>The stub token is not a JWT, so an exact-equality assertion also proves the caregiver's
+     * {@code Authorization} header was <b>removed</b>, not merely appended to.
+     */
+    private void assertHistCallUsedServiceIdentityAndCaregiverActor() {
+        var requests =
+                ExternalServicesWireMock.hist()
+                        .findAll(
+                                com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(
+                                        com.github.tomakehurst.wiremock.client.WireMock
+                                                .urlPathMatching(".*facts.*")));
+        assertThat(requests).isNotEmpty();
+        var lastRequest = requests.get(requests.size() - 1);
+
+        assertThat(lastRequest.header("Authorization").values())
+                .as("HIST call must travel on pac-service's service-identity token only")
+                .containsExactly("Bearer " + PacWireMockStubs.SERVICE_TOKEN);
+        assertThat(lastRequest.getBodyAsString())
+                .as("the recorded actor must remain the caregiver from the inbound JWT")
+                .contains(com.neuroassist.pac.bdd.TestJwtHelper.CAREGIVER_DISPLAY_NAME)
+                .contains(com.neuroassist.pac.bdd.TestJwtHelper.CAREGIVER_SUB);
     }
 
     // -------------------------------------------------------------------------
@@ -232,6 +261,7 @@ public class CommandLifecycleSteps {
                         com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(
                                 com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching(
                                         ".*facts.*")));
+        assertHistCallUsedServiceIdentityAndCaregiverActor();
     }
 
     // -------------------------------------------------------------------------
@@ -285,6 +315,7 @@ public class CommandLifecycleSteps {
                         com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor(
                                 com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching(
                                         ".*facts.*")));
+        assertHistCallUsedServiceIdentityAndCaregiverActor();
     }
 
     // -------------------------------------------------------------------------
@@ -299,10 +330,12 @@ public class CommandLifecycleSteps {
         ctx.setLastResponse(response);
     }
 
-    // NOTE: "the response list contains {string}" is handled generically by SharedSteps.andTheResponseListContains
+    // NOTE: "the response list contains {string}" is handled generically by
+    // SharedSteps.andTheResponseListContains
     // to avoid AmbiguousStepDefinitionsException (D-532).
 
-    // NOTE: "the response list does not contain {string}" is handled generically by SharedSteps.andTheResponseListDoesNotContain
+    // NOTE: "the response list does not contain {string}" is handled generically by
+    // SharedSteps.andTheResponseListDoesNotContain
     // to avoid AmbiguousStepDefinitionsException (D-532).
 
     // -------------------------------------------------------------------------
@@ -311,9 +344,10 @@ public class CommandLifecycleSteps {
 
     /** Replaces primitive name aliases in JSON body with their deterministic UUIDs. */
     private static String resolvePrimitiveIds(String body) {
-        for (String alias :
-                new String[] {"gst-001", "gst-unknown", "gst-pending", "gst-primary"}) {
-            body = body.replace("\"" + alias + "\"", "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
+        for (String alias : new String[] {"gst-001", "gst-unknown", "gst-pending", "gst-primary"}) {
+            body =
+                    body.replace(
+                            "\"" + alias + "\"", "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
         }
         return body;
     }

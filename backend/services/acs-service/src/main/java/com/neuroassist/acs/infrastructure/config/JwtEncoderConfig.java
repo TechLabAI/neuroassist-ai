@@ -3,79 +3,74 @@ package com.neuroassist.acs.infrastructure.config;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.SecurityContext;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.UUID;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 
 /**
- * Configures RSA-based JWT encoder and decoder for self-issued tokens.
+ * Configures RSA-based JWT encoder and decoder backed by the persisted signing key (ACS-026, Item
+ * A2).
  *
- * <p>P2 behaviour: generates a transient RSA-2048 key pair at startup if no persisted key is
- * configured. In P3+ the key pair will be loaded from the signing_key table
- * (SigningKeyJpaEntity.privateKeyEnc + publicJwk) via SigningKeyPortAdapter.
+ * <p>P7 behaviour: delegates to {@link SigningKeyHolder} for the active RSA key pair. The holder is
+ * populated by {@link SigningKeyInitializer} (ApplicationRunner) after the full Spring context
+ * including JPA is ready. The JwtEncoder and JwtDecoder resolve the key lazily on first use, so
+ * there is no circular initialization dependency.
  *
- * <p>The JwtDecoder is configured with the same RSA public key so acs-service validates its own
- * tokens in the ResourceServer filter chain (SecurityConfig).
+ * <p>SECURITY: private key material is only accessed via the holder; it never appears in
+ * configuration files, logs, or API responses.
  */
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class JwtEncoderConfig {
 
-    /** Singleton RSA key pair for this JVM instance (P2: transient). */
-    private final RSAKey rsaKey;
+    private final SigningKeyHolder signingKeyHolder;
 
-    public JwtEncoderConfig() {
-        this.rsaKey = generateRsaKey();
-    }
-
+    /**
+     * JWT encoder backed by a dynamic JWK source that reads the active key from {@link
+     * SigningKeyHolder} on each encode call. Returns an empty JWK set if the holder is not yet
+     * initialized (pre-startup phase).
+     */
     @Bean
     public JwtEncoder jwtEncoder() {
-        var jwkSet = new JWKSet(rsaKey);
-        ImmutableJWKSet<SecurityContext> jwkSource = new ImmutableJWKSet<>(jwkSet);
-        return new NimbusJwtEncoder(jwkSource);
-    }
-
-    @Bean
-    public JwtDecoder jwtDecoder() throws JOSEException {
-        RSAPublicKey publicKey = (RSAPublicKey) rsaKey.toPublicKey();
-        return NimbusJwtDecoder.withPublicKey(publicKey).build();
+        // Dynamic JWKSource: resolves the active key from SigningKeyHolder at encode time
+        var dynamicSource =
+                (com.nimbusds.jose.jwk.source.JWKSource<SecurityContext>)
+                        (jwkSelector, context) -> {
+                            RSAKey activeKey = signingKeyHolder.getActiveKeyOrNull();
+                            if (activeKey == null) {
+                                log.warn(
+                                        "JwtEncoder: SigningKeyHolder not yet initialized — returning empty JWK set");
+                                return List.of();
+                            }
+                            return jwkSelector.select(new JWKSet(activeKey));
+                        };
+        return new NimbusJwtEncoder(dynamicSource);
     }
 
     /**
-     * Exposes the RSA key (public + private) for use by SigningKeyPortAdapter and JwkSetService.
-     * Only the public part is ever serialized to responses.
+     * JWT decoder that validates tokens against the active public key in {@link SigningKeyHolder}.
+     * Resolved lazily on each decode call.
      */
     @Bean
-    public RSAKey signingRsaKey() {
-        return rsaKey;
-    }
-
-    private RSAKey generateRsaKey() {
-        try {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-            generator.initialize(2048);
-            KeyPair keyPair = generator.generateKeyPair();
-            String kid = UUID.randomUUID().toString();
-            log.warn(
-                    "JWT: using transient RSA key pair (kid={}) — replace with persisted key in production",
-                    kid);
-            return new RSAKey.Builder((RSAPublicKey) keyPair.getPublic())
-                    .privateKey((RSAPrivateKey) keyPair.getPrivate())
-                    .keyID(kid)
-                    .build();
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to generate RSA key pair for JWT signing", e);
-        }
+    public JwtDecoder jwtDecoder() {
+        return token -> {
+            RSAKey activeKey = signingKeyHolder.getActiveKey();
+            try {
+                RSAPublicKey publicKey = (RSAPublicKey) activeKey.toPublicKey();
+                return NimbusJwtDecoder.withPublicKey(publicKey).build().decode(token);
+            } catch (JOSEException e) {
+                throw new BadJwtException("Failed to extract RSA public key for JWT decoding", e);
+            }
+        };
     }
 }

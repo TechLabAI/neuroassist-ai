@@ -1,0 +1,32 @@
+﻿
+[Incubating] Problems report is available at: file:///D:/01_Trabalho/Cybersoft/TechLab%20IA/neuroassist-ai/backend/build/reports/problems/problems-report.html
+gradlew.bat : 
+No linha:1 caractere:367
++ ... i\backend"; & ".\gradlew.bat" 
+":edge-service:spotlessCheck" 2>&1 | te ...
++                 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [] 
+   , RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Cannot locate tasks that match 
+':edge-service:spotlessCheck' as project 'edge-service' 
+not found in root project 'neuroassist-ai-backend'.
+
+* Try:
+> Run gradlew projects to get a list of available 
+projects.
+> For more on name expansion, please refer to https://doc
+s.gradle.org/8.13/userguide/command_line_interface.html#s
+ec:name_abbreviation in the Gradle documentation.
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log 
+output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 996ms

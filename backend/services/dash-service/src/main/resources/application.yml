@@ -1,22 +1,14 @@
 spring:
   application:
     name: dash-service
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
+  # Zero tabelas MVP (ADR-004): sem datasource, sem JPA, sem Flyway
   flyway:
-    enabled: false  # Migrations gerenciadas pelo neuroassist-ai-migrations (V7+)
-  datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/dash_dev}
-    username: ${DB_USER:dash}
-    password: ${DB_PASS:dash_dev_pass}
-    hikari:
-      maximum-pool-size: 10
+    enabled: false
   security:
     oauth2:
       resourceserver:
         jwt:
+          jwk-set-uri: ${ACS_JWK_URI:http://localhost:8088/oauth2/jwks}
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
 
 server:
@@ -34,13 +26,66 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
+        include: health,prometheus,info,metrics,sessions
   endpoint:
     health:
       show-details: always
   metrics:
     tags:
       application: ${spring.application.name}
+
+dash:
+  acs:
+    base-url: ${ACS_BASE_URL:http://acs-service}
+  pac:
+    base-url: ${PAC_BASE_URL:http://pac-service}
+  evnt:
+    base-url: ${EVNT_BASE_URL:http://evnt-service}
+  hist:
+    base-url: ${HIST_BASE_URL:http://hist-service}
+  edge:
+    base-url: ${EDGE_BASE_URL:http://edge-service}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      acs-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      pac-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      evnt-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      hist-service:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 3
+      edge-service:
+        slidingWindowSize: 20
+        failureRateThreshold: 60
+        waitDurationInOpenState: 5s
+        permittedNumberOfCallsInHalfOpenState: 5
+  timelimiter:
+    instances:
+      acs-service:
+        timeoutDuration: 3s
+      pac-service:
+        timeoutDuration: 3s
+      evnt-service:
+        timeoutDuration: 2s
+      hist-service:
+        timeoutDuration: 5s
+      edge-service:
+        timeoutDuration: 2s
 
 logging:
   pattern:

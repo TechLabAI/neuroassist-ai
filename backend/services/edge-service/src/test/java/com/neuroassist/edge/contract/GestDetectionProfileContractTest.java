@@ -7,7 +7,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.neuroassist.edge.infrastructure.clients.DetectionProfileClient;
+import com.neuroassist.edge.infrastructure.security.ServiceTokenProvider;
+import com.neuroassist.edge.infrastructure.security.ServiceTokenUnavailableException;
+import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -16,6 +21,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -65,19 +73,57 @@ class GestDetectionProfileContractTest {
                     .options(WireMockConfiguration.wireMockConfig().port(WIREMOCK_PORT))
                     .build();
 
+    /** Tenant the service token is scoped to (service-identity contract §3). */
+    private static final String TENANT = "e2e00000-0000-0000-0000-000000000001";
+
+    private static final String SERVICE_TOKEN = "service-identity-jwt-from-acs";
+    private static final String CALLER_TOKEN = "caller-device-jwt";
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("neuroassist.gest.url", () -> "http://localhost:" + WIREMOCK_PORT);
+        // ACS service-identity endpoint is served by the same WireMock instance
+        registry.add(
+                "neuroassist.acs.service-token.url", () -> "http://localhost:" + WIREMOCK_PORT);
     }
 
     private final DetectionProfileClient detectionProfileClient;
+    private final ServiceTokenProvider serviceTokenProvider;
 
     @Autowired
-    GestDetectionProfileContractTest(DetectionProfileClient detectionProfileClient) {
+    GestDetectionProfileContractTest(
+            DetectionProfileClient detectionProfileClient,
+            ServiceTokenProvider serviceTokenProvider) {
         this.detectionProfileClient = detectionProfileClient;
+        this.serviceTokenProvider = serviceTokenProvider;
+    }
+
+    /**
+     * Every outbound GEST call now needs a tenant-scoped service token (service-identity §5), so
+     * the ACS endpoint is stubbed and a tenant is put in context — as TenantContextFilter does in
+     * production. The provider cache is dropped so each test observes its own stub.
+     */
+    @BeforeEach
+    void seedServiceIdentity() {
+        gestMock.stubFor(
+                post(urlEqualTo("/oauth2/token/service"))
+                        .willReturn(
+                                okJson(
+                                        "{\"accessToken\":\""
+                                                + SERVICE_TOKEN
+                                                + "\",\"tokenType\":\"Bearer\",\"expiresIn\":900}")));
+        TenantContextHolder.set(TENANT);
+        serviceTokenProvider.invalidate(TENANT);
+    }
+
+    @AfterEach
+    void clearContext() {
+        TenantContextHolder.clear();
+        SecurityContextHolder.clearContext();
+        serviceTokenProvider.invalidate(TENANT);
     }
 
     // -------------------------------------------------------------------------
@@ -144,5 +190,69 @@ class GestDetectionProfileContractTest {
         } finally {
             org.slf4j.MDC.remove("correlationId");
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 4 — service identity replaces the caller's JWT (C-19)
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "S4: Authorization carries the ACS service token, not the caller's device JWT (C-19)")
+    void outboundRequest_carriesServiceIdentityNotCallerToken() {
+        UUID deviceId = UUID.randomUUID();
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/detection-profile/devices/" + deviceId))
+                        .willReturn(okJson("{\"version\":11}")));
+
+        // The caller is a device whose token never holds gest.detection-profile.read.
+        Jwt callerJwt =
+                Jwt.withTokenValue(CALLER_TOKEN)
+                        .header("alg", "none")
+                        .claim("sub", "device-d7b1")
+                        .build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(callerJwt));
+
+        detectionProfileClient.getActiveProfileForDevice(deviceId);
+
+        // Exactly one Authorization value, and it is the service token — not two values with the
+        // caller's token first (RequestTemplate.header() appends).
+        var received =
+                gestMock.findAll(
+                        getRequestedFor(
+                                urlEqualTo("/gest-service/detection-profile/devices/" + deviceId)));
+        assertThat(received).hasSize(1);
+        assertThat(received.get(0).header("Authorization").values())
+                .containsExactly("Bearer " + SERVICE_TOKEN);
+
+        // The token was fetched from the ACS with the tenant of the request in course.
+        gestMock.verify(
+                postRequestedFor(urlEqualTo("/oauth2/token/service"))
+                        .withRequestBody(matchingJsonPath("$.clientId", equalTo("edge-service")))
+                        .withRequestBody(matchingJsonPath("$.tenantId", equalTo(TENANT))));
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 5 — fail-closed: ACS unavailable aborts the call
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName(
+            "S5: ACS rejects the service credential — the GEST call is never made (fail-closed)")
+    void acsRejects_callIsNotMade() {
+        UUID deviceId = UUID.randomUUID();
+        gestMock.stubFor(
+                post(urlEqualTo("/oauth2/token/service")).willReturn(aResponse().withStatus(401)));
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/detection-profile/devices/" + deviceId))
+                        .willReturn(okJson("{\"version\":11}")));
+        serviceTokenProvider.invalidate(TENANT);
+
+        assertThatThrownBy(() -> detectionProfileClient.getActiveProfileForDevice(deviceId))
+                .isInstanceOf(ServiceTokenUnavailableException.class);
+
+        gestMock.verify(
+                0,
+                getRequestedFor(urlEqualTo("/gest-service/detection-profile/devices/" + deviceId)));
     }
 }

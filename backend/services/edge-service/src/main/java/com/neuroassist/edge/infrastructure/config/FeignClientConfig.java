@@ -7,6 +7,7 @@ import feign.RequestTemplate;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -43,9 +44,31 @@ public class FeignClientConfig {
         };
     }
 
+    /**
+     * Propagates the caller's JWT to downstream services.
+     *
+     * <p>A named {@link Ordered} class rather than a lambda: Spring Cloud sorts the injected {@code
+     * List<RequestInterceptor>} with {@code AnnotationAwareOrderComparator}, which reads the order
+     * off the <em>instance</em> — an {@code @Order} annotation on a {@code @Bean} method returning
+     * a lambda would be ignored. The explicit order guarantees this interceptor runs
+     * <em>before</em> {@code ServiceIdentityRequestInterceptor}, which removes and replaces the
+     * header for service-identity clients.
+     */
     @Bean
     public RequestInterceptor feignAuthPropagationInterceptor() {
-        return (RequestTemplate template) -> {
+        return new AuthPropagationInterceptor();
+    }
+
+    /**
+     * @see #feignAuthPropagationInterceptor()
+     */
+    static final class AuthPropagationInterceptor implements RequestInterceptor, Ordered {
+
+        /** Strictly before {@code Ordered.LOWEST_PRECEDENCE} (service-identity interceptor). */
+        static final int ORDER = Ordered.LOWEST_PRECEDENCE - 1000;
+
+        @Override
+        public void apply(RequestTemplate template) {
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth instanceof JwtAuthenticationToken jwtAuth) {
                 Jwt jwt = jwtAuth.getToken();
@@ -53,7 +76,12 @@ public class FeignClientConfig {
                     template.header(AUTH_HEADER, "Bearer " + jwt.getTokenValue());
                 }
             }
-        };
+        }
+
+        @Override
+        public int getOrder() {
+            return ORDER;
+        }
     }
 
     @Bean

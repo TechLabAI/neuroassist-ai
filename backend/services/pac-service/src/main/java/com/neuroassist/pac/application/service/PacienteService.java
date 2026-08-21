@@ -205,8 +205,8 @@ public class PacienteService implements PacienteUseCase {
     // -------------------------------------------------------------------------
 
     /**
-     * Validates EDGE device ownership and ACS caregiver existence before any DB write.
-     * Throws CodedException on failure — adapter handles 404→pac.dispositivo/cuidador.not-found.
+     * Validates EDGE device ownership and ACS caregiver existence before any DB write. Throws
+     * CodedException on failure — adapter handles 404→pac.dispositivo/cuidador.not-found.
      */
     private void validateExternalRefs(
             String tenantId, UUID dispositivoEdgeId, List<UUID> cuidadorIds) {

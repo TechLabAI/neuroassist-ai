@@ -2,11 +2,10 @@ package com.neuroassist.hist.infrastructure.security;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.UUID;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
-import java.util.UUID;
 
 @Component
 public class CorrelationIdInterceptor implements HandlerInterceptor {
@@ -15,8 +14,7 @@ public class CorrelationIdInterceptor implements HandlerInterceptor {
     private static final String MDC_KEY = "correlationId";
 
     @Override
-    public boolean preHandle(HttpServletRequest req, HttpServletResponse res,
-                             Object handler) {
+    public boolean preHandle(HttpServletRequest req, HttpServletResponse res, Object handler) {
         String id = req.getHeader(HEADER);
         if (id == null || id.isBlank()) id = UUID.randomUUID().toString();
         MDC.put(MDC_KEY, id);
@@ -25,8 +23,8 @@ public class CorrelationIdInterceptor implements HandlerInterceptor {
     }
 
     @Override
-    public void afterCompletion(HttpServletRequest req, HttpServletResponse res,
-                                Object handler, Exception ex) {
+    public void afterCompletion(
+            HttpServletRequest req, HttpServletResponse res, Object handler, Exception ex) {
         MDC.remove(MDC_KEY);
     }
 }
