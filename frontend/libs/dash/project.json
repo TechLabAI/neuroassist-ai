@@ -6,6 +6,25 @@
   "prefix": "dash",
   "tags": ["scope:dash", "type:feature"],
   "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": [
+        "{workspaceRoot}/dist/libs/dash"
+      ],
+      "options": {
+        "project": "libs/dash/ng-package.json",
+        "tsConfig": "libs/dash/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/dash/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/dash/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
     "test": {
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/libs/dash"],

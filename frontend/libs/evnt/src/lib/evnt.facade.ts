@@ -4,6 +4,8 @@ import { lastValueFrom, Subscription, timer, switchMap } from 'rxjs';
 import { AppError } from '@neuroassist/shared/error-model';
 import { EVNT_CLIENT_PORT } from './api/evnt-client.port';
 import type { EventoSummaryDto } from './api/evnt-client.port';
+import { EvntFeatureFlagsService } from './api/evnt-feature-flags.service';
+import { EvntTelemetryService } from './telemetry/evnt-telemetry.service';
 import {
   EventoVm,
   AlarmVm,
@@ -16,15 +18,16 @@ import {
 // EventDeliveryFacade — SPEC-03 §5, SPEC-04
 // Single state owner for EVNT: alarm state, routine queue, live-delivery mode.
 // Signals-first (Angular 21, no NgRx). OnPush-safe: all reads via .asReadonly().
+//
+// P6-D: injected EvntFeatureFlagsService — reads liveChannel flag before opening
+//   SSE. If liveChannel === 'off': starts polling directly (no SSE attempt).
+//   pollIntervalMs from feature flag used in _startPolling().
 // =============================================================================
 
 /** Patient name resolved from tenant context.
  * TODO[FE-EVNT-012]: inject from @neuroassist/shared/empresa-context (patient roster).
  * Hardcoded for MVP prototype parity. */
 const PATIENT_NAME_PLACEHOLDER = 'Márcio';
-
-/** Default poll interval when live stream is unavailable (feature flag: EVNT_POLL_INTERVAL_MS). */
-const DEFAULT_POLL_INTERVAL_MS = 15_000;
 
 function mapSummaryToVm(dto: EventoSummaryDto): EventoVm {
   return {
@@ -50,6 +53,8 @@ function toAppError(err: unknown): AppError {
 export class EventDeliveryFacade {
   private readonly port = inject(EVNT_CLIENT_PORT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly flagService = inject(EvntFeatureFlagsService);
+  private readonly telemetry = inject(EvntTelemetryService);
 
   // ---------------------------------------------------------------------------
   // Core state signals (private — mutated only by facade methods)
@@ -66,6 +71,7 @@ export class EventDeliveryFacade {
   private readonly _confirming = signal(false);
   private readonly _confirmError = signal<AppError | null>(null);
   private readonly _alreadyConfirmed = signal(false);
+  private readonly _alreadyConfirmedBy = signal<string | null>(null);
 
   // Detail-page state
   private readonly _selectedEvent = signal<EventoVm | null>(null);
@@ -86,6 +92,9 @@ export class EventDeliveryFacade {
 
   /** Confirmation in flight (CONCUR-01) — drives FeedbackVerdictControl[disabled] in detail page. */
   readonly confirming = this._confirming.asReadonly();
+
+  /** Name of the caregiver who already confirmed (409 concurrent-confirmation path). */
+  readonly alreadyConfirmedBy = this._alreadyConfirmedBy.asReadonly();
 
   /** Composite AlarmVm signal (SPEC-03 §2) — drives AlarmOverlayComponent. */
   readonly alarmVm = computed<AlarmVm>(() => ({
@@ -116,6 +125,8 @@ export class EventDeliveryFacade {
       const dto = await lastValueFrom(this.port.listActive());
       if (dto.activeEvent && dto.activeEvent.urgencia === 'emergencia') {
         this._activeEvent.set(mapSummaryToVm(dto.activeEvent));
+        // P8: alarm received via hydration (urgency only — zero PII)
+        this.telemetry.trackAlarmReceived(dto.activeEvent.urgencia);
       }
       const routines = dto.events
         .filter((e) => e.urgencia === 'rotina' && e.feedback === 'nao_avaliado')
@@ -128,8 +139,21 @@ export class EventDeliveryFacade {
     }
   }
 
-  /** Open SSE live channel. On error falls back to polling (SPEC-04 §3/§4). */
+  /**
+   * Open SSE live channel. On error falls back to polling (SPEC-04 §3/§4).
+   * P6-D: checks liveChannel feature flag before attempting SSE.
+   *   If liveChannel === 'off': skip SSE and start polling directly.
+   */
   startLiveChannel(): void {
+    // P6-D: respect liveChannel feature flag
+    if (!this.flagService.isLiveChannelEnabled()) {
+      this._deliveryMode.set('degraded');
+      // P8: SSE disabled by flag → degraded activated with 'sse_timeout' reason
+      this.telemetry.trackDegradedActivated('sse_timeout');
+      this._startPolling();
+      return;
+    }
+
     this.streamSub = this.port
       .openStream()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -156,7 +180,10 @@ export class EventDeliveryFacade {
         },
         error: () => {
           // Stream error → degrade to polling (SPEC-04 §4)
+          // P8: emit SSE error event first, then degraded activation
+          this.telemetry.trackSseError();
           this._deliveryMode.set('degraded');
+          this.telemetry.trackDegradedActivated('sse_error');
           this._startPolling();
         },
       });
@@ -179,21 +206,33 @@ export class EventDeliveryFacade {
     this._confirming.set(true);
     this._confirmError.set(null);
     this._alreadyConfirmed.set(false);
+    this._alreadyConfirmedBy.set(null);
+    // P8: confirmation flow initiated (opaque eventoId — not PII)
+    this.telemetry.trackConfirmStart(eventoId);
     try {
       await lastValueFrom(this.port.confirm(eventoId, verdict));
       // Only clear active event after confirmed 200 (safety invariant)
       this._activeEvent.set(null);
+      // P8: confirmation succeeded
+      this.telemetry.trackConfirmSuccess(eventoId);
     } catch (err: unknown) {
       // 409 feedback-terminal → treat as success (already confirmed by someone else)
-      const isTerminal =
-        err instanceof Object &&
-        'status' in err &&
-        (err as { status: number }).status === 409;
-      if (isTerminal) {
+      const appErr = err as { code?: string; type?: string; confirmadoPor?: string } | null;
+      const isFeedbackTerminal =
+        appErr !== null &&
+        typeof appErr === 'object' &&
+        (appErr.code === '/errors/feedback-terminal' ||
+          appErr.type === '/errors/feedback-terminal');
+      if (isFeedbackTerminal) {
         this._alreadyConfirmed.set(true);
+        this._alreadyConfirmedBy.set(appErr?.confirmadoPor ?? null);
         this._activeEvent.set(null);
+        // P8: concurrent confirmation — 409 feedback-terminal
+        this.telemetry.trackConfirmConflict(eventoId);
       } else {
         this._confirmError.set(toAppError(err));
+        // P8: confirmation failed with non-409 error
+        this.telemetry.trackConfirmError();
       }
     } finally {
       this._confirming.set(false);
@@ -206,10 +245,13 @@ export class EventDeliveryFacade {
   }
 
   /** Load event detail for the detail page (FE-EVNT-016).
-   * On success: sets selectedEvent signal. On error/404: sets selectedEvent to null.
-   * Returns Promise<void> — detail page reads via facade.selectedEvent() signal. */
+   * On success: sets selectedEvent signal, clears error.
+   * On error: sets selectedEvent to null AND sets error signal (P6-G) so the
+   * component can distinguish /errors/forbidden from /errors/tenant-mismatch etc.
+   * Returns Promise<void> — detail page reads via facade.selectedEvent() and error() signals. */
   async loadDetail(eventoId: string): Promise<void> {
     this._loading.set(true);
+    this._error.set(null);
     try {
       const dto = await lastValueFrom(this.port.get(eventoId));
       this._selectedEvent.set({
@@ -224,8 +266,10 @@ export class EventDeliveryFacade {
         confirmadoPor: dto.confirmadoPor ?? null,
         confirmadoAt: dto.confirmadoAt ?? null,
       });
-    } catch {
+    } catch (err) {
       this._selectedEvent.set(null);
+      // P6-G: surface the typed error so EventDetailPageComponent can route on it
+      this._error.set(toAppError(err));
     } finally {
       this._loading.set(false);
     }
@@ -263,7 +307,8 @@ export class EventDeliveryFacade {
 
   private _startPolling(): void {
     this._stopPolling();
-    this.pollSub = timer(0, DEFAULT_POLL_INTERVAL_MS)
+    const pollIntervalMs = this.flagService.getPollIntervalMs();
+    this.pollSub = timer(0, pollIntervalMs)
       .pipe(
         switchMap(() => this.port.listActive(new Date().toISOString())),
         takeUntilDestroyed(this.destroyRef),

@@ -416,6 +416,16 @@ See section 2 table above for full status. Key groupings:
   - ⚠ Remaining gaps (not blockers for shipping): observability sink integration (telemetry stubs wired), multi-empresa X-Empresa-Id injection (seam ready), monolithic lib split (nice-to-have for modularity)
 - **Recommendation:** ENCERRAR ciclo autopilot GEST — all P1-P6 priorities delivered, score ≥ 80, all mandatory gates GREEN, shipping viable. P7+ (lib split, full observability) can be handled post-ship or in future cycles.
 
+**2026-08-19 (Autopilot --resume re-validation):**
+- Resumed `/fe-autopilot GEST --resume` against the ENCERRADO checkpoint (score 80/100, P1-P6 done)
+- Skip-check confirmed score >= 80 and mandatory issues DONE → re-ran gates directly instead of Planner/Implementer cycle
+- Gates re-validated: `npx nx test gest` → 122/122 ✓ | `npx nx lint gest` → 0 errors, 4 warnings ✓ | `npx nx build gest` → ✓
+- **E2E regression found and fixed:** `npx nx e2e gest-e2e` initially failed 1/14 (`composition-boundary.spec.ts`) with a Playwright strict-mode violation — `page.locator('h1')` resolved to 2 elements once EVNT's global `alarm-overlay.component.ts` (renders its own `<h1>`, e.g. "Márcio precisa de ajuda") started mounting across all routes, including `/gest`. Not a GEST code regression; a cross-module test-fragility issue exposed by EVNT's alarm overlay going live app-shell-wide.
+  - Fix: scoped the assertion to `page.getByRole('heading', { name: 'GEST — dev host (live-test harness)' })` instead of the bare `h1` tag selector, in `frontend/apps/gest-e2e/src/composition-boundary.spec.ts`. No GEST source (facade/component/adapter) touched.
+  - Re-ran full suite after fix: **14/14 PASS**, including mandatory GEST-FE-026 (stream-no-cache-between-runs).
+- Score unchanged: **80/100 (Maduro)** — no functional/structural change, only e2e test robustness
+- Autopilot re-ENCERRADO. P7-P10 remain optional backlog (see §9), not blocking.
+
 ---
 
 ## 8. Estado Atual Resumido (para agentes)

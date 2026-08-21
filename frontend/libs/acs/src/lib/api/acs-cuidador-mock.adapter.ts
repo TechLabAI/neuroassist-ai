@@ -6,6 +6,10 @@ import { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto, CuidadorStatus } from 
 // =============================================================================
 // AcsCuidadorMockAdapter — dev/test (default adapter)
 // Seed: Jamilly Amaral (matches prototype mock-data.ts).
+//
+// E2E test-support flags (localStorage, browser-only — never set in prod):
+//   __ACS_E2E_LIST_FAIL__   = 'true'  → list()   throws (enables error-state e2e)
+//   __ACS_E2E_CREATE_FAIL__ = 'true'  → create() throws (enables draft-preservation e2e)
 // =============================================================================
 
 const _cuidadores = new Map<string, CuidadorDto>([
@@ -17,6 +21,29 @@ const _cuidadores = new Map<string, CuidadorDto>([
     papel: 'cuidadora',
     status: 'active' as CuidadorStatus,
   }],
+  // Maria Santos — second active caregiver for multi-caregiver scenarios:
+  //   link-002: cuid-maria → pac-marcio (enables non-last-covering deactivate test)
+  //   link-003: cuid-maria → pac-outro  (enables last-covering revoke ADR-005 test)
+  ['cuid-maria', {
+    id: 'cuid-maria',
+    tenantId: 'tenant-familia-amaral',
+    nome: 'Maria Santos',
+    email: 'maria.santos@example.com',
+    papel: 'cuidadora',
+    status: 'active' as CuidadorStatus,
+  }],
+  // cuid-inativo — inactive caregiver seeded for e2e scenario 10:
+  //   "An inactive linked caregiver is excluded from the paciente coverage count."
+  //   link-inativo: cuid-inativo → pac-inativo-linked (in acs-link-mock.adapter.ts)
+  //   activeCaregivers() excludes this entry → pac-inativo-linked shows sem-cobertura.
+  ['cuid-inativo', {
+    id: 'cuid-inativo',
+    tenantId: 'tenant-familia-amaral',
+    nome: 'Inativo Cuidador',
+    email: 'inativo@example.com',
+    papel: 'cuidadora',
+    status: 'inactive' as CuidadorStatus,
+  }],
 ]);
 
 let _idSeq = 1;
@@ -25,7 +52,13 @@ let _idSeq = 1;
 export class AcsCuidadorMockAdapter implements AcsCuidadorPort {
   list(): Observable<CuidadorDto[]> {
     return timer(400).pipe(
-      switchMap(() => of(Array.from(_cuidadores.values()))),
+      switchMap(() => {
+        // E2E test-support: localStorage flag forces an error to test the roster error state.
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('__ACS_E2E_LIST_FAIL__') === 'true') {
+          throw new Error('Simulated network error (E2E test — __ACS_E2E_LIST_FAIL__)');
+        }
+        return of(Array.from(_cuidadores.values()));
+      }),
     );
   }
 
@@ -42,6 +75,10 @@ export class AcsCuidadorMockAdapter implements AcsCuidadorPort {
   create(dto: CuidadorCreateDto): Observable<CuidadorDto> {
     return timer(800).pipe(
       switchMap(() => {
+        // E2E test-support: localStorage flag forces a failure to test draft preservation.
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('__ACS_E2E_CREATE_FAIL__') === 'true') {
+          throw new Error('Simulated invite error (E2E test — __ACS_E2E_CREATE_FAIL__)');
+        }
         const id = `cuid-${Date.now()}-${++_idSeq}`;
         const cuidador: CuidadorDto = {
           id,

@@ -1,6 +1,6 @@
 ## [FE-EVNT-030] e2e — entrega-degradada.feature + BRIDGE-01 backtick slugs (Playwright)
 
-**Status:** ABERTA
+**Status:** DONE
 **GitHub:** [#TBD]
 
 **Outcome:**

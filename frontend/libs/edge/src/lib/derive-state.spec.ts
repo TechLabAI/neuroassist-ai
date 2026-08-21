@@ -188,3 +188,94 @@ describe('deriveState() — threshold boundary verification', () => {
       .toBe('offline');
   });
 });
+
+// =============================================================================
+// FE-EDGE-027 — G5: serverTime absent → 'unknown' (safe fallback, not a crash)
+//
+// Gap G5: No test verifies that the FE derivation falls back correctly if
+// `serverTime` is absent from the LivenessView response (defensive coding).
+// The spec requires: serverTime absent → derivedState = 'unknown' (never crash
+// or silently fall back to client clock, which would violate doc 06 R5).
+// =============================================================================
+
+describe('G5 — deriveState() with absent serverTime (FE-EDGE-027)', () => {
+  it('[G5] serverTime absent (undefined): returns unknown, never throws', () => {
+    // G5 fix (FE-EDGE-027): when serverTime is absent/undefined, isNaN(NaN) guard
+    // triggers early-return 'unknown' — preventing a false-green 'online'.
+    const deviceWithoutServerTime = makeDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serverTime: undefined as any,
+      ultimaSincronizacao: new Date(FIXED_EPOCH - 10_000).toISOString(),
+    });
+
+    // Must not throw.
+    let result: string | undefined;
+    expect(() => {
+      result = deriveState(deviceWithoutServerTime, true);
+    }).not.toThrow();
+
+    // With the G5 fix: undefined serverTime → serverMs = NaN → 'unknown' (safe fallback).
+    expect(result).toBe('unknown');
+    expect(result).not.toBe('online');
+  });
+
+  it('[G5] serverTime absent: result is unknown (honesty invariant + safe fallback)', () => {
+    const deviceWithoutServerTime = makeDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serverTime: undefined as any,
+      pairingState: 'paired',
+      ultimaSincronizacao: new Date(FIXED_EPOCH - 5_000).toISOString(),
+    });
+
+    const result = deriveState(deviceWithoutServerTime, true);
+
+    // G5 fix: absent serverTime → 'unknown' (never 'online' — no false positive).
+    expect(result).toBe('unknown');
+    expect(result).not.toBe('online');
+  });
+
+  it('[G5] serverTime null: returns unknown (G5 fix prevents false-green)', () => {
+    const deviceWithNullServerTime = makeDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serverTime: null as any,
+      ultimaSincronizacao: new Date(FIXED_EPOCH - 5_000).toISOString(),
+    });
+
+    const result = deriveState(deviceWithNullServerTime, true);
+
+    // BEFORE G5 fix: null serverTime → new Date(null) = epoch → negative ageMs →
+    // ageMs < stalenessMs (negative < positive) → FALSE 'online'. This was the bug.
+    // AFTER G5 fix: null serverTime → NaN (via `serverTime ? ... : NaN`) → 'unknown'.
+    expect(result).toBe('unknown');
+    expect(result).not.toBe('online');
+  });
+
+  it('[G5] serverTime empty string: returns unknown (empty string is falsy → NaN guard)', () => {
+    const deviceWithEmptyServerTime = makeDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serverTime: '' as any,
+      ultimaSincronizacao: new Date(FIXED_EPOCH - 5_000).toISOString(),
+    });
+
+    const result = deriveState(deviceWithEmptyServerTime, true);
+
+    // G5 fix: empty string is falsy → serverMs = NaN → 'unknown'.
+    expect(result).toBe('unknown');
+    expect(result).not.toBe('online');
+  });
+
+  it('[G5] pollOk=false with absent serverTime: still returns unknown (not crash)', () => {
+    const device = makeDevice({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serverTime: undefined as any,
+      ultimaSincronizacao: new Date(FIXED_EPOCH - 5_000).toISOString(),
+    });
+
+    // pollOk=false → unknown guard fires first (before serverTime calculation).
+    expect(() => {
+      const result = deriveState(device, false);
+      // unknown fires before any arithmetic — pollOk guard takes precedence.
+      expect(result).toBe('unknown');
+    }).not.toThrow();
+  });
+});

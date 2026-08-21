@@ -1,20 +1,23 @@
 # Plano FE — EVNT (neuroassist-ai-web)
 
-> Gerado por: `/fe-planner` (pipeline B, etapa B3) | 2026-08-13
-> Baseline score: **39/100 — Inicial/Parcial** | Issues DONE: 0/37 (0%); PARCIAL: 13/37; MISSING: 24/37
-> Tipo de planejamento: **REPLANEJAMENTO**
-> Plano de referência anterior: `docs/architecture/frontend/modules/evnt/frontend/plans/plan-FE-EVNT.md` (wave map original — não executado)
+> Atualizado por: `/fe-planner` (pipeline B, reabertura P6-P9) | 2026-08-16
+> Score atual: **90/100 — Maduro** | Issues MVP DONE: 37/37 (100%); Gates: lint PASS, build PASS, test 34/34 PASS
+> Tipo de planejamento: **INCREMENTAL** (P1-P5 DONE; P6-P9 agora ativos — BE pronto desde commit 4fa3366)
+> Plano anterior: `2026-08-13` — P1-P5 executados com sucesso; P6-P9 estavam deferred; agora ativados.
 
 ---
 
 ## Status das prioridades
 
-- **P1** — Nx Lint Fix + TypeScript Build Repair — pendente (BLOQUEADOR ESTRUTURAL)
-- **P2** — libs/evnt/ui: UrgencyBadge + EventTimestamp — pendente (FE-EVNT-018)
-- **P3** — Feature Routine Leaf: RoutineNotice + EventList + EventFeedPage — pendente (FE-EVNT-013, 014, 015)
-- **P4** — Feature Routine Smart: EventDetailPage + FeedbackVerdictControl — pendente (FE-EVNT-016, 017)
-- **P5** — Foundation Completion: ShellDescriptor + NAV_CONFIG + Unit Tests — pendente (FE-EVNT-004, 006 + testes P1-P4)
-- **P6** — Multi-empresa + Guards + Error Handling — pendente (INT-FE-EVNT-004, 006; FE-EVNT-021..024)
+- **P1** — Nx Lint Fix + TypeScript Build Repair — **DONE** (FE-EVNT-001, FE-EVNT-003)
+- **P2** — libs/evnt/ui: UrgencyBadge + EventTimestamp — **DONE** (FE-EVNT-018)
+- **P3** — Feature Routine Leaf: RoutineNotice + EventList + EventFeedPage — **DONE** (FE-EVNT-013, 014, 015)
+- **P4** — Feature Routine Smart: EventDetailPage + FeedbackVerdictControl — **DONE** (FE-EVNT-016, 017)
+- **P5** — Foundation Completion: EVNT_NAV_CONFIG + Unit Tests — **DONE** (FE-EVNT-004, 006 + specs P5)
+- **P6** — Integração real com backend + Guards + HTTP wiring — **pendente** (INT-FE-EVNT-001..007, FE-EVNT-019..021, FE-EVNT-023)
+- **P7** — Polish/UX: loading states, degraded banner — **pendente** (FE-EVNT-022, FE-EVNT-024)
+- **P8** — Observability: EvntTelemetryService zero-PII — **pendente** (FE-EVNT-025)
+- **P9** — e2e Playwright (OBRIGATORIO — NAO PODE SER DEFERRED) — **pendente** (FE-EVNT-026..030)
 
 ---
 
@@ -24,66 +27,63 @@
 
 EVNT é a superfície de alarme e notificação do NeuroAssist AI. Quando um gesto de emergência é detectado, toda a tela vira um alarme full-bleed vermelho (`AlarmOverlayComponent`) que só fecha com confirmação explícita. Comandos de rotina chegam como notificações discretas (`RoutineNoticeComponent`). O AlarmOverlay é um shell outlet global (ADR-005), não uma rota. O canal live é SSE com fallback automático para polling.
 
-### Estado atual observado
+### Estado atual observado (2026-08-16)
 
-O código core existe e é bem estruturado: `EventDeliveryFacade` (274 linhas, signals-first, CONCUR-01, non-optimistic confirm, polling fallback), `AlarmOverlayComponent` (standalone, OnPush, a11y), `EvntClientPort` completo com 6 métodos. Mas nenhum gate de qualidade passa: lint FAIL (boundaries), build FAIL (tsconfig), testes não rodados. Das 8 issues P3, 6 estão MISSING — são o núcleo do MVP shippable e a prioridade imediata.
+P1-P5 completamente entregues: 37/37 issues MVP DONE, gates ALL GREEN (lint 0 warnings, build 710ms, test 34/34 PASS, 11 suites). O backend `evnt-service` ficou completo no commit `4fa3366` (P9 hardening — circuit breakers, WireMock contracts, métricas). Os endpoints disponíveis são: `GET /events/active`, `GET /events/stream` (SSE), `POST /events/{id}/confirmation`, `GET /events`, `GET /events/{id}`.
 
 ### Continuidade da última rodada
 
-Não há histórico de implementação anterior (baseline inaugural). O scaffold criou 13 arquivos TS em `frontend/libs/evnt/src/lib/`. A próxima execução começa do zero neste plano.
+P5 entregou: `evnt.nav-config.ts`, `evnt-error-mapper.ts`, X-Empresa-Id injection em `EvntClientHttpAdapter`, tokens DI Wave-0 (`EVNT_EMPRESA_CONTEXT`, `EVNT_AUTH_SESSION`, `EVNT_ACCESS_DECISION`), specs de facade e mock adapter. O `openStream()` ainda é stub que degrada para polling. Os guards têm Wave-0 bypass via mock adapter check.
 
 ### Diagnóstico executivo
 
 | Dimensão | Status | Gap principal |
 |---|---|---|
-| Estrutural | PARCIAL | Lint FAIL (boundaries), Build FAIL (tsconfig) — bloqueador imediato |
-| Funcional | PARCIAL | Core (facade, alarm, routes) OK; feature-routine 1/4, ui 0/2 |
-| Testes | CRÍTICO | Zero specs rodados; jest.config.js criado mas não executado |
-| Integração | LOW | ShellOutletRegistry stub OK; AccessDecision e FeatureFlag não integrados |
-| Observabilidade | LOW | Sem telemetria; multi-empresa sem interceptor |
+| Estrutural | OK | P1-P5 DONE; lib buildable; lint/build PASS |
+| Funcional (MVP) | OK | 37/37 DONE; componentes, facade, rotas todos entregues |
+| Testes unit | OK | 34/34 PASS (11 suites) |
+| Integração BE real | ABERTA | SSE stub; adapter default ainda 'mock'; guards Wave-0 |
+| Polish/UX | ABERTA | Loading states e degraded banner sem componente real |
+| Observabilidade | ABERTA | Sem telemetria estruturada |
+| e2e | ABERTA — OBRIGATORIO | Nenhum spec e2e; evnt-e2e app existe com playwright.config.ts |
 
 ### Multi-empresa: interceptor @neuroassist/shared/access-http-base configurado?
 
-**NÃO.** `@neuroassist/shared/access-http-base` é stub Wave-0 (`export const ACCESS_HTTP_BASE = '/api'`). O gap é workspace-wide. Ação planejada em P6: adicionar ponto de injeção `X-Empresa-Id` em `EvntClientHttpAdapter` como comentário operacional, marcado `TODO[INT-FE-EVNT-006]`, pronto para quando o stub for promovido. Wiring completo do interceptor real está bloqueado em tarefa cross-equipe.
+PARCIAL. `EvntClientHttpAdapter` já injeta `EVNT_EMPRESA_CONTEXT` (Wave-0, retorna null) e adiciona `X-Empresa-Id` condicionalmente via `empresaHeaders`. P6 substitui esta abordagem por `evntHttpInterceptorFn` (padrão ACS — commit 3e4328d), tornando o interceptor reutilizável e desacoplado do adapter.
 
 ---
 
 ## 1. Principais achados
 
-### Pontos fortes
+### Pontos fortes (P1-P5 legados)
 
-- `EventDeliveryFacade` bem estruturada: signals readonly, CONCUR-01 guard, non-optimistic confirm, degraded polling, `takeUntilDestroyed()`
-- `EvntClientPort` completo (6 métodos, DTOs bem tipados, SSE + REST)
-- `AlarmOverlayComponent` standalone, OnPush, `role="alertdialog"`, aria labels corretos
-- `ShellOutletRegistry` stub já existe em `@neuroassist/shared/ui-components` — bloqueio P6 resolvido
-- `evnt-shell-integration.service.ts` já usa o stub corretamente
-- Rotas definidas com `loadComponent` lazy e guard wired
+- `EventDeliveryFacade` signals-first, CONCUR-01 guard, non-optimistic confirm, polling fallback
+- `EvntClientPort` completo (6 métodos) + adapters (mock + http) com error mapper
+- 5 feature components (AlarmOverlay, RoutineNotice, EventList, EventDetail, FeedbackVerdictControl) standalone, OnPush, a11y
+- Tokens DI Wave-0 prontos para promoção (EVNT_EMPRESA_CONTEXT, EVNT_AUTH_SESSION, EVNT_ACCESS_DECISION)
+- `evntGuard` com GUARD-01 + GUARD-02 implementados (Wave-0 bypass via mock check)
 
-### Gaps
+### Gaps P6-P9
 
-1. Lint FAIL: `enforceBuildableLibDependency: true` falha porque shared libs não têm build targets — BLOQUEADOR
-2. Build FAIL: tsconfig.lib.json precisa de rootDir explícito — BLOQUEADOR
-3. FE-EVNT-018 (ui: UrgencyBadge + EventTimestamp) ausente — bloqueio das features P3
-4. FE-EVNT-013..017 ausentes — 5 componentes críticos para MVP
-5. `EventFeedPageComponent` é stub funcional mas incompleto (falta DegradedModeBanner, RoutineNotice, EventList)
-6. FE-EVNT-004 (descriptor registro no Shell) e FE-EVNT-006 (EVNT_NAV_CONFIG) não verificados
-7. Testes: zero specs; `nx test @neuroassist/evnt` não foi rodado nunca
+1. `openStream()` em `EvntClientHttpAdapter` retorna erro imediatamente — SSE nunca funciona em produção
+2. `evnt.providers.ts` default ainda é `'mock'` — produção não conecta ao BE
+3. Não há `evntHttpInterceptorFn` separado (padrão ACS) — X-Empresa-Id é per-call no adapter
+4. `FeatureFlagService` hardcoded `'on'` — sem leitura runtime das flags liveChannel/pollIntervalMs/routineNotices
+5. `AccessDecisionService` Wave-0 null — guards passam apenas pelo mock bypass
+6. `AppError.type` pode não existir em `@neuroassist/shared/error-model` — impede distinção 403/tenant-mismatch vs 403/forbidden (INT-FE-EVNT-006 full)
+7. Loading states e DegradedModeBanner inline — sem componente real (P7)
+8. Zero telemetria estruturada (P8)
+9. Zero specs e2e (P9) — `evnt-e2e` app existe com playwright.config.ts mas `src/` vazio
 
-### Riscos
+### Restrição crítica do usuário
 
-- SSE com `Authorization` header (INT-FE-EVNT-002): `EventSource` nativo não suporta headers. Abordagem selecionada: `HttpClient` com `observe: 'events'` + `responseType: 'text'` (interceptors de Angular carregam Auth automaticamente). Implementação em P6.
-- `FeatureFlagService` hardcoded (`liveChannel: 'on'`) em `EVNT_MODULE_DESCRIPTOR` — aceitável para MVP dev.
+**P9 (e2e) OBRIGATORIO** — não pode ser marcado como deferred novamente. A suíte Playwright completa (5 spec files em `frontend/apps/evnt-e2e/src/`) deve ser implementada e passar. O `evnt-e2e` app já existe com `playwright.config.ts` configurado.
 
 ### Aderência às regras Nx
 
-- Tags `scope:evnt`, `type:feature` presentes no project.json — OK
-- `depConstraints`: `scope:evnt → scope:evnt | scope:shared` — correto
-- `enforceBuildableLibDependency: true` — FAIL (shared libs são non-buildable stubs)
-- **Decisão arquitetural P1**: alterar `enforceBuildableLibDependency` para `false` no workspace `.eslintrc.json`. Justificativa: as shared libs são stubs Wave-0 sem ng-package.json; adicionar buildable infra completa a 3+ shared libs em paralelo atrasa o MVP sem benefício funcional; as regras de scope (evnt → shared) continuam enforçadas pela constraint de `onlyDependOnLibsWithTags` — que é a proteção arquitetural relevante.
-
-### Decisão de estrutura: monolito vs. sub-libs
-
-As issues FE-EVNT-013..018 especificam paths como `libs/evnt/feature-routine/src/lib/...` e `libs/evnt/ui/src/lib/...` — implicando sub-libs Nx separadas. **Decisão do planner: manter estrutura monolítica** `frontend/libs/evnt/src/lib/` e criar componentes como subdiretórios dentro da lib existente. Justificativa: criar sub-libs Nx durante lint/build quebrado adiciona superfície de falha; a estrutura monolítica é válida para desenvolvimento ativo de módulo; a divisão pode acontecer quando os gates estiverem verdes. Os caminhos de arquivo e os comandos de gate são ajustados para refletir a estrutura real (`nx test @neuroassist/evnt`, não `nx test evnt-feature-routine`).
+- Boundaries lint PASS (corrigido em P1): `scope:evnt → scope:evnt | scope:shared`
+- `enforceBuildableLibDependency: false` (workspace-wide, necessário pois shared libs são non-buildable Wave-0)
+- Nenhuma sub-lib física nova necessária em P6-P9 — estrutura monolítica mantida
 
 ---
 
@@ -91,18 +91,16 @@ As issues FE-EVNT-013..018 especificam paths como `libs/evnt/feature-routine/src
 
 ### Objetivo macro
 
-Passar os gates lint e build (P1), entregar os 6 componentes P3 faltantes que tornam o MVP shippable em dev (P2-P4), e completar a foundation incompleta + testes (P5). Multi-empresa e guards reais são P6.
+Conectar o módulo EVNT ao backend real (P6), polir UX (P7), adicionar telemetria zero-PII (P8) e entregar cobertura e2e Playwright completa e obrigatória (P9). Ao final de P6, `provideEvnt({ adapter: 'http' })` está funcional em produção com SSE real, guards reais e X-Empresa-Id via interceptor.
 
 ### Ordem das prioridades
 
 | P | Título | Motivo | Issues cobertas |
 |---|---|---|---|
-| P1 | Nx Lint Fix + TypeScript Build | Nenhum outro gate pode ser validado sem lint/build verde | FE-EVNT-001, FE-EVNT-003 (gates) |
-| P2 | libs/evnt/ui — UrgencyBadge + EventTimestamp | Leaf sem dependências; todos os componentes P3 importam esses dois | FE-EVNT-018 |
-| P3 | Feature Routine: RoutineNotice + EventList + EventFeedPage | Trio coeso; FeedPage é o host que compõe Notice e List | FE-EVNT-013, FE-EVNT-014, FE-EVNT-015 |
-| P4 | Feature Routine: EventDetailPage + FeedbackVerdictControl | Depende de FE-EVNT-018 (ui) e requer FeedPage como contexto de rota | FE-EVNT-016, FE-EVNT-017 |
-| P5 | Foundation Completion + Unit Tests | FE-EVNT-004/006 incompletos; zero testes são risco de regressão | FE-EVNT-004, FE-EVNT-006 + unit tests |
-| P6 | Multi-empresa + Guards + Error Handling | Segurança e integração real; desbloqueado após MVP shippable | INT-FE-EVNT-004, INT-FE-EVNT-006, FE-EVNT-021..024 |
+| P6 | Backend Integration + HTTP wiring | BE pronto; SSE stub é gap funcional crítico; guards Wave-0 bloqueiam segurança | INT-FE-EVNT-001..007, FE-EVNT-019, FE-EVNT-020, FE-EVNT-021, FE-EVNT-023 |
+| P7 | Polish/UX | Loading states e degraded banner são experiência mínima produção-grade | FE-EVNT-022, FE-EVNT-024 |
+| P8 | Observability | Telemetria crítica para plataforma assistiva (rastreabilidade alarmes) | FE-EVNT-025 |
+| P9 | e2e Playwright (OBRIGATORIO) | Instrução explícita do usuário: nenhum teste deferred; evnt-e2e app pronto | FE-EVNT-026, FE-EVNT-027, FE-EVNT-028, FE-EVNT-029, FE-EVNT-030 |
 
 ---
 
@@ -110,559 +108,357 @@ Passar os gates lint e build (P1), entregar os 6 componentes P3 faltantes que to
 
 ---
 
-### Prioridade P1 — Nx Lint Fix + TypeScript Build Repair
+### Prioridade P6 — Backend Integration + HTTP Wiring
 
 Status: pendente
-Issues cobertas: FE-EVNT-001 (contract tests gate), FE-EVNT-003 (entry lib build gate)
-Categoria: ESTRUTURAL
-
-#### Objetivo
-
-Fazer `npx nx lint @neuroassist/evnt` e `npx nx build @neuroassist/evnt` passar sem erros, desbloqueando todos os outros gates.
-
-#### Problemas identificados
-
-1. `enforceBuildableLibDependency: true` no workspace `.eslintrc.json` linha 11 — o `@neuroassist/evnt` (buildable) importa `@neuroassist/shared/error-model` e `@neuroassist/shared/ui-components` (non-buildable), violando a regra.
-2. TypeScript build falha com erro de `rootDir` — tsconfig.lib.json não declara `rootDir` explícito, o que causa conflito com arquivos em subdiretórios durante a compilação do ng-packagr.
-
-#### Correções mandatórias
-
-1. Em `frontend/.eslintrc.json`, na regra `@nx/enforce-module-boundaries`, alterar `"enforceBuildableLibDependency": true` para `"enforceBuildableLibDependency": false`.
-2. Em `frontend/libs/evnt/tsconfig.lib.json`, adicionar `"rootDir": "src"` em `compilerOptions`.
-3. Executar `npx nx lint @neuroassist/evnt` e confirmar zero erros.
-4. Executar `npx nx build @neuroassist/evnt` e confirmar build bem-sucedido. Se falhar por outro motivo, diagnosticar e corrigir antes de prosseguir para P2.
-
-#### Arquivos-alvo
-
-- `frontend/.eslintrc.json` — alterar `enforceBuildableLibDependency`
-- `frontend/libs/evnt/tsconfig.lib.json` — adicionar `rootDir`
-
-#### Contrato de tipo
-
-Nenhum novo tipo. Nenhum novo arquivo criado.
-
-#### Sequência de execução
-
-1. Editar `frontend/.eslintrc.json`: `enforceBuildableLibDependency: false`
-2. Editar `frontend/libs/evnt/tsconfig.lib.json`: adicionar `"rootDir": "src"`
-3. Rodar `npx nx lint @neuroassist/evnt --max-warnings=0`
-4. Rodar `npx nx build @neuroassist/evnt`
-5. Se build falhar por erro de ng-packagr diferente de rootDir: inspecionar saída e corrigir; não avançar para P2 com build quebrado.
-
-#### Generators Nx obrigatórios
-
-Nenhum.
-
-#### Política de testes
-
-Nenhum novo teste em P1. O objetivo é unicamente abrir os gates.
-
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
-
-Não em P1. O import já existe no `EvntClientHttpAdapter` como constante `ACCESS_HTTP_BASE = '/api'` — sem alteração.
-
-#### Critérios de aceite
-
-```bash
-cd frontend
-npx nx lint @neuroassist/evnt --max-warnings=0   # zero warnings, zero errors
-npx nx build @neuroassist/evnt                    # exit code 0, dist/libs/evnt criado
-```
-
-#### Riscos
-
-- Se o build falhar por motivo além do rootDir (ex.: ng-packagr versão incompatível, entryFile ausente), o implementador deve diagnosticar e documentar o erro exato antes de fixar — não especular.
-- `enforceBuildableLibDependency: false` é workspace-wide; todos os módulos são afetados. Isso é intencional: o workspace ainda não tem infra de sub-libs buildable. Rever quando EVNT, GEST e PAC tiverem sub-libs físicas.
-
-#### Instrução para implementador
-
-Fazer exatamente as duas edições (`.eslintrc.json` + `tsconfig.lib.json`) e rodar os dois comandos de aceite. Se algum falhar, diagnosticar antes de tocar qualquer outro arquivo. P2 não começa enquanto P1 não estiver verde.
-
----
-
-### Prioridade P2 — libs/evnt/ui: UrgencyBadgeComponent + EventTimestampComponent
-
-Status: pendente
-Issues cobertas: FE-EVNT-018
-Categoria: FUNCIONAL
-
-#### Objetivo
-
-Criar os dois componentes de UI presentacional (`UrgencyBadgeComponent` e `EventTimestampComponent`) como subdiretório `ui/` dentro de `libs/evnt/src/lib/`, exportá-los de `src/index.ts`, e validar com lint + test.
-
-#### Problema
-
-Todos os componentes P3 (RoutineNotice, EventList, EventDetailPage) precisam de `UrgencyBadgeComponent` e `EventTimestampComponent`. Sem eles P3 não começa.
-
-#### Resultado esperado
-
-`UrgencyBadgeComponent` renderiza badge colorido por urgência (emergência → classe `alarm`, rotina → classe `routine`). `EventTimestampComponent` formata ISO para "às HH:mm" via `Intl.DateTimeFormat` locale `pt-BR`.
-
-#### Problemas identificados
-
-Nenhum dos dois componentes existe em `frontend/libs/evnt/src/lib/`.
-
-#### Correções mandatórias
-
-1. Criar `frontend/libs/evnt/src/lib/ui/urgency-badge/urgency-badge.component.ts` — standalone, OnPush, `input: urgencia: 'emergencia' | 'rotina'`.
-2. Criar `frontend/libs/evnt/src/lib/ui/event-timestamp/event-timestamp.component.ts` — standalone, OnPush, `input: recognizedAt: string`.
-3. Criar `frontend/libs/evnt/src/lib/ui/urgency-badge/urgency-badge.component.spec.ts`.
-4. Criar `frontend/libs/evnt/src/lib/ui/event-timestamp/event-timestamp.component.spec.ts`.
-5. Re-exportar ambos de `frontend/libs/evnt/src/index.ts`.
-
-#### Arquivos-alvo
-
-- `frontend/libs/evnt/src/lib/ui/urgency-badge/urgency-badge.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/ui/urgency-badge/urgency-badge.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/ui/event-timestamp/event-timestamp.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/ui/event-timestamp/event-timestamp.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/index.ts` (editar — adicionar exports)
-
-#### Contrato de tipo
-
-```typescript
-// urgency-badge.component.ts
-@Component({ selector: 'evnt-urgency-badge', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
-export class UrgencyBadgeComponent {
-  readonly urgencia = input.required<'emergencia' | 'rotina'>();
-  // CSS: urgencia()==='emergencia' → class 'badge-alarm' (--color-alarm); 'rotina' → 'badge-routine'
-}
-
-// event-timestamp.component.ts
-@Component({ selector: 'evnt-event-timestamp', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
-export class EventTimestampComponent {
-  readonly recognizedAt = input.required<string>(); // ISO-8601 UTC
-  // Renders: "às HH:mm" via Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' })
-  protected readonly formatted = computed(() => formatTimestamp(this.recognizedAt()));
-}
-function formatTimestamp(iso: string): string {
-  return 'às ' + new Intl.DateTimeFormat('pt-BR', { timeStyle: 'short' }).format(new Date(iso));
-}
-```
-
-#### Sequência de execução
-
-1. Criar `urgency-badge.component.ts` + spec (2 testes: emergência → classe alarm; rotina → classe routine)
-2. Criar `event-timestamp.component.ts` + spec (1 teste: ISO UTC → "às HH:mm" formatado)
-3. Editar `frontend/libs/evnt/src/index.ts`: adicionar exports para ambos
-4. Rodar `npx nx test @neuroassist/evnt --testFile=urgency-badge` e `--testFile=event-timestamp`
-5. Rodar `npx nx lint @neuroassist/evnt`
-
-#### Generators Nx obrigatórios
-
-Nenhum. Componentes criados manualmente como subdiretório da lib existente.
-
-#### Política de testes
-
-Unit obrigatório: 2 specs para UrgencyBadge, 1 spec para EventTimestamp. Cobertura mínima: variantes de urgência + formato de timestamp.
-
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
-
-Não. Componentes presentacionais sem HTTP.
-
-#### Critérios de aceite
-
-```bash
-cd frontend
-npx nx test @neuroassist/evnt --max-warnings=0   # specs de ui/ PASS
-npx nx lint @neuroassist/evnt --max-warnings=0   # zero errors
-```
-
-#### Riscos
-
-- `Intl.DateTimeFormat` com `timeStyle: 'short'` pode retornar `"14:32"` ou `"14h32"` dependendo do runtime. Testar com `pt-BR` explícito no spec e ajustar formatTimestamp se necessário.
-- Design token `--color-alarm` deve existir em `@neuroassist/shared/ui-tokens`. Se não existir, usar class Tailwind `text-red-600 bg-red-100` como placeholder até token disponível.
-
-#### Instrução para implementador
-
-Criar os 4 arquivos (2 componentes + 2 specs), editar index.ts, rodar os gates. Não criar project.json separado para `evnt-ui` — os componentes vivem dentro da lib monolítica `@neuroassist/evnt`.
-
----
-
-### Prioridade P3 — Feature Routine: RoutineNoticeComponent + EventListComponent + EventFeedPageComponent (full)
-
-Status: pendente
-Issues cobertas: FE-EVNT-013, FE-EVNT-014, FE-EVNT-015
-Categoria: FUNCIONAL
-
-#### Objetivo
-
-Entregar os três componentes do feed de rotina: `RoutineNoticeComponent` (presentacional, dismiss/open), `EventListComponent` (presentacional, lista histórico), e `EventFeedPageComponent` completo (smart, compõe os dois anteriores). Substituir o stub atual de `EventFeedPageComponent`.
-
-#### Problema
-
-`EventFeedPageComponent` existe como stub funcional mas não usa `RoutineNoticeComponent` (inexistente) nem `EventListComponent` (inexistente). O MVP precisa do feed de rotina completo.
-
-#### Resultado esperado
-
-`/eventos` renderiza: banner degradado (quando `deliveryMode==='degraded'`), lista de `routineQueue` via `RoutineNoticeComponent` com dismiss optimistic, lista de `recentEvents` via `EventListComponent` com navegação para detalhe, estado vazio, estado loading.
-
-#### Problemas identificados
-
-- `RoutineNoticeComponent` não existe
-- `EventListComponent` não existe
-- `EventFeedPageComponent` não usa `DegradedModeBannerComponent` (usa template inline), não compõe Notice nem List, não lê `recentEvents`
-
-#### Correções mandatórias
-
-1. Criar `frontend/libs/evnt/src/lib/feature-routine/routine-notice/routine-notice.component.ts` — presentacional.
-2. Criar `frontend/libs/evnt/src/lib/feature-routine/event-list/event-list.component.ts` — presentacional.
-3. Substituir conteúdo de `frontend/libs/evnt/src/lib/feature-routine/event-feed-page.component.ts` com implementação completa.
-4. Criar specs para os 3 componentes.
-5. Atualizar `frontend/libs/evnt/src/index.ts` com novos exports.
-
-#### Arquivos-alvo
-
-- `frontend/libs/evnt/src/lib/feature-routine/routine-notice/routine-notice.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/routine-notice/routine-notice.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/event-list/event-list.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/event-list/event-list.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/event-feed-page.component.ts` (substituir — arquivo existente)
-- `frontend/libs/evnt/src/lib/feature-routine/event-feed-page.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/index.ts` (editar — adicionar exports)
-
-#### Contrato de tipo
-
-```typescript
-// routine-notice.component.ts — PRESENTACIONAL, zero DI
-@Component({ selector: 'evnt-routine-notice', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
-             imports: [UrgencyBadgeComponent, EventTimestampComponent] })
-export class RoutineNoticeComponent {
-  readonly evento = input.required<EventoVm>();
-  readonly dismiss = output<string>(); // emite eventoId
-  readonly open = output<string>();    // emite eventoId
-}
-
-// event-list.component.ts — PRESENTACIONAL, zero DI
-@Component({ selector: 'evnt-event-list', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
-             imports: [UrgencyBadgeComponent, EventTimestampComponent] })
-export class EventListComponent {
-  readonly events = input.required<readonly EventoVm[]>();
-  readonly open = output<string>(); // emite eventoId
-}
-
-// event-feed-page.component.ts — SMART
-@Component({ selector: 'evnt-event-feed-page', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
-             imports: [RoutineNoticeComponent, EventListComponent] })
-export class EventFeedPageComponent implements OnInit {
-  // injeta: EventDeliveryFacade, Router
-  // lê signals: routineQueue, recentEvents, deliveryMode, loading, error
-  // computed: routineNoticesEnabled = signal(descriptor.featureFlags.routineNotices === 'on')
-  // (dismiss) → facade.dismiss(id)   — remoção optimista
-  // (open) → router.navigate(['/eventos', id])
-}
-```
-
-#### Sequência de execução
-
-1. Criar `RoutineNoticeComponent` + spec (2 testes: dismiss emite id, open emite id)
-2. Criar `EventListComponent` + spec (2 testes: 3 eventos → 3 cards DOM; clique → open emite id)
-3. Substituir `EventFeedPageComponent` com implementação completa + spec (3 testes: degraded banner visível; routineQueue vazio → estado vazio; routineNotices=false → @for não renderiza RoutineNotice)
-4. Editar `index.ts` com novos exports
-5. Rodar `npx nx test @neuroassist/evnt`
-6. Rodar `npx nx lint @neuroassist/evnt`
-
-#### Generators Nx obrigatórios
-
-Nenhum. Subdiretórios criados dentro da lib monolítica.
-
-#### Política de testes
-
-Unit obrigatório: 2+2+3 specs mínimos. Cenários críticos: (a) DegradedModeBanner visível, (b) estado vazio, (c) dismiss optimistic, (d) flag routineNotices=false suprime Notice sem afetar AlarmOverlay.
-
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
-
-Não diretamente. `EventFeedPageComponent` lê signals do facade — não emite HTTP. O facade já usa `EVNT_CLIENT_PORT` com base `/api/v1/events`. Nenhuma mudança em P3.
-
-#### Critérios de aceite
-
-```bash
-cd frontend
-npx nx test @neuroassist/evnt --max-warnings=0   # todos os specs PASS
-npx nx lint @neuroassist/evnt --max-warnings=0   # zero errors
-npx nx build @neuroassist/evnt                    # build PASS
-```
-
-#### Riscos
-
-- `FeatureFlagService` real não está integrado — usar `EVNT_MODULE_DESCRIPTOR.featureFlags.routineNotices` diretamente em `EventFeedPageComponent` como `routineNoticesEnabled` signal local. Aceitável para MVP dev; INT-FE-EVNT-005 resolve isso em P6.
-- `DegradedModeBannerComponent` de `@neuroassist/shared/ui-feedback` pode ser stub. Se for stub vazio, implementar banner inline no `EventFeedPageComponent` com `@if (deliveryMode() === 'degraded')` (como está no stub atual).
-
-#### Instrução para implementador
-
-Criar `RoutineNotice` e `EventList` primeiro (sem dependências entre si). Depois substituir `EventFeedPageComponent`. Não criar novos project.json. Executar gates após cada componente para detectar erros de TypeScript cedo.
-
----
-
-### Prioridade P4 — Feature Routine: EventDetailPageComponent + FeedbackVerdictControl + ConfirmationTrail
-
-Status: pendente
-Issues cobertas: FE-EVNT-016, FE-EVNT-017
-Categoria: FUNCIONAL
-
-#### Objetivo
-
-Implementar a rota `/eventos/:eventoId` com `EventDetailPageComponent` (smart, carrega detalhe, breadcrumb dinâmico) e os dois componentes presentacionais `FeedbackVerdictControl` (dois botões real/falso-positivo) e `ConfirmationTrailComponent` (quem confirmou quando).
-
-#### Problema
-
-A rota `/eventos/:eventoId` atualmente carrega `EventFeedPageComponent` como placeholder (`TODO[FE-EVNT-014]` em `evnt.routes.ts`). A cuidadora não tem tela de detalhe de evento.
-
-#### Resultado esperado
-
-`/eventos/:eventoId` renderiza: `UrgencyBadgeComponent`, `EventTimestampComponent`, `commandLabel`, `FeedbackVerdictControl` (quando `feedback==='nao_avaliado'` + permissão `evnt.confirm`), `ConfirmationTrailComponent`, breadcrumb `[Eventos > {commandLabel} (às HH:mm)]`. CONCUR-01: botões desabilitados enquanto `confirming()===true`.
-
-#### Problemas identificados
-
-- `EventDetailPageComponent` não existe
-- `FeedbackVerdictControl` não existe
-- `ConfirmationTrailComponent` não existe
-- `evnt.routes.ts` aponta para `EventFeedPageComponent` como placeholder para `:eventoId`
-- `EventDeliveryFacade` pode não ter método `loadDetail` / `selectedEvent` — verificar e adicionar se ausente
-
-#### Correções mandatórias
-
-1. Verificar `frontend/libs/evnt/src/lib/evnt.facade.ts`: confirmar existência de `loadDetail(eventoId: string): Promise<void>` e `selectedEvent: Signal<EventoVm | null>`. Se ausentes, adicionar na facade (sem criar novo arquivo).
-2. Criar `frontend/libs/evnt/src/lib/feature-routine/feedback-verdict-control/feedback-verdict-control.component.ts` — presentacional.
-3. Criar `frontend/libs/evnt/src/lib/feature-routine/confirmation-trail/confirmation-trail.component.ts` — presentacional.
-4. Criar `frontend/libs/evnt/src/lib/feature-routine/event-detail-page/event-detail-page.component.ts` — smart.
-5. Atualizar `frontend/libs/evnt/src/lib/evnt.routes.ts`: substituir `loadComponent` da rota `:eventoId` para apontar para `EventDetailPageComponent`.
-6. Criar specs para os 3 componentes novos.
-7. Atualizar `frontend/libs/evnt/src/index.ts`.
-
-#### Arquivos-alvo
-
-- `frontend/libs/evnt/src/lib/evnt.facade.ts` (editar se necessário — adicionar `loadDetail` + `selectedEvent`)
-- `frontend/libs/evnt/src/lib/feature-routine/feedback-verdict-control/feedback-verdict-control.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/feedback-verdict-control/feedback-verdict-control.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/confirmation-trail/confirmation-trail.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/confirmation-trail/confirmation-trail.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/event-detail-page/event-detail-page.component.ts` (criar)
-- `frontend/libs/evnt/src/lib/feature-routine/event-detail-page/event-detail-page.component.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/evnt.routes.ts` (editar — rota `:eventoId`)
-- `frontend/libs/evnt/src/index.ts` (editar)
-
-#### Contrato de tipo
-
-```typescript
-// feedback-verdict-control.component.ts — PRESENTACIONAL, zero DI
-@Component({ selector: 'evnt-feedback-verdict-control', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
-export class FeedbackVerdictControl {
-  readonly feedback = input.required<FeedbackStatus>();
-  readonly disabled = input<boolean>(false);
-  readonly verdict = output<'real' | 'falso_positivo'>();
-  // Dois botões: "Real" e "Falso positivo". [disabled]="disabled()". Emite verdict.
-}
-
-// confirmation-trail.component.ts — PRESENTACIONAL
-@Component({ selector: 'evnt-confirmation-trail', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
-export class ConfirmationTrailComponent {
-  readonly confirmadoPor = input<string | null>(null);
-  readonly confirmadoAt = input<string | null>(null);
-  // @if (confirmadoPor()) → "Confirmado por {nome} às {hora}" usando EventTimestampComponent
-}
-
-// event-detail-page.component.ts — SMART
-@Component({ selector: 'evnt-event-detail-page', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush,
-             imports: [UrgencyBadgeComponent, EventTimestampComponent, FeedbackVerdictControl, ConfirmationTrailComponent] })
-export class EventDetailPageComponent implements OnInit {
-  // injeta: EventDeliveryFacade, ActivatedRoute, Router
-  // lê route.snapshot.paramMap.get('eventoId')
-  // ngOnInit(): void facade.loadDetail(eventoId)
-  // selectedEvent = computed(() => facade.selectedEvent())
-  // canConfirm = computed(() => selectedEvent()?.feedback === 'nao_avaliado')
-  // confirming = facade.confirming  (CONCUR-01 — [disabled])
-  // onVerdict(v: 'real'|'falso_positivo'): void { facade.confirm(eventoId, v) }
-  // Tratamento 404: @if (!loading() && !selectedEvent()) → router.navigate(['/eventos'])
-  // Breadcrumb: "Eventos > {commandLabel} (às HH:mm)" via título dinâmico
-}
-
-// Adições à facade (se ausentes):
-// private readonly _selectedEvent = signal<EventoVm | null>(null);
-// readonly selectedEvent: Signal<EventoVm | null> = this._selectedEvent.asReadonly();
-// async loadDetail(eventoId: string): Promise<void> {
-//   this._loading.set(true);
-//   try {
-//     const dto = await lastValueFrom(this.port.get(eventoId));
-//     this._selectedEvent.set(mapDtoToVm(dto));
-//   } catch { this._selectedEvent.set(null); } finally { this._loading.set(false); }
-// }
-```
-
-#### Sequência de execução
-
-1. Verificar `evnt.facade.ts`: se `loadDetail` e `selectedEvent` ausentes, adicionar antes de criar os componentes
-2. Criar `FeedbackVerdictControl` + spec (2 testes: disabled=true → botões disabled; clique "Real" → verdict emite 'real')
-3. Criar `ConfirmationTrailComponent` + spec (1 teste: confirmadoPor=null → vazio)
-4. Criar `EventDetailPageComponent` + spec (2 testes: selectedEvent=null → redirect; canConfirm=false → FeedbackVerdictControl ausente ou disabled)
-5. Editar `evnt.routes.ts`: rota `:eventoId` aponta para `EventDetailPageComponent`
-6. Atualizar `index.ts`
-7. Rodar gates
-
-#### Generators Nx obrigatórios
-
-Nenhum.
-
-#### Política de testes
-
-Unit obrigatório. Cenários críticos: CONCUR-01 (disabled durante confirm), 404 redirect, canConfirm=false.
-
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
-
-Não diretamente. `loadDetail` usa `port.get()` que já usa `HttpClient`. O interceptor X-Empresa-Id será adicionado em P6.
-
-#### Critérios de aceite
-
-```bash
-cd frontend
-npx nx test @neuroassist/evnt --max-warnings=0   # PASS (incluindo specs P4)
-npx nx lint @neuroassist/evnt --max-warnings=0   # zero errors
-npx nx build @neuroassist/evnt                    # PASS
-```
-
-#### Riscos
-
-- `EventDeliveryFacade.selectedEvent` pode precisar de um signal por `eventoId` (mapa) em vez de um único signal global. Para MVP: usar signal único `_selectedEvent` (o último carregado). Suficiente para `/eventos/:eventoId` com navegação sequencial.
-- Breadcrumb dinâmico: se o sistema de navegação global não existir ainda, implementar como `<h2>` com `commandLabel` + timestamp inline no template — não bloquear P4 por ausência de infra de breadcrumb.
-
-#### Instrução para implementador
-
-Verificar facade primeiro. Criar os dois presentacionais antes da smart page. Editar rotas por último. Rodar gates após cada passo.
-
----
-
-### Prioridade P5 — Foundation Completion + Unit Tests Baseline
-
-Status: pendente
-Issues cobertas: FE-EVNT-004, FE-EVNT-006, testes de FE-EVNT-007, 008, 009, 010
-Categoria: ESTRUTURAL + VALIDACAO
-
-#### Objetivo
-
-Completar as 2 issues foundation MISSING (FE-EVNT-004: descriptor registro, FE-EVNT-006: EVNT_NAV_CONFIG separado) e adicionar specs unitários para os 4 artefatos de data-access (facade, port, mock adapter, evnt.types).
-
-#### Problema
-
-FE-EVNT-004: `EVNT_MODULE_DESCRIPTOR.key = 'evnt'` existe mas não há evidência de que o Shell efetivamente registra o descriptor. FE-EVNT-006: `EVNT_NAV_CONFIG` não existe como export separado — está inline no descriptor. Testes do core (facade, adapters) nunca rodaram.
-
-#### Correções mandatórias
-
-1. Criar `frontend/libs/evnt/src/lib/evnt.nav-config.ts` com `export const EVNT_NAV_CONFIG` extraído de `evnt.descriptor.ts`.
-2. Em `evnt.descriptor.ts`, importar `EVNT_NAV_CONFIG` de `evnt.nav-config.ts` (sem alterar o objeto EVNT_MODULE_DESCRIPTOR).
-3. Re-exportar `EVNT_NAV_CONFIG` de `src/index.ts`.
-4. Criar `frontend/libs/evnt/src/lib/evnt.facade.spec.ts` com 3 specs mínimos: (a) `confirm()` com port mock → `_activeEvent` limpo após sucesso; (b) `dismiss()` remove item de `_routineQueue`; (c) `loadHistory()` popula `_recentEvents`.
-5. Criar `frontend/libs/evnt/src/lib/api/evnt-client-mock.adapter.spec.ts` com 1 spec: `listActive()` retorna `ActiveEventsDto` com `activeEvent` de urgência 'emergencia'.
-
-#### Arquivos-alvo
-
-- `frontend/libs/evnt/src/lib/evnt.nav-config.ts` (criar)
-- `frontend/libs/evnt/src/lib/evnt.descriptor.ts` (editar — importar NAV_CONFIG)
-- `frontend/libs/evnt/src/lib/evnt.facade.spec.ts` (criar)
-- `frontend/libs/evnt/src/lib/api/evnt-client-mock.adapter.spec.ts` (criar)
-- `frontend/libs/evnt/src/index.ts` (editar)
-
-#### Contrato de tipo
-
-```typescript
-// evnt.nav-config.ts
-export const EVNT_NAV_CONFIG = {
-  showInNav: true as const,
-  label: 'Eventos',
-  icon: 'notifications_active',
-  route: '/eventos',
-  order: 20,
-} as const;
-```
-
-#### Sequência de execução
-
-1. Criar `evnt.nav-config.ts` + refatorar `evnt.descriptor.ts` para importá-lo
-2. Criar specs para facade e mock adapter
-3. Rodar `npx nx test @neuroassist/evnt`
-4. Rodar gates completos
-
-#### Generators Nx obrigatórios
-
-Nenhum.
-
-#### Política de testes
-
-Unit obrigatório para facade e mock adapter. Cobertura mínima: 4 specs novos.
-
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
-
-Não em P5.
-
-#### Critérios de aceite
-
-```bash
-cd frontend
-npx nx test @neuroassist/evnt --max-warnings=0   # todos os specs PASS
-npx nx lint @neuroassist/evnt --max-warnings=0
-npx nx build @neuroassist/evnt
-```
-
-EVNT_NAV_CONFIG exportado em `src/index.ts` verificável via `grep "EVNT_NAV_CONFIG" frontend/libs/evnt/src/index.ts`.
-
-#### Riscos
-
-- Specs da facade precisam de `TestBed.configureTestingModule` com `provideEvnt({ adapter: 'mock' })`. Se a DI falhar por falta de `EVNT_CLIENT_PORT`, usar `TestBed.overrideProvider`.
-
-#### Instrução para implementador
-
-Extrair NAV_CONFIG primeiro (trivial). Depois criar specs da facade — é o item de maior valor. Não criar specs para todos os arquivos: focar nos 4 specs mandatórios.
-
----
-
-### Prioridade P6 — Multi-empresa + Guards Reais + Error Handling
-
-Status: pendente
-Issues cobertas: INT-FE-EVNT-004, INT-FE-EVNT-006, FE-EVNT-021, FE-EVNT-022, FE-EVNT-023
+Issues cobertas: INT-FE-EVNT-001, INT-FE-EVNT-002, INT-FE-EVNT-003, INT-FE-EVNT-004, INT-FE-EVNT-005, INT-FE-EVNT-006, INT-FE-EVNT-007, FE-EVNT-019, FE-EVNT-020, FE-EVNT-021, FE-EVNT-023
 Categoria: WIRING
 
 #### Objetivo
 
-Adicionar ponto de injeção `X-Empresa-Id` no `EvntClientHttpAdapter`, integrar `AccessDecisionService` no `evntGuard`, e implementar o error mapper `ProblemDetail → AppError` específico para EVNT.
+Conectar `EvntClientHttpAdapter` ao backend real: implementar SSE via `fetch()` com headers customizados, criar `evntHttpInterceptorFn` (padrão ACS) para X-Empresa-Id, completar error mapper com `type` discriminante para 403 diferenciados, integrar `AccessDecisionService` e `FeatureFlagService` reais, e tornar `provideEvnt({ adapter: 'http' })` funcional em produção.
 
-#### Problema
+#### Problemas identificados
 
-- `EvntClientHttpAdapter` não injeta contexto de empresa — requests HTTP não carregam `X-Empresa-Id`
-- `evntGuard` retorna `true` sempre — sem verificação real de permissão
-- Errors de BE retornam como JS Error genérico — sem mapeamento de `ProblemDetail` (RFC 7807)
+1. **INT-FE-EVNT-002 (SSE)**: `openStream()` retorna erro imediatamente → façade sempre degrada para polling. `EventSource` nativo não suporta headers customizados (Authorization + X-Empresa-Id). Solução: `fetch()` API com `ReadableStream` + parser SSE manual.
+2. **INT-FE-EVNT-006 (error type)**: `AppError` em `@neuroassist/shared/error-model` pode não ter `type?: string`. Sem esse campo, 403/tenant-mismatch e 403/forbidden são indistinguíveis (ambos chegam como `HttpErrorResponse` com status 403, corpo diferente em `type`).
+3. **INT-FE-EVNT-004/005 (Wave-0 guards e flags)**: Guard bypassa via mock check; flags hardcoded `'on'`. Precisa de injeção real com fallback seguro.
+4. **INT-FE-EVNT-001 (Shell outlet)**: `EvntShellIntegrationService` existe mas ShellOutletRegistry em `@neuroassist/shared/ui-components` precisa ser validado — interface `registerGlobalOutlet()` precisa aceitar o contrato EVNT.
+5. **Interceptor pattern**: Adapter injeta `empresaHeaders` per-call. Padrão ACS usa `HttpInterceptorFn` registrado em `withInterceptors([])` — mais limpo e consistente com o padrão do workspace.
 
 #### Correções mandatórias
 
-1. Em `frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts`: adicionar `private readonly empresaContext = inject(EmpresaContext, { optional: true })` e adicionar header `X-Empresa-Id` nos métodos HTTP via `HttpHeaders` (apenas se `empresaContext` não-null). Importar `EmpresaContext` de `@neuroassist/shared/empresa-context`.
-2. Em `frontend/libs/evnt/src/lib/access/evnt.guard.ts`: substituir stub por implementação que injeta `AuthSession` de `@neuroassist/shared/auth-session` e verifica `session.isAuthenticated()`. Se false → `router.navigate(['/login'])`. Verificação de permissão `evnt:eventos:read` via `AccessDecision` de `@neuroassist/shared/access-decision` — se ausente, retornar false + redirect para `/`.
-3. Criar `frontend/libs/evnt/src/lib/api/evnt-error-mapper.ts`: função `mapProblemDetailToAppError(err: unknown): AppError` que detecta `{ type: string, status: number }` (ProblemDetail) e mapeia para `AppError { code, message }`. Usar nos métodos do `EvntClientHttpAdapter` via `catchError`.
+**Sub-tarefa P6-A: evntHttpInterceptorFn (seguindo padrão ACS)**
+
+1. Criar `frontend/libs/evnt/src/lib/api/evnt-http.interceptor.ts` com `evntHttpInterceptorFn: HttpInterceptorFn`.
+   - Injeta `EVNT_EMPRESA_CONTEXT` (opcional).
+   - Se `context?.id` não-null: clona request com `setHeaders: { 'X-Empresa-Id': id }`.
+   - Se null: passa sem modificar (Wave-0, pre-provisioning).
+   - Criar `frontend/libs/evnt/src/lib/api/evnt-http.interceptor.spec.ts` (2 testes: com context → header adicionado; sem context → request intacto).
+2. Em `evnt.providers.ts`: adicionar `withInterceptors([evntHttpInterceptorFn])` ao `makeEnvironmentProviders`.
+3. Em `EvntClientHttpAdapter`: remover `private get empresaHeaders` e remover `headers: this.empresaHeaders` de todos os métodos — o interceptor assume essa responsabilidade.
+
+**Sub-tarefa P6-B: SSE real via fetch() (INT-FE-EVNT-002)**
+
+4. Substituir `openStream()` em `evnt-client-http.adapter.ts` com implementação `fetch()`-based:
+   - URL: `${this.base}/stream`
+   - Headers: `{ 'Accept': 'text/event-stream', 'Cache-Control': 'no-cache' }` (Authorization é adicionado pelo interceptor de auth; X-Empresa-Id pelo `evntHttpInterceptorFn`).
+   - Nota: `fetch()` não passa por `HttpClient` interceptors. Para X-Empresa-Id em SSE: injetar `EVNT_EMPRESA_CONTEXT` diretamente e montar o header manualmente no `fetch()` options.
+   - Parser SSE manual: ler `ReadableStream<Uint8Array>`, decodificar com `TextDecoder`, acumular buffer, extrair linhas `data:`, emitir `SseFrame` via RxJS `Observable`.
+   - Reconexão: re-chamar fetch com `Last-Event-ID` header quando stream fechar (not via `error`).
+   - `takeUntilDestroyed()` não se aplica em adapter — o caller (façade) gerencia o ciclo de vida via `unsubscribe()`.
+5. Criar `frontend/libs/evnt/src/lib/api/evnt-sse-parser.ts`: função pura `parseSseLine(buffer: string): SseFrame | null`. Sem DI. Testável isoladamente.
+6. Criar `frontend/libs/evnt/src/lib/api/evnt-sse-parser.spec.ts` (3 testes: linha `data:` → SseFrame; linha `id:` → lastEventId; linha vazia → null).
+
+**Sub-tarefa P6-C: Error mapper type discriminante (INT-FE-EVNT-006 completo)**
+
+7. Verificar `frontend/libs/shared/error-model/src/index.ts` — confirmar se `AppError` tem `type?: string`.
+   - Se não: adicionar `type?: string` ao `AppError` interface.
+8. Em `evnt-error-mapper.ts`: garantir que `pd.type` é copiado para `AppError.type` (não apenas para `code`). Resultado: `{ code: pd.type ?? ..., type: pd.type, message: pd.detail ?? pd.title ?? err.message }`.
+9. Atualizar `evnt-error-mapper.spec.ts`: adicionar 2 testes — 403 com `type: '/errors/tenant-mismatch'` → `AppError.type === '/errors/tenant-mismatch'`; 403 com `type: '/errors/forbidden'` → `AppError.type === '/errors/forbidden'`.
+
+**Sub-tarefa P6-D: FeatureFlagService real (INT-FE-EVNT-005)**
+
+10. Verificar se `@neuroassist/shared/observability` ou outro shared lib exporta `FeatureFlagService`. Se não existir: criar `frontend/libs/evnt/src/lib/api/evnt-feature-flags.service.ts` com implementação local usando `EVNT_MODULE_DESCRIPTOR.featureFlags` como defaults e `InjectionToken<EvntFeatureFlags>` para override em testes.
+11. Em `EventDeliveryFacade.startLiveChannel()`: ler `liveChannel` da flag service antes de abrir SSE. Se `liveChannel === 'off'`: iniciar apenas polling (não tentar SSE). `pollIntervalMs` também lido da flag service.
+
+**Sub-tarefa P6-E: AccessDecisionService + Guards reais (INT-FE-EVNT-004, FE-EVNT-019, FE-EVNT-020)**
+
+12. Em `evntGuard`: remover dependência de `EvntClientMockAdapter` para mock bypass. Substituir por token `EVNT_E2E_BYPASS` (`InjectionToken<boolean>`, default false). Em testes/mock mode: setar `EVNT_E2E_BYPASS = true` em `provideEvnt()`.
+13. Adicionar `EVNT_AUTH_SESSION` provider em `provideEvnt()` que tenta `useExisting: AuthSession` (de `@neuroassist/shared/auth-session` se existir), com fallback null.
+14. Adicionar provider de `EVNT_ACCESS_DECISION` analogo.
+15. Verificar `FE-EVNT-020`: `evntGuard` deve redirecionar para `/` (não para login) quando permissão ausente mas sessão válida (GUARD-02 gap).
+
+**Sub-tarefa P6-F: ShellOutletRegistry + EvntShellIntegrationService (INT-FE-EVNT-001, FE-EVNT-021)**
+
+16. Ler interface de `ShellOutletRegistry` em `frontend/libs/shared/ui-components/src/`. Confirmar assinatura de `registerGlobalOutlet()`.
+17. Validar `evnt-shell-integration.service.ts`: `registerAlarmOutlet()` chama `registry.registerGlobalOutlet({ component: () => Promise<AlarmOverlayComponent>, visible: facade.alarmVm, zLayer: 'interrupt' })`. Se interface divergir, ajustar o serviço (não o registry).
+18. Criar `frontend/libs/evnt/src/lib/integration/evnt-shell-integration.service.spec.ts` (1 teste: `registerAlarmOutlet()` chama `registry.registerGlobalOutlet` com os parâmetros corretos).
+
+**Sub-tarefa P6-G: Error handler components (INT-FE-EVNT-003, INT-FE-EVNT-007, FE-EVNT-023)**
+
+19. Em `EventDetailPageComponent`: adicionar handling diferenciado para `AppError.type`:
+    - `/errors/event-not-found` → `router.navigate(['/eventos'])` + toast "Evento não encontrado."
+    - `/errors/tenant-mismatch` → `router.navigate(['/eventos'])` sem toast (não revelar existência)
+    - `/errors/forbidden` → mensagem inline "Você não é responsável por este paciente." (sem redirect)
+20. Confirmar `EvntClientHttpAdapter.confirm()` usa path `/api/v1/events/{eventoId}/confirmation` e body `{ verdict }`. Confirmar mapeamento de 409 (feedback-terminal) para `AppError { code: '/errors/feedback-terminal', ... }`.
+21. Validar `EvntClientHttpAdapter.query(params)` serializa `pacienteId`, `from`, `to` para query string (INT-FE-EVNT-007).
+
+**Sub-tarefa P6-H: Switch adapter padrão para produção**
+
+22. Em `evnt.providers.ts`: adicionar export `provideEvntForProduction()` que chama `provideEvnt({ adapter: 'http' })` com `withInterceptors([evntHttpInterceptorFn])`. Documentar no JSDoc que `app.config.ts` deve usar `provideEvntForProduction()` em builds de produção e `provideEvnt({ adapter: 'mock' })` em testes.
 
 #### Arquivos-alvo
 
-- `frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts` (editar)
-- `frontend/libs/evnt/src/lib/access/evnt.guard.ts` (editar)
-- `frontend/libs/evnt/src/lib/api/evnt-error-mapper.ts` (criar)
-- `frontend/libs/evnt/src/lib/api/evnt-error-mapper.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/api/evnt-http.interceptor.ts` (criar)
+- `frontend/libs/evnt/src/lib/api/evnt-http.interceptor.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts` (editar — remover empresaHeaders; substituir openStream())
+- `frontend/libs/evnt/src/lib/api/evnt-sse-parser.ts` (criar)
+- `frontend/libs/evnt/src/lib/api/evnt-sse-parser.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/api/evnt-error-mapper.ts` (editar — adicionar type ao AppError output)
+- `frontend/libs/evnt/src/lib/api/evnt-error-mapper.spec.ts` (editar — 2 testes novos)
+- `frontend/libs/evnt/src/lib/api/evnt-feature-flags.service.ts` (criar se shared lib não existir)
+- `frontend/libs/evnt/src/lib/access/evnt.guard.ts` (editar — remover mock adapter check; adicionar EVNT_E2E_BYPASS)
+- `frontend/libs/evnt/src/lib/integration/evnt-shell-integration.service.ts` (editar se divergir da interface)
+- `frontend/libs/evnt/src/lib/integration/evnt-shell-integration.service.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/evnt.providers.ts` (editar — withInterceptors; provideEvntForProduction())
+- `frontend/libs/evnt/src/lib/evnt.facade.ts` (editar — liveChannel flag check antes de SSE)
+- `frontend/libs/evnt/src/lib/feature-routine/event-detail-page/event-detail-page.component.ts` (editar — error type handling)
+- `frontend/libs/evnt/src/index.ts` (editar — export novos artefatos)
 
 #### Contrato de tipo
 
 ```typescript
-// evnt-error-mapper.ts
-export function mapProblemDetailToAppError(err: unknown): AppError {
-  if (err instanceof HttpErrorResponse && typeof err.error === 'object' && err.error !== null) {
-    const pd = err.error as { type?: string; status?: number; detail?: string; title?: string };
-    return { code: pd.type ?? `EVNT_HTTP_${err.status}`, message: pd.detail ?? pd.title ?? err.message };
-  }
-  if (err instanceof Error) return { code: 'EVNT_ERROR', message: err.message };
-  return { code: 'EVNT_UNKNOWN', message: 'Erro desconhecido' };
+// evnt-http.interceptor.ts
+export const evntHttpInterceptorFn: HttpInterceptorFn = (req, next) => {
+  const ctx = inject(EVNT_EMPRESA_CONTEXT, { optional: true });
+  const id = ctx?.id ?? null;
+  if (!id) return next(req);
+  return next(req.clone({ setHeaders: { 'X-Empresa-Id': id } }));
+};
+
+// evnt-sse-parser.ts
+export interface SseBuffer { dataLines: string[]; lastId: string | null; }
+export function parseSseLine(line: string, buffer: SseBuffer): SseFrame | null {
+  // 'data: {...}' → accumulate; empty line → emit SseFrame; 'id: N' → set lastId
+}
+
+// openStream() strategy (evnt-client-http.adapter.ts):
+openStream(): Observable<SseFrame> {
+  return new Observable<SseFrame>((subscriber) => {
+    const controller = new AbortController();
+    const empresaId = inject(EVNT_EMPRESA_CONTEXT, { optional: true })?.id ?? null;
+    const headers: Record<string, string> = { 'Accept': 'text/event-stream', 'Cache-Control': 'no-cache' };
+    if (empresaId) headers['X-Empresa-Id'] = empresaId;
+    // Note: EVNT_EMPRESA_CONTEXT injected in constructor (not inside Observable callback)
+    void fetch(`${this.base}/stream`, { headers, signal: controller.signal })
+      .then(res => { /* read ReadableStream, parse SSE, call subscriber.next(frame) */ })
+      .catch(err => { if (!controller.signal.aborted) subscriber.error(err); });
+    return () => controller.abort();
+  });
+}
+
+// evnt.providers.ts addition:
+export function provideEvntForProduction(): EnvironmentProviders {
+  return provideEvnt({ adapter: 'http' });
 }
 ```
 
 #### Sequência de execução
 
-1. Criar `evnt-error-mapper.ts` + spec (2 testes: ProblemDetail → código correto; Error genérico → EVNT_ERROR)
-2. Editar `EvntClientHttpAdapter` para injetar `EmpresaContext` e usar `evnt-error-mapper` em `catchError`
-3. Editar `evntGuard` para verificar `AuthSession` e `AccessDecision`
+1. P6-A: criar `evntHttpInterceptorFn` + spec; editar `provideEvnt()` + `EvntClientHttpAdapter` (remover empresaHeaders)
+2. P6-B: criar `evnt-sse-parser.ts` + spec; substituir `openStream()` com implementação fetch-based
+3. P6-C: verificar `AppError.type`; atualizar error mapper + spec
+4. P6-D: verificar/criar FeatureFlagService; integrar no facade
+5. P6-E: refatorar guard (remover mock dependency; adicionar EVNT_E2E_BYPASS)
+6. P6-F: validar ShellOutletRegistry; ajustar shell integration service + criar spec
+7. P6-G: error type handling em EventDetailPageComponent; validar confirm() path e query() params
+8. P6-H: adicionar `provideEvntForProduction()` em providers
+9. Rodar gates: `npx nx lint @neuroassist/evnt && npx nx test @neuroassist/evnt && npx nx build @neuroassist/evnt`
+
+#### Generators Nx obrigatórios
+
+Nenhum. Todos os arquivos dentro da lib monolítica existente.
+
+#### Política de testes
+
+Unit obrigatório para: `evntHttpInterceptorFn` (2 specs), `evnt-sse-parser` (3 specs), error mapper update (2 specs novos), shell integration service (1 spec). Guard refactor: atualizar spec existente se houver.
+
+#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
+
+Sim. `evntHttpInterceptorFn` injeta `EVNT_EMPRESA_CONTEXT` (Wave-0 null). Para SSE (`fetch()`): lê `EVNT_EMPRESA_CONTEXT` diretamente no construtor do adapter (não via interceptor, pois fetch não passa por HttpClient). Wiring completo aguarda promoção do token.
+
+#### Critérios de aceite
+
+```bash
+cd frontend
+npx nx lint @neuroassist/evnt --max-warnings=0      # zero warnings
+npx nx test @neuroassist/evnt --max-warnings=0      # PASS (todos specs incluindo novos P6)
+npx nx build @neuroassist/evnt                       # exit code 0
+grep "evntHttpInterceptorFn" frontend/libs/evnt/src/lib/evnt.providers.ts  # match
+grep "fetch(" frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts   # match (SSE real)
+grep -v "empresaHeaders" frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts  # zero matches
+```
+
+#### Riscos
+
+- `fetch()` dentro de `Observable` (P6-B): o adapter não pode injetar via `inject()` dentro do callback do Observable. Resolver: capturar `EVNT_EMPRESA_CONTEXT` no construtor e usar como campo privado. O `fetch()` callback usa o valor capturado.
+- `AppError.type` em shared lib (P6-C): se `@neuroassist/shared/error-model` não aceitar edição (non-buildable), declarar `EvntAppError extends AppError { type?: string }` local em `evnt.types.ts`.
+- `FeatureFlagService` não existe em shared (P6-D): criar local em `evnt-feature-flags.service.ts` com interface `EvntFeatureFlagsService { getBoolean(key: string, default: boolean): boolean; get<T>(key: string, default: T): T }`.
+- SSE reconexão: `fetch()` não reconecta automaticamente como `EventSource`. A façade já tem lógica de polling fallback quando SSE fecha — garantir que o erro de `fetch()` termina o Observable (não silencia) para que a façade ative o polling.
+
+#### Instrução para implementador
+
+Executar sub-tarefas em ordem (P6-A → P6-B → ... → P6-H). Rodar gates ao final de P6-A e P6-B para detectar erros cedo. Não avançar para P7 com gates quebrando. O mock bypass em `evntGuard` via `EvntClientMockAdapter` class-check deve ser substituído por `EVNT_E2E_BYPASS` token antes de P6-E — não deixar dependência de instância concreta no guard.
+
+---
+
+### Prioridade P7 — Polish/UX: Loading States + Degraded Mode Banner
+
+Status: pendente
+Issues cobertas: FE-EVNT-022, FE-EVNT-024
+Categoria: FUNCIONAL
+
+#### Objetivo
+
+Adicionar skeleton/spinner de loading ao `EventFeedPageComponent` e criar `EvntDegradedModeBannerComponent` real (substituir template inline). Implementar silenciamento de notificações de rotina quando `routineNotices=off`.
+
+#### Problemas identificados
+
+1. **FE-EVNT-022**: `EventFeedPageComponent` não tem skeleton enquanto `loading()===true`. Estado vazio sem mensagem explícita de "Sem notificações pendentes". Breadcrumb `[Eventos]` deve estar sempre visível.
+2. **FE-EVNT-024**: O banner de modo degradado é template inline (`@if (deliveryMode() === 'degraded') { <div>Modo degradado</div> }`). Precisa de componente real com mensagem "Modo degradado — verificando a cada {n}s". A flag `routineNotices=off` deve suprimir silenciosamente as notificações (ERR-03).
+
+#### Correções mandatórias
+
+1. Em `EventFeedPageComponent`:
+   - Adicionar `@if (loading()) { <evnt-feed-skeleton /> } @else { ... conteúdo real ... }`.
+   - Estado vazio: `@if (!loading() && routineQueue().length === 0 && recentEvents().length === 0) { <p class="empty-state">Sem notificações pendentes</p> }`.
+   - Breadcrumb `<h1 class="page-title">Eventos</h1>` FORA do bloco `@if (loading())` — sempre visível.
+2. Criar `frontend/libs/evnt/src/lib/ui/feed-skeleton/evnt-feed-skeleton.component.ts` — standalone, OnPush, sem DI. Skeleton simples (3 `<div class="skeleton-row">` animados com CSS).
+3. Criar `frontend/libs/evnt/src/lib/ui/degraded-banner/evnt-degraded-mode-banner.component.ts` — standalone, OnPush, `input: pollIntervalSec: number`. Renderiza "Modo degradado — verificando a cada {n}s".
+4. Em `EventFeedPageComponent`: substituir `@if (deliveryMode() === 'degraded') { inline }` por `<evnt-degraded-mode-banner [pollIntervalSec]="pollIntervalSec()" />`. Adicionar `computed pollIntervalSec = computed(() => flagService.get('pollIntervalMs', 15000) / 1000)`.
+5. Validar `ERR-03` (FE-EVNT-024): falha de entrega de rotina → retry silencioso (sem toast). Confirmar que `EventDeliveryFacade.loadHistory()` não emite para `_activeEvent` em caso de erro de rotina.
+6. Criar specs para `EvntFeedSkeletonComponent` (1 teste: renderiza) e `EvntDegradedModeBannerComponent` (1 teste: exibe pollIntervalSec).
+
+#### Arquivos-alvo
+
+- `frontend/libs/evnt/src/lib/ui/feed-skeleton/evnt-feed-skeleton.component.ts` (criar)
+- `frontend/libs/evnt/src/lib/ui/feed-skeleton/evnt-feed-skeleton.component.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/ui/degraded-banner/evnt-degraded-mode-banner.component.ts` (criar)
+- `frontend/libs/evnt/src/lib/ui/degraded-banner/evnt-degraded-mode-banner.component.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/feature-routine/event-feed-page.component.ts` (editar — skeleton, empty state, breadcrumb, banner component)
+- `frontend/libs/evnt/src/index.ts` (editar — novos exports)
+
+#### Contrato de tipo
+
+```typescript
+// evnt-feed-skeleton.component.ts
+@Component({ selector: 'evnt-feed-skeleton', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
+export class EvntFeedSkeletonComponent { } // template: 3 div.skeleton-row com animation
+
+// evnt-degraded-mode-banner.component.ts
+@Component({ selector: 'evnt-degraded-mode-banner', standalone: true, changeDetection: ChangeDetectionStrategy.OnPush })
+export class EvntDegradedModeBannerComponent {
+  readonly pollIntervalSec = input.required<number>();
+  // template: <aside role="status">Modo degradado — verificando a cada {{pollIntervalSec()}}s</aside>
+}
+```
+
+#### Sequência de execução
+
+1. Criar `EvntFeedSkeletonComponent` + spec
+2. Criar `EvntDegradedModeBannerComponent` + spec
+3. Editar `EventFeedPageComponent`: integrar skeleton, empty state, breadcrumb, banner component
 4. Rodar gates
+
+#### Generators Nx obrigatórios
+
+Nenhum. Sub-diretórios dentro de `ui/`.
+
+#### Política de testes
+
+Unit: 1 spec por novo componente + editar spec de `EventFeedPageComponent` para cobrir skeleton visível (loading=true) e empty state.
+
+#### Multi-empresa: necessário?
+
+Não em P7. Componentes presentacionais.
+
+#### Critérios de aceite
+
+```bash
+cd frontend
+npx nx test @neuroassist/evnt --max-warnings=0   # PASS (incluindo specs P7)
+npx nx lint @neuroassist/evnt --max-warnings=0
+npx nx build @neuroassist/evnt
+```
+
+#### Riscos
+
+- CSS skeleton animation: usar `@keyframes pulse` inline no componente (sem dependência de `@neuroassist/shared/ui-tokens`). Suficiente para MVP.
+- `RoutineFeedVm.loading` signal: confirmar que `EventDeliveryFacade` expõe `loading` como signal readonly. Se não, adicionar à façade antes de referenciar em `EventFeedPageComponent`.
+
+#### Instrução para implementador
+
+Criar os dois componentes de UI primeiro (zero dependências). Depois editar `EventFeedPageComponent`. Rodar gates ao final.
+
+---
+
+### Prioridade P8 — Observability: EvntTelemetryService zero-PII
+
+Status: pendente
+Issues cobertas: FE-EVNT-025
+Categoria: FUNCIONAL
+
+#### Objetivo
+
+Criar `EvntTelemetryService` seguindo exatamente o padrão de `AcsTelemetryService` (commit 3e4328d, `frontend/libs/acs/src/lib/telemetry/acs-telemetry.service.ts`). Emitir eventos nos momentos-chave do fluxo EVNT. Zero PII: apenas urgência e IDs opacos.
+
+#### Problemas identificados
+
+- Nenhum evento de telemetria emitido no módulo EVNT. A plataforma assistiva requer rastreabilidade de alarmes para auditoria e melhoria (FE-EVNT-025).
+
+#### Correções mandatórias
+
+1. Criar `frontend/libs/evnt/src/lib/telemetry/evnt-telemetry.service.ts` — `@Injectable({ providedIn: 'root' })`, injeta `ObservabilityService` de `@neuroassist/shared/observability`.
+2. Métodos a implementar:
+   - `trackAlarmReceived(urgencia: 'emergencia' | 'rotina')` → emit `evnt.alarm.received`
+   - `trackConfirmStart(eventoId: string)` → emit `evnt.alarm.confirm.submitted` (ID opaco, não PII)
+   - `trackConfirmSuccess(eventoId: string)` → emit `evnt.alarm.confirm.success`
+   - `trackConfirmConflict(eventoId: string)` → emit `evnt.alarm.confirm.conflict` (409)
+   - `trackConfirmError()` → emit `evnt.alarm.confirm.error`
+   - `trackDegradedActivated(reason: 'sse_error' | 'sse_timeout')` → emit `evnt.delivery.degraded.activated`
+   - `trackSseError()` → emit `evnt.stream.sse.error`
+3. Em `EventDeliveryFacade`: injetar `EvntTelemetryService` e chamar nos pontos corretos:
+   - `startLiveChannel()` → `trackSseError()` quando SSE falha e facade ativa polling
+   - `confirm()` → `trackConfirmStart()` antes do request; `trackConfirmSuccess()` no success; `trackConfirmConflict()` no 409; `trackConfirmError()` nos outros erros
+   - `hydrate()` (ou `loadActive()`) → `trackAlarmReceived()` quando `activeEvent` não-null
+   - `_deliveryMode.set('degraded')` → `trackDegradedActivated(reason)`
+4. Criar `frontend/libs/evnt/src/lib/telemetry/evnt-telemetry.service.spec.ts` (3 testes: `trackConfirmSuccess()` chama `obs.emit({ event: 'evnt.alarm.confirm.success', ... })`; `trackAlarmReceived('emergencia')` chama emit com urgencia; `trackDegradedActivated('sse_error')` emite reason).
+
+#### Arquivos-alvo
+
+- `frontend/libs/evnt/src/lib/telemetry/evnt-telemetry.service.ts` (criar)
+- `frontend/libs/evnt/src/lib/telemetry/evnt-telemetry.service.spec.ts` (criar)
+- `frontend/libs/evnt/src/lib/evnt.facade.ts` (editar — injetar EvntTelemetryService; chamar nos 7 pontos acima)
+- `frontend/libs/evnt/src/index.ts` (editar — export EvntTelemetryService)
+
+#### Contrato de tipo
+
+```typescript
+// evnt-telemetry.service.ts
+@Injectable({ providedIn: 'root' })
+export class EvntTelemetryService {
+  private readonly obs = inject(ObservabilityService);
+
+  trackAlarmReceived(urgencia: 'emergencia' | 'rotina'): void {
+    this.obs.emit({ event: 'evnt.alarm.received', urgencia });
+  }
+  trackConfirmStart(eventoId: string): void {
+    this.obs.emit({ event: 'evnt.alarm.confirm.submitted', eventoId }); // opaque ID — not PII
+  }
+  trackConfirmSuccess(eventoId: string): void {
+    this.obs.emit({ event: 'evnt.alarm.confirm.success', eventoId });
+  }
+  trackConfirmConflict(eventoId: string): void {
+    this.obs.emit({ event: 'evnt.alarm.confirm.conflict', eventoId });
+  }
+  trackConfirmError(): void {
+    this.obs.emit({ event: 'evnt.alarm.confirm.error' });
+  }
+  trackDegradedActivated(reason: 'sse_error' | 'sse_timeout'): void {
+    this.obs.emit({ event: 'evnt.delivery.degraded.activated', reason });
+  }
+  trackSseError(): void {
+    this.obs.emit({ event: 'evnt.stream.sse.error' });
+  }
+}
+```
+
+#### Sequência de execução
+
+1. Criar `EvntTelemetryService` + spec
+2. Editar `EventDeliveryFacade`: adicionar `private readonly telemetry = inject(EvntTelemetryService)` e calls nos 7 pontos
+3. Rodar gates
 
 #### Generators Nx obrigatórios
 
@@ -670,56 +466,210 @@ Nenhum.
 
 #### Política de testes
 
-Unit obrigatório para `evnt-error-mapper`. Testes de `evntGuard` são opcionais em P6 (guard real depende de stubs de shared libs sendo funcionais).
+Unit: 3 specs mínimos para `EvntTelemetryService`. Spec de `EventDeliveryFacade` (existente) não precisa cobrir telemetry calls — a facade spec usa mock port, telemetry service seria spy.
 
-#### Multi-empresa: @neuroassist/shared/access-http-base necessário?
+#### Multi-empresa: necessário?
 
-Sim. `EvntClientHttpAdapter` injeta `EmpresaContext` de `@neuroassist/shared/empresa-context` (stub Wave-0 — retorna `null`). O header `X-Empresa-Id` só é adicionado se `empresaContext?.empresaId` não-null. Wiring completo aguarda promoção do stub.
+Não. Telemetria é zero-PII, sem contexto de empresa.
 
 #### Critérios de aceite
 
 ```bash
 cd frontend
-npx nx test @neuroassist/evnt --max-warnings=0   # specs do error-mapper PASS
+npx nx test @neuroassist/evnt --max-warnings=0   # PASS
 npx nx lint @neuroassist/evnt --max-warnings=0
 npx nx build @neuroassist/evnt
-grep "X-Empresa-Id" frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts   # deve retornar match
+grep "EvntTelemetryService" frontend/libs/evnt/src/lib/evnt.facade.ts  # match
 ```
 
 #### Riscos
 
-- `AuthSession` e `AccessDecision` são stubs — `isAuthenticated()` pode retornar false em dev. Garantir que `evntGuard` tenha comportamento seguro: em dev com adapter='mock', o guard pode verificar se o adapter é mock e bypassar (via DI token de ambiente).
+- `ObservabilityService` em `@neuroassist/shared/observability`: se for stub Wave-0 sem método `emit()`, implementar local `EvntObservabilityStub` e injetar via token. Não bloquear P8 por stub incompleto.
 
 #### Instrução para implementador
 
-Criar error-mapper primeiro (zero dependências). Depois editar HttpAdapter. Depois o guard. O guard é o mais arriscado — testar manualmente que `/eventos` ainda abre em dev com adapter mock.
+Criar o service primeiro (trivial, segue ACS exatamente). Depois editar a facade. Spec de facade não precisa testar chamadas de telemetria — focar nos 3 specs próprios do service.
 
 ---
 
-## 4. Dependências externas
+### Prioridade P9 — e2e Playwright (OBRIGATORIO — NAO PODE SER DEFERRED)
+
+Status: pendente
+Issues cobertas: FE-EVNT-026, FE-EVNT-027, FE-EVNT-028, FE-EVNT-029, FE-EVNT-030
+Categoria: VALIDACAO
+
+**RESTRICAO CRITICA:** Esta prioridade NÃO PODE ser marcada como deferred. É instrução explícita do usuário. Os 5 spec files devem existir, os cenários devem estar implementados como testes Playwright reais (`test()`, não `test.skip()`), e devem passar com `npx nx e2e evnt-e2e`.
+
+#### Objetivo
+
+Implementar os 5 spec files Playwright em `frontend/apps/evnt-e2e/src/` cobrindo os fluxos críticos: alarme de emergência, confirmação, concorrência, rotina e modo degradado. Usar `page.route()` para interceptar requests HTTP e simular o backend — não depender do BE real em execução para os testes passarem.
+
+#### Problemas identificados
+
+- `frontend/apps/evnt-e2e/src/` está vazio. A app `evnt-e2e` existe com `playwright.config.ts` mas zero specs.
+- Cinco issues abertas (FE-EVNT-026..030) definem exatamente os cenários a cobrir.
+
+#### Correções mandatórias (5 spec files)
+
+**FE-EVNT-026 — alarme-emergencia-preempcao.spec.ts**
+
+Cenário 1: Alarme preempta a tela ativa.
+- `page.route('**/api/v1/events/active', ...)` → retorna `ActiveEventsDto` com `activeEvent` de urgência 'emergencia'.
+- Navegar para `/eventos`. Verificar que `[data-testid="alarm-overlay"]` é visível (full-bleed).
+- Verificar `role="alertdialog"` presente.
+
+Cenário 2: Recarregar durante alarme ativo re-exibe o alarme (hidratação).
+- Mesmo route mock; recarregar página; verificar overlay visível.
+
+**FE-EVNT-027 — confirmar-atendimento.spec.ts**
+
+Cenário 1: Confirmação bem-sucedida limpa o alarme.
+- Mock `GET /events/active` → alarme ativo; mock `POST /events/{id}/confirmation` → 200 OK com `ConfirmationResponseDto`.
+- Clicar botão "Confirmar Atendimento"; verificar overlay desaparece.
+
+Cenário 2: Falha de rede mantém o alarme + retry inline.
+- Mock `POST /events/{id}/confirmation` → network error (abort request).
+- Clicar confirmar; verificar overlay permanece; verificar mensagem de erro inline.
+
+**FE-EVNT-028 — confirmacao-concorrente.spec.ts**
+
+Cenário: 409 (feedback-terminal) tratado como sucesso-equivalente.
+- Mock `POST /events/{id}/confirmation` → 409 com body `{ type: '/errors/feedback-terminal', confirmadoPor: 'Outra Cuidadora', confirmadoAt: '2026-08-16T10:00:00Z' }`.
+- Clicar confirmar; verificar overlay limpo; verificar texto "Já confirmado por Outra Cuidadora" visível.
+
+**FE-EVNT-029 — notificacao-rotina.spec.ts**
+
+Cenário 1: Notificação discreta não full-bleed.
+- Mock `GET /events/active` → `{ activeEvent: null, routineQueue: [{ urgencia: 'rotina', ... }] }`.
+- Verificar que `[data-testid="routine-notice"]` visível e `[data-testid="alarm-overlay"]` ausente.
+
+Cenário 2: Dismiss remove notificação (client-only).
+- Clicar botão dismiss; verificar `[data-testid="routine-notice"]` desaparece sem reload.
+
+**FE-EVNT-030 — entrega-degradada.spec.ts**
+
+Cenário: SSE falha → modo degradado ativo sem perder alarme.
+- Mock `GET /events/stream` → abort/error; mock `GET /events/active` → alarme ativo.
+- Verificar `[data-testid="degraded-banner"]` visível; verificar alarme overlay ainda presente.
+- Bonus (BRIDGE-01): verificar que polling fallback está ativo (2º call a `GET /events/active` depois de {pollInterval}ms).
+
+#### Arquivos-alvo
+
+- `frontend/apps/evnt-e2e/src/alarme-emergencia-preempcao.spec.ts` (criar)
+- `frontend/apps/evnt-e2e/src/confirmar-atendimento.spec.ts` (criar)
+- `frontend/apps/evnt-e2e/src/confirmacao-concorrente.spec.ts` (criar)
+- `frontend/apps/evnt-e2e/src/notificacao-rotina.spec.ts` (criar)
+- `frontend/apps/evnt-e2e/src/entrega-degradada.spec.ts` (criar)
+- `frontend/apps/evnt-e2e/src/evnt-e2e-helpers.ts` (criar — helpers compartilhados: mocks, navegação, fixtures)
+
+#### Contrato de tipo / helpers
+
+```typescript
+// evnt-e2e-helpers.ts
+import { Page, Route } from '@playwright/test';
+
+export const EVNT_MOCK_ALARM: ActiveEventsDto = {
+  activeEvent: { eventoId: 'evt-mock-001', urgencia: 'emergencia', commandLabel: 'Água', recognizedAt: '2026-08-16T10:00:00Z', feedback: 'nao_avaliado' },
+  routineQueue: [],
+};
+
+export const EVNT_MOCK_ACTIVE_NONE: ActiveEventsDto = {
+  activeEvent: null, routineQueue: [],
+};
+
+export async function mockActiveEvents(page: Page, body: ActiveEventsDto): Promise<void> {
+  await page.route('**/api/v1/events/active', (route: Route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
+  );
+}
+
+export async function mockConfirm(page: Page, status: number, body: unknown): Promise<void> {
+  await page.route('**/api/v1/events/**/confirmation', (route: Route) =>
+    status === 0 ? route.abort() : route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
+  );
+}
+
+export async function navigateToEvnt(page: Page): Promise<void> {
+  await page.goto('/eventos');
+  await page.waitForLoadState('networkidle');
+}
+```
+
+#### Sequência de execução
+
+1. Criar `evnt-e2e-helpers.ts` com fixtures e mocks compartilhados
+2. Criar `alarme-emergencia-preempcao.spec.ts` (2 cenários) — mais simples, valida infraestrutura e2e
+3. Criar `confirmar-atendimento.spec.ts` (2 cenários) — testa o caminho safety crítico
+4. Criar `confirmacao-concorrente.spec.ts` (1 cenário) — 409 handling
+5. Criar `notificacao-rotina.spec.ts` (2 cenários) — dismiss client-only
+6. Criar `entrega-degradada.spec.ts` (1 cenário + bonus) — SSE fallback
+7. Rodar `npx nx e2e evnt-e2e` e confirmar todos os testes PASS
+
+**Pré-requisito**: P6 deve estar concluído antes de P9. Em especial, `provideEvnt({ adapter: 'mock' })` precisa funcionar corretamente em modo e2e (app serve em `localhost:4200` com mock adapter — não requer BE real). Os `page.route()` mocks interceptam o HTTP mesmo com mock adapter; para cenários que dependem de HTTP real (SSE fallback), o mock adapter e `page.route()` trabalham juntos.
+
+**Nota sobre `data-testid`**: Os specs usam `[data-testid="alarm-overlay"]`, `[data-testid="routine-notice"]`, `[data-testid="degraded-banner"]`. Verificar se esses atributos existem nos componentes; se não existirem, o implementador adiciona-os nos templates durante a implementação de P9 (não é necessário um item separado).
+
+#### Generators Nx obrigatórios
+
+Nenhum. O app `evnt-e2e` já existe.
+
+#### Política de testes
+
+TODOS os cenários devem ser `test()`, não `test.skip()`. Blockers conhecidos (Wave-0 guards, BE não real) devem ser cobertos via `page.route()` e `page.addInitScript()` — não por skip. Cenários que exigem BE real e não podem ser simulados com `page.route()` devem ser marcados com comentário `// BLOCKER-BE-REAL` mas ainda implementados como `test()` que passa contra o mock.
+
+#### Multi-empresa: necessário?
+
+Não diretamente em P9. Os mocks do e2e não precisam enviar `X-Empresa-Id` — a lógica é validada em unit tests (P6 interceptor specs).
+
+#### Critérios de aceite — OBRIGATORIOS
+
+```bash
+cd frontend
+npx nx e2e evnt-e2e   # TODOS os 10 cenários (5 specs) PASS — exit code 0
+# Verificar que nenhum test.skip() existe:
+grep -r "test.skip\|xit\|xtest" frontend/apps/evnt-e2e/src/   # zero matches
+```
+
+#### Riscos
+
+- App deve estar servindo em `localhost:4200` quando `npx nx e2e evnt-e2e` rodar. O `playwright.config.ts` tem `baseURL: process.env['APP_URL'] ?? 'http://localhost:4200'` — garantir que `nx serve neuroassist-ai-web` está rodando antes de `nx e2e evnt-e2e`, ou configurar `webServer` no playwright.config.ts.
+- `data-testid` ausentes em componentes: adicionar durante P9 (o implementador edita os templates quando necessário).
+- SSE em e2e (FE-EVNT-030): `page.route('**/events/stream')` com `route.abort()` simula falha de SSE; o facade deve ativar polling — mas timing pode ser flaky. Usar `page.waitForTimeout(pollIntervalMs + 500)` ou `page.waitForRequest('**/events/active')` para confirmar o 2º poll.
+- `routineQueue` no mock adapter: verificar que o mock adapter tem um item de rotina na fila padrão, ou adicionar via `page.addInitScript` que seta flag para o mock adapter incluir rotina.
+
+#### Instrução para implementador
+
+Criar `evnt-e2e-helpers.ts` primeiro (base de todos os specs). Depois os 5 specs em ordem de complexidade crescente (alarme → confirmar → concorrente → rotina → degradado). Para cada spec: rodar isoladamente com `npx nx e2e evnt-e2e --grep "nome do spec"` antes de rodar a suite completa. Não usar `test.skip()` em nenhuma hipótese — resolver o bloqueador ou implementar o mock adequado.
+
+---
+
+## 4. Dependências externas (endpoints BE, contratos de tipo, issues dependentes)
 
 | Dependência | Tipo | Bloqueio | Resolução |
 |---|---|---|---|
-| `GET /api/v1/events/active` | BE endpoint | P3 (EventFeedPage data real) | Mock adapter cobre dev; INT-FE-EVNT-002 para produção |
-| `GET /api/v1/events/{id}` | BE endpoint | P4 (EventDetailPage data real) | Mock adapter cobre dev; INT-FE-EVNT-007 para produção |
-| `POST /api/v1/events/{id}/confirmation` | BE endpoint | P4 (confirm flow real) | Mock adapter cobre dev; INT-FE-EVNT-003 para produção |
-| `ShellOutletRegistry` em `@neuroassist/shared/ui-components` | Shared lib | P6 (AlarmOutlet no Shell) | Stub já existe — sem bloqueio imediato |
-| `EmpresaContext` em `@neuroassist/shared/empresa-context` | Shared lib | P6 (X-Empresa-Id) | Stub Wave-0 — injeção opcional |
-| `AuthSession` + `AccessDecision` em shared | Shared lib | P6 (guard real) | Stubs Wave-0 — guard deve ter fallback seguro para dev |
-| `AppShellComponent` — renderizar AlarmOutlet registrado | Shell app | INT-FE-EVNT-001 | Deferred para após P6; AlarmOutlet registrado mas não renderizado até Shell integrar |
+| `GET /api/v1/events/active` | BE endpoint | P6 (INT-FE-EVNT-002) | BE pronto (commit 4fa3366); testar via `page.route()` em P9 |
+| `GET /api/v1/events/stream` | BE SSE endpoint | P6 (INT-FE-EVNT-002 — SSE real) | BE pronto; implementar `fetch()`-based `openStream()` |
+| `POST /api/v1/events/{id}/confirmation` | BE endpoint | P6 (INT-FE-EVNT-003) | BE pronto; validar path e 409 handling |
+| `GET /api/v1/events` | BE endpoint | P6 (INT-FE-EVNT-007) | BE pronto; validar query params serialization |
+| `GET /api/v1/events/{id}` | BE endpoint | P6 (INT-FE-EVNT-007) | BE pronto; validar mapper EventoDto → EventoVm |
+| `ShellOutletRegistry` em `@neuroassist/shared/ui-components` | Shared lib | P6 (INT-FE-EVNT-001) | Verificar interface; stub já existe |
+| `ObservabilityService` em `@neuroassist/shared/observability` | Shared lib | P8 (FE-EVNT-025) | Verificar `emit()` interface; stub local se necessário |
+| `FeatureFlagService` em shared | Shared lib | P6 (INT-FE-EVNT-005) | Verificar; criar local se não existir |
+| `AppShellComponent` — renderizar AlarmOutlet | Shell app | INT-FE-EVNT-001 | Validado pelo e2e (P9 — alarme visível em `/eventos`) |
+| WireMock contracts (BE commit 4fa3366) | BE test infra | P9 (e2e) | Usar `page.route()` ao invés de WireMock externo |
 
 ---
 
 ## 5. Restrições arquiteturais (Nx boundaries)
 
-- `scope:evnt` pode depender de `scope:evnt` e `scope:shared` — APENAS. Não importar de `scope:pac`, `scope:gest`, etc.
-- `enforceBuildableLibDependency: false` após P1 — regra de scope permanece ativa.
-- Estrutura monolítica `libs/evnt/`: todos os componentes vivem em `src/lib/` como subdiretórios. Nenhum `project.json` extra criado nas prioridades P1-P6.
-- Componentes presentacionais (RoutineNotice, EventList, FeedbackVerdictControl, etc.): **zero DI de serviços** — recebem dados via `input()` e emitem via `output()`.
-- Componentes smart (EventFeedPage, EventDetailPage): injetam **apenas** `EventDeliveryFacade` e `Router`. Não injetam `HttpClient` diretamente.
-- `@Transactional` não se aplica em FE. Equivalente: `takeUntilDestroyed()` em todas as subscriptions RxJS.
+- `scope:evnt` pode depender de `scope:evnt` e `scope:shared` APENAS. Proibido importar de `scope:pac`, `scope:gest`, `scope:acs`, etc.
+- `enforceBuildableLibDependency: false` — workspace-wide (corrigido em P1); regra de scope continua ativa.
+- Estrutura monolítica `libs/evnt/src/lib/`: P6-P9 adicionam arquivos em sub-diretórios existentes (`api/`, `access/`, `integration/`, `ui/`, `telemetry/`). Nenhum `project.json` novo.
+- Componentes presentacionais (EvntFeedSkeleton, EvntDegradedModeBanner): zero DI.
 - `ChangeDetectionStrategy.OnPush` obrigatório em todos os componentes.
 - `standalone: true` obrigatório — sem NgModule.
+- `takeUntilDestroyed()` em todas as subscriptions RxJS (facades e smart components).
+- `fetch()` para SSE: não usa `HttpClient`. Gerenciar AbortController manualmente no destructor do Observable.
 
 ---
 
@@ -728,15 +678,16 @@ Criar error-mapper primeiro (zero dependências). Depois editar HttpAdapter. Dep
 | Documento | Relevância |
 |---|---|
 | `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-01-route-map.md` | Rotas e guards |
-| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-02-component-hierarchy.md` | Hierarquia de componentes |
-| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-03-view-models.md` | Contratos de ViewModel (AlarmVm, RoutineFeedVm, EventDetailVm) |
-| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-04-data-access.md` | Port, adapters, degradação SSE→polling |
-| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-05-tool-contract.md` | Descriptor, feature flags, bootstrap |
-| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-06-shell-integration.md` | AlarmOutlet global (ADR-005) |
+| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-04-data-access.md` | Port, adapters, SSE degradação |
 | `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-07-error-handling.md` | ProblemDetail, ERR-01..04 |
-| `docs/architecture/frontend/modules/evnt/frontend/adr/ADR-005-global-alarm-outlet-and-live-delivery.md` | Decisão AlarmOutlet não-rota |
-| `docs/architecture/frontend/modules/evnt/frontend/issues/` | Issues FE-EVNT-001..030 + INT-FE-EVNT-001..007 |
-| `frontend/.eslintrc.json` | Workspace boundaries (alterar em P1) |
-| `frontend/libs/evnt/tsconfig.lib.json` | TypeScript build config (alterar em P1) |
-| `frontend/libs/evnt/src/lib/evnt.facade.ts` | Source primário do estado EVNT |
+| `docs/architecture/frontend/modules/evnt/frontend/frontend-spec/SPEC-08-e2e-contracts.md` | Feature files e2e (FE-EVNT-026..030) |
+| `docs/architecture/frontend/modules/evnt/frontend/adr/ADR-005-global-alarm-outlet-and-live-delivery.md` | AlarmOutlet não-rota |
+| `docs/architecture/frontend/modules/evnt/frontend/issues/INT-FE-EVNT-001..007.md` | Issues P6 completas |
+| `docs/architecture/frontend/modules/evnt/frontend/issues/FE-EVNT-019..030.md` | Issues P6-P9 completas |
+| `frontend/libs/acs/src/lib/api/acs-http.interceptor.ts` | Padrão ACS para evntHttpInterceptorFn |
+| `frontend/libs/acs/src/lib/telemetry/acs-telemetry.service.ts` | Padrão ACS para EvntTelemetryService |
+| `frontend/apps/acs-e2e/src/caregiver-roster.spec.ts` | Padrão de spec e2e (page.route, helpers, data-testid) |
+| `frontend/apps/evnt-e2e/playwright.config.ts` | Config e2e EVNT (baseURL, testDir, projects) |
 | `docs/architecture/shared/multi-empresa.md` | Contexto multi-tenant (referência — não modificar) |
+| `frontend/libs/evnt/src/lib/evnt.providers.ts` | Factory de DI — ponto de wiring de interceptors |
+| `frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts` | Adapter HTTP — openStream() a substituir |

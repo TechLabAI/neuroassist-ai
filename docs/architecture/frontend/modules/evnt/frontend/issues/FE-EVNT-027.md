@@ -1,6 +1,6 @@
 ## [FE-EVNT-027] e2e — confirmar-atendimento.feature (Playwright)
 
-**Status:** ABERTA
+**Status:** DONE
 **GitHub:** [#TBD]
 
 **Outcome:**

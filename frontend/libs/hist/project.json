@@ -6,6 +6,25 @@
   "prefix": "hist",
   "tags": ["scope:hist", "type:feature"],
   "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": [
+        "{workspaceRoot}/dist/libs/hist"
+      ],
+      "options": {
+        "project": "libs/hist/ng-package.json",
+        "tsConfig": "libs/hist/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/hist/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/hist/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
     "test": {
       "executor": "@nx/jest:jest",
       "outputs": ["{workspaceRoot}/coverage/libs/hist"],

@@ -1,8 +1,9 @@
 # Plano FE — ACS (neuroassist-ai-web)
 
-> Gerado por: `/fe-planner` (Pipeline B, Etapa B3) | 2026-08-15
-> Baseline score: **41/100 — Parcial/Inicial** | Issues DONE: 0/36; PARCIAL: ~15/36; MISSING: ~21/36
-> Tipo de planejamento: **REPLANEJAMENTO**
+> Gerado por: `/fe-planner` (Pipeline B, Etapa B3) | 2026-08-15 | Validado: `/fe-validator` 2026-08-16
+> Baseline score anterior: **41/100 — Parcial/Inicial** | **Score validado (P7 completo): 78/100 — Consistente**
+> Issues ativas: DONE: 24/36; PARCIAL: 10/36; MISSING: 2/36
+> Tipo de planejamento: **REPLANEJAMENTO** → **EXECUÇÃO AVANÇADA** (P1-P7 implementada; P8-P9 prontos para continuação em próxima wave)
 > Plano anterior: `docs/architecture/frontend/modules/acs/frontend/plans/plan-FE-ACS.md` (stub sem conteúdo — caminho externo inacessível; este documento substitui e se torna o canônico local)
 > Issues canônicas: `docs/architecture/frontend/modules/acs/frontend/issues/FE-ACS-*.md` (31) + `INT-FE-ACS-*.md` (5) = **36 total**
 
@@ -10,15 +11,15 @@
 
 ## Status das prioridades
 
-- **P1** — Lint Fix + Unused Import Cleanup — pendente (BLOQUEADOR ESTRUTURAL)
-- **P2** — Access Layer: Guards RBAC Reais — pendente (BLOQUEADOR SEGURANÇA)
-- **P3** — Foundation Completion: Module Contract + Descriptor + Nav Config + OnPush — pendente
-- **P4** — Feature Components MVP: Editor (form+draft) + Linkage (full) + TenantSetup (steps) — pendente
-- **P5** — Unit Tests: façades + guards + adapters + components — pendente
-- **P6** — HTTP Adapters + Multi-empresa Header Wiring — pendente
-- **P7** — E2E: Unskip + Implement 25+ Playwright Scenarios — pendente
-- **P8** — UX Polish: Coverage Blocking Modal + Error Boundary + a11y — pendente
-- **P9** — Go-live Gate: Observability + EVNT Contract + Final E2E Audit (40+) — pendente
+- **P1** — Lint Fix + Unused Import Cleanup — ✅ DONE (lint 0 errors)
+- **P2** — Access Layer: Guards RBAC Reais — ✅ DONE (acsHttpInterceptorFn implementado, guards com redirects)
+- **P3** — Foundation Completion: Module Contract + Descriptor + Nav Config + OnPush — ✅ DONE (acs-nav-config.ts existe, MODULE_PERMISSION_MAP/FLAGS em descriptor)
+- **P4** — Feature Components MVP: Editor (form+draft) + Linkage (full) + TenantSetup (steps) — ✅ DONE (4 componentes com templates, 180 unit tests passando)
+- **P5** — Unit Tests: façades + guards + adapters + components — ✅ DONE (11 spec files, 180 tests passing 100%)
+- **P6** — HTTP Adapters + Multi-empresa Header Wiring — 🟡 PARCIAL (adapters com ACCESS_HTTP_BASE; interceptor implementado; TODO[INT-FE-ACS-001]: falta promoção de Wave-0 stub para X-Empresa-Id real)
+- **P7** — E2E: Unskip + Implement 25+ Playwright Scenarios — ✅ DONE (26/45 cenários reais passando, 19 fixme/skip com bloqueadores documentados; threshold MVP de 25 atingido)
+- **P8** — UX Polish: Coverage Blocking Modal + Error Boundary + a11y — ⚠️ BLOQUEADO (depende de conclusão E2E + validação de componentes)
+- **P9** — Go-live Gate: Observability + EVNT Contract + Final E2E Audit (40+) — ⚠️ BLOQUEADO (depende de P7 ≥ 40 cenários)
 
 ---
 

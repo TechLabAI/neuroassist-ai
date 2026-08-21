@@ -362,3 +362,113 @@ describe('DeviceFacade', () => {
     });
   });
 });
+
+// =============================================================================
+// FE-EDGE-027 — G1: connectivity() computed chain
+//
+// Gap G1: No issue explicitly verified the computed chain
+//   _device → derivedState → connectivity → DeviceConnectivityVM
+// This suite closes the gap by asserting the full chain for each DerivedState.
+// =============================================================================
+
+describe('G1 — DeviceFacade.connectivity() computed chain (FE-EDGE-027)', () => {
+  let facade: DeviceFacade;
+  let mockPort: jest.Mocked<DevicePort>;
+
+  beforeEach(() => {
+    mockPort = createMockDevicePort();
+    TestBed.configureTestingModule({
+      providers: [
+        DeviceFacade,
+        { provide: DEVICE_PORT, useValue: mockPort },
+      ],
+    });
+    facade = TestBed.inject(DeviceFacade);
+  });
+
+  afterEach(() => {
+    facade.stopPolling();
+    TestBed.resetTestingModule();
+  });
+
+  it('[G1-chain-online] _device (fresh) → derivedState=online → connectivity.tone=ok → VM.label includes "online"', () => {
+    const device = makePairedDevice({
+      serverTime: new Date(FIXED_NOW).toISOString(),
+      ultimaSincronizacao: new Date(FIXED_NOW - 10_000).toISOString(), // 10s ago → online
+    });
+    mockPort.getDevice.mockReturnValue(of(device));
+    facade.load('dev-001');
+
+    expect(facade.derivedState()).toBe('online');
+    const vm = facade.connectivity();
+    expect(vm.derivedState).toBe('online');
+    expect(vm.tone).toBe('ok');
+    expect(vm.label).toMatch(/online/i);
+    expect(vm.paired).toBe(true);
+    expect(vm.versao).toBe('1.2.3');
+  });
+
+  it('[G1-chain-stale] _device (stale) → derivedState=stale → connectivity.tone=warn', () => {
+    const device = makePairedDevice({
+      serverTime: new Date(FIXED_NOW).toISOString(),
+      ultimaSincronizacao: new Date(FIXED_NOW - 60_000).toISOString(), // 60s → stale (>45s, <90s)
+    });
+    mockPort.getDevice.mockReturnValue(of(device));
+    facade.load('dev-001');
+
+    expect(facade.derivedState()).toBe('stale');
+    const vm = facade.connectivity();
+    expect(vm.derivedState).toBe('stale');
+    expect(vm.tone).toBe('warn');
+  });
+
+  it('[G1-chain-offline] _device (offline) → derivedState=offline → connectivity.tone=er', () => {
+    const device = makePairedDevice({
+      serverTime: new Date(FIXED_NOW).toISOString(),
+      ultimaSincronizacao: new Date(FIXED_NOW - 100_000).toISOString(), // 100s → offline (>90s)
+    });
+    mockPort.getDevice.mockReturnValue(of(device));
+    facade.load('dev-001');
+
+    expect(facade.derivedState()).toBe('offline');
+    const vm = facade.connectivity();
+    expect(vm.derivedState).toBe('offline');
+    expect(vm.tone).toBe('er');
+  });
+
+  it('[G1-chain-unknown] pollOk=false → derivedState=unknown → connectivity.tone=muted', () => {
+    // Load fresh device, then simulate poll failure
+    const device = makePairedDevice({ pacienteId: 'pac-test' });
+    mockPort.getDevice
+      .mockReturnValueOnce(of(device))
+      .mockReturnValueOnce(throwError(() => new Error('network')));
+
+    facade.load('dev-001');
+    expect(facade.derivedState()).toBe('online');
+
+    // Second load fails → _pollOk=false → unknown
+    facade.load('dev-001');
+    expect(facade.derivedState()).toBe('unknown');
+    const vm = facade.connectivity();
+    expect(vm.derivedState).toBe('unknown');
+    expect(vm.tone).toBe('muted');
+  });
+
+  it('[G1-chain-not-paired] null device → derivedState=not-paired → connectivity.paired=false', () => {
+    // No load call → device is null
+    expect(facade.derivedState()).toBe('not-paired');
+    const vm = facade.connectivity();
+    expect(vm.derivedState).toBe('not-paired');
+    expect(vm.paired).toBe(false);
+    expect(vm.tone).toBe('muted');
+  });
+
+  it('[G1-chain] connectivity.lastSyncIso matches _device.ultimaSincronizacao', () => {
+    const device = makePairedDevice();
+    mockPort.getDevice.mockReturnValue(of(device));
+    facade.load('dev-001');
+
+    const vm = facade.connectivity();
+    expect(vm.lastSyncIso).toBe(device.ultimaSincronizacao);
+  });
+});

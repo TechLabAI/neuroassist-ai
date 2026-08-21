@@ -1,55 +1,62 @@
-## [INT-FE-HIST-001] Integração: hist-service GET /history (period→from/to, paginação, scope)
+# INT-FE-HIST-001 -- Integracao FE-BE: ativar hist-service HTTP para timeline de auditoria
 
-**Status:** 🔲 ABERTA
-**GitHub:** [#TBD]
+**Status:** BLOQUEADO -- hist-service nao deployado; Gateway route /hist/** nao configurada
+**Tipo:** INTEGRATION
+**Maturidade:** 0 -- Stubs implementados; integracao real nao iniciada
+**Done/Total:** 0/5 itens
 
-**Outcome:**
-`HistClient.listHistory` integrado ao `hist-service` porta 8089, com mapeamento correto de `period→from/to`, paginação e restrição de scope ACS.
+## Contexto
 
-**Context / Problem statement:**
-- Backend: `GET /api/v1/hist/history?from={ISO}&to={ISO}&order=desc&page={n}&size={n}` (api-contract §3.1).
-- Scope: `hist:read` → resultados restritos ao escopo ACS do caregiver; `hist:read:all` → todos.
-- SPEC-04 §2.1: facade mapeia `period` para `from`/`to` em locale do tenant.
-- Gap G2 (cross-link §7): confirmar shape de paginação `{ items, page, size, total }` e se `rotulo`/`urgencia`/`confirmadoPor` já vêm resolvidos no read model.
+O modulo frontend HIST possui todos os adapters de infra preparados: `HistClientHttpAdapter` (stub) e `HistFeedbackHttpAdapter` (stub). O `provideHist()` opera em modo `adapter: 'mock'` ate que `hist-service` esteja disponivel no ambiente. Esta issue rastreia o desbloqueio e ativacao da integracao HTTP real entre o FE HIST e o backend `hist-service`. O padrao de multi-empresa (`X-Empresa-Id` via `@neuroassist/shared/access-http-base`) ja esta documentado e sera implementado na ativacao.
 
-**Approach (execution path):**
-1. Confirmar URL base de `hist-service` via REG (porta 8089 local; GWY em produção).
-2. Verificar response shape: `{ items: AuditRecordResponse[], page: number, size: number, total: number }`.
-3. Confirmar que `AuditRecordResponse.payload.rotulo` e `payload.urgencia` já estão no read model (se não, documentar fallback A5).
-4. Implementar mock `page.route('/api/v1/hist/history*', ...)` nos testes e2e.
-5. Testar edge: `subjectId` sem `subjectType` → BE retorna `400 /errors/incomplete-subject-filter`.
+## Spec de referencia
 
-**Non-goals:**
-- Não alterar o backend.
+- `docs/architecture/frontend/plans/plan-FE-HIST.md` — P5
+- `frontend/libs/hist/src/lib/api/hist-client-http.adapter.ts` — stub a completar
+- `frontend/libs/hist/src/lib/hist.types.ts` — `AuditRecordResponse`, `HistoryQueryParams` (contratos de wire DTO)
+- `docs/architecture/frontend/modules/hist/frontend/frontend-spec/generator-config.yml` — `http_backend: hist-service`
+- Commit 3e4328d — `acsHttpInterceptorFn` (padrao de referencia para interceptor multi-empresa)
 
-**Layer(s):**
-frontend / data-access (integration)
+## Escopo
 
-**Service execution spec(s):**
-- `docs/architecture/frontend/modules/hist/contracts/backend-api-cross-link.md` (§1, §4)
-- `docs/architecture/frontend/modules/hist/frontend-spec/SPEC-04-api-integration.md` (§2.1)
+- [ ] Confirmar que `hist-service` esta deployado com Eureka registration e Gateway route `/hist/**` configurada
+- [ ] Confirmar que contrato de `AuditRecordResponse` (api-contract.md do hist-service) e compativel com `hist.types.ts`
+- [ ] Implementar `HistClientHttpAdapter` completo (list, get, verify) via `HttpClient`
+- [ ] Criar `histHttpInterceptorFn` que injeta `X-Empresa-Id` via `@neuroassist/shared/access-http-base`
+- [ ] Substituir `provideHist({ adapter: 'mock' })` por `provideHist({ adapter: 'http' })` em producao
 
-**Architecture alignment:**
-- Tag Nx: `scope:hist`, `type:data-access`
+## Resultado esperado
 
-**Implementation checklist (by file):**
-- 🔲 Confirmar response shape vs `HistListResponse` DTO
-- 🔲 Atualizar `hist.models.ts` se necessário
-- 🔲 Mock e2e: `apps/hist-e2e/src/support/hist-mocks.ts`
-- 🔲 `nx test hist-data-access` PASS (HistClient unit tests com mock)
+Timeline de auditoria exibe dados reais do `hist-service` ao vivo. `X-Empresa-Id` presente em todas as requisicoes. Nenhum `TODO[INT-FE-HIST-001]` remanescente apos ativacao.
 
-**Milestone:** Wave P4 / Hub Integrations
+## Criterios de aceite
 
-**Labels:**
-type:integration · layer:frontend · scope:hist · priority:P4
+- [ ] `hist-service` acessivel via Gateway: `curl -H 'Authorization: Bearer <token>' http://gwy/hist/audit-records` retorna 200
+- [ ] FE HIST exibe dados reais (nao mock) em staging/producao
+- [ ] Header `X-Empresa-Id` presente em todas as requisicoes HTTP do modulo HIST (verificavel via proxy/DevTools)
+- [ ] `cd frontend && npx nx lint hist && npx nx test hist && npx nx build neuroassist-ai-web` — todos exit 0
 
-**Acceptance criteria:**
-- `HistClient.listHistory` com `period='hoje'` envia `from/to` corretos (start-of-day..now no locale do tenant).
-- `subjectId` sem `subjectType` → client omite o facet, não envia 400.
-- Response com `total=0` → Facade seta `status=empty`.
+## Condicoes de desbloqueio
 
-**Dependencies:**
-- FE-HIST-005, FE-HIST-008
+- `hist-service` deployado com Spring Boot 3.5 + PostgreSQL
+- Gateway route `/hist/**` configurada apontando para `hist-service`
+- Eureka registration de `hist-service` ativa
+- Contrato de API alinhado com FE team (AuditRecordResponse schema)
 
-**Open items:**
-- G2: confirmar se `rotulo`/`urgencia` já resolvidos server-side ou se client-join é necessário.
+## Dependencias
+
+- BE: hist-service deployment (microservico nao scaffoldado / nao deployado)
+- BE: Gateway route configuration
+- BE: Eureka registration
+
+## Bloqueia
+
+- HIST-FE-004 (HistClientHttpAdapter ativacao)
+
+## Estimativa
+
+M (depende de infra BE)
+
+## Prioridade
+
+P5 (DEFERRED)

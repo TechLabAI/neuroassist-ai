@@ -379,3 +379,86 @@ describe('PairingFacade', () => {
     });
   });
 });
+
+// =============================================================================
+// FE-EDGE-027 — G2 additional: countdown ≤ 0 → expired transition
+// (Complementary to seconds-until.spec.ts; focuses on facade-level state machine)
+// =============================================================================
+
+describe('G2 — PairingFacade countdown → expired transition (FE-EDGE-027)', () => {
+  let facade: PairingFacade;
+  let mockPairingPort: jest.Mocked<PairingPort>;
+  let mockDevicePort: jest.Mocked<DevicePort>;
+
+  beforeEach(() => {
+    mockPairingPort = createMockPairingPort();
+    mockDevicePort = createMockDevicePort();
+
+    TestBed.configureTestingModule({
+      providers: [
+        PairingFacade,
+        { provide: PAIRING_PORT, useValue: mockPairingPort },
+        { provide: DEVICE_PORT, useValue: mockDevicePort },
+      ],
+    });
+
+    facade = TestBed.inject(PairingFacade);
+  });
+
+  afterEach(() => {
+    facade.stopPolling();
+    TestBed.resetTestingModule();
+  });
+
+  it('[G2] countdown is 0 initially (no active token in idle phase)', () => {
+    expect(facade.countdown()).toBe(0);
+  });
+
+  it('[G2] countdown > 0 while token is valid', () => {
+    const result = makeRegisterResult({
+      enrollmentExpiresAt: new Date(Date.now() + 60_000).toISOString(), // 60s from now
+    });
+    mockPairingPort.register.mockReturnValue(of(result));
+    mockDevicePort.getDevice.mockReturnValue(of(makeUnclaimedDevice()));
+
+    facade.register('G2 Countdown Device');
+    const countdown = facade.countdown();
+
+    expect(countdown).toBeGreaterThan(0);
+    expect(countdown).toBeLessThanOrEqual(60);
+  });
+
+  it('[G2] countdown → 0 triggers phase = expired (token TTL elapses while awaiting-claim)', fakeAsync(() => {
+    const shortTtlResult = makeRegisterResult({
+      enrollmentExpiresAt: new Date(Date.now() + 1_500).toISOString(), // 1.5s TTL
+    });
+    mockPairingPort.register.mockReturnValue(of(shortTtlResult));
+    mockDevicePort.getDevice.mockReturnValue(of(makeUnclaimedDevice()));
+
+    facade.register('G2 Expiry Device');
+    expect(facade.phase()).toBe('awaiting-claim');
+
+    tick(2_000); // advance past 1.5s TTL
+
+    expect(facade.phase()).toBe('expired');
+    // countdown signal must reflect 0 (or close to it) at expiry
+    expect(facade.countdown()).toBe(0);
+  }));
+
+  it('[G2] expired phase sets pt-BR error message for operator', fakeAsync(() => {
+    const shortTtlResult = makeRegisterResult({
+      enrollmentExpiresAt: new Date(Date.now() + 500).toISOString(), // 0.5s TTL
+    });
+    mockPairingPort.register.mockReturnValue(of(shortTtlResult));
+    mockDevicePort.getDevice.mockReturnValue(of(makeUnclaimedDevice()));
+
+    facade.register('G2 Error Msg Device');
+    tick(1_500); // advance past TTL
+
+    expect(facade.phase()).toBe('expired');
+    // Error message must be set and in pt-BR
+    const { errorMessage } = facade.state();
+    expect(errorMessage).toBeTruthy();
+    expect(errorMessage).toMatch(/código|expirou|novo código/i);
+  }));
+});

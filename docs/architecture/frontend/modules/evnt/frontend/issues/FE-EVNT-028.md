@@ -1,6 +1,6 @@
 ## [FE-EVNT-028] e2e — confirmacao-concorrente.feature (Playwright)
 
-**Status:** ABERTA
+**Status:** DONE
 **GitHub:** [#TBD]
 
 **Outcome:**
