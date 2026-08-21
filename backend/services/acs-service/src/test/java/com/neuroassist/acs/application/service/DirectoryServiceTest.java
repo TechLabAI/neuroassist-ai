@@ -110,8 +110,10 @@ class DirectoryServiceTest {
         assertThat(response.responsibleCaregivers()).hasSize(1);
         assertThat(response.responsibleCaregivers().get(0).cuidadorId()).isEqualTo(cuidadorId);
         assertThat(response.responsibleCaregivers().get(0).papel()).isEqualTo("CUIDADORA");
-        // CUIDADORA authorities = 5 items
-        assertThat(response.responsibleCaregivers().get(0).authorities()).hasSize(5);
+        // Authorities come straight from RoleAuthorityPolicy — assert the role, not the count
+        assertThat(response.responsibleCaregivers().get(0).authorities())
+                .containsExactlyElementsOf(
+                        new RoleAuthorityPolicy().toAuthorities(CuidadorPapel.CUIDADORA));
     }
 
     @Test

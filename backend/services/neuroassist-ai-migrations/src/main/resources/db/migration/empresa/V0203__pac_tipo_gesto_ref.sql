@@ -19,6 +19,7 @@ CREATE TABLE tipo_gesto_ref (
     nome           text         NOT NULL,
     supported      boolean      NOT NULL DEFAULT false,
     synced_at      timestamptz  NOT NULL DEFAULT now(),
+    tenant_id      varchar(255) NULL,
     PRIMARY KEY (tipo_gesto_id)
 );
 

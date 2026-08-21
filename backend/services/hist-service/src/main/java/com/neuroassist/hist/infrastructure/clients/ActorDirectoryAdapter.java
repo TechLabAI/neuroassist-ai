@@ -31,7 +31,9 @@ public class ActorDirectoryAdapter implements ActorDirectoryPort {
     @CircuitBreaker(name = "acs-directory", fallbackMethod = "patientScopeFallback")
     public List<UUID> resolvePatientScope(String tenantId, UUID caregiverId) {
         log.debug("Resolving patient scope via ACS: caregiver={} tenant={}", caregiverId, tenantId);
-        return acsClient.getPatientsByCaregiver(caregiverId);
+        AcsActorDirectoryClient.PatientScopeResponse scope =
+                acsClient.getPatientsByCaregiver(caregiverId);
+        return scope == null || scope.pacienteIds() == null ? List.of() : scope.pacienteIds();
     }
 
     /**

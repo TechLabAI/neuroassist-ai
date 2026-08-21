@@ -18,9 +18,14 @@ spring:
     validate-on-migrate: ${FLYWAY_VALIDATE_ON_MIGRATE:true}
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
     baseline-version: ${FLYWAY_BASELINE_VERSION:0}
-    out-of-order: false
+    # As faixas de V são reservadas por módulo (PAC V0200-V0299, GEST V0400-V0499,
+    # EDGE V0700-V0799, ACS V0800-V0899...). Qualquer migration nova de um módulo de
+    # faixa baixa é, por construção, "out of order" em relação às faixas mais altas já
+    # aplicadas — a convenção de numeração exige esta flag (E2E-004 / V0207).
+    out-of-order: ${FLYWAY_OUT_OF_ORDER:true}
     placeholders:
       schema: ${FLYWAY_SCHEMAS:teste_e2e}
+      hist_service_role: ${HIST_SERVICE_ROLE:neuroassist}
 
 management:
   endpoints:

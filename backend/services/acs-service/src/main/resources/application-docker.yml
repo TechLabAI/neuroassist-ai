@@ -1,0 +1,3 @@
+acs:
+  jwt:
+    issuer: ${ACS_JWT_ISSUER:http://acs-service:8088}

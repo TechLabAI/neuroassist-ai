@@ -23,8 +23,12 @@ public class TenantIdentifierResolver implements CurrentTenantIdentifierResolver
         if (tenant == null || tenant.isBlank()) {
             return GLOBAL_FALLBACK;
         }
-        // Prefix with t_ to form the schema name (schema-per-tenant strategy, GEST-014).
-        return SCHEMA_PREFIX + tenant;
+        // Return the tenant identifier as-is. Mapping it to a schema name is
+        // MultiTenantConnectionProvider's job — it resolves schema_nome from the tenant catalogue
+        // and only then falls back to the t_<tenant> convention. Prefixing here hid the real
+        // identifier from that lookup and forced every ACS-issued tenant onto a schema that does
+        // not exist (E2E-009 / C-15).
+        return tenant;
     }
 
     @Override

@@ -75,7 +75,7 @@ services:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
       FLYWAY_USER: neuroassist
       FLYWAY_PASSWORD: neuroassist_dev_pass
-      FLYWAY_LOCATIONS: classpath:db/migration,classpath:db/migration/global
+      FLYWAY_LOCATIONS: classpath:db/migration/global
       FLYWAY_SCHEMAS: neuroassist_global
       FLYWAY_BASELINE_ON_MIGRATE: "false"
     depends_on:
@@ -138,7 +138,7 @@ services:
       - "8088:8088"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
@@ -176,11 +176,12 @@ services:
       - "8084:8084"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -203,14 +204,15 @@ services:
     volumes:
       - ../backend/services/evnt-service/build/libs/evnt-service-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     ports:
-      - "8085:8085"
+      - "18085:8085"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -236,11 +238,17 @@ services:
       - "8082:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      # Service identity (standards/service-identity.md): PAC → HIST travels on pac-service's own
+      # token (hist:write), not on the caregiver's. ACS validates the secret against its BCrypt hash.
+      ACS_SERVICE_URL: http://acs-service:8088
+      PAC_CLIENT_ID: pac-service
+      PAC_CLIENT_SECRET: dev-service-secret
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -266,16 +274,21 @@ services:
       - "8087:8087"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
       SPRING_ARTEMIS_PASSWORD: admin
       ACS_TOKEN_ENDPOINT: http://acs-service:8088/oauth2/token
+      # Service identity EDGE -> GEST (service-identity.md); secret is dev-only
+      ACS_SERVICE_URL: http://acs-service:8088
+      EDGE_CLIENT_ID: edge-service
+      EDGE_CLIENT_SECRET: ${EDGE_CLIENT_SECRET:-dev-service-secret}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8087/actuator/health || exit 1"]
       interval: 15s
@@ -297,11 +310,13 @@ services:
       - "8089:8089"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      ACS_SERVICE_URL: http://acs-service:8088
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -324,14 +339,15 @@ services:
     volumes:
       - ../backend/services/dash-service/build/libs/dash-service-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     ports:
-      - "8090:8090"
+      - "18090:8090"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
       DB_PASS: neuroassist_dev_pass
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -358,11 +374,12 @@ services:
     volumes:
       - ../backend/services/neuroassist-ai-api-gateway/build/libs/neuroassist-ai-api-gateway-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     ports:
-      - "8080:8080"
+      - "18080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
       interval: 15s

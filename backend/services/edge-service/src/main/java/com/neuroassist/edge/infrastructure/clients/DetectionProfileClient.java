@@ -12,8 +12,15 @@ import org.springframework.web.bind.annotation.PathVariable;
  *
  * <p>Path mirrors GEST DetectionProfileController mapping: GET
  * /gest-service/detection-profile/devices/{deviceId}
+ *
+ * <p>Authenticated with the EDGE <b>service identity</b> (not the caller's JWT) — see {@link
+ * GestServiceIdentityFeignConfig} and {@link ServiceIdentityRequestInterceptor}. GEST requires the
+ * authority {@code gest.detection-profile.read}, which a device token never has (defect C-19).
  */
-@FeignClient(name = "gest-service", url = "${neuroassist.gest.url}")
+@FeignClient(
+        name = "gest-service",
+        url = "${neuroassist.gest.url}",
+        configuration = GestServiceIdentityFeignConfig.class)
 public interface DetectionProfileClient {
 
     /**

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS stream_head (
     stream_key              VARCHAR(256)NOT NULL,
     tenant_id               VARCHAR(64) NOT NULL,
     current_sequence_no     BIGINT      NOT NULL,
-    current_hash            CHAR(64)    NOT NULL,
+    current_hash            VARCHAR(64) NOT NULL,
     last_recorded_at        TIMESTAMPTZ NOT NULL,
 
     CONSTRAINT pk_stream_head PRIMARY KEY (stream_head_id),

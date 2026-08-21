@@ -1,5 +1,6 @@
 package com.neuroassist.hist.infrastructure.clients;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -24,8 +25,18 @@ public interface AcsActorDirectoryClient {
 
     /**
      * Returns the UUIDs of patients that the given caregiver is authorised to see. Corresponds to
-     * {@code GET /api/v1/acs/caregivers/{caregiverId}/patients} on acs-service.
+     * {@code GET /api/v1/acs/directory/caregivers/{caregiverId}/patient-scope} on acs-service,
+     * whose body is {@code DirectoryResponse.PatientScopeResponse}.
      */
-    @GetMapping("/api/v1/acs/caregivers/{caregiverId}/patients")
-    List<UUID> getPatientsByCaregiver(@PathVariable("caregiverId") UUID caregiverId);
+    @GetMapping("/api/v1/acs/directory/caregivers/{caregiverId}/patient-scope")
+    PatientScopeResponse getPatientsByCaregiver(@PathVariable("caregiverId") UUID caregiverId);
+
+    /**
+     * Mirrors acs-service's {@code DirectoryResponse.PatientScopeResponse}.
+     *
+     * <p>Must stay {@code public}: JDK dynamic proxies cannot access a package-private Feign
+     * response type.
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record PatientScopeResponse(UUID cuidadorId, List<UUID> pacienteIds) {}
 }

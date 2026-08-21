@@ -80,6 +80,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/oauth2/token",
                                                 "/oauth2/token/refresh",
+                                                // Service identity: authenticated inside the
+                                                // service against the configured BCrypt hash
+                                                "/oauth2/token/service",
                                                 "/.well-known/jwks.json",
                                                 "/oauth2/jwks",
                                                 "/actuator/health",

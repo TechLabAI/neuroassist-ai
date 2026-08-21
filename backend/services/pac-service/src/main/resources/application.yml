@@ -17,6 +17,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
+          jwk-set-uri: ${ACS_JWK_URI:http://localhost:8088/oauth2/jwks}
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/neuroassist-ai}
   cloud:
     openfeign:
@@ -75,6 +76,17 @@ neuroassist:
       url: ${EDGE_SERVICE_URL:http://edge-service:8087}  # Eureka discovery via Spring Cloud
     hist:
       url: ${HIST_SERVICE_URL:http://hist-service:8089}  # Eureka discovery via Spring Cloud
+
+# Service identity (ADR / standards/service-identity.md) — PAC calls HIST as pac-service, not as
+# the caregiver, so the CUIDADORA role no longer needs `hist:write`. Applied ONLY to HistFactClient.
+# Secret is BCrypt-verified by ACS; `dev-service-secret` is the dev default and never for production.
+  service-identity:
+    token-uri: ${ACS_SERVICE_URL:http://acs-service:8088}/oauth2/token/service
+    client-id: ${PAC_CLIENT_ID:pac-service}
+    client-secret: ${PAC_CLIENT_SECRET:dev-service-secret}
+    refresh-margin-seconds: 60      # re-mint 60s before expiry (service-identity.md §5)
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
 
 # Resilience4j — Circuit Breaker for gest-service (INT-PAC-001 / SPEC-10 §4)
 resilience4j:

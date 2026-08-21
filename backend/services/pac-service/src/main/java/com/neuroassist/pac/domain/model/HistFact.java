@@ -11,9 +11,9 @@ import java.util.UUID;
  * <p>Represents one of the three domain facts recorded to HIST (INT-PAC-004):
  *
  * <ul>
- *   <li>{@code comando.published} — emitted when a Comando transitions to published.
- *   <li>{@code comando.recalibrated} — emitted when a published Comando is recalibrated.
- *   <li>{@code comando.retired} — emitted when a Comando transitions to retired.
+ *   <li>{@code comando.publicado} — emitted when a Comando transitions to published.
+ *   <li>{@code comando.recalibrado} — emitted when a published Comando is recalibrated.
+ *   <li>{@code comando.aposentado} — emitted when a Comando transitions to retired.
  * </ul>
  *
  * <p>Instances are constructed via the static factory methods and passed to {@link
@@ -29,10 +29,10 @@ public record HistFact(
         String estado,
         Instant occurredAt) {
 
-    /** Factory — {@code comando.published} domain fact. */
+    /** Factory — {@code comando.publicado} domain fact. */
     public static HistFact published(Comando c, String tenantId) {
         return new HistFact(
-                "comando.published",
+                "comando.publicado",
                 c.id(),
                 c.pacienteId(),
                 tenantId,
@@ -42,10 +42,10 @@ public record HistFact(
                 Instant.now());
     }
 
-    /** Factory — {@code comando.recalibrated} domain fact. */
+    /** Factory — {@code comando.recalibrado} domain fact. */
     public static HistFact recalibrated(Comando c, String tenantId) {
         return new HistFact(
-                "comando.recalibrated",
+                "comando.recalibrado",
                 c.id(),
                 c.pacienteId(),
                 tenantId,
@@ -55,10 +55,10 @@ public record HistFact(
                 Instant.now());
     }
 
-    /** Factory — {@code comando.retired} domain fact. */
+    /** Factory — {@code comando.aposentado} domain fact. */
     public static HistFact retired(Comando c, String tenantId) {
         return new HistFact(
-                "comando.retired",
+                "comando.aposentado",
                 c.id(),
                 c.pacienteId(),
                 tenantId,

@@ -7,8 +7,14 @@ import com.neuroassist.pac.domain.model.HistFact;
 import com.neuroassist.pac.infrastructure.persistence.entity.HistOutboxJpaEntity;
 import com.neuroassist.pac.infrastructure.persistence.repository.HistOutboxJpaRepository;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 /**
@@ -39,6 +45,10 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class HistFactAdapter implements HistFactPort {
+
+    /** Actor recorded when no caregiver JWT is on the thread (outbox drain, scheduled retry). */
+    private static final UUID SYSTEM_ACTOR_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     private final HistFactClient histFactClient;
     private final HistOutboxJpaRepository outboxRepository;
@@ -106,14 +116,66 @@ public class HistFactAdapter implements HistFactPort {
     }
 
     private HistFactRequest toRequest(HistFact fact) {
+        // The command is the subject; the patient, urgency, calibration version and resulting
+        // state travel in the structured payload (hist-service stores it as JSONB).
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("pacienteId", String.valueOf(fact.pacienteId()));
+        payload.put("estado", fact.estado());
+        payload.put("calibracaoVersao", fact.calibracaoVersao());
+        if (fact.urgencia() != null) {
+            payload.put("urgencia", fact.urgencia());
+        }
+
         return new HistFactRequest(
+                // Minted once, persisted in the outbox payload — retries replay the same key
+                UUID.randomUUID(),
                 fact.eventType(),
-                fact.comandoId(),
-                fact.pacienteId(),
-                fact.tenantId(),
-                fact.urgencia(),
-                fact.calibracaoVersao(),
-                fact.estado(),
-                fact.occurredAt());
+                new HistFactRequest.SubjectRef("comando", fact.comandoId()),
+                currentActor(),
+                payload,
+                fact.occurredAt(),
+                null,
+                fact.tenantId());
+    }
+
+    /**
+     * Resolves the acting caregiver from the propagated JWT. hist-service requires a non-blank
+     * {@code displayNameSnapshot}, so a placeholder is used when the token carries no name claim
+     * (e.g. a scheduled outbox drain running outside a request).
+     *
+     * <p>Never throws: a token whose {@code sub} is not a UUID falls back to the system actor
+     * rather than failing the lifecycle transition that produced the fact.
+     */
+    private HistFactRequest.ActorRef currentActor() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+            Jwt jwt = jwtAuth.getToken();
+            String displayName = jwt.getClaimAsString("nome");
+            if (displayName == null || displayName.isBlank()) {
+                displayName = jwt.getSubject();
+            }
+            UUID caregiverId = parseUuidOrNull(jwt.getSubject());
+            if (caregiverId != null) {
+                return new HistFactRequest.ActorRef(
+                        caregiverId,
+                        displayName == null || displayName.isBlank() ? "unknown" : displayName);
+            }
+            if (displayName != null && !displayName.isBlank()) {
+                return new HistFactRequest.ActorRef(SYSTEM_ACTOR_ID, displayName);
+            }
+        }
+        return new HistFactRequest.ActorRef(SYSTEM_ACTOR_ID, "pac-service");
+    }
+
+    private static UUID parseUuidOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException ex) {
+            log.debug("JWT sub is not a UUID ({}), recording fact under the system actor", value);
+            return null;
+        }
     }
 }

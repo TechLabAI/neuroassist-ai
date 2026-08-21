@@ -150,9 +150,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         Map.of("fieldErrors", fieldErrors)));
         HttpHeaders responseHeaders = new HttpHeaders();
         responseHeaders.setContentType(MediaType.APPLICATION_PROBLEM_JSON);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .headers(responseHeaders)
-                .body(pd);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).headers(responseHeaders).body(pd);
     }
 
     /** Constraint violation from @Validated on service/controller method parameters. */

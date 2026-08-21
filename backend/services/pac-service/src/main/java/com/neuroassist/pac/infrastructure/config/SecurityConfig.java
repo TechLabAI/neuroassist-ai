@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.pac.infrastructure.security.TenantContextFilter;
 import com.neuroassist.pac.infrastructure.security.TenantJwtValidator;
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
@@ -103,15 +106,30 @@ public class SecurityConfig {
      * JWT authorities converter with empty prefix so scope claim values map directly to authority
      * names. This enables {@code @PreAuthorize("hasAuthority('pac.paciente.criar')")} to match the
      * scope {@code pac.paciente.criar} in the JWT without a {@code SCOPE_} prefix.
+     *
+     * <p>Two claims are read and unioned: the standard {@code scope}/{@code scp} claim and the
+     * {@code authorities} claim published by acs-service ({@code TokenIssuer}). Without the {@code
+     * authorities} claim every {@code @PreAuthorize} would fail with 403 against a real ACS token,
+     * since ACS never populates {@code scope} (E2E-003).
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter =
-                new JwtGrantedAuthoritiesConverter();
         // Empty prefix: scope "pac.paciente.criar" → authority "pac.paciente.criar"
-        grantedAuthoritiesConverter.setAuthorityPrefix("");
+        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+        scopeConverter.setAuthorityPrefix("");
+
+        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        authoritiesConverter.setAuthorityPrefix("");
+        authoritiesConverter.setAuthoritiesClaimName("authorities");
+
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
+        converter.setJwtGrantedAuthoritiesConverter(
+                jwt -> {
+                    Collection<GrantedAuthority> merged = new LinkedHashSet<>();
+                    merged.addAll(scopeConverter.convert(jwt));
+                    merged.addAll(authoritiesConverter.convert(jwt));
+                    return merged;
+                });
         return converter;
     }
 

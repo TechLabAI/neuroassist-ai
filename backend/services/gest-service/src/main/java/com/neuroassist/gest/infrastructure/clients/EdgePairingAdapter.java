@@ -1,7 +1,6 @@
 package com.neuroassist.gest.infrastructure.clients;
 
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
-import com.neuroassist.gest.infrastructure.clients.TenantPairingResponse;
 import com.neuroassist.gest.shared.error.CodedException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;

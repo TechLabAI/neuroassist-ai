@@ -230,12 +230,10 @@ public class SharedSteps {
     }
 
     private static String resolvePrimitiveIds(String body) {
-        for (String alias :
-                new String[] {"gst-001", "gst-unknown", "gst-pending", "gst-primary"}) {
+        for (String alias : new String[] {"gst-001", "gst-unknown", "gst-pending", "gst-primary"}) {
             body =
                     body.replace(
-                            "\"" + alias + "\"",
-                            "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
+                            "\"" + alias + "\"", "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
         }
         return body;
     }

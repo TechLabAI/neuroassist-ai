@@ -64,6 +64,19 @@ public final class TestJwtHelper {
      */
     public static final String[] COMMAND_READ_ONLY_SCOPES = {"pac.paciente.read"};
 
+    /**
+     * {@code sub} of every test token — a UUID so {@code HistFactAdapter.currentActor()} resolves a
+     * real caregiver id instead of falling back to the system actor.
+     */
+    public static final String CAREGIVER_SUB = "11111111-1111-1111-1111-111111111111";
+
+    /**
+     * {@code nome} claim of every test token. Audit facts must keep carrying it as {@code
+     * actor.displayNameSnapshot} even though the outbound call now travels on pac-service's own
+     * service-identity token (the E2E Flow-01 equivalent of "Jamilly Silva").
+     */
+    public static final String CAREGIVER_DISPLAY_NAME = "Cuidadora Teste";
+
     private static final RSAKey RSA_KEY;
     private static final JWSSigner SIGNER;
     private static final String KEY_ID = "pac-test-key-1";
@@ -123,8 +136,9 @@ public final class TestJwtHelper {
             JWTClaimsSet claims =
                     new JWTClaimsSet.Builder()
                             .issuer(ISSUER)
-                            .subject("test-user")
+                            .subject(CAREGIVER_SUB)
                             .claim("empresaId", empresaId)
+                            .claim("nome", CAREGIVER_DISPLAY_NAME)
                             .claim("scope", scopeString)
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
                             .issueTime(new Date())

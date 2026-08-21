@@ -3,6 +3,8 @@ package com.neuroassist.hist.infrastructure.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.time.OffsetDateTime;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +16,9 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -153,11 +158,43 @@ public class SecurityConfig {
                 .oauth2ResourceServer(
                         oauth2 ->
                                 oauth2.jwt(
-                                        jwt -> {
-                                            // JWK URI configured via application.yml
-                                            // spring.security.oauth2.resourceserver.jwt.jwk-set-uri
-                                        }));
+                                        jwt ->
+                                                // JWK URI configured via application.yml
+                                                // spring.security.oauth2.resourceserver.jwt.jwk-set-uri
+                                                jwt.jwtAuthenticationConverter(
+                                                        jwtAuthenticationConverter())));
 
         return http.build();
+    }
+
+    /**
+     * Maps JWT claims to authorities using the {@code SCOPE_} prefix expected by the rules above.
+     *
+     * <p>Two claims are read and unioned:
+     *
+     * <ul>
+     *   <li>{@code scope}/{@code scp} — the standard OAuth2 claim (used by the BDD suite)
+     *   <li>{@code authorities} — the claim acs-service actually populates ({@code TokenIssuer})
+     * </ul>
+     *
+     * <p>Without the {@code authorities} claim, every real ACS token would yield zero authorities
+     * and each rule above would answer 403 (E2E-003).
+     */
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter scopeConverter = new JwtGrantedAuthoritiesConverter();
+
+        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
+        authoritiesConverter.setAuthoritiesClaimName("authorities");
+
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(
+                jwt -> {
+                    Collection<GrantedAuthority> merged = new LinkedHashSet<>();
+                    merged.addAll(scopeConverter.convert(jwt));
+                    merged.addAll(authoritiesConverter.convert(jwt));
+                    return merged;
+                });
+        return converter;
     }
 }

@@ -22,6 +22,12 @@ import org.springframework.http.ResponseEntity;
  * field names: {@code video}, {@code image}, {@code landmark}, {@code confidence}, {@code
  * timingWindow}. A proper RFC 7807 ProblemDetail error body should contain only metadata (type,
  * status, title, detail, errors), never raw signal data.
+ *
+ * <p>Requests carry HTTP Basic credentials for the in-memory {@code gest-manager} user: since
+ * gest-service became a real resource server ({@code anyRequest().authenticated()} +
+ * {@code @EnableMethodSecurity}) an anonymous call is short-circuited with an empty-bodied 401,
+ * which would make these assertions inspect a {@code null} body instead of the domain error payload
+ * they exist to audit. Basic (rather than a JWT) keeps the tenant unresolved, exactly as before.
  */
 class LGPDAuditIT extends BaseIntegrationTest {
 
@@ -30,15 +36,35 @@ class LGPDAuditIT extends BaseIntegrationTest {
         "video", "image", "landmark", "confidence", "timingWindow"
     };
 
+    private static final String BASIC_MANAGER =
+            "Basic "
+                    + java.util.Base64.getEncoder()
+                            .encodeToString(
+                                    "gest-manager:manager-secret"
+                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
     @Autowired private TestRestTemplate restTemplate;
+
+    /** JSON request headers plus HTTP Basic credentials for the in-memory manager user. */
+    private static HttpHeaders jsonAuthHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set(HttpHeaders.AUTHORIZATION, BASIC_MANAGER);
+        return headers;
+    }
+
+    /** Headers carrying only HTTP Basic credentials (for GET requests). */
+    private static HttpHeaders authHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, BASIC_MANAGER);
+        return headers;
+    }
 
     @Test
     void validationErrorDoesNotLeakBiometricFields() {
         // POST with blank nome → 400 validation error
         String body = "{\"nome\":\"\"}";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        HttpEntity<String> entity = new HttpEntity<>(body, jsonAuthHeaders());
 
         ResponseEntity<String> response =
                 restTemplate.exchange(
@@ -61,8 +87,11 @@ class LGPDAuditIT extends BaseIntegrationTest {
         // GET a non-existent UUID → 404 not-found error
         String nonExistentId = "00000000-0000-0000-0000-000000000001";
         ResponseEntity<String> response =
-                restTemplate.getForEntity(
-                        "/gest-service/tipo-gesto/" + nonExistentId, String.class);
+                restTemplate.exchange(
+                        "/gest-service/tipo-gesto/" + nonExistentId,
+                        HttpMethod.GET,
+                        new HttpEntity<>(authHeaders()),
+                        String.class);
 
         assertThat(response.getStatusCode().value())
                 .describedAs("Non-existent ID must produce a 4xx error")
@@ -83,9 +112,7 @@ class LGPDAuditIT extends BaseIntegrationTest {
         // POST with 121-character nome → 400 validation error
         String longNome = "B".repeat(121);
         String body = "{\"nome\":\"" + longNome + "\"}";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        HttpEntity<String> entity = new HttpEntity<>(body, jsonAuthHeaders());
 
         ResponseEntity<String> response =
                 restTemplate.exchange(
@@ -109,9 +136,7 @@ class LGPDAuditIT extends BaseIntegrationTest {
     void successResponseDoesNotLeakBiometricFields() {
         // POST a valid creation → 201 — success body must also be clean.
         String body = "{\"nome\":\"lgpd-test-gesto\"}";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        HttpEntity<String> entity = new HttpEntity<>(body, jsonAuthHeaders());
 
         ResponseEntity<String> response =
                 restTemplate.exchange(

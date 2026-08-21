@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS audit_record (
     -- Hash chain fields (ADR-006)
     stream_key          VARCHAR(256)NOT NULL,
     sequence_no         BIGINT      NOT NULL,
-    prev_hash           CHAR(64)    NOT NULL,
-    record_hash         CHAR(64)    NOT NULL,
+    prev_hash           VARCHAR(64) NOT NULL,
+    record_hash         VARCHAR(64) NOT NULL,
 
     -- Optional correction linkage
     corrects_record_id  UUID,

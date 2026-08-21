@@ -100,6 +100,27 @@ acs:
     # Default "change-me-secret" is for local dev only — NEVER use in production.
     encryption-secret: ${ACS_SIGNING_KEY_SECRET:change-me-secret}
 
+  # Service clients allowed at POST /oauth2/token/service (ACS-030).
+  # Each entry grants a fixed authority set, embedded in a tenant-scoped token.
+  # Service-to-service calls use these instead of propagating the caller's caregiver JWT —
+  # that practice forced caregivers to hold hist:write and made the EDGE heartbeat
+  # unreachable (plan-e2e-integration.md §11.2, C-18/C-19).
+  #
+  # secret-hash is a BCrypt hash, never a plaintext secret. A blank hash disables the
+  # client (fail closed), so a missing env var rejects instead of accepting anything.
+  # Dev default below is the BCrypt hash of "dev-service-secret" — NEVER use in production.
+  service-clients:
+    edge-service:
+      secret-hash: ${EDGE_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # EDGE→GEST: profile pointer resolved during device heartbeat
+        - gest.detection-profile.read
+    pac-service:
+      secret-hash: ${PAC_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # PAC→HIST: audit facts for comando lifecycle. hist-service applies the SCOPE_ prefix.
+        - hist:write
+
 logging:
   pattern:
     console: "%d{HH:mm:ss} %-5level [%X{correlationId}] [%X{tenantId}] [%X{userId}] %logger{36} - %msg%n"

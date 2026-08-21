@@ -2,6 +2,8 @@ package com.neuroassist.acs.api.controller;
 
 import com.neuroassist.acs.api.dto.AutenticacaoRequest;
 import com.neuroassist.acs.api.dto.AutenticacaoResponse;
+import com.neuroassist.acs.api.dto.ServiceTokenRequest;
+import com.neuroassist.acs.application.service.ServiceTokenService;
 import com.neuroassist.acs.api.dto.RefreshTokenRequest;
 import com.neuroassist.acs.application.port.in.AutenticacaoUseCase;
 import jakarta.validation.Valid;
@@ -29,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AutenticacaoController {
 
     private final AutenticacaoUseCase autenticacaoUseCase;
+    private final ServiceTokenService serviceTokenService;
 
     /**
      * Issues a JWT access token for valid caregiver credentials. Supports grant_type=password only
@@ -43,6 +46,26 @@ public class AutenticacaoController {
         log.debug("POST /oauth2/token grantType={}", request.grantType());
         AutenticacaoResponse response = autenticacaoUseCase.authenticate(request);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Issues a service-identity token for service-to-service calls (ACS-030).
+     *
+     * <p>PUBLIC endpoint, like {@code /oauth2/token} — authentication happens inside the service,
+     * against the BCrypt hash configured in {@code acs.service-clients}. Every rejection reason
+     * returns the same 401.
+     *
+     * @param request clientId + clientSecret + tenantId the token is scoped to
+     * @return 200 AutenticacaoResponse (no refreshToken) | 400 validation | 401 invalid-credentials
+     */
+    @PostMapping("/token/service")
+    public ResponseEntity<AutenticacaoResponse> serviceToken(
+            @Valid @RequestBody ServiceTokenRequest request) {
+        log.debug(
+                "POST /oauth2/token/service clientId={} tenantId={}",
+                request.clientId(),
+                request.tenantId());
+        return ResponseEntity.ok(serviceTokenService.issueToken(request));
     }
 
     /**

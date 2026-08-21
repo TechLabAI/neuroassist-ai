@@ -102,6 +102,44 @@ public class PatientRegistrationSteps {
         String body = ctx.getLastResponse().getBody();
         Object actual = JsonPath.parse(body).read("$.dispositivoEdgeId");
         assertThat(actual).isEqualTo(TestDataHelper.primitiveUuid("dev-001").toString());
+        assertAcsAndEdgeStillTravelOnTheCaregiverToken();
+    }
+
+    /**
+     * Service identity is scoped to the hist-service client only (standards/service-identity.md
+     * §6).
+     *
+     * <p>PAC → ACS (directory) and PAC → EDGE (device validation) are decisions taken <i>on behalf
+     * of the user</i>, so they must keep propagating the caregiver's JWT. This guards against
+     * {@code HistFeignConfig} leaking into the global Feign context — a leak WireMock would
+     * otherwise accept silently, since it never validates credentials.
+     */
+    private void assertAcsAndEdgeStillTravelOnTheCaregiverToken() {
+        assertOutboundTokenIsTheCaregivers(
+                ExternalServicesWireMock.acs()
+                        .findAll(
+                                com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor(
+                                        com.github.tomakehurst.wiremock.client.WireMock
+                                                .urlPathMatching("/api/v1/acs/caregivers/.*"))),
+                "ACS directory");
+        assertOutboundTokenIsTheCaregivers(
+                ExternalServicesWireMock.edge()
+                        .findAll(
+                                com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor(
+                                        com.github.tomakehurst.wiremock.client.WireMock
+                                                .urlPathMatching("/api/edge/v1/dispositivos/.*"))),
+                "EDGE device");
+    }
+
+    private void assertOutboundTokenIsTheCaregivers(
+            java.util.List<com.github.tomakehurst.wiremock.verification.LoggedRequest> requests,
+            String label) {
+        assertThat(requests).as("%s must have been called", label).isNotEmpty();
+        String authorization = requests.get(requests.size() - 1).getHeader("Authorization");
+        assertThat(authorization)
+                .as("%s must still travel on the caregiver's JWT", label)
+                .startsWith("Bearer eyJ")
+                .doesNotContain(PacWireMockStubs.SERVICE_TOKEN);
     }
 
     @And("^the response content type is \"application/problem\\+json\"")
@@ -184,8 +222,10 @@ public class PatientRegistrationSteps {
         ctx.setLastResponse(response);
     }
 
-    // NOTE: "the response list contains {string}" is handled generically by SharedSteps.andTheResponseListContains
-    // and "the response list does not contain {string}" by SharedSteps.andTheResponseListDoesNotContain
+    // NOTE: "the response list contains {string}" is handled generically by
+    // SharedSteps.andTheResponseListContains
+    // and "the response list does not contain {string}" by
+    // SharedSteps.andTheResponseListDoesNotContain
     // to avoid AmbiguousStepDefinitionsException (D-532).
 
     // -------------------------------------------------------------------------
@@ -204,9 +244,8 @@ public class PatientRegistrationSteps {
     public void whenAPutRequestIsMadeToApipacv1pacientespac001With(
             String pathAlias, String ifMatchHeader, String body) {
         UUID patientId = ctx.getAlias("pac-001");
-        String path = patientId != null
-                ? pathAlias.replace("/pac-001", "/" + patientId)
-                : pathAlias;
+        String path =
+                patientId != null ? pathAlias.replace("/pac-001", "/" + patientId) : pathAlias;
         // Parse the If-Match value from header string like "If-Match: \"1\""
         String etag = ifMatchHeader.replaceFirst("(?i)If-Match:\\s*", "").trim();
         ResponseEntity<String> response = http.put(path, body, etag);
@@ -229,9 +268,9 @@ public class PatientRegistrationSteps {
 
     private static String resolveExternalIds(String body) {
         for (String alias : new String[] {"dev-001", "dev-foreign", "cuid-001", "cuid-unknown"}) {
-            body = body.replace(
-                    "\"" + alias + "\"",
-                    "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
+            body =
+                    body.replace(
+                            "\"" + alias + "\"", "\"" + TestDataHelper.primitiveUuid(alias) + "\"");
         }
         return body;
     }

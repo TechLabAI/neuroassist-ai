@@ -78,7 +78,9 @@ hist:
       - evento.descartado
       - evento.feedback.registrado
       - comando.sensibilidade.editada
+      - comando.publicado
       - comando.recalibrado
+      - comando.aposentado
       - acesso.concedido
       - acesso.revogado
       - dispositivo.pareado
@@ -95,6 +97,13 @@ hist:
   retry:
     max-attempts: 3
     backoff-ms: 50
+
+# Base URL of acs-service, consumed by AcsActorDirectoryClient for caregiver patient-scope.
+# The localhost default only works when ACS runs on the same host — inside a container it
+# resolves to hist-service itself and every hist:read timeline fails 503 (E2E-003).
+neuroassist:
+  acs:
+    url: ${ACS_SERVICE_URL:http://localhost:8088}
 
 logging:
   pattern:

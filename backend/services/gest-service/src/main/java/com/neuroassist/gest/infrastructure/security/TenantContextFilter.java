@@ -78,7 +78,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
             }
 
             // Guard 503: schema must exist before binding the context (GEST-014).
-            String schemaName = SCHEMA_PREFIX + tenantId;
+            String schemaName = resolveSchemaName(tenantId);
             if (!schemaExists(schemaName)) {
                 log.warn(
                         "Tenant schema '{}' not found in database — returning 503 (tenantId={})",
@@ -134,6 +134,41 @@ public class TenantContextFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+
+    /**
+     * Resolves the Postgres schema that holds the tenant's data.
+     *
+     * <p>ACS records the provisioned schema in {@code neuroassist_global.tenant.schema_nome} and
+     * issues the tenant UUID in the JWT, so the schema cannot be derived from the identifier. This
+     * mirrors {@link MultiTenantConnectionProvider}, which routes the {@code search_path} the same
+     * way — the guard here must agree with it or it rejects tenants that would route fine (E2E-009
+     * / C-14).
+     *
+     * <p>Falls back to the legacy {@code t_<tenantId>} convention when the tenant catalogue has no
+     * row, which is the shape the test suites provision.
+     */
+    private String resolveSchemaName(String tenantId) {
+        String sql =
+                "SELECT schema_nome FROM neuroassist_global.tenant"
+                        + " WHERE tenant_id::text = ? AND schema_nome IS NOT NULL";
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tenantId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+        } catch (SQLException e) {
+            log.debug(
+                    "Could not resolve schema_nome for tenant {} ({}); falling back to {}{}",
+                    tenantId,
+                    e.getMessage(),
+                    SCHEMA_PREFIX,
+                    tenantId);
+        }
+        return SCHEMA_PREFIX + tenantId;
     }
 
     /**

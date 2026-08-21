@@ -39,7 +39,7 @@ public class AcsDirectoryAdapter implements AcsDirectoryPort {
     public EmpresaRef resolveTenant(UUID empresaId) {
         try {
             AcsEmpresaResponse resp = acsDirectoryClient.getEmpresa(empresaId);
-            return new EmpresaRef(resp.id(), resp.valid());
+            return new EmpresaRef(resp.tenantId(), resp.valid());
         } catch (FeignException.NotFound e) {
             log.warn("Empresa not found in ACS empresaId={}", empresaId);
             throw new CodedException(
@@ -55,7 +55,7 @@ public class AcsDirectoryAdapter implements AcsDirectoryPort {
     public CuidadorRef resolveCuidador(UUID cuidadorId) {
         try {
             AcsCuidadorResponse resp = acsDirectoryClient.getCuidador(cuidadorId);
-            return new CuidadorRef(resp.id(), resp.empresaId());
+            return new CuidadorRef(resp.id(), resp.tenant());
         } catch (FeignException.NotFound e) {
             log.warn("Cuidador not found in ACS cuidadorId={}", cuidadorId);
             throw new CodedException(

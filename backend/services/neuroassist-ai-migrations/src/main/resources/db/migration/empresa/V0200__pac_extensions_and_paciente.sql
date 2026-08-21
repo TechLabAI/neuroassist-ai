@@ -22,7 +22,7 @@
 -- ────────────────────────────────────────────────────────────────────────────
 CREATE TABLE paciente (
     id                    uuid         NOT NULL DEFAULT uuid_generate_v4(),
-    tenant_id             uuid         NOT NULL,
+    tenant_id             varchar(255) NOT NULL,
     nome                  text         NOT NULL,
     dispositivo_edge_id   uuid         NULL,
     row_version           integer      NOT NULL DEFAULT 0,

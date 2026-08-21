@@ -87,7 +87,7 @@ class EdgePairingCircuitBreakerIT extends BaseIntegrationTest {
 
     @Test
     void circuitBreaker_opensAfterConsecutiveInfraFailures() {
-        when(edgePairingClient.getTenantForDevice(any())).thenThrow(serviceUnavailable());
+        when(edgePairingClient.checkPairingAndGetTenant(any())).thenThrow(serviceUnavailable());
 
         // Use a fixed UUID to test CB opening (this test IS expected to leave CB open)
         UUID deviceId = UUID.fromString("00000000-0000-0000-0000-000000000001");
@@ -112,7 +112,7 @@ class EdgePairingCircuitBreakerIT extends BaseIntegrationTest {
 
     @Test
     void circuitBreaker_remainsClosedForBusinessErrors() {
-        when(edgePairingClient.getTenantForDevice(any())).thenThrow(notFound());
+        when(edgePairingClient.checkPairingAndGetTenant(any())).thenThrow(notFound());
 
         // Use a different UUID to avoid CB state interference from the previous test
         UUID deviceId = UUID.fromString("00000000-0000-0000-0000-000000000002");

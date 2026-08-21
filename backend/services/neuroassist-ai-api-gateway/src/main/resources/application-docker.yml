@@ -1,0 +1,95 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        # ── ACS OAuth2 ──────────────────────────────────────────────────────────
+        - id: acs-oauth2-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/oauth2/**,.well-known/**
+
+        # ── Actuator health routes (strip /api/v1/<svc>, forward to /actuator/health)
+        - id: acs-health-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/api/v1/acs/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: gest-health-route
+          uri: lb://gest-service
+          predicates:
+            - Path=/api/v1/gest/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: evnt-health-route
+          uri: lb://evnt-service
+          predicates:
+            - Path=/api/v1/evnt/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: pac-health-route
+          uri: lb://pac-service
+          predicates:
+            - Path=/api/v1/pac/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: edge-health-route
+          uri: lb://edge-service
+          predicates:
+            - Path=/api/v1/edge/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: hist-health-route
+          uri: lb://hist-service
+          predicates:
+            - Path=/api/v1/hist/actuator/**
+          filters:
+            - StripPrefix=3
+
+        - id: dash-health-route
+          uri: lb://dash-service
+          predicates:
+            - Path=/api/v1/dash/actuator/**
+          filters:
+            - StripPrefix=3
+
+        # ── Service API routes ───────────────────────────────────────────────────
+        - id: acs-service-route
+          uri: lb://acs-service
+          predicates:
+            - Path=/api/v1/acs/**
+
+        - id: gest-service-route
+          uri: lb://gest-service
+          predicates:
+            - Path=/api/v1/gest/**
+
+        - id: evnt-service-route
+          uri: lb://evnt-service
+          predicates:
+            - Path=/api/v1/evnt/**
+
+        - id: pac-service-route
+          uri: lb://pac-service
+          predicates:
+            - Path=/api/v1/pac/**
+
+        - id: edge-service-route
+          uri: lb://edge-service
+          predicates:
+            - Path=/api/v1/edge/**
+
+        - id: hist-service-route
+          uri: lb://hist-service
+          predicates:
+            - Path=/api/v1/hist/**
+
+        - id: dash-service-route
+          uri: lb://dash-service
+          predicates:
+            - Path=/api/v1/dash/**

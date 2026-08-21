@@ -15,7 +15,6 @@ import com.neuroassist.pac.domain.model.Sensibilidade;
 import com.neuroassist.pac.domain.model.Urgencia;
 import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.shared.error.CodedException;
-import com.neuroassist.pac.shared.error.EligibilityGateUnavailableException;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -88,20 +87,11 @@ public class ComandoLifecycleService implements ComandoLifecycleUseCase {
             throw invalidTransition(existing.estado(), EstadoComando.validated);
         }
 
-        // Check that referenced primitives are known to GEST (advisory for unavailability)
-        try {
-            eligibilityGate.check(
-                    existing.primitivoPrincipalId(),
-                    existing.primitivoSecundarioId(),
-                    Urgencia.rotina); // rotina → unavailability is advisory (not blocking)
-        } catch (EligibilityGateUnavailableException e) {
-            log.warn(
-                    "GEST unavailable during validate id={} — proceeding without primitive check: {}",
-                    comandoId,
-                    e.getMessage());
-            // GEST unavailability is advisory for validate — allow the transition
-        }
-        // CodedException (pac.primitive.unknown-to-gest) propagates as 422
+        // Check that referenced primitives are known to GEST.
+        // CodedException (pac.primitive.unknown-to-gest) propagates as 422; GEST unavailability is
+        // advisory here and handled inside the gate.
+        eligibilityGate.verifyPrimitivesKnown(
+                existing.primitivoPrincipalId(), existing.primitivoSecundarioId());
 
         Comando updated = copyWithState(existing, EstadoComando.validated);
         Comando saved = comandoRepository.save(updated);

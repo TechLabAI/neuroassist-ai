@@ -10,12 +10,22 @@ import org.springframework.web.bind.annotation.RequestBody;
  * <p>RULE-06: {@code @FeignClient} declared only in {@code infrastructure.clients}.
  *
  * <p>Used by {@link HistFactAdapter} to attempt direct delivery of domain facts ({@code
- * comando.published}, {@code comando.recalibrated}, {@code comando.retired}). On failure, the
+ * comando.publicado}, {@code comando.recalibrado}, {@code comando.aposentado}). On failure, the
  * adapter falls back to the local outbox ({@link HistOutboxJpaRepository}).
+ *
+ * <p>The path and body follow hist-service's ingestion surface {@code POST
+ * /api/v1/hist/audit-facts} (HIST-005) verbatim — see {@link HistFactRequest}.
+ *
+ * <p><b>Service identity.</b> Unlike the other PAC Feign clients, this one does NOT travel on the
+ * caregiver's token: {@link HistFeignConfig} swaps the {@code Authorization} header for
+ * pac-service's own service-identity token ({@code hist:write}), so the {@code CUIDADORA} role no
+ * longer needs that authority. The caregiver remains the recorded <i>actor</i> inside the fact
+ * body.
  */
 @FeignClient(
         name = "hist-service",
-        url = "${neuroassist.integration.hist.url:http://hist-service:8089}")
+        url = "${neuroassist.integration.hist.url:http://hist-service:8089}",
+        configuration = HistFeignConfig.class)
 public interface HistFactClient {
 
     /**
@@ -23,6 +33,6 @@ public interface HistFactClient {
      *
      * @param request the domain fact payload
      */
-    @PostMapping("/hist-service/api/v1/facts")
+    @PostMapping("/api/v1/hist/audit-facts")
     void recordFact(@RequestBody HistFactRequest request);
 }
