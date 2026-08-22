@@ -807,6 +807,83 @@ falhas.
    o teste deveria pegar. O escopo é `scope_paciente_id`.
 3. **Ler o painel logo após recriar o container** — leituras vazias porque o serviço ainda subia.
 
+### 11.7 Sessão 6 — Retry e recuperação (2026-08-22)
+
+**Sessão fora do plano original**, aberta porque a triagem do que sobrava revelou que os dois
+mecanismos de retry do sistema **não existiam** — e que isso invalidava parcialmente conclusões
+das Sessões 4 e 5.
+
+#### A correção que motivou a sessão
+
+AUD-10 e NTF-02/NTF-04 passaram medindo a metade certa e concluindo demais:
+
+| Afirmado | Verdadeiro | Falso |
+|---|---|---|
+| "fato ficou pendente no outbox — não foi perdido" | a linha é durável e o produtor não é bloqueado | nada a reentregava quando o hist-service voltava |
+| "dispatch permanece QUEUED para retry" | a linha é durável e retentável por desenho | nada a reprocessava |
+
+Concretamente: **9 fatos de auditoria estavam parados** no `hist_outbox` no início desta sessão,
+e um alarme que encontrasse a cuidadora sem painel aberto (`no_open_session`) **nunca chegava a
+ela** — inclusive `full_screen_alarm`.
+
+A palavra "retry" existia apenas em comentário. Em `HistFactAdapter`: `// Step 4: Leave outbox
+entry as 'pending' — retry will handle it later`. Não havia retry.
+
+> **Correção de registro da Sessão 4.** Classifiquei o `NotificationOrchestrationController`
+> como *scaffolding morto* porque o dispatch acontece em `ReportIngressService`. Estava errado:
+> o `retrySweep` que ele expõe era a única coisa que reenviaria um alarme não entregue. Era
+> capacidade ausente, não scaffolding — a distinção que §11.3 existe para fazer, e que eu
+> mesmo errei.
+
+#### Defeitos corrigidos
+
+| # | Serviço | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-44** | PAC | 9 fatos de auditoria parados indefinidamente | nada lia `hist_outbox.status = 'pending'` — sem `@Scheduled`, sem listener, sem endpoint | AUD-10 verifica que o produtor não é bloqueado e que a linha existe; não verifica que ela sai de lá |
+| **C-45** | EVNT | alarme não entregue nunca reenviado | `retrySweep` lançava `UnsupportedOperationException` e não havia scheduler | NTF-02/04 verificam que o dispatch fica retentável; não verificam que algo o retenta |
+
+#### Solução
+
+Os dois seguem a mesma forma, porque o problema é o mesmo: **trabalho de fundo não tem requisição
+de onde herdar o tenant**, e todas as tabelas envolvidas vivem em schema por tenant.
+
+- `TenantCatalogPort` lê os tenants ativos do catálogo global com JDBC puro e nome de tabela
+  qualificado. Com JPA a consulta seria roteada pelo `MultiTenantConnectionProvider` para o tenant
+  vinculado — e esta é justamente a consulta que decide qual vincular.
+- O scheduler vincula o tenant **antes** de abrir a transação. O Hibernate fixa o `search_path` ao
+  adquirir a conexão, então vincular dentro de um método `@Transactional` não roteia nada (a
+  armadilha registrada em CLAUDE.md e paga no EDGE). Sem isso o sweeper leria o schema global,
+  não acharia as tabelas, e reportaria sucesso.
+- Falha de um tenant nunca interrompe os outros.
+- Lote limitado por tick: um backlog acumulado numa indisponibilidade seria replayado numa única
+  transação, segurando conexão e martelando um serviço que acabou de voltar.
+- O dreno do PAC **para no primeiro erro do lote**: se o hist-service está fora, as entradas
+  seguintes falhariam igual, e gastar o orçamento de retry delas contra uma indisponibilidade
+  conhecida é como um problema transitório vira permanente.
+- Ambos têm estado terminal (`failed` / `FAILED`) após o máximo de tentativas, e ele é distinto de
+  "pendente" de propósito: um fato ou alarme que nunca será entregue não pode ser indistinguível
+  de uma fila apenas ocupada.
+
+#### Validação
+
+| Antes | Depois |
+|---|---|
+| `hist_outbox`: 9 `pending`, 25 `sent` | 0 `pending`, 34 `sent` — entregues no primeiro tick |
+| `notification_dispatch`: 8 `QUEUED`, 1 `NO_SESSION` | 9 `NO_SESSION` (ninguém com painel aberto) |
+| — | abrindo uma sessão SSE no painel: **9 `DELIVERED`** no sweep seguinte |
+
+O stream SSE recebeu os alarmes com tier e mensagem reais (`full_screen_alarm` / "Chamar
+cuidadora"), o que fecha NTF-02 no sentido pleno: "cuidadora sem sessão aberta → EVNT agenda
+retry" passou a ser verdade.
+
+#### Decisão de produto que ficou aberta
+
+Um alarme `NO_SESSION` vai para `FAILED` depois de `max-attempts` — cerca de 5 minutos no default —
+**sem escalonamento algum**. Se a cuidadora não abrir o painel nessa janela, um alarme de
+emergência morre em silêncio. É melhor do que antes (nunca era reenviado), mas a janela e o que
+acontece ao fim dela precisam ser uma escolha explícita: escalonar para outro cuidador do
+paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
+
 ### 11.2 Dívidas conhecidas (não corrigidas nesta sessão)
 
 - ~~**C-16 — escopo de cuidadora filtrado em memória**~~ — resolvido na Sessão 5 (§11.6), e era pior
@@ -913,7 +990,8 @@ falhas.
   mas abusa do nome do campo.
 - **O EVNT não tem outbox de auditoria.** O `AuditTrailFeignAdapter` é fail-open (correto para
   AUD-10), mas sem durabilidade: um fato perdido numa indisponibilidade do HIST é perdido para
-  sempre. O PAC resolve isso com `hist_outbox` + `factId` cunhado uma vez (C-5).
+  sempre. O PAC resolve isso com `hist_outbox` + `factId` cunhado uma vez (C-5) — e desde a
+  Sessão 6 esse outbox é de fato drenado (C-44), então o padrão a copiar existe inteiro.
 - **`X-Empresa-Id` × `X-Tenant-Id` (C-28).** O PAC exige o primeiro e rejeita 400 sem ele; os
   demais serviços usam o segundo. Os dois carregam o mesmo valor — é o mesmo shim do claim de
   tenant triplicado (C-3) e sai junto com ele.
@@ -943,6 +1021,10 @@ falhas.
   migrations-empresa`), que monta o jar — e portanto exige `bootJar` antes. O comando em
   CLAUDE.md ("rodar `:neuroassist-ai-migrations:bootRun` primeiro") não funciona como está.
 
+- **Um alarme `NO_SESSION` desiste em silêncio (C-46).** Após `max-attempts` o dispatch vai para
+  `FAILED` sem escalonamento — cerca de 5 minutos no default. Decisão de produto pendente; ver
+  §11.7.
+
 ### 11.3 Inventário de TODO / stub / fake (auditoria pós-Sessão 2)
 
 `grep -rn "TODO\|FIXME\|XXX\|HACK" backend/services/*/src/main` → **97 ocorrências**:
@@ -956,7 +1038,7 @@ mente sobre funcionar) e **scaffolding morto** (gerado, nunca chamado).
 | Serviço | Local | O que falta | Bloqueia |
 |---|---|---|---|
 | **EDGE** | `ProfilePointerController.currentPointerForTenant` + `ProfilePointerService` | Ambos lançam `UnsupportedOperationException` | **HB-01..05 (Sessão 3)** — o ponteiro de perfil do heartbeat EDGE↔GEST não existe |
-| **EVNT** | `NotificationOrchestrationController.{processar,reprocessar}` + service | Ambos lançam `UnsupportedOperationException` | **NTF-01..05 (Sessão 4)** |
+| ~~**EVNT**~~ | ~~`NotificationOrchestrationController` + service~~ | ✅ resolvido na Sessão 6 (C-45): o retry sweep existe e é agendado | — |
 | **EVNT** | 4 adapters `@Primary` (`CaregiverRoutingHardcoded`, `AuditTrailNoOp`, `NotificationDispatchLog`, `CommandLookupHardcoded`) | Fakes em código de produção; os 4 `@FeignClient` vazios e com porta default errada | **DIR-02, AUD-06/07, NTF-01..05** |
 | **ACS** | `HistAuditClient` (vazio) + `HistAuditAdapter` (`// TODO: call histAuditClient.recordFact(...)`) | O ACS **nunca** envia audit fact ao HIST | **AUD-01 e AUD-02** — esta é a causa raiz de "ACS não produz audit facts" |
 | **ACS** | `MigProvisioningClient` (vazio) + `MigProvisioningAdapter` (`// TODO: call requestSchema/getSchemaStatus`) | Provisionar tenant **não chama as migrations** | **E2E-009 passo 1 real.** Na Sessão 2 usamos o tenant seedado, então esse caminho nunca foi exercitado |

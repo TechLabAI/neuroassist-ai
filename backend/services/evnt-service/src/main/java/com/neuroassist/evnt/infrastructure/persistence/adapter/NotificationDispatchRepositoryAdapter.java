@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -27,6 +28,17 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
     @Override
     public Optional<NotificationDispatch> findById(UUID dispatchId) {
         return repository.findById(dispatchId).map(this::toDomain);
+    }
+
+    @Override
+    public List<NotificationDispatch> findUndelivered(int limit) {
+        return repository
+                .findByStatusInOrderByLastAttemptAtAscIdAsc(
+                        List.of(DispatchStatuses.QUEUED, DispatchStatuses.NO_SESSION),
+                        PageRequest.of(0, limit))
+                .stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     @Override

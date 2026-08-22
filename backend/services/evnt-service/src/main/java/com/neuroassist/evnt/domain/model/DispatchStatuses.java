@@ -27,5 +27,12 @@ public final class DispatchStatuses {
     /** The caregiver acknowledged it. Terminal. */
     public static final String ACKNOWLEDGED = "ACKNOWLEDGED";
 
+    /**
+     * Retried to exhaustion and never delivered. Terminal, and deliberately distinct from {@code
+     * QUEUED}: an alarm that will never arrive must not be indistinguishable from one still waiting
+     * its turn.
+     */
+    public static final String FAILED = "FAILED";
+
     private DispatchStatuses() {}
 }

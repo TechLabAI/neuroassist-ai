@@ -16,4 +16,12 @@ public interface NotificationDispatchRepositoryPort {
      * session opens and needs to show what was missed.
      */
     List<NotificationDispatch> findUnacknowledgedFor(String caregiverId);
+
+    /**
+     * Dispatches that never reached a caregiver — {@code QUEUED} (dash-service unreachable) or
+     * {@code NO_SESSION} (nobody had a panel open) — oldest attempt first, bounded.
+     *
+     * <p>Terminal states are excluded: a delivered or acknowledged alarm must never be re-sent.
+     */
+    List<NotificationDispatch> findUndelivered(int limit);
 }

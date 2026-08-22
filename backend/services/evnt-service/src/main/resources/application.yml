@@ -51,6 +51,18 @@ evnt:
   sse:
     keepalive-seconds: 15
     emitter-timeout-ms: 180000
+  # Reenvio de notificacoes nao entregues (C-45).
+  # Ate a Sessao 6 o retrySweep lancava UnsupportedOperationException e nao havia scheduler:
+  # um dispatch QUEUED (DASH fora do ar) ou NO_SESSION (cuidadora sem painel aberto) ficava
+  # assim para sempre — o alarme era duravel e nunca chegava a ninguem.
+  dispatch-retry:
+    enabled: true
+    batch-size: 50
+    max-attempts: 10        # depois disso o dispatch vai para FAILED e para de ser tentado
+    initial-delay-ms: 30000
+    # Curto de proposito: este intervalo e quanto tempo uma cuidadora que se ausentou espera
+    # por um alarme que nao encontrou sessao aberta.
+    interval-ms: 30000
   # Base URLs of the downstream services. The defaults are the docker-compose service names —
   # a `localhost` default resolves to the evnt-service container itself, which is how four of
   # these clients silently pointed at nothing (and two at the wrong service entirely).

@@ -88,6 +88,18 @@ neuroassist:
     connect-timeout-ms: 2000
     read-timeout-ms: 3000
 
+# Dreno do outbox de fatos de auditoria (C-44).
+# Ate a Sessao 6 nada lia `hist_outbox.status = 'pending'`: o comentario no adapter dizia
+# "retry will handle it later" e o retry nao existia, entao um fato gravado com o hist-service
+# fora do ar ficava na tabela para sempre.
+  hist-outbox:
+    batch-size: 50          # entradas por tick — evita replay de um backlog inteiro numa transacao
+    max-retries: 10         # depois disso a entrada vai para 'failed' e para de ser tentada
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do hist-service subir junto no compose
+      interval-ms: 60000
+
 # Resilience4j — Circuit Breaker for gest-service (INT-PAC-001 / SPEC-10 §4)
 resilience4j:
   circuitbreaker:
