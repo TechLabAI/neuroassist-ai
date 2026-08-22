@@ -1,5 +1,8 @@
 # ADR-004 — SQLite for local persistence (outbox + caches)
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> O outbox passa a ser IndexedDB + fila de retry no browser (follow-up 4 da ADR-007).
+
 ## Status
 Aceita
 

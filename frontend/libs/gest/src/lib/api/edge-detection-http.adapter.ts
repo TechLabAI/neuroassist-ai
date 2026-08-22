@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
+import { ComandoDraft, DetectorType, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
 import { EdgeDetectionMockAdapter } from './edge-detection-mock.adapter';
 import { EDGE_BRIDGE_WS_URL } from './gest-service.config';
@@ -44,7 +44,7 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
   private readonly fallback = new EdgeDetectionMockAdapter();
   private activeSocket: WebSocket | null = null;
 
-  private readonly _detectorType = signal<'ear_bri' | 'onnx' | null>(null);
+  private readonly _detectorType = signal<DetectorType | null>(null);
   /** ADR-006: current detector type as reported in the WS handshake. null before
    * handshake is received or after close(). Drives the interim banner in the component. */
   readonly detectorType = this._detectorType.asReadonly();

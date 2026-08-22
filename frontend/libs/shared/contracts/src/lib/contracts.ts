@@ -62,6 +62,12 @@ export type GestureTestStep = 'principal' | 'secundario' | null;
 export type DegradedReason =
   | 'device-offline' | 'bridge-unreachable' | 'version-mismatch' | null;
 
+/** Motor de detecção em uso.
+ *  'browser_mediapipe' — MediaPipe no browser; o único motor do produto (GEST ADR-007).
+ *  'ear_bri' | 'onnx'  — agente Python legado, reportado no handshake WS (ADR-006).
+ *  null                — ainda não iniciado, ou caminho mock. */
+export type DetectorType = 'browser_mediapipe' | 'ear_bri' | 'onnx';
+
 export interface GestureTestVM {
   readonly commandDraftRef: string;
   readonly rotulo: string;
@@ -73,9 +79,8 @@ export interface GestureTestVM {
   readonly degraded: boolean;            // true => mocked verdict, honest banner shown
   readonly degradedReason: DegradedReason;
   readonly contractVersion: string | null; // negotiated with edge bridge on openStream
-  /** ADR-006: detector algorithm in use. 'ear_bri' = interim; 'onnx' = production;
-   *  null = handshake not yet received (pre-connection or mock path). */
-  readonly detectorType: 'ear_bri' | 'onnx' | null;
+  /** Motor em uso — ver DetectorType. null antes de iniciar ou no caminho mock. */
+  readonly detectorType: DetectorType | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -21,6 +21,11 @@
           {
             "glob": "**/*",
             "input": "apps/neuroassist-ai-web/public"
+          },
+          {
+            "glob": "**/*",
+            "input": "node_modules/@mediapipe/tasks-vision/wasm",
+            "output": "assets/mediapipe-wasm"
           }
         ],
         "styles": ["apps/neuroassist-ai-web/src/styles.css"]

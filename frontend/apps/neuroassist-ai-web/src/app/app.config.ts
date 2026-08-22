@@ -46,7 +46,9 @@ export const appConfig: ApplicationConfig = {
     provideRouter(appRoutes),
     provideHttpClient(withInterceptors([acsHttpInterceptorFn])),
     provideAnimations(),
-    provideGest({ adapter: 'mock' }),
+    // ADR-007: o motor de detecção é o browser (MediaPipe), não mais a ponte com
+    // o agente Python. Elegibilidade segue em mock até a P2 do plan-FE-E2E.
+    provideGest({ detection: 'browser', eligibility: 'mock' }),
     provideEvnt({ adapter: 'mock' }),
     providePac({ adapter: 'mock' }),
     provideAcs({ adapter: 'mock' }),

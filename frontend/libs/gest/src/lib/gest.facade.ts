@@ -17,6 +17,7 @@ import {
   GestureTestState,
   GestureTestStep,
   DegradedReason,
+  DetectorType,
   GestureTestOutcome,
 } from '@neuroassist/shared/contracts';
 
@@ -36,7 +37,7 @@ const NEGOTIATED_VERSION = '1.0.0';
 type GestTelemetryEvent =
   | { type: 'start-test'; comandoDraftRef: string }
   | { type: 'stop-test'; duration_ms: number }
-  | { type: 'verdict'; outcome: GestureTestOutcome; detectorType: 'ear_bri' | 'onnx' | null }
+  | { type: 'verdict'; outcome: GestureTestOutcome; detectorType: DetectorType | null }
   | { type: 'degraded-activated'; reason: DegradedReason };
 
 function initialVm(): GestureTestVM {
@@ -215,9 +216,12 @@ export class GestureTestFacade {
   }
 
   private subscribeToStream(draft: ComandoDraft): void {
+    // ADR-007: o motor roda no browser e precisa dos frames que este facade já
+    // adquiriu. Adapters que detectam em outro lugar (ponte legada) ignoram o
+    // segundo argumento.
     const stream$ = this._state().degraded
       ? this.port.mockStream(draft)
-      : this.port.openStream(draft);
+      : this.port.openStream(draft, this.mediaStream ?? undefined);
 
     const timeoutId = setTimeout(() => {
       // SPEC-04 EARS: WHEN no signal within tempoMaximoGestoMs → not-recognized

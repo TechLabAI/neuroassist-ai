@@ -5,6 +5,7 @@ export type {
   GestureTestState,
   GestureTestStep,
   DegradedReason,
+  DetectorType,
   GestureTestOutcome,
   EligibilityResult,
   Sensibilidade,

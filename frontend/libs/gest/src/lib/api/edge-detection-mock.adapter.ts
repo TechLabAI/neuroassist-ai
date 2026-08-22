@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
+import { ComandoDraft, DetectorType, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
 
 const NEGOTIATED_VERSION = '1.0.0';
@@ -21,7 +21,7 @@ const NEGOTIATED_VERSION = '1.0.0';
 export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
   /** ADR-006: mock path does not represent the interim EAR/BRI detector — detectorType
    * remains null. The banner only appears on the real edge agent path (edgeLiveBridge:on). */
-  readonly detectorType = signal<'ear_bri' | 'onnx' | null>(null).asReadonly();
+  readonly detectorType = signal<DetectorType | null>(null).asReadonly();
 
   openStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal> {
     return this.mockStream(draft);
