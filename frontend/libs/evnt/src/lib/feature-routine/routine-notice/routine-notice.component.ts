@@ -41,7 +41,7 @@ const PLACEHOLDER_EVENTO: EventoVm = {
   imports: [UrgencyBadgeComponent, EventTimestampComponent],
   template: `
     <div
-      class="mb-3 flex items-start gap-3 rounded-xl border border-surface-border bg-surface px-4 py-3 shadow-sm"
+      class="mb-3 flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 shadow-sm"
       role="listitem"
       data-testid="routine-notice">
 
@@ -65,14 +65,14 @@ const PLACEHOLDER_EVENTO: EventoVm = {
         <button
           type="button"
           (click)="onOpen()"
-          class="rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+          class="rounded-lg px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/10"
           [attr.aria-label]="'Ver evento: ' + evento.commandLabel">
           Ver
         </button>
         <button
           type="button"
           (click)="onDismiss()"
-          class="rounded-lg px-2 py-1.5 text-xs text-ink-soft transition-colors hover:bg-surface-hover"
+          class="rounded-lg px-2 py-1.5 text-xs text-ink-soft transition-colors hover:bg-surface-2"
           [attr.aria-label]="'Dispensar notificação: ' + evento.commandLabel">
           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
         </button>

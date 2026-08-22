@@ -50,7 +50,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
         <!-- Coluna principal: passos do wizard -->
         <div class="flex flex-col gap-5">
           <!-- Step 1: Unidade de cuidado (ACS) -->
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">1</span>
               <h2 class="font-display text-sm font-semibold text-ink">Unidade de cuidado</h2>
@@ -65,7 +65,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
               <div class="flex gap-3">
                 <input
                   type="text"
-                  class="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
                   [value]="tenantNome()"
                   (input)="tenantNome.set($any($event.target).value)"
                   placeholder="Nome da família ou clínica"
@@ -85,7 +85,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
           </div>
 
           <!-- Step 2: Paciente (PAC) -->
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">2</span>
               <h2 class="font-display text-sm font-semibold text-ink">Paciente</h2>
@@ -99,7 +99,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
           <!-- Step 3: Dispositivo edge (EDGE) — INT-FE-EDGE-003 -->
           <!-- DevicePairingPageComponent mounted via NgComponentOutlet (no direct import, nx-boundary preserved) -->
           <!-- pacienteHint wired from PacPacienteFacade.patient().id via ngComponentOutletInputs -->
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">3</span>
               <h2 class="font-display text-sm font-semibold text-ink">Dispositivo edge</h2>
@@ -131,7 +131,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
           </div>
 
           <!-- Step 4: Primeiro comando (PAC) -->
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">4</span>
               <h2 class="font-display text-sm font-semibold text-ink">Primeiro comando</h2>
@@ -139,7 +139,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm text-ink-soft">Configure ao menos 1 comando (gesto → necessidade) no catálogo antes de convidar a cuidadora.</p>
               <a routerLink="/pac" class="flex-shrink-0">
-                <button class="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2">
+                <button class="rounded-xl border border-line px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2">
                   Ir ao catálogo
                   <span class="material-symbols-outlined text-[14px] align-middle">arrow_forward</span>
                 </button>
@@ -148,7 +148,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
           </div>
 
           <!-- Step 5: Convidar cuidadora (ACS) -->
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <div class="mb-3 flex items-center gap-2">
               <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">5</span>
               <h2 class="font-display text-sm font-semibold text-ink">Convidar cuidadora</h2>
@@ -157,14 +157,14 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
               <div class="flex gap-3">
                 <input
                   type="text"
-                  class="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
                   [value]="cuidadoraNome()"
                   (input)="cuidadoraNome.set($any($event.target).value)"
                   placeholder="Nome da cuidadora"
                 />
                 <input
                   type="email"
-                  class="flex-1 rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
                   [value]="cuidadoraEmail()"
                   (input)="cuidadoraEmail.set($any($event.target).value)"
                   placeholder="E-mail"
@@ -179,7 +179,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
 
         <!-- Coluna lateral: progresso + conclusão -->
         <div class="flex flex-col gap-6">
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <h3 class="mb-3 font-display text-sm font-semibold text-ink">Progresso</h3>
             <div class="flex flex-col gap-2.5">
               @for (item of checklist(); track item.label) {
@@ -194,7 +194,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
             </div>
           </div>
 
-          <div class="rounded-2xl border border-border bg-surface p-5">
+          <div class="rounded-2xl border border-line bg-surface p-5">
             <p class="text-xs text-ink-soft">Conclua todos os passos ao lado para liberar o painel diário da cuidadora.</p>
             <div class="mt-4">
               <button

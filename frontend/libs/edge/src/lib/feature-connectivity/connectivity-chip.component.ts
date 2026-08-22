@@ -21,7 +21,7 @@ import { DeviceFacade } from '../edge.facade';
 function toneClass(tone: ConnectivityTone): string {
   switch (tone) {
     case 'ok': return 'bg-success-bg text-success-ink';
-    case 'warn': return 'bg-warn-bg text-warn-ink';
+    case 'warn': return 'bg-warning-bg text-warning-ink';
     case 'er': return 'bg-danger-bg text-danger-ink';
     default: return 'bg-surface-2 text-ink-soft';
   }

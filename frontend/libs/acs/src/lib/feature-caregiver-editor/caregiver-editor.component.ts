@@ -25,7 +25,7 @@ import type { CuidadorPapel } from '../acs.types';
       </header>
 
       @if (facade.error()) {
-        <p class="mb-4 rounded-lg bg-error-subtle px-4 py-3 text-sm text-error-ink" role="alert">
+        <p class="mb-4 rounded-lg bg-error-bg px-4 py-3 text-sm text-error-ink" role="alert">
           {{ facade.error() }}
         </p>
       }
@@ -41,7 +41,7 @@ import type { CuidadorPapel } from '../acs.types';
             type="text"
             formControlName="nome"
             class="w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-            [class]="draftForm.get('nome')?.invalid && draftForm.get('nome')?.touched ? 'border-error' : 'border-border'"
+            [class]="draftForm.get('nome')?.invalid && draftForm.get('nome')?.touched ? 'border-error' : 'border-line'"
             placeholder="Nome completo"
             data-testid="editor-nome"
           />
@@ -63,7 +63,7 @@ import type { CuidadorPapel } from '../acs.types';
             type="email"
             formControlName="email"
             class="w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-            [class]="draftForm.get('email')?.invalid && draftForm.get('email')?.touched ? 'border-error' : 'border-border'"
+            [class]="draftForm.get('email')?.invalid && draftForm.get('email')?.touched ? 'border-error' : 'border-line'"
             placeholder="email@exemplo.com"
             data-testid="editor-email"
           />
@@ -83,7 +83,7 @@ import type { CuidadorPapel } from '../acs.types';
           <select
             id="editor-papel"
             formControlName="papel"
-            class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            class="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
             data-testid="editor-papel"
           >
             <option value="cuidadora">Cuidadora</option>
@@ -103,7 +103,7 @@ import type { CuidadorPapel } from '../acs.types';
           </button>
           <button
             type="button"
-            class="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
+            class="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
             (click)="cancel()"
             data-testid="editor-cancel"
           >Cancelar</button>

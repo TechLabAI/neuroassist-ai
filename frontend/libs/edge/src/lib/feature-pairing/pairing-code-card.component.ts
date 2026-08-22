@@ -47,10 +47,10 @@ import {
       <!-- Countdown -->
       <div class="mt-3 flex items-center gap-1.5">
         <span class="material-symbols-outlined text-[16px]"
-              [class.text-warn-ink]="_countdown() <= 30"
+              [class.text-warning-ink]="_countdown() <= 30"
               [class.text-ink-faint]="_countdown() > 30">timer</span>
         <span class="text-xs"
-              [class.text-warn-ink]="_countdown() <= 30"
+              [class.text-warning-ink]="_countdown() <= 30"
               [class.text-ink-soft]="_countdown() > 30">
           Expira em {{ _countdown() }}s
         </span>

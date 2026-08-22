@@ -59,7 +59,7 @@ import { DeviceActionsComponent } from './device-actions.component';
         </div>
       } @else if (facade.error()) {
         <div
-          class="rounded-xl border border-danger-border bg-danger-bg px-4 py-3 text-sm text-danger-ink"
+          class="rounded-xl border border-danger bg-danger-bg px-4 py-3 text-sm text-danger-ink"
           data-testid="error-message">
           {{ facade.error() }}
         </div>

@@ -66,7 +66,7 @@ const PLACEHOLDER_DEVICE: DispositivoEdgeView = {
         </dt>
         <dd class="mt-0.5 text-sm font-medium">
           @if (_device().profileDrift) {
-            <span class="text-warn-ink">Desatualizado</span>
+            <span class="text-warning-ink">Desatualizado</span>
           } @else {
             <span class="text-ink">Atualizado</span>
           }

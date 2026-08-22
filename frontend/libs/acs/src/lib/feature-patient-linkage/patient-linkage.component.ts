@@ -23,7 +23,7 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
       <!-- Coverage badge -->
       <div
         class="mb-4 flex items-center gap-2 rounded-xl border px-4 py-3"
-        [class]="coverage().isCovered ? 'border-success bg-success-subtle' : 'border-error bg-error-subtle'"
+        [class]="coverage().isCovered ? 'border-success bg-success-bg' : 'border-error bg-error-bg'"
         data-testid="coverage-badge"
         role="status"
       >
@@ -46,7 +46,7 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 
       <!-- Error banner -->
       @if (facade.error()) {
-        <p class="mb-4 rounded-lg bg-error-subtle px-4 py-3 text-sm text-error-ink" role="alert" data-testid="linkage-error">
+        <p class="mb-4 rounded-lg bg-error-bg px-4 py-3 text-sm text-error-ink" role="alert" data-testid="linkage-error">
           {{ facade.error() }}
         </p>
       }
@@ -65,7 +65,7 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
             <div class="flex flex-col gap-3">
               @for (c of linkedCaregivers(); track c.id) {
                 <div
-                  class="flex items-center justify-between rounded-xl border border-success bg-success-subtle p-4"
+                  class="flex items-center justify-between rounded-xl border border-success bg-success-bg p-4"
                   data-testid="linked-caregiver-row"
                 >
                   <div>
@@ -78,14 +78,14 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
                     <div class="flex items-center gap-2">
                       <span class="text-xs text-ink-soft">Confirmar remoção?</span>
                       <button
-                        class="rounded-lg bg-error px-3 py-1.5 text-xs font-semibold text-error-ink hover:bg-error-strong disabled:opacity-40"
+                        class="rounded-lg bg-error px-3 py-1.5 text-xs font-semibold text-error-ink hover:bg-error disabled:opacity-40"
                         [disabled]="facade.saving()"
                         (click)="confirmRevoke(c.id)"
                         aria-label="Confirmar remoção de vínculo"
                         data-testid="confirm-revoke-btn"
                       >Confirmar</button>
                       <button
-                        class="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
+                        class="rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2"
                         (click)="cancelRevoke()"
                         aria-label="Cancelar remoção de vínculo"
                         data-testid="cancel-revoke-btn"
@@ -115,7 +115,7 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
             <div class="flex flex-col gap-3">
               @for (c of unlinkedCaregivers(); track c.id) {
                 <div
-                  class="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
+                  class="flex items-center justify-between rounded-xl border border-line bg-surface p-4"
                   data-testid="unlinked-caregiver-row"
                 >
                   <div>

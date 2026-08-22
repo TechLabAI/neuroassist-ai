@@ -33,6 +33,22 @@ describe('EventListComponent', () => {
     expect(fixture.componentInstance).toBeTruthy();
   });
 
+  // O identificador do enum nunca deve chegar à cuidadora: 'nao_avaliado' saía
+  // na tela como "Nao_avaliado" (underscore + capitalize do CSS).
+  it.each([
+    ['nao_avaliado', 'Sem revisão'],
+    ['real', 'Confirmado real'],
+    ['falso_positivo', 'Falso positivo'],
+  ] as const)('renders %s as the human label "%s"', (feedback, label) => {
+    fixture.componentRef.setInput('events', [{ ...mockEvento('EVT-001'), feedback }]);
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement.querySelector('[data-testid="event-feedback"]');
+    // Comparação exata: 'real' é substring de "Confirmado real", então um
+    // toContain(feedback) negativo daria falso alarme.
+    expect(el?.textContent?.trim()).toBe(label);
+  });
+
   it('renders 3 event cards when events input has 3 items', () => {
     fixture.componentRef.setInput('events', [
       mockEvento('EVT-001'),

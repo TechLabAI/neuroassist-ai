@@ -38,7 +38,7 @@ import { RouterLink } from '@angular/router';
         <!-- Unpair: emits to smart container which shows confirmation dialog -->
         <button
           (click)="unpairAction.emit()"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger-border hover:text-danger-ink">
+          class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger hover:text-danger-ink">
           <span class="material-symbols-outlined text-[18px]">link_off</span>
           Despareador
         </button>
@@ -46,7 +46,7 @@ import { RouterLink } from '@angular/router';
         <!-- Retire: emits to smart container which shows confirmation dialog -->
         <button
           (click)="retireAction.emit()"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger-border hover:text-danger-ink">
+          class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger hover:text-danger-ink">
           <span class="material-symbols-outlined text-[18px]">cancel</span>
           Aposentar
         </button>
