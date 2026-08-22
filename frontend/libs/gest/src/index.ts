@@ -34,3 +34,5 @@ export type { EligibilityPort } from './lib/api/eligibility.port';
 export { EdgeDetectionBrowserAdapter } from './lib/api/edge-detection-browser.adapter';
 export { GestureDetector, TIPO_GESTO, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';
 export type { GestureFrame, DetectorAssetPaths, GestureDetectorCallbacks } from './lib/detection/gesture-detector';
+export { CameraPreferenceService } from './lib/detection/camera-preference.service';
+export type { CameraOption } from './lib/detection/camera-preference.service';

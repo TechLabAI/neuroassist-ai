@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts';
 import { GestureTestFacade } from '../gest.facade';
+import { CameraPreferenceService } from '../detection/camera-preference.service';
 
 // @neuroassist/shared/ui-feedback is a Wave-0 stub — no spinner/error components yet.
 // Inline CSS fallbacks are used below (gest-loading, gest-error, gest-empty) until the
@@ -43,17 +44,64 @@ import { GestureTestFacade } from '../gest.facade';
         </p>
       }
 
-      <!-- ADR-006 interim detector banner — shown when edge agent uses EAR/BRI (not ONNX).
-           This is the non-negotiable safeguard from ADR-006 §"Interim safeguards". -->
+      <!-- Seletor de câmera (ADR-007 follow-up 2). Só aparece com mais de uma
+           câmera: com uma só, escolher não é decisão, é ruído. -->
+      @if (cameraPref.cameras().length > 1 && facade.testState() !== 'testing') {
+        <label class="mb-3 flex items-center gap-2 text-xs text-ink-soft">
+          <span class="material-symbols-outlined text-[16px]">videocam</span>
+          <span>Câmera</span>
+          <select
+            class="flex-1 rounded-lg border border-field-line bg-field px-2 py-1 text-xs text-ink"
+            [value]="cameraPref.selected() ?? ''"
+            (change)="onCameraChange($event)"
+            data-testid="gest-camera-select">
+            <option value="">Padrão do navegador</option>
+            @for (cam of cameraPref.cameras(); track cam.deviceId) {
+              <option [value]="cam.deviceId">{{ cam.label }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <!-- Watchdog (ADR-007 follow-up 3): sem supervisor de processo, detecção
+           parada em silêncio é o pior modo de falha. Enquanto o teste está ativo
+           a UI diz, sem ambiguidade, se o motor está batendo. -->
+      @if (facade.testState() === 'testing' && facade.previewStream()) {
+        @if (!facade.detectionStarted()) {
+          <p class="mb-3 flex items-center gap-2 text-xs text-ink-soft"
+             aria-live="polite" data-testid="gest-detection-starting">
+            <span
+              class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+              aria-hidden="true"></span>
+            Iniciando detecção…
+          </p>
+        } @else if (facade.detectionAlive()) {
+          <p class="mb-3 flex items-center gap-2 text-xs font-medium text-success-ink"
+             aria-live="polite" data-testid="gest-detection-alive">
+            <span class="inline-block h-2 w-2 rounded-full bg-success" aria-hidden="true"></span>
+            Detecção ativa
+          </p>
+        } @else {
+          <p class="mb-3 flex items-center gap-2 rounded-md bg-warning-bg px-3 py-2 text-xs font-medium text-warning-ink"
+             role="alert" aria-live="assertive" data-testid="gest-detection-stalled">
+            <span class="material-symbols-outlined text-[16px]">warning</span>
+            Detecção parada — verifique se esta aba está visível e se a câmera não
+            está em uso por outro programa.
+          </p>
+        }
+      }
+
+      <!-- Motor legado (agente Python) — banner interino da ADR-006. Fora do
+           caminho do produto desde a ADR-007; só aparece com provideGest({ detection: 'bridge' }). -->
       @if (facade.detectorType() === 'ear_bri') {
-        <div class="gest-interim-banner mb-3 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
-          Calibrando com detecção de gesto (modo preview — precisão melhorará com classificador ONNX).
+        <div class="gest-interim-banner mb-3 rounded-md bg-info-bg px-3 py-2 text-xs text-info-ink">
+          Motor legado (EAR/BRI do agente local) — não é o motor do produto.
         </div>
       }
 
       <!-- Degraded banner — always rendered (honest-degraded invariant, ADR-005) -->
       @if (facade.degraded()) {
-        <div class="mb-3 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+        <div class="mb-3 rounded-md bg-warning-bg px-3 py-2 text-xs text-warning-ink">
           {{ degradedCopy() }}
         </div>
       }
@@ -142,6 +190,7 @@ import { GestureTestFacade } from '../gest.facade';
 })
 export class GestureLiveTestComponent implements OnDestroy {
   protected readonly facade = inject(GestureTestFacade);
+  protected readonly cameraPref = inject(CameraPreferenceService);
 
   readonly draft = input.required<ComandoDraft>();
   readonly outcome = output<GestureTestOutcome>();
@@ -149,6 +198,11 @@ export class GestureLiveTestComponent implements OnDestroy {
   private readonly previewVideo = viewChild<ElementRef<HTMLVideoElement>>('previewVideo');
 
   constructor() {
+    // Popula a lista de câmeras já na montagem. Antes da primeira permissão os
+    // labels vêm vazios (o serviço numera como fallback) e são reenumerados
+    // depois do primeiro getUserMedia bem-sucedido.
+    void this.cameraPref.refresh();
+
     // Bind the cosmetic preview stream to the <video> element whenever both
     // become available (view child only exists while state is testing/recognized).
     effect(() => {
@@ -208,6 +262,11 @@ export class GestureLiveTestComponent implements OnDestroy {
       default:
         return 'Modo degradado — resultado do teste é simulado, não real.';
     }
+  }
+
+  protected onCameraChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.cameraPref.select(value || null);
   }
 
   ngOnDestroy(): void {

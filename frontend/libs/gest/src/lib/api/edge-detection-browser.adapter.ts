@@ -103,7 +103,11 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
 
       return () => {
         cancelled = true;
-        this.teardown();
+        // Derruba ESTA sessão, não "a sessão atual": em um retry o teardown da
+        // anterior chegava depois do openStream da nova e destruía o detector
+        // recém-criado. O sintoma era cruel — a primeira execução funcionava, a
+        // segunda emitia um frame e morria calada.
+        this.encerrarSessao(detector, video);
       };
     });
   }
@@ -116,19 +120,33 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
   }
 
   close(): void {
-    this.teardown();
+    this.encerrarSessao(this.detector, this.video);
     this._detectorType.set(null);
   }
 
-  private teardown(): void {
-    this.detector?.destroy();
-    this.detector = null;
-    if (this.video) {
-      this.video.srcObject = null;
+  /**
+   * Encerra a sessão dona de `detector`/`video`.
+   *
+   * Os campos de instância só são limpos se ainda apontarem para esta sessão —
+   * é o que impede o teardown atrasado de uma sessão antiga de matar a nova.
+   *
+   * As tracks do MediaStream não são paradas aqui: pertencem a quem as adquiriu
+   * (o facade), e pará-las mataria o preview do componente.
+   */
+  private encerrarSessao(
+    detector: GestureDetector | null,
+    video: HTMLVideoElement | null,
+  ): void {
+    detector?.destroy();
+    if (video) {
+      video.srcObject = null;
+    }
+    if (this.detector === detector) {
+      this.detector = null;
+    }
+    if (this.video === video) {
       this.video = null;
     }
-    // As tracks do MediaStream pertencem a quem o adquiriu (o facade) — parar
-    // aqui mataria o preview do componente. releaseCamera() é dele.
   }
 }
 

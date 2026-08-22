@@ -219,7 +219,9 @@ export class GestureDetector {
       try {
         result = this.landmarker.detectForVideo(video, now);
       } catch {
-        // Frame ruim não derruba a sessão — o always-on não pode morrer por um frame.
+        // Frame ruim não derruba a sessão — mas o batimento PRECISA continuar,
+        // senão o watchdog acusa parada e o erro fica invisível.
+        this.callbacks.onFrame(NO_FACE);
         this.rafId = requestAnimationFrame(() => this.tick());
         return;
       }
