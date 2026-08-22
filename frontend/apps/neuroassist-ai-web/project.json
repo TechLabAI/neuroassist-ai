@@ -4,18 +4,25 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/neuroassist-ai-web/src",
-  "tags": ["scope:web", "type:app"],
+  "tags": [
+    "scope:web",
+    "type:app"
+  ],
   "targets": {
     "build": {
       "executor": "@nx/angular:application",
-      "outputs": ["{options.outputPath.base}"],
+      "outputs": [
+        "{options.outputPath.base}"
+      ],
       "options": {
         "outputPath": {
           "base": "dist/apps/neuroassist-ai-web"
         },
         "index": "apps/neuroassist-ai-web/src/index.html",
         "browser": "apps/neuroassist-ai-web/src/main.ts",
-        "polyfills": ["zone.js"],
+        "polyfills": [
+          "zone.js"
+        ],
         "tsConfig": "apps/neuroassist-ai-web/tsconfig.app.json",
         "assets": [
           {
@@ -28,15 +35,33 @@
             "output": "assets/mediapipe-wasm"
           }
         ],
-        "styles": ["apps/neuroassist-ai-web/src/styles.css"]
+        "styles": [
+          "apps/neuroassist-ai-web/src/styles.css"
+        ]
       },
       "configurations": {
         "production": {
           "budgets": [
-            { "type": "initial", "maximumWarning": "2mb", "maximumError": "5mb" },
-            { "type": "anyComponentStyle", "maximumWarning": "6kb", "maximumError": "10kb" }
+            {
+              "type": "initial",
+              "maximumWarning": "2mb",
+              "maximumError": "5mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "6kb",
+              "maximumError": "10kb"
+            }
           ],
-          "outputHashing": "all"
+          "outputHashing": "all",
+          "optimization": {
+            "scripts": true,
+            "fonts": true,
+            "styles": {
+              "minify": true,
+              "inlineCritical": false
+            }
+          }
         },
         "development": {
           "optimization": false,
