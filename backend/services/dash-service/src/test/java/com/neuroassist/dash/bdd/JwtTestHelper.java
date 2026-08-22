@@ -40,13 +40,26 @@ public final class JwtTestHelper {
         return buildToken(privateKey, caregiverId, tenantId, authorities);
     }
 
+    /** Tenant usado por toda a suite; o mesmo dos cenarios de cuidador. */
+    public static final String DEFAULT_TENANT = "familia-amaral";
+
     /**
      * Gera um JWT para um servico interno (ex.: SVC_EVNT).
      *
-     * <p>O {@code sub} e "service-{authority}" e nao ha tenant_id.
+     * <p>O {@code sub} e "service-{authority}". <b>O token carrega tenant_id</b>: o {@code POST
+     * /oauth2/token/service} do acs-service exige {@code tenantId} e escopa o token a ele — a
+     * variante sem tenant ({@code issueTenantlessToken}) so existe in-process e nunca chega pela
+     * rede. Emitir aqui um token sem tenant produzia uma fixture que nao existe em producao, e o
+     * dash-service so descobria isso ao precisar do tenant para mintar sua propria identidade de
+     * servico na chamada de volta ao evnt-service.
      */
     public static String serviceToken(RSAPrivateKey privateKey, String authority) {
-        return buildToken(privateKey, "service-" + authority, null, List.of(authority));
+        return serviceToken(privateKey, authority, DEFAULT_TENANT);
+    }
+
+    /** Variante que nomeia o tenant explicitamente. */
+    public static String serviceToken(RSAPrivateKey privateKey, String authority, String tenantId) {
+        return buildToken(privateKey, "service-" + authority, tenantId, List.of(authority));
     }
 
     // ---- private ----

@@ -58,19 +58,27 @@ public class CucumberHooks {
         when(gestValidationPort.validate(any())).thenReturn(true);
 
         // Default: command "cmd-emergency" is urgencia=emergencia
-        when(commandLookupPort.lookup(anyString()))
+        when(commandLookupPort.lookup(anyString(), anyString()))
                 .thenReturn(
                         new CommandLookupPort.CommandSnapshot(
                                 "cmd-emergency", "Emergency Command", "emergencia"));
 
-        // Default: caregiver "cg-1" resolves for patient "pac-1"
-        when(caregiverRoutingPort.resolveCaregiver(anyString())).thenReturn("cg-1");
+        // Default: caregiver BddIds.CUIDADOR is responsible for every patient, and is known to ACS
+        when(caregiverRoutingPort.responsibleFor(anyString()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(true);
 
-        // Default: notification dispatch is a no-op
-        doNothing().when(notificationDispatchPort).dispatch(any());
+        // Default: dash-service delivers to an open session
+        when(notificationDispatchPort.dispatch(any(), any()))
+                .thenReturn(
+                        new NotificationDispatchPort.DispatchOutcome(
+                                NotificationDispatchPort.DispatchOutcome.DELIVERED));
 
         // Default: audit trail is a no-op
-        doNothing().when(auditTrailPort).append(anyString(), anyString(), anyString());
+        doNothing().when(auditTrailPort).record(any());
     }
 
     /** After each scenario: purge all rows inserted during the scenario. */

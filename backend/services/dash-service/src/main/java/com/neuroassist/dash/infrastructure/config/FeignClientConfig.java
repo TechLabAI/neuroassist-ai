@@ -7,6 +7,7 @@ import feign.RequestTemplate;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -43,9 +44,36 @@ public class FeignClientConfig {
         };
     }
 
+    /**
+     * Precedence of {@link CallerTokenPropagationInterceptor}. Must be strictly higher (numerically
+     * lower) than {@code EvntServiceIdentityInterceptor}'s {@code LOWEST_PRECEDENCE} so the
+     * service-identity swap always runs last on evnt-service calls.
+     */
+    public static final int CALLER_TOKEN_PROPAGATION_ORDER = 0;
+
+    /**
+     * Propagates the caller's bearer token — the default, for calls whose authorization depends on
+     * <i>who asked</i> (hist-service timeline reads, edge-service liveness).
+     *
+     * <p>Returns a named, {@code @Order}ed class rather than a lambda on purpose: Spring Cloud
+     * OpenFeign sorts interceptors with {@code AnnotationAwareOrderComparator}, which reads the
+     * annotation off the instance's class. A lambda would be unordered (== {@code
+     * LOWEST_PRECEDENCE}) and would tie with {@code EvntServiceIdentityInterceptor}, making the
+     * final {@code Authorization} header on evnt-service calls non-deterministic.
+     */
     @Bean
     public RequestInterceptor feignAuthPropagationInterceptor() {
-        return (RequestTemplate template) -> {
+        return new CallerTokenPropagationInterceptor();
+    }
+
+    /**
+     * @see #feignAuthPropagationInterceptor()
+     */
+    @Order(CALLER_TOKEN_PROPAGATION_ORDER)
+    public static final class CallerTokenPropagationInterceptor implements RequestInterceptor {
+
+        @Override
+        public void apply(RequestTemplate template) {
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth instanceof JwtAuthenticationToken jwtAuth) {
                 Jwt jwt = jwtAuth.getToken();
@@ -53,7 +81,7 @@ public class FeignClientConfig {
                     template.header(AUTH_HEADER, "Bearer " + jwt.getTokenValue());
                 }
             }
-        };
+        }
     }
 
     @Bean

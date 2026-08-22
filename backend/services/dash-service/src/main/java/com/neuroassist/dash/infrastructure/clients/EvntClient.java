@@ -13,7 +13,11 @@ import org.springframework.web.bind.annotation.RequestParam;
  * reconhecidas e reporta resultado de entrega SSE. RULE-06: FeignClient apenas em
  * infrastructure.clients.
  */
-@FeignClient(name = "evnt-service", url = "${dash.evnt.base-url:}", contextId = "evntClient")
+@FeignClient(
+        name = "evnt-service",
+        url = "${dash.evnt.base-url:}",
+        contextId = "evntClient",
+        configuration = EvntFeignConfig.class)
 public interface EvntClient {
 
     /** Confirma um evento no EVNT (write-through do cuidador). */

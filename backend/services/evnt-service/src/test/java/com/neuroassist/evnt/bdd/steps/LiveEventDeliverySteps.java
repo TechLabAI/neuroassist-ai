@@ -1,7 +1,9 @@
 package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -9,7 +11,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
 import com.neuroassist.evnt.application.port.out.CommandLookupPort;
+import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
+import com.neuroassist.evnt.bdd.TestJwtDecoderConfig;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import com.neuroassist.evnt.infrastructure.sse.SseEmitterAdapter;
@@ -61,7 +65,12 @@ public class LiveEventDeliverySteps {
 
     @And("a caregiver session for \"cg-1\" authorized for patient \"pac-1\"")
     public void andACaregiverSessionForCg1AuthorizedForPatient() {
-        when(caregiverRoutingPort.resolveCaregiver("pac-1")).thenReturn("cg-1");
+        when(caregiverRoutingPort.responsibleFor(BddIds.PACIENTE))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(true);
     }
 
     // -------------------------------------------------------------------------
@@ -77,12 +86,12 @@ public class LiveEventDeliverySteps {
 
     @When("an emergency Evento \"evt-live-1\" is persisted for patient \"pac-1\"")
     public void whenAnEmergencyEventoEvtlive1IsPersistedForPatient() {
-        when(commandLookupPort.lookup("cmd-emergency"))
+        when(commandLookupPort.lookup(anyString(), eq("cmd-emergency")))
                 .thenReturn(
                         new CommandLookupPort.CommandSnapshot(
                                 "cmd-emergency", "Emergency Command", "emergencia"));
         ctx.setReportId("evt-live-1-report");
-        ctx.setPacienteId("pac-1");
+        ctx.setPacienteId(BddIds.PACIENTE);
         ctx.setCommandRef("cmd-emergency");
         ResponseEntity<String> response = sharedSteps.postReport();
         ctx.setLastResponse(response);
@@ -132,7 +141,7 @@ public class LiveEventDeliverySteps {
         EventoJpaEntity entity =
                 EventoJpaEntity.builder()
                         .id(evtLive2Id)
-                        .pacienteId("pac-1")
+                        .pacienteId(BddIds.PACIENTE)
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
@@ -148,7 +157,7 @@ public class LiveEventDeliverySteps {
     public void whenTheCaregiverRequests(String path) {
         ResponseEntity<String> response =
                 restTemplate.exchange(
-                        path, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), String.class);
+                        path, HttpMethod.GET, new HttpEntity<>(caregiverHeaders()), String.class);
         ctx.setLastResponse(response);
     }
 
@@ -196,7 +205,7 @@ public class LiveEventDeliverySteps {
             EventoJpaEntity entity =
                     EventoJpaEntity.builder()
                             .id(UUID.randomUUID())
-                            .pacienteId("pac-1")
+                            .pacienteId(BddIds.PACIENTE)
                             .comandoRef("cmd-emergency")
                             .commandLabelSnapshot("Emergency Command")
                             .urgenciaSnapshot("emergencia")
@@ -242,7 +251,7 @@ public class LiveEventDeliverySteps {
         EventoJpaEntity entity =
                 EventoJpaEntity.builder()
                         .id(UUID.randomUUID())
-                        .pacienteId("pac-1")
+                        .pacienteId(BddIds.PACIENTE)
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
@@ -259,7 +268,7 @@ public class LiveEventDeliverySteps {
                 restTemplate.exchange(
                         path + "?" + query,
                         HttpMethod.GET,
-                        new HttpEntity<>(new HttpHeaders()),
+                        new HttpEntity<>(caregiverHeaders()),
                         String.class);
         ctx.setLastResponse(response);
     }
@@ -304,7 +313,7 @@ public class LiveEventDeliverySteps {
 
     @When("an emergency Evento is persisted for tenant \"empresa_demo\"")
     public void whenAnEmergencyEventoIsPersistedForTenantEmpresademo() {
-        when(commandLookupPort.lookup("cmd-emergency"))
+        when(commandLookupPort.lookup(anyString(), eq("cmd-emergency")))
                 .thenReturn(
                         new CommandLookupPort.CommandSnapshot(
                                 "cmd-emergency", "Emergency Command", "emergencia"));
@@ -319,5 +328,14 @@ public class LiveEventDeliverySteps {
         assertThat(ctx.getLastResponse().getStatusCode().value())
                 .as("Report ingestion for empresa_demo should succeed")
                 .isEqualTo(201);
+    }
+
+    /** A caregiver reading the live channel — {@code evnt.event-query.read} per the catalogue. */
+    private HttpHeaders caregiverHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(
+                TestJwtDecoderConfig.token(
+                        ctx.getTenantId(), BddIds.CUIDADOR, "evnt.event-query.read"));
+        return headers;
     }
 }

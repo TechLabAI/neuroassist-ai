@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
+import com.neuroassist.evnt.bdd.TestJwtDecoderConfig;
 import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
@@ -37,7 +39,7 @@ public class SharedSteps {
     @Given("a tenant \"empresa_demo\" with patient \"pac-1\"")
     public void givenATenantEmpresademoWithPatientPac1() {
         ctx.setTenantId("empresa_demo");
-        ctx.setPacienteId("pac-1");
+        ctx.setPacienteId(BddIds.PACIENTE);
     }
 
     // -------------------------------------------------------------------------
@@ -57,8 +59,16 @@ public class SharedSteps {
 
     @Then("the response status is {int}")
     public void thenTheResponseStatusIs(int status) {
-        assertThat(ctx.getLastResponse().getStatusCode().value())
-                .as("Expected HTTP status " + status)
+        ResponseEntity<String> response = ctx.getLastResponse();
+        // The body and WWW-Authenticate header are part of the message on purpose: a bare
+        // "expected 201 but was 401" says nothing about *why* the request was rejected, and
+        // chasing that down cost real time when the resource server was first switched on.
+        assertThat(response.getStatusCode().value())
+                .as(
+                        "Expected HTTP status %d — WWW-Authenticate=%s body=%s",
+                        status,
+                        response.getHeaders().getFirst("WWW-Authenticate"),
+                        response.getBody())
                 .isEqualTo(status);
     }
 
@@ -108,6 +118,12 @@ public class SharedSteps {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        // The device authenticates with a device token (edge.device). Its tenant claim — not the
+        // body — is what the tenant-mismatch guard compares, which is the whole point of the
+        // guard: a device must not be able to assert which tenant it belongs to.
+        headers.setBearerAuth(
+                TestJwtDecoderConfig.token(
+                        ctx.getDeviceTokenTenant(), "device-test-01", "edge.device"));
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
         return restTemplate.exchange("/api/v1/reports", HttpMethod.POST, entity, String.class);

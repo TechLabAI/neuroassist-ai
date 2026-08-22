@@ -74,6 +74,10 @@ hist:
   # Add types here without recompilation; changes take effect on next JVM restart.
   fact-types:
     allowed:
+      # evento.criado é emitido pelo EVNT quando um report de gesto vira Evento (AUD-06).
+      # Faltava aqui, então todo fact de criação de evento respondia 422 — feature ausente,
+      # não falha de integração (plan-e2e-integration.md §11, Sessão 4).
+      - evento.criado
       - evento.confirmado
       - evento.descartado
       - evento.feedback.registrado

@@ -36,15 +36,27 @@ management:
 
 dash:
   acs:
-    base-url: ${ACS_BASE_URL:http://acs-service}
+    base-url: ${ACS_BASE_URL:http://acs-service:8088}
   pac:
-    base-url: ${PAC_BASE_URL:http://pac-service}
+    base-url: ${PAC_BASE_URL:http://pac-service:8082}
   evnt:
-    base-url: ${EVNT_BASE_URL:http://evnt-service}
+    base-url: ${EVNT_BASE_URL:http://evnt-service:8085}
   hist:
-    base-url: ${HIST_BASE_URL:http://hist-service}
+    base-url: ${HIST_BASE_URL:http://hist-service:8089}
   edge:
-    base-url: ${EDGE_BASE_URL:http://edge-service}
+    base-url: ${EDGE_BASE_URL:http://edge-service:8087}
+
+# Service identity (standards/service-identity.md) — applied ONLY to EvntClient.
+# The other clients keep propagating the caregiver's JWT, because hist-service and edge-service
+# answer questions whose authorization depends on who asked.
+neuroassist:
+  service-identity:
+    token-uri: ${ACS_BASE_URL:http://acs-service:8088}/oauth2/token/service
+    client-id: ${DASH_CLIENT_ID:dash-service}
+    client-secret: ${DASH_CLIENT_SECRET:dev-service-secret}
+    refresh-margin-seconds: 60
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
 
 resilience4j:
   circuitbreaker:

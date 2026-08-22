@@ -8,13 +8,17 @@
 #   docker compose -f docker/docker-compose.dev.yml logs -f <service>
 #   docker compose -f docker/docker-compose.dev.yml down -v
 #
+# FRONTEND: a imagem é construída pelo próprio compose (não precisa de npm local)
+#   docker compose -f docker/docker-compose.dev.yml up -d --build web  → http://localhost:14200
+#
 # NOTA DE PORTAS (conflitos com ambiente local):
 #   postgres   → host 5433 (5432 = techlab-framework-pgvector)
 #   registry   → host 18761 (8761 = Eureka local em execução)
+#   web        → host 14200 (4200 = `nx serve` local em execução)
 #
 # ORDEM DE STARTUP (gerenciada por depends_on + healthchecks):
 #   postgres + activemq → migrations-global → migrations-empresa →
-#   registry → acs-service → [gest, evnt, pac, edge, hist, dash] → gateway
+#   registry → acs-service → [gest, evnt, pac, edge, hist, dash] → gateway → web
 
 services:
 
@@ -213,6 +217,15 @@ services:
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
       ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      # Downstream services. A localhost default resolves to the evnt-service container itself.
+      ACS_SERVICE_URL: http://acs-service:8088
+      GEST_SERVICE_URL: http://gest-service:8084
+      PAC_SERVICE_URL: http://pac-service:8082
+      DASH_SERVICE_URL: http://dash-service:8090
+      HIST_SERVICE_URL: http://hist-service:8089
+      # Service identity — matches the BCrypt hash of acs.service-clients.evnt-service
+      EVNT_CLIENT_ID: evnt-service
+      EVNT_CLIENT_SECRET: dev-service-secret
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -348,6 +361,14 @@ services:
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
       ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      ACS_BASE_URL: http://acs-service:8088
+      PAC_BASE_URL: http://pac-service:8082
+      EVNT_BASE_URL: http://evnt-service:8085
+      HIST_BASE_URL: http://hist-service:8089
+      EDGE_BASE_URL: http://edge-service:8087
+      # Service identity — matches the BCrypt hash of acs.service-clients.dash-service
+      DASH_CLIENT_ID: dash-service
+      DASH_CLIENT_SECRET: dev-service-secret
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -390,6 +411,30 @@ services:
       registry:
         condition: service_healthy
       acs-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FRONTEND — neuroassist-ai-web (Angular + nginx) :14200 (host) / :80
+  # Bundle estático + proxy /api e /oauth2 → gateway:8080 (ver frontend/nginx.conf)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: neuroassist/web:dev
+    container_name: neuroassist-web
+    ports:
+      - "14200:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      gateway:
         condition: service_healthy
     restart: unless-stopped
 

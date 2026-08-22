@@ -370,15 +370,15 @@ O módulo de integração E2E está DONE quando:
 | E2E-001 | ✅ DONE | 2026-08-20 |
 | E2E-002 | ✅ DONE (parcial — EVNT stub security; GEST corrigido) | 2026-08-21 |
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
-| E2E-003 | 🟡 PARCIAL — DIR-01/DIR-04 DONE; DIR-02 feature ausente (EVNT stub); DIR-03/DIR-05 na Sessão 5 | 2026-08-21 |
-| E2E-004 | 🟡 PARCIAL — AUD-03/04/05 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-06..10 na Sessão 4 | 2026-08-21 |
+| E2E-003 | 🟡 PARCIAL — DIR-01/DIR-02/DIR-04 DONE; DIR-03/DIR-05 na Sessão 5 | 2026-08-22 |
+| E2E-004 | 🟡 PARCIAL — AUD-03..09 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-10 na Sessão 5 | 2026-08-22 |
 | E2E-005 | 🟡 PARCIAL — HB-01 DONE; HB-02..05 bloqueados pelo ProfilePointerController (501) | 2026-08-22 |
 | E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
-| E2E-007 | OPEN | — |
+| E2E-007 | ✅ DONE — NTF-01..03 e NTF-05 dentro do Flow-03; NTF-04 na Sessão 5 | 2026-08-22 |
 | E2E-008 | OPEN | — |
 | E2E-009 | ✅ DONE (17/17 checks) | 2026-08-21 |
 | E2E-010 | ✅ DONE — Flow-02 11/11 | 2026-08-22 |
-| E2E-011 | OPEN | — |
+| E2E-011 | ✅ DONE — Flow-03 25/25 | 2026-08-22 |
 | E2E-012 | OPEN | — |
 | E2E-013 | OPEN | — |
 
@@ -639,6 +639,82 @@ Registradas porque tratá-las como defeito teria gerado correção errada:
    (`acs-service:8088`), correto para o dispositivo real na malha docker; só o script, rodando
    no host, precisava traduzir para a porta publicada.
 
+### 11.5 Sessão 4 — Alarm Flow + Notification + Audit (2026-08-22)
+
+**Flow-03 (E2E-011): 25/25.** Cadeia completa `report de gesto → Evento → dispatch → confirmação →
+trilha de auditoria`, com os dois fatos encadeados no HIST (`evento.criado` seq 0 com `prev_hash`
+zerado, `evento.confirmado` seq 1 com `prev_hash` = `record_hash` do anterior).
+
+| Issue | Estado |
+|---|---|
+| E2E-011 (Flow-03) | ✅ completo |
+| E2E-007 (NTF) | ✅ NTF-01..03 e NTF-05; **NTF-04** (DASH fora do ar) é disruptivo → Sessão 5 |
+| E2E-004 (AUD) | ✅ AUD-06/07/09; **AUD-10** (HIST fora do ar) é disruptivo → Sessão 5 |
+| E2E-003 (DIR-02) | ✅ o EVNT consome o directory do ACS de verdade |
+
+**Esta não foi uma sessão de validação.** O EVNT estava inteiro em modo PoC: nenhuma das suas 5
+integrações de saída funcionava, e o gate do módulo estava verde porque a lógica de negócio só
+conversava com fakes internos. O trabalho foi de implementação (P8-P10 do EVNT), e só depois a
+validação.
+
+#### O que o EVNT era
+
+| Port | Implementação única em produção |
+|---|---|
+| `CaregiverRoutingPort` → ACS | `return "cuidadora-jamilly-fixo"` |
+| `CommandLookupPort` → PAC | snapshot fixo `"Preciso de ajuda"` / `EMERGENCIA` |
+| `NotificationDispatchPort` → DASH | `log.info("[ALERTA PoC] …")` |
+| `AuditTrailPort` → HIST | no-op |
+| `GestValidationPort` → GEST | Feign real, para um path que o GEST não expõe |
+
+Os 4 primeiros eram adapters `@Primary` com os `@FeignClient` correspondentes vazios e com porta
+default errada. O quinto parecia o único adapter real — e era o mais perigoso, porque está na
+perna **fail-closed** do ingress.
+
+#### Defeitos corrigidos
+
+| # | Par | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-17** | EVNT | toda escrita HTTP endereçada a lugar nenhum | `SecurityConfig` `permitAll()` sem `oauth2ResourceServer` ⇒ JWT nunca decodificado ⇒ `TenantContextFilter` fixava `"poc"` ⇒ `search_path` num schema inexistente; o C-10 já aplicado ali ficava inerte | sob `permitAll()` nenhum cenário BDD pode exercitar 401/403 — mesmo buraco fechado antes no GEST |
+| **C-23** | EVNT/DASH | filtro de tenant nunca executa | `@Component` faz o Boot registrar o filtro **também** na cadeia de servlets, antes do Spring Security; sendo `OncePerRequestFilter`, essa passagem marca a request como filtrada e a instância de dentro da cadeia é pulada | o DASH lê o tenant de `Authentication#getDetails` no painel, então o holder vazio era invisível |
+| **C-24** | DASH | tenant lido de `SecurityContext` vazio | `addFilterBefore(filtro, UsernamePasswordAuthenticationFilter)` — a posição registrada desse filtro é **anterior** à do `BearerTokenAuthenticationFilter`. Parece equivalente e não é | nada no DASH dependia do tenant vinculado até a identidade de serviço |
+| **C-25** | EVNT→GEST | nenhum report vira Evento | `POST /api/v1/recognized-commands` não existe (real `/gest-service/**`); url default 8082 = PAC; shapes inventados | **5ª** ocorrência do padrão consumidor-testado-contra-o-próprio-mock |
+| **C-26** | DASH→EVNT | 6 endpoints chamados que o EVNT nunca expôs | `EvntClient` escrito a partir do que o DASH supunha; os testes stubavam a mesma suposição | **6ª** ocorrência, com a direção invertida |
+| **C-27** | ACS | `SVC_EVNT` sem emissor; `evnt-service`/`dash-service` ausentes de `acs.service-clients` | mesma família do C-18 (`edge.device` sem emissor) | nenhum teste exercita o par |
+| **C-28** | EVNT→PAC / ACS→PAC | 400 `missing-tenant` | o `TenantContextFilter` do PAC **rejeita** requisição autenticada sem `X-Empresa-Id`; só `X-Tenant-Id` era enviado | o erro chegava ao chamador como 500 genérico |
+| **C-29** | ACS→PAC | todo vínculo cuidador-paciente → 422 `acs.link.unknown-patient` | `GET /api/v1/pac/patients/{id}?tenantId=` (real: `/api/pac/v1/pacientes/{id}`, tenant vem do JWT) e DTO com campos que o PAC não devolve | **7ª** ocorrência; `PacPatientResolveAdapter` mapeia qualquer falha para `Optional.empty()`, indistinguível de "paciente não existe" |
+| **C-31** | EVNT→DASH | alarme que parecia enviado e não estava | dispatch **dentro** da transação: o DASH reporta o resultado de volta sincronamente e o callback, em transação própria, não enxerga a linha ainda não commitada → 404 → `QUEUED` para sempre | os testes do EVNT mockam o port de dispatch, então a reentrância nunca acontece |
+| **C-32** | EVNT→HIST | `evento.criado` → 400 | `ActorRefDto.caregiverId` é `@NotNull`: um fato produzido por dispositivo não tem ator humano | o adapter de auditoria é fail-open, então a perda era silenciosa |
+
+#### Soluções estruturais introduzidas
+
+- **Identidade de serviço para todo o outbound do EVNT.** Ao contrário do PAC — que propaga o JWT
+  do chamador e só troca por token de serviço nas chamadas ao HIST — as 5 saídas do EVNT são o
+  serviço agindo por conta própria: o token que autenticou o report é de **dispositivo** e carrega
+  apenas `edge.device`, então propagá-lo seria 403 garantido (a forma exata do C-19).
+- **`SVC_DASH` e a superfície de callback do EVNT.** O `/api/v1/notifications/**` espelha o
+  `EvntClient` do DASH verbatim em vez de propor uma forma "melhor" — desenhar outra coisa apenas
+  mudaria o descasamento de lugar. O cuidador viaja como parâmetro explícito; a autoridade da
+  chamada é o serviço.
+- **Entrega após o commit.** `TransactionSynchronization.afterCommit` resolve o C-31 sem abrir mão
+  do fail-open: Evento e dispatch já estão duráveis quando a entrega é tentada.
+- **O suite do EVNT ganhou identidade.** Com `permitAll()` o BDD postava anonimamente; agora um
+  `JwtDecoder` de teste permite que cada cenário seja alguém — e pela primeira vez o módulo pode
+  exercitar 401/403. Duas armadilhas no caminho: o charset *token68* do RFC 6750 não aceita
+  underscore (um tenant `empresa_demo` era rejeitado pelo resolver **antes** de qualquer decoder,
+  com 401 cuja mensagem não aponta para a causa — daí o payload em Base64), e as fixtures usavam
+  ids como `"pac-1"`, que o HIST rejeita por não serem UUID.
+- **Os 4 "contract tests" do EVNT eram auto-referenciais.** Stubavam paths imaginados
+  (`GET /api/v1/caregivers/{id}/on-duty`, `POST /api/v1/notifications` → 202) e o próprio javadoc
+  admitia que o client não tinha métodos: testavam o stub contra si mesmo, sem código de produção
+  no laço. O do GEST foi reescrito contra o contrato real, passando pelo adapter.
+
+#### Uma "falha" que era do roteiro, não do sistema
+
+O cenário `Directory endpoint responds within 100ms p99` do ACS falhou durante o gate e passou no
+rerun — exatamente a fragilidade já registrada em §11.1d: mede wall-clock de **uma** chamada e a
+chama de p99, e correlaciona com carga, não com código.
+
 ### 11.2 Dívidas conhecidas (não corrigidas nesta sessão)
 
 - **C-16 — escopo de cuidadora no HIST é filtrado em memória, depois da paginação.**
@@ -685,7 +761,8 @@ Registradas porque tratá-las como defeito teria gerado correção errada:
   ou seja, o teste que deveria guardar a sincronia aceita ambos os lados da divergência.
 - **ACS não produz audit facts.** Não há produtor de `AutenticacaoRealizada` /
   `AutenticacaoFalhou` — **AUD-01 e AUD-02 são features ausentes**, não falhas de integração.
-- **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
+- ~~**C-17 — EVNT em modo PoC**~~ — resolvido na Sessão 4 (§11.5). Texto original:
+  **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
   `infrastructure/security/TenantContextFilter` faz `TenantContextHolder.set("poc")` em
   **toda** requisição HTTP (javadoc: *"PoC stub … JWT-based tenant extraction disabled"*), e
   a `SecurityConfig` é `anyRequest().permitAll()` **sem** `oauth2ResourceServer` — o JWT nem
@@ -724,10 +801,34 @@ Registradas porque tratá-las como defeito teria gerado correção errada:
 - **`POST /gest-service/detection-contract` é guardado por `gest.detection-contract.read`** —
   uma escrita protegida por authority de leitura. Funciona hoje (o ACS emite `.read` para
   ambos os papéis), mas o modelo está errado; corrigir exige mexer no catálogo e no ACS.
-- **EVNT → ACS directory não existe.** `CaregiverRoutingClient` é um stub vazio
+- ~~**EVNT → ACS directory não existe**~~ — resolvido na Sessão 4; DIR-02 passa. Texto original:
+  **EVNT → ACS directory não existe.** `CaregiverRoutingClient` é um stub vazio
   (`// TODO: add methods from techlab-ai-integration.md`) com `url` default apontando para a
   porta 8084 (GEST, não ACS). **DIR-02 é feature ausente** — a Sessão 2 valida o endpoint
   do ACS diretamente; o consumo pelo EVNT fica para a Sessão 4 (Flow-03).
+
+- **O vínculo cuidador-paciente vive em duas tabelas do mesmo schema (C-30).** O PAC grava
+  `paciente_cuidador` ao criar o paciente; o directory do ACS lê `caregiver_patient_link`. Nada
+  sincroniza as duas, então todo paciente criado pelo PAC tem directory vazio — e um alarme sem
+  destino. O Flow-03 contorna chamando `POST /api/v1/acs/caregivers/{c}/patients/{p}/link`
+  explicitamente. **Decisão necessária:** ou o PAC chama o ACS na criação do paciente, ou uma
+  única tabela passa a ser dona do vínculo.
+- **O HIST não tem tipo de ator para serviço ou dispositivo (C-32).** `subject_type` aceita
+  `dispositivo`, mas `ActorRefDto` só modela cuidador e exige `caregiverId`. O `evento.criado`
+  grava o `deviceId` nesse campo com `displayName = "dispositivo <id>"` — funciona e é rastreável,
+  mas abusa do nome do campo.
+- **O EVNT não tem outbox de auditoria.** O `AuditTrailFeignAdapter` é fail-open (correto para
+  AUD-10), mas sem durabilidade: um fato perdido numa indisponibilidade do HIST é perdido para
+  sempre. O PAC resolve isso com `hist_outbox` + `factId` cunhado uma vez (C-5).
+- **`X-Empresa-Id` × `X-Tenant-Id` (C-28).** O PAC exige o primeiro e rejeita 400 sem ele; os
+  demais serviços usam o segundo. Os dois carregam o mesmo valor — é o mesmo shim do claim de
+  tenant triplicado (C-3) e sai junto com ele.
+- **Enums de domínio do EVNT divergem do que é persistido.** `DispatchStatus`/`Feedback`/`Tier`
+  usam minúsculas e não são referenciados por nada; o código grava `QUEUED`/`NAO_AVALIADO`/`REAL`.
+  Introduzir os enums mudaria silenciosamente todo valor gravado.
+- **`NotificationOrchestrationController` (501) é scaffolding morto, não bloqueio de NTF.** O
+  inventário em §11.3 o listava como bloqueio de NTF-01..05; o dispatch real acontece no
+  `ReportIngressService`. Correção de registro.
 
 ### 11.3 Inventário de TODO / stub / fake (auditoria pós-Sessão 2)
 

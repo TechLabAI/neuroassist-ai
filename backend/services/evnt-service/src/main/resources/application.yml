@@ -51,6 +51,31 @@ evnt:
   sse:
     keepalive-seconds: 15
     emitter-timeout-ms: 180000
+  # Base URLs of the downstream services. The defaults are the docker-compose service names —
+  # a `localhost` default resolves to the evnt-service container itself, which is how four of
+  # these clients silently pointed at nothing (and two at the wrong service entirely).
+  gest:
+    baseurl: ${GEST_SERVICE_URL:http://gest-service:8084}
+  acs:
+    baseurl: ${ACS_SERVICE_URL:http://acs-service:8088}
+  pac:
+    baseurl: ${PAC_SERVICE_URL:http://pac-service:8082}
+  dash:
+    baseurl: ${DASH_SERVICE_URL:http://dash-service:8090}
+  hist:
+    baseurl: ${HIST_SERVICE_URL:http://hist-service:8089}
+
+# Service identity (standards/service-identity.md). Every outbound call of evnt-service is the
+# service acting on its own behalf — the device token that authenticated a report carries only
+# `edge.device`, and propagating it downstream would be a guaranteed 403 (defect C-19).
+neuroassist:
+  service-identity:
+    token-uri: ${ACS_SERVICE_URL:http://acs-service:8088}/oauth2/token/service
+    client-id: ${EVNT_CLIENT_ID:evnt-service}
+    client-secret: ${EVNT_CLIENT_SECRET:dev-service-secret}
+    refresh-margin-seconds: 60
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
 
 resilience4j:
   circuitbreaker:

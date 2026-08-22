@@ -6,9 +6,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import com.neuroassist.evnt.infrastructure.clients.GestValidationClient;
+import com.neuroassist.evnt.application.port.out.GestValidationPort;
+import com.neuroassist.evnt.infrastructure.security.ServiceTokenProvider;
+import com.neuroassist.evnt.infrastructure.security.TenantContextHolder;
 import feign.FeignException;
 import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -70,83 +75,167 @@ class GestValidationContractTest {
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("evnt.gest.baseurl", () -> "http://localhost:" + WIREMOCK_PORT);
+        // evnt-service authenticates every outbound call with a service-identity token, so the
+        // token endpoint has to be reachable too — the same WireMock serves it.
+        registry.add(
+                "neuroassist.service-identity.token-uri",
+                () -> "http://localhost:" + WIREMOCK_PORT + "/oauth2/token/service");
     }
 
-    private GestValidationClient gestValidationClient;
+    private static final String TENANT = "empresa_demo";
+
+    /**
+     * Binds a tenant and stubs the ACS token endpoint.
+     *
+     * <p>Both are now preconditions of any outbound call: the service token is minted per tenant,
+     * so {@code ServiceTokenProvider} fails closed when no tenant is on the thread (RULE-07). In
+     * production the tenant is bound by {@code TenantContextFilter} from the caller's JWT.
+     */
+    @BeforeEach
+    void bindTenantAndStubTokenEndpoint() {
+        gestMock.stubFor(
+                post(urlEqualTo("/oauth2/token/service"))
+                        .willReturn(
+                                okJson(
+                                        "{\"accessToken\":\"service-token\",\"tokenType\":\"Bearer\",\"expiresIn\":300}")));
+        TenantContextHolder.set(TENANT);
+        serviceTokenProvider.evictAll();
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContextHolder.clear();
+    }
+
+    private ServiceTokenProvider serviceTokenProvider;
 
     @Autowired
-    void setGestValidationClient(GestValidationClient client) {
-        this.gestValidationClient = client;
+    void setServiceTokenProvider(ServiceTokenProvider provider) {
+        this.serviceTokenProvider = provider;
+    }
+
+    /**
+     * The production adapter, not the raw Feign client. The previous version of this test injected
+     * the client and asserted against its own WireMock stub, so no production code was in the loop
+     * — which is why it stayed green while the client pointed at a path gest-service does not
+     * expose.
+     */
+    private GestValidationPort adapter;
+
+    @Autowired
+    void setAdapter(GestValidationPort adapter) {
+        this.adapter = adapter;
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 1 — valid report: 200 {valid:true}
+    // Scenario 1 — the primitive exists: 200 — the adapter accepts the report
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("S1: Valid primitives — GEST returns 200 valid:true — adapter returns true")
-    void validPrimitives_gestReturnsValid() {
+    @DisplayName("S1: Known primitive — GEST returns 200 — adapter validates the report")
+    void knownPrimitive_isAccepted() {
+        UUID primitive = UUID.randomUUID();
         gestMock.stubFor(
-                post(urlEqualTo("/api/v1/recognized-commands"))
-                        .willReturn(okJson("{\"valid\":true,\"contractVersion\":\"1.0\"}")));
-
-        var request =
-                new GestValidationClient.ValidationRequest(
-                        1, List.of(new GestValidationClient.PrimitiveRef("P001")));
-        var response = gestValidationClient.validate(request);
-
-        assertThat(response.valid()).isTrue();
-        assertThat(response.contractVersion()).isEqualTo("1.0");
-    }
-
-    // -------------------------------------------------------------------------
-    // Scenario 2 — unknown primitive: 422 — Feign throws exception
-    // -------------------------------------------------------------------------
-
-    @Test
-    @DisplayName("S2: Unknown primitive — GEST returns 422 — Feign throws FeignException")
-    void unknownPrimitive_gestReturns422_feignThrows() {
-        gestMock.stubFor(
-                post(urlEqualTo("/api/v1/recognized-commands"))
+                get(urlEqualTo("/gest-service/tipo-gesto/" + primitive))
                         .willReturn(
-                                aResponse()
-                                        .withStatus(422)
-                                        .withHeader("Content-Type", "application/json")
-                                        .withBody(
-                                                "{\"valid\":false,\"reason\":\"unknown-primitive\"}")));
+                                okJson(
+                                        "{\"id\":\""
+                                                + primitive
+                                                + "\",\"nome\":\"piscar-duplo\",\"detectabilityState\":\"detectavel\"}")));
 
-        var request =
-                new GestValidationClient.ValidationRequest(
-                        1, List.of(new GestValidationClient.PrimitiveRef("UNKNOWN_PRIMITIVE")));
+        boolean valid =
+                adapter.validate(
+                        new GestValidationPort.GestValidationRequest(
+                                1, List.of(primitive.toString())));
 
-        assertThatThrownBy(() -> gestValidationClient.validate(request))
-                .isInstanceOf(FeignException.class)
-                .satisfies(ex -> assertThat(((FeignException) ex).status()).isEqualTo(422));
+        assertThat(valid).isTrue();
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 3 — X-Correlation-Id header propagation
+    // Scenario 2 — the primitive is unknown: 404 is an answer, not a failure
     // -------------------------------------------------------------------------
 
     @Test
-    @DisplayName("S3: Outbound request carries X-Correlation-Id header (MDC propagation)")
-    void outboundRequest_carriesCorrelationIdHeader() {
+    @DisplayName("S2: Unknown primitive — GEST returns 404 — adapter rejects the report")
+    void unknownPrimitive_isRejected() {
+        UUID primitive = UUID.randomUUID();
         gestMock.stubFor(
-                post(urlEqualTo("/api/v1/recognized-commands"))
-                        .withHeader("X-Correlation-Id", matching(".+"))
-                        .willReturn(okJson("{\"valid\":true,\"contractVersion\":\"1.0\"}")));
+                get(urlEqualTo("/gest-service/tipo-gesto/" + primitive))
+                        .willReturn(aResponse().withStatus(404)));
 
-        // Set MDC correlation id (normally set by TenantContextFilter in production)
+        boolean valid =
+                adapter.validate(
+                        new GestValidationPort.GestValidationRequest(
+                                1, List.of(primitive.toString())));
+
+        assertThat(valid).isFalse();
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 3 — every primitive is checked, and one unknown rejects the report
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("S3: One unknown primitive among several rejects the whole report")
+    void oneUnknownPrimitiveRejectsTheReport() {
+        UUID known = UUID.randomUUID();
+        UUID unknown = UUID.randomUUID();
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/tipo-gesto/" + known))
+                        .willReturn(okJson("{\"id\":\"" + known + "\",\"nome\":\"piscar\"}")));
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/tipo-gesto/" + unknown))
+                        .willReturn(aResponse().withStatus(404)));
+
+        boolean valid =
+                adapter.validate(
+                        new GestValidationPort.GestValidationRequest(
+                                1, List.of(known.toString(), unknown.toString())));
+
+        assertThat(valid).isFalse();
+        gestMock.verify(getRequestedFor(urlEqualTo("/gest-service/tipo-gesto/" + known)));
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 4 — a GEST outage is NOT laundered into "the gesture is invalid"
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("S4: GEST returns 500 — the failure propagates instead of becoming a rejection")
+    void gestOutageIsNotSilentlyTreatedAsInvalid() {
+        UUID primitive = UUID.randomUUID();
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/tipo-gesto/" + primitive))
+                        .willReturn(aResponse().withStatus(500)));
+
+        // Defect C-19 in reverse: a fallback that answered "invalid" here would make an outage
+        // indistinguishable from a patient whose gesture is not recognised.
+        assertThatThrownBy(
+                        () ->
+                                adapter.validate(
+                                        new GestValidationPort.GestValidationRequest(
+                                                1, List.of(primitive.toString()))))
+                .isInstanceOf(FeignException.class);
+    }
+
+    // -------------------------------------------------------------------------
+    // Scenario 5 — X-Correlation-Id header propagation
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("S5: Outbound request carries X-Correlation-Id header (MDC propagation)")
+    void outboundRequest_carriesCorrelationIdHeader() {
+        UUID primitive = UUID.randomUUID();
+        gestMock.stubFor(
+                get(urlEqualTo("/gest-service/tipo-gesto/" + primitive))
+                        .willReturn(okJson("{\"id\":\"" + primitive + "\",\"nome\":\"piscar\"}")));
+
         org.slf4j.MDC.put("correlationId", "test-corr-id-001");
         try {
-            var request =
-                    new GestValidationClient.ValidationRequest(
-                            1, List.of(new GestValidationClient.PrimitiveRef("P001")));
-            gestValidationClient.validate(request);
-
-            // WireMock received a request matching the header pattern (no exception = success)
+            adapter.validate(
+                    new GestValidationPort.GestValidationRequest(1, List.of(primitive.toString())));
             gestMock.verify(
-                    postRequestedFor(urlEqualTo("/api/v1/recognized-commands"))
+                    getRequestedFor(urlEqualTo("/gest-service/tipo-gesto/" + primitive))
                             .withHeader("X-Correlation-Id", equalTo("test-corr-id-001")));
         } finally {
             org.slf4j.MDC.remove("correlationId");

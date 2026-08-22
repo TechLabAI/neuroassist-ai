@@ -133,6 +133,30 @@ acs:
         # ACS→EDGE: verificação de credencial de dispositivo em POST /oauth2/token/device.
         # Até aqui edge.internal era exigida por endpoints do EDGE e emitida por ninguém (C-18).
         - edge.internal
+    evnt-service:
+      secret-hash: ${EVNT_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # EVNT→ACS: quais cuidadores são responsáveis pelo paciente do evento.
+        - acs.directory.read
+        # EVNT→GEST: a primitiva reconhecida pelo report é conhecida? (mesmo caminho
+        # que o PAC usa para a mesma pergunta — C-7; o endpoint de eligibility não
+        # consegue respondê-la porque só avalia o catálogo do tenant por urgência).
+        - gest.tipo-gesto.read
+        # EVNT→PAC: snapshot do comando (rótulo + urgência) no momento do report.
+        - pac.comando-lifecycle.read
+        # EVNT→DASH: POST /internal/notifications. Até aqui SVC_EVNT era exigida pelo
+        # NotificationDeliveryController e emitida por ninguém — mesma família do C-18.
+        - SVC_EVNT
+        # EVNT→HIST: evento.criado / evento.confirmado. hist-service aplica o prefixo SCOPE_.
+        - hist:write
+    dash-service:
+      secret-hash: ${DASH_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # DASH→EVNT: callbacks de entrega (delivered / no-session / ack) e confirmação
+        # proxiada do painel. O caregiverId viaja explícito no payload de cada chamada —
+        # o DASH já autorizou o cuidador na sua própria borda /panel/**, e a autoridade
+        # da chamada é o dash-service, não a pessoa (service-identity.md §4).
+        - SVC_DASH
 
   # Identidade de serviço do PRÓPRIO acs-service (E2E-005).
   # Usada por EdgeInternalTokenProvider para chamar POST /internal/devices/verify-credential

@@ -150,9 +150,7 @@ class CircuitBreakerIT {
         assertThat(cb.getState()).isEqualTo(State.OPEN);
 
         // Any decorated callable must throw CallNotPermittedException without executing the body
-        assertThatThrownBy(
-                        () ->
-                                CircuitBreaker.decorateCallable(cb, () -> "upstream-call").call())
+        assertThatThrownBy(() -> CircuitBreaker.decorateCallable(cb, () -> "upstream-call").call())
                 .isInstanceOf(CallNotPermittedException.class)
                 .hasMessageContaining("gest-service");
     }

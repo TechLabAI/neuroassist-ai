@@ -27,7 +27,7 @@ public class ScenarioContext {
 
     // Scenario identity
     private String tenantId = "empresa_demo";
-    private String pacienteId = "pac-1";
+    private String pacienteId = BddIds.PACIENTE;
     private String commandRef = "cmd-emergency";
     private String urgencia = "emergencia";
     private String reportId;

@@ -21,6 +21,7 @@ public class FeignClientConfig {
 
     private static final String CORRELATION_HEADER = "X-Correlation-Id";
     private static final String TENANT_HEADER = "X-Tenant-Id";
+    private static final String EMPRESA_HEADER = "X-Empresa-Id";
     private static final String AUTH_HEADER = "Authorization";
     private static final String MDC_CORRELATION_KEY = "correlationId";
 
@@ -62,6 +63,23 @@ public class FeignClientConfig {
      * EdgeInternalRequestInterceptor} could run <i>before</i> this one and the caller's token would
      * silently survive.
      */
+    /**
+     * Propagates {@code X-Empresa-Id} alongside {@code X-Tenant-Id}.
+     *
+     * <p>pac-service's {@code TenantContextFilter} rejects an authenticated request without it —
+     * 400 {@code missing-tenant}, before the controller runs — so patient resolution failed for a
+     * reason that had nothing to do with the patient.
+     */
+    @Bean
+    public RequestInterceptor feignEmpresaIdInterceptor() {
+        return (feign.RequestTemplate template) -> {
+            String tenantId = TenantContextHolder.getTenantIdOrNull();
+            if (tenantId != null && !tenantId.isBlank()) {
+                template.header(EMPRESA_HEADER, tenantId);
+            }
+        };
+    }
+
     @Bean
     public RequestInterceptor feignAuthPropagationInterceptor() {
         return new CallerTokenPropagationInterceptor();

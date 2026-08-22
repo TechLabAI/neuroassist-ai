@@ -8,6 +8,7 @@ import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.domain.model.Evento;
 import com.neuroassist.evnt.shared.error.CodedException;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class EventConfirmationService implements EventConfirmationUseCase {
 
+    private static final String FACT_EVENTO_CONFIRMADO = "evento.confirmado";
+    private static final String FACT_EVENTO_DESCARTADO = "evento.descartado";
+
     private final EventoRepositoryPort eventoRepositoryPort;
     private final CaregiverRoutingPort caregiverRoutingPort;
     private final AuditTrailPort auditTrailPort;
@@ -29,16 +33,15 @@ public class EventConfirmationService implements EventConfirmationUseCase {
 
     @Override
     public void confirm(UUID eventoId, String verdict, String confirmedBy, String requestTenant) {
-        // 1. Resolve and validate confirmer via ACS (EVNT-023)
-        String resolvedCaregiver;
+        // 1. The confirmer must be a caregiver acs-service knows (EVNT-023)
+        boolean known;
         try {
-            resolvedCaregiver =
-                    caregiverRoutingPort.resolveCaregiver(confirmedBy != null ? confirmedBy : "");
+            known = caregiverRoutingPort.isKnownCaregiver(confirmedBy);
         } catch (Exception e) {
             throw new CodedException(
                     "confirmador-unresolved", "Caregiver confirmador could not be resolved");
         }
-        if (resolvedCaregiver == null || resolvedCaregiver.isBlank()) {
+        if (!known) {
             throw new CodedException(
                     "confirmador-unresolved", "Caregiver confirmador could not be resolved");
         }
@@ -78,6 +81,7 @@ public class EventConfirmationService implements EventConfirmationUseCase {
 
         // 4. Apply verdict
         String feedback = "real".equalsIgnoreCase(verdict) ? "REAL" : "FALSO_POSITIVO";
+        Instant confirmedAt = Instant.now();
         Evento updated =
                 new Evento(
                         evento.id(),
@@ -86,8 +90,8 @@ public class EventConfirmationService implements EventConfirmationUseCase {
                         evento.commandLabelSnapshot(),
                         evento.urgenciaSnapshot(),
                         feedback,
-                        resolvedCaregiver,
-                        Instant.now(),
+                        confirmedBy,
+                        confirmedAt,
                         evento.recognizedAt(),
                         evento.createdAt(),
                         evento.seq(),
@@ -96,10 +100,41 @@ public class EventConfirmationService implements EventConfirmationUseCase {
         Evento saved = eventoRepositoryPort.save(updated);
         sseEventBroadcastPort.broadcast(saved);
 
-        // 5. Audit trail (EVNT-022)
-        String auditAction =
-                "FALSO_POSITIVO".equals(feedback) ? "FALSO_POSITIVO_MARCADO" : "EVENTO_CONFIRMADO";
-        auditTrailPort.append(auditAction, eventoId.toString(), "confirmedBy=" + resolvedCaregiver);
+        // 5. Audit trail — fail-open (AUD-07).
+        // The caregiver is the actor of the fact even though the call itself is authenticated as
+        // evnt-service or dash-service: authority and attribution are different things.
+        String factType =
+                "FALSO_POSITIVO".equals(feedback) ? FACT_EVENTO_DESCARTADO : FACT_EVENTO_CONFIRMADO;
+        UUID subjectId = asUuid(evento.pacienteId());
+        if (subjectId == null) {
+            log.warn(
+                    "Patient id {} is not a UUID — {} fact not recorded for evento {}",
+                    evento.pacienteId(),
+                    factType,
+                    eventoId);
+        } else {
+            auditTrailPort.record(
+                    new AuditTrailPort.AuditFact(
+                            UUID.randomUUID(),
+                            factType,
+                            "paciente",
+                            subjectId,
+                            asUuid(confirmedBy),
+                            confirmedBy,
+                            Map.of(
+                                    "eventoId", eventoId.toString(),
+                                    "feedback", feedback,
+                                    "comandoRef", String.valueOf(evento.comandoRef())),
+                            confirmedAt));
+        }
         log.info("Evento confirmed eventoId={} feedback={}", eventoId, feedback);
+    }
+
+    private UUID asUuid(String value) {
+        try {
+            return value == null ? null : UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

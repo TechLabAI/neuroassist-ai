@@ -2,12 +2,15 @@ package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.neuroassist.evnt.application.port.out.AuditTrailPort;
 import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
+import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
+import com.neuroassist.evnt.bdd.TestJwtDecoderConfig;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import io.cucumber.java.en.And;
@@ -18,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.mockito.ArgumentMatchers;
+import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -60,7 +63,7 @@ public class CaregiverConfirmationFeedbackSteps {
         EventoJpaEntity entity =
                 EventoJpaEntity.builder()
                         .id(evt1Id)
-                        .pacienteId("pac-1")
+                        .pacienteId(BddIds.PACIENTE)
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
@@ -75,12 +78,22 @@ public class CaregiverConfirmationFeedbackSteps {
 
     @And("a caregiver session for \"cg-1\" authorized for the Evento's patient")
     public void andACaregiverSessionForCg1AuthorizedForThe() {
-        when(caregiverRoutingPort.resolveCaregiver(anyString())).thenReturn("cg-1");
+        when(caregiverRoutingPort.responsibleFor(anyString()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(true);
     }
 
     @And("ACS resolves \"cg-1\" as a valid Cuidador")
     public void andAcsResolvesCg1AsAValidCuidador() {
-        when(caregiverRoutingPort.resolveCaregiver(anyString())).thenReturn("cg-1");
+        when(caregiverRoutingPort.responsibleFor(anyString()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(true);
     }
 
     // -------------------------------------------------------------------------
@@ -90,7 +103,7 @@ public class CaregiverConfirmationFeedbackSteps {
     @When("the caregiver posts verdict {string} to {string}")
     public void whenTheCaregiverPostsVerdictTo(String verdict, String path) {
         UUID eventoId = ctx.getEventoId("evt-1");
-        ResponseEntity<String> response = postConfirmation(eventoId, verdict, "cg-1");
+        ResponseEntity<String> response = postConfirmation(eventoId, verdict, BddIds.CUIDADOR);
         ctx.setLastResponse(response);
     }
 
@@ -111,17 +124,13 @@ public class CaregiverConfirmationFeedbackSteps {
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
         assertThat(entity.getConfirmadoPor())
                 .as("confirmadoPor should be 'cg-1'")
-                .isEqualTo("cg-1");
+                .isEqualTo(BddIds.CUIDADOR);
         assertThat(entity.getConfirmadoAt()).as("confirmadoAt should be set").isNotNull();
     }
 
     @And("an audit fact \"EventoConfirmado\" was appended to HIST")
     public void andAnAuditFactEventoconfirmadoWasAppendedToHist() {
-        verify(auditTrailPort)
-                .append(
-                        ArgumentMatchers.eq("EVENTO_CONFIRMADO"),
-                        ArgumentMatchers.eq(ctx.getEventoId("evt-1").toString()),
-                        ArgumentMatchers.anyString());
+        verifyFactRecorded("evento.confirmado", ctx.getEventoId("evt-1").toString());
     }
 
     @And("the Evento \"evt-1\" has feedback \"falso_positivo\"")
@@ -133,20 +142,12 @@ public class CaregiverConfirmationFeedbackSteps {
 
     @And("an audit fact \"FalsoPositivoMarcado\" was appended to HIST")
     public void andAnAuditFactFalsopositivomarcadoWasAppendedToHist() {
-        verify(auditTrailPort)
-                .append(
-                        ArgumentMatchers.eq("FALSO_POSITIVO_MARCADO"),
-                        ArgumentMatchers.eq(ctx.getEventoId("evt-1").toString()),
-                        ArgumentMatchers.anyString());
+        verifyFactRecorded("evento.descartado", ctx.getEventoId("evt-1").toString());
     }
 
     @And("the false-positive rate for the Evento's command reflects the new verdict")
     public void andTheFalsepositiveRateForTheEventosCommandReflects() {
-        verify(auditTrailPort)
-                .append(
-                        ArgumentMatchers.eq("FALSO_POSITIVO_MARCADO"),
-                        ArgumentMatchers.anyString(),
-                        ArgumentMatchers.anyString());
+        verifyFactRecorded("evento.descartado", null);
     }
 
     // -------------------------------------------------------------------------
@@ -158,7 +159,7 @@ public class CaregiverConfirmationFeedbackSteps {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
         entity.setFeedback("REAL");
-        entity.setConfirmadoPor("cg-1");
+        entity.setConfirmadoPor(BddIds.CUIDADOR);
         entity.setConfirmadoAt(Instant.now());
         eventoJpaRepository.save(entity);
     }
@@ -176,7 +177,8 @@ public class CaregiverConfirmationFeedbackSteps {
 
     @Given("ACS cannot resolve the acting caregiver")
     public void givenAcsCannotResolveTheActingCaregiver() {
-        when(caregiverRoutingPort.resolveCaregiver(anyString())).thenReturn(null);
+        when(caregiverRoutingPort.responsibleFor(anyString())).thenReturn(java.util.List.of());
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(false);
     }
 
     @And("the Evento \"evt-1\" still has feedback \"nao_avaliado\"")
@@ -207,7 +209,12 @@ public class CaregiverConfirmationFeedbackSteps {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Tenant-ID", ctx.getDeviceTokenTenant());
+        headers.set("X-Tenant-Id", ctx.getDeviceTokenTenant());
+        headers.setBearerAuth(
+                TestJwtDecoderConfig.token(
+                        ctx.getDeviceTokenTenant(),
+                        confirmedBy,
+                        "evnt.event-confirmation.confirmar"));
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
 
         return restTemplate.exchange(
@@ -215,5 +222,28 @@ public class CaregiverConfirmationFeedbackSteps {
                 HttpMethod.POST,
                 entity,
                 String.class);
+    }
+
+    /**
+     * Asserts a fact of {@code factType} reached the audit port, optionally naming the evento it
+     * must be about.
+     *
+     * <p>The fact type is now the hist-service vocabulary value ({@code evento.confirmado} / {@code
+     * evento.descartado}) rather than the free-form {@code EVENTO_CONFIRMADO} string the no-op
+     * adapter used to swallow — hist-service rejects anything outside {@code
+     * hist.fact-types.allowed} with 422.
+     */
+    private void verifyFactRecorded(String factType, String eventoId) {
+        ArgumentCaptor<AuditTrailPort.AuditFact> captor =
+                ArgumentCaptor.forClass(AuditTrailPort.AuditFact.class);
+        verify(auditTrailPort, atLeastOnce()).record(captor.capture());
+        assertThat(captor.getAllValues())
+                .anySatisfy(
+                        fact -> {
+                            assertThat(fact.factType()).isEqualTo(factType);
+                            if (eventoId != null) {
+                                assertThat(fact.payload()).containsEntry("eventoId", eventoId);
+                            }
+                        });
     }
 }

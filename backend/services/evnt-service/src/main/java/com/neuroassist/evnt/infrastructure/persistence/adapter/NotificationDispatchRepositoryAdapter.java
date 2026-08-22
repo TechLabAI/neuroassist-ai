@@ -1,9 +1,13 @@
 package com.neuroassist.evnt.infrastructure.persistence.adapter;
 
 import com.neuroassist.evnt.application.port.out.NotificationDispatchRepositoryPort;
+import com.neuroassist.evnt.domain.model.DispatchStatuses;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
 import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.NotificationDispatchJpaRepository;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +22,20 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
         NotificationDispatchJpaEntity entity = toEntity(dispatch);
         NotificationDispatchJpaEntity saved = repository.save(entity);
         return toDomain(saved);
+    }
+
+    @Override
+    public Optional<NotificationDispatch> findById(UUID dispatchId) {
+        return repository.findById(dispatchId).map(this::toDomain);
+    }
+
+    @Override
+    public List<NotificationDispatch> findUnacknowledgedFor(String caregiverId) {
+        return repository
+                .findByTargetCaregiverIdAndStatusNot(caregiverId, DispatchStatuses.ACKNOWLEDGED)
+                .stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     private NotificationDispatchJpaEntity toEntity(NotificationDispatch d) {
