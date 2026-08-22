@@ -30,7 +30,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
           aria-hidden="true"
         >1</span>
         <span [class]="currentStep() === 1 ? 'text-ink font-medium' : ''">Tipo de unidade</span>
-        <span class="text-border" aria-hidden="true">→</span>
+        <span class="text-ink-faint" aria-hidden="true">→</span>
         <span
           class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
           [class]="currentStep() === 2 ? 'bg-brand text-brand-ink' : 'bg-surface-2 text-ink-soft'"
@@ -46,7 +46,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
           <div class="flex gap-3">
             <label
               class="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border p-4 text-sm transition-colors"
-              [class]="tipo() === 'familia' ? 'border-brand bg-brand-subtle' : 'border-border'"
+              [class]="tipo() === 'familia' ? 'border-brand bg-brand-subtle' : 'border-line'"
               data-testid="tipo-familia"
             >
               <input
@@ -66,7 +66,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
             </label>
             <label
               class="flex flex-1 cursor-pointer items-center gap-2 rounded-xl border p-4 text-sm transition-colors"
-              [class]="tipo() === 'clinica' ? 'border-brand bg-brand-subtle' : 'border-border'"
+              [class]="tipo() === 'clinica' ? 'border-brand bg-brand-subtle' : 'border-line'"
               data-testid="tipo-clinica"
             >
               <input
@@ -111,7 +111,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
             <input
               id="tenant-nome"
               type="text"
-              class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              class="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
               [value]="nome()"
               (input)="nome.set($any($event.target).value)"
               placeholder="Ex.: Família Amaral ou Clínica São Paulo"
@@ -120,7 +120,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
           </div>
 
           @if (facade.error()) {
-            <p class="mt-3 rounded-lg bg-error-subtle px-3 py-2 text-xs text-error-ink" role="alert" data-testid="tenant-error">
+            <p class="mt-3 rounded-lg bg-error-bg px-3 py-2 text-xs text-error-ink" role="alert" data-testid="tenant-error">
               {{ facade.error() }}
             </p>
           }
@@ -134,7 +134,7 @@ import type { TenantVm, TenantTipo } from '../acs.types';
 
           <div class="mt-4 flex gap-3">
             <button
-              class="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
+              class="rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
               (click)="prevStep()"
               data-testid="step-2-back"
             >

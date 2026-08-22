@@ -22,7 +22,7 @@ import { toDisplayTime } from '../../evnt.types';
   template: `
     @if (confirmadoPor) {
       <div
-        class="mt-4 flex items-center gap-2 rounded-lg border border-surface-border bg-surface-subtle px-4 py-3 text-sm text-ink-soft"
+        class="mt-4 flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-ink-soft"
         data-testid="confirmation-trail"
         role="status"
         aria-live="polite">

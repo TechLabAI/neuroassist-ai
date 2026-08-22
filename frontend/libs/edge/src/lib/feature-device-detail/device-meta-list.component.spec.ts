@@ -104,7 +104,7 @@ describe('DeviceMetaListComponent', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Desatualizado');
 
-    const warnEl = fixture.nativeElement.querySelector('.text-warn-ink');
+    const warnEl = fixture.nativeElement.querySelector('.text-warning-ink');
     expect(warnEl).not.toBeNull();
   });
 

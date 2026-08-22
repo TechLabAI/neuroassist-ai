@@ -49,7 +49,7 @@ import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.componen
         </div>
       } @else if (facade.error()) {
         <!-- Error banner with retry -->
-        <div class="rounded-lg bg-error-subtle px-4 py-3" role="alert" data-testid="roster-error">
+        <div class="rounded-lg bg-error-bg px-4 py-3" role="alert" data-testid="roster-error">
           <p class="text-sm text-error-ink">{{ facade.error() }}</p>
           <button
             class="mt-2 text-xs font-medium text-error-ink underline hover:no-underline"
@@ -63,7 +63,7 @@ import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.componen
         <div class="flex flex-col gap-3">
           @for (c of facade.activeCaregivers(); track c.id) {
             <div
-              class="flex items-center justify-between rounded-xl border border-border bg-surface p-4"
+              class="flex items-center justify-between rounded-xl border border-line bg-surface p-4"
               data-testid="roster-row"
             >
               <div class="flex items-center gap-3">
@@ -86,7 +86,7 @@ import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.componen
                   <div class="flex items-center gap-2" role="group" [attr.aria-label]="'Confirmar desativação de ' + c.nome">
                     <span class="text-xs text-ink-soft">Desativar?</span>
                     <button
-                      class="rounded-lg bg-error px-3 py-1 text-xs font-semibold text-error-ink hover:bg-error-strong disabled:opacity-40"
+                      class="rounded-lg bg-error px-3 py-1 text-xs font-semibold text-error-ink hover:bg-error disabled:opacity-40"
                       [disabled]="facade.saving()"
                       (click)="confirmDeactivate(c.id)"
                       [attr.aria-label]="'Confirmar desativação de ' + c.nome"
@@ -95,7 +95,7 @@ import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.componen
                       {{ facade.saving() ? 'Desativando…' : 'Confirmar' }}
                     </button>
                     <button
-                      class="rounded-lg border border-border px-3 py-1 text-xs font-semibold text-ink hover:bg-surface-2"
+                      class="rounded-lg border border-line px-3 py-1 text-xs font-semibold text-ink hover:bg-surface-2"
                       (click)="cancelDeactivate()"
                       [attr.aria-label]="'Cancelar desativação de ' + c.nome"
                       data-testid="cancel-deactivate-btn"

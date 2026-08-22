@@ -44,7 +44,7 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
 
     @if (isExpired()) {
       <div class="flex flex-col items-center gap-4 py-4 text-center">
-        <span class="material-symbols-outlined text-[40px] text-warn">timer_off</span>
+        <span class="material-symbols-outlined text-[40px] text-warning">timer_off</span>
         <div>
           <p class="text-sm font-medium text-ink">Código expirado</p>
           @if (_errorMessage()) {

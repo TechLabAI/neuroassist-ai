@@ -29,21 +29,21 @@ function statePresentation(state: DerivedState): StatePresentation {
   switch (state) {
     case 'online':
       return {
-        badgeClass: 'bg-success-bg text-success-ink border-success-border',
+        badgeClass: 'bg-success-bg text-success-ink border-success',
         icon: 'wifi',
         label: 'Online',
         description: 'Dispositivo online — heartbeat recente recebido.',
       };
     case 'stale':
       return {
-        badgeClass: 'bg-warn-bg text-warn-ink border-warn-border',
+        badgeClass: 'bg-warning-bg text-warning-ink border-warning',
         icon: 'wifi_find',
         label: 'Sinal fraco',
         description: 'Sinal fraco — último heartbeat mais antigo que o esperado.',
       };
     case 'offline':
       return {
-        badgeClass: 'bg-danger-bg text-danger-ink border-danger-border',
+        badgeClass: 'bg-danger-bg text-danger-ink border-danger',
         icon: 'wifi_off',
         label: 'Offline',
         description: 'Dispositivo offline — nenhum heartbeat dentro da janela de tempo.',

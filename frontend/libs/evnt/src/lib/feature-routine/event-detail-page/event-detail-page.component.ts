@@ -138,7 +138,7 @@ export function classifyDetailError(
 
           <!-- Verdict section — only when canConfirm (feedback === 'nao_avaliado') -->
           @if (canConfirm()) {
-            <div class="border-t border-surface-border pt-4">
+            <div class="border-t border-line pt-4">
               <p class="mb-3 text-sm font-medium text-ink">
                 Como você avalia este evento?
               </p>
