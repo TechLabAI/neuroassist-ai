@@ -17,6 +17,13 @@ spring:
   # issuer-uri is NOT used — acs-service validates its own tokens via local RSA key
   cloud:
     openfeign:
+      # NEVER use the legacy "feign.client.config" prefix — since Spring Cloud 2025.0.1 it is
+      # silently ignored, leaving infinite timeouts.
+      client:
+        config:
+          edge-service:
+            connectTimeout: 2000
+            readTimeout: 3000
       circuitbreaker:
         enabled: true
     loadbalancer:
@@ -120,6 +127,22 @@ acs:
       authorities:
         # PAC→HIST: audit facts for comando lifecycle. hist-service applies the SCOPE_ prefix.
         - hist:write
+    acs-service:
+      secret-hash: ${ACS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # ACS→EDGE: verificação de credencial de dispositivo em POST /oauth2/token/device.
+        # Até aqui edge.internal era exigida por endpoints do EDGE e emitida por ninguém (C-18).
+        - edge.internal
+
+  # Identidade de serviço do PRÓPRIO acs-service (E2E-005).
+  # Usada por EdgeInternalTokenProvider para chamar POST /internal/devices/verify-credential
+  # no edge-service durante POST /oauth2/token/device. O segredo é validado contra o
+  # hash BCrypt de acs.service-clients.acs-service — segredo ausente = falha fechada (401).
+  service-identity:
+    client-id: ${ACS_SERVICE_IDENTITY_CLIENT_ID:acs-service}
+    client-secret: ${ACS_CLIENT_SECRET:dev-service-secret}
+    # Renova o token cacheado esta margem (segundos) antes de expirar.
+    refresh-margin-seconds: ${ACS_SERVICE_IDENTITY_REFRESH_MARGIN:60}
 
 logging:
   pattern:

@@ -68,7 +68,10 @@ neuroassist:
   gest:
     url: ${GEST_URL:lb://gest-service}
   acs:
-    token-endpoint: ${ACS_TOKEN_ENDPOINT:http://localhost:8180/realms/neuroassist-ai/protocol/openid-connect/token}
+    # Endpoint anunciado ao dispositivo no enroll, para ele trocar a credencial por um token
+    # com a authority edge.device. O default apontava para um Keycloak que não existe neste
+    # stack — ver service-identity.md §7 (C-18).
+    token-endpoint: ${ACS_TOKEN_ENDPOINT:http://localhost:8088/oauth2/token/device}
     # Service identity (EDGE -> GEST): POST {url}/oauth2/token/service
     # See docs/architecture/backend/standards/service-identity.md
     service-token:

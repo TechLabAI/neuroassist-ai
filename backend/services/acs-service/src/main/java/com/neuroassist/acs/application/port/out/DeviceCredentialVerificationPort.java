@@ -8,9 +8,9 @@ import java.util.UUID;
  * standards/service-identity.md} §7).
  *
  * <p>acs-service deliberately does not store or check device secrets: edge-service issued the
- * credential at enroll, keeps its SHA-256 hash inside the tenant schema and knows whether the device
- * was retired. Ownership is split — EDGE owns the credential, ACS owns token issuance — so the
- * device-token flow crosses the boundary exactly once.
+ * credential at enroll, keeps its SHA-256 hash inside the tenant schema and knows whether the
+ * device was retired. Ownership is split — EDGE owns the credential, ACS owns token issuance — so
+ * the device-token flow crosses the boundary exactly once.
  *
  * <p>The port is intentionally coarse: it answers "valid, and if so which device of which tenant",
  * and nothing else. Any failure (invalid pair, edge-service down, malformed answer) collapses into

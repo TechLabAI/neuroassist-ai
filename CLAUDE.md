@@ -318,6 +318,14 @@ the command above is unchanged.
 - **Never** forget `DomainServiceConfig.java` (domain services are POJOs and need `@Bean`)
 - **Never** run a microservice before `neuroassist-ai-migrations`
 - **Never** use `feign.client.config` prefix — since Spring Cloud 2025.0.1 it is silently ignored; always use `spring.cloud.openfeign.client.config` (infinite default timeout if wrong)
+- **Never** let the application assign an entity id while the entity also declares
+  `@GeneratedValue` — Spring Data's `isNew()` becomes id-based, `save()` issues `merge()`
+  instead of `persist()`, and an INSERT of a not-yet-existing row fails with
+  `ObjectOptimisticLockingFailureException`. Implement `Persistable<ID>` and let the adapter
+  decide (`existsById`); device registration in EDGE never inserted a row because of this
+- **Never** resolve the tenant *inside* a `@Transactional` method — Hibernate fixes the
+  `search_path` when it acquires the connection, so binding the tenant afterwards routes
+  nothing. Resolve before the transaction (see `DeviceEnrollmentService` in EDGE)
 - **Never** declare a Feign response record as package-private — JDK dynamic proxies (`jdk.proxy3.$ProxyN`) cannot access it; always `public record`
 - **Never** write a Feign client (path, body or response DTO) from the consumer's assumption — open the producer's `@RestController` and its request/response records and mirror them. A WireMock stub written from the same assumption makes the test pass *precisely when the assumption is wrong* (E2E Session 2: 10 of 16 defects)
 - **Never** invent an authority name in `RoleAuthorityPolicy` — every value must match a literal `@PreAuthorize` / SecurityConfig rule in the owning service, verbatim
@@ -357,6 +365,13 @@ Current inventory and what each item blocks:
 authorization bug becomes indistinguishable from an outage), and an ArchUnit catalogue pinned
 inline that contains *both* sides of a divergence it is supposed to detect. When a guard is
 green, check what it actually compares.
+
+**`.gitignore` patterns without a leading slash match at any depth.** `out/` silently
+excluded `application/port/out/` — the hexagonal outbound-port package — in all 7 services:
+61 of 62 port interfaces were never in the repository. Nothing caught it, because Gradle
+compiles the **working directory**, not the git index. Anchor build-artifact patterns
+(`/out/`, `/build/`) and, when adding a package whose name collides with a build convention,
+check `git status` shows the new file.
 
 **The `:test` gate does not run `integrationTest`.** `./gradlew :services:<svc>:test
 :services:<svc>:architectureCheck` can stay green while an `*IT` class breaks. When Docker is

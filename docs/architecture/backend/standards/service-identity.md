@@ -175,8 +175,86 @@ transformou o 403 do C-19 em "degradado".
 | PAC → HIST (audit facts) | ✅ **adotado** — 177 testes (+17), archunit verde. `hist:write` **removido** do `RoleAuthorityPolicy` | `hist:write` |
 | EVNT → HIST | **N/A hoje** — `AuditTrailClient` é stub vazio e o adapter ativo é `AuditTrailNoOpAdapter`; adota quando o adapter real existir | `hist:write` |
 | ACS → HIST | pendente — `HistAuditClient` também é stub vazio (causa raiz de AUD-01/02) | `hist:write` |
+| ACS → EDGE (verificação de credencial de dispositivo) | ✅ **adotado** — §7 | `edge.internal` |
 
 Chamadas que **continuam** propagando o token do chamador, por serem decisões tomadas *em
 nome do usuário*: PAC→ACS (directory), PAC→GEST (eligibility), PAC→EDGE (validação de
 dispositivo), HIST→ACS (patient-scope). O critério: se a autorização depende de *quem pediu*,
 propaga; se é o serviço agindo por conta própria, usa identidade de serviço.
+
+---
+
+## 7. Identidade de dispositivo (`edge.device`)
+
+> **Decisão:** o EDGE valida a credencial, o ACS emite o token (opção (b), 2026-08-22).
+> **Implementado e verificado em 2026-08-22** — Flow-02 11/11, com o dispositivo saindo de
+> `offline` para `online` após o heartbeat autenticado. Gates: ACS 149 testes (+28),
+> EDGE 159 (+18, com `integrationTest`).
+
+### 7.1 Por que não é identidade de serviço comum
+
+O heartbeat exige `edge.device`, e o enroll já entrega ao dispositivo um par
+`clientId`/`clientSecret` (`clientId = "edge-<deviceId>"`, hash **SHA-256** em
+`<tenant>.dispositivo_credential`). Três diferenças em relação aos clientes de §4:
+
+| | Cliente de serviço | Credencial de dispositivo |
+|---|---|---|
+| Quantidade | fixa, ~5 | uma por dispositivo, criada em runtime |
+| Registro | config (`acs.service-clients`) | tabela, no schema do **tenant** |
+| Hash | BCrypt | SHA-256 |
+| Identidade | o serviço | **o dispositivo específico** |
+
+A última linha é a que decide: trocar `edge.device` por identidade de serviço faria o
+heartbeat perder a informação de *qual* dispositivo está batendo. Por isso a credencial
+por dispositivo é preservada.
+
+### 7.2 Quem é dono do quê
+
+- **EDGE** é dono da credencial: ele a emitiu, guarda o hash e sabe se o dispositivo foi
+  aposentado. Só ele pode dizer se um par `clientId`/`clientSecret` é válido.
+- **ACS** é dono da emissão de token: tem a chave de assinatura e o JWK Set que todos os
+  resource servers consomem.
+
+Nenhum dos dois consegue fazer o do outro, então o fluxo atravessa a fronteira uma vez.
+
+### 7.3 Fluxo
+
+```
+dispositivo ──POST /oauth2/token/device {clientId, clientSecret}──► ACS
+                                                                     │
+                        ACS ──POST /internal/devices/verify-credential──► EDGE
+                            (identidade de serviço, authority edge.internal)
+                                                                     │
+                        ◄── {valid, deviceId, tenantId} ─────────────┘
+                                                                     │
+dispositivo ◄── JWT {sub=clientId, token_type=device,                │
+                     tenant/tenant_id/empresaId, authorities=[edge.device]}
+```
+
+### 7.4 O ovo-e-galinha do tenant, de novo
+
+`POST /internal/devices/verify-credential` recebe só o `clientId`, e
+`dispositivo_credential` vive no schema do tenant — o mesmo problema de C-21.
+
+Solução idêntica e já provada: um índice global
+`neuroassist_global.device_directory (client_id → tenant_id, dispositivo_edge_id)`,
+publicado no enroll junto com a credencial. Ponteiro apenas; o hash do segredo **nunca**
+sai do schema do tenant.
+
+### 7.5 Regras de segurança
+
+1. **`/internal/**` não é público** — o ADR-008 já garante: não há rota no GWY. A chamada
+   ACS→EDGE é interna, autenticada com identidade de serviço.
+2. **`edge.internal` ganha emissor e propósito.** O cliente `acs-service` é registrado em
+   `acs.service-clients` com essa authority. Até aqui `edge.internal` era exigida por
+   endpoints do EDGE e emitida por ninguém (C-18).
+3. **401 genérico.** Credencial desconhecida, secret errado, dispositivo aposentado e
+   tenant inativo são indistinguíveis para o chamador.
+4. **O segredo nunca trafega para fora do par ACS↔EDGE**, e o hash nunca sai do EDGE.
+
+### 7.6 Dependência ACS → EDGE
+
+Este fluxo cria uma dependência nova: o ACS passa a chamar o EDGE. Não é ciclo de
+deadlock (`EDGE→ACS` é `/oauth2/token/service`, `ACS→EDGE` é `/internal/...`, endpoints
+distintos), mas é uma aresta a mais no grafo — e significa que **um EDGE fora do ar impede
+a emissão de token de dispositivo**. Aceitável: sem EDGE não há heartbeat a autenticar.

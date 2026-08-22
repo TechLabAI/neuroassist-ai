@@ -24,7 +24,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
  *       (>500ms, triggers Feign read-timeout in test profile)
  *   <li><b>ACS</b>: {@code GET /api/v1/acs/directory/tenants/{id}} (resolveTenant), {@code GET
  *       /api/v1/acs/caregivers/{id}} (resolveCuidador, 404)
- *   <li><b>EDGE</b>: {@code GET /api/edge/v1/dispositivos/{id}} (resolveDispositivo, 404)
+ *   <li><b>EDGE</b>: {@code GET /api/v1/edge/devices/{id}} (resolveDispositivo, 404)
  *   <li><b>HIST</b>: {@code POST /api/v1/hist/audit-facts} — 200 success, 500 failure
  * </ul>
  */
@@ -249,7 +249,7 @@ public final class PacWireMockStubs {
     }
 
     // =========================================================================
-    // EDGE — GET /api/edge/v1/dispositivos/{id}  (resolveDispositivo)
+    // EDGE — GET /api/v1/edge/devices/{id}  (resolveDispositivo)
     // =========================================================================
 
     /**
@@ -261,13 +261,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo(
             WireMockServer edge, String deviceId, String empresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":null,"empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":null,"tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, empresaId))));
     }
@@ -279,13 +279,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo_Assigned(
             WireMockServer edge, String deviceId, String pacienteId, String empresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":"%s","empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":"%s","tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, pacienteId, empresaId))));
     }
@@ -293,7 +293,7 @@ public final class PacWireMockStubs {
     /** Stub: EDGE returns 404 for an unknown device. */
     public static void stubEdgeResolveDispositivo_NotFound(WireMockServer edge, String deviceId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(aResponse().withStatus(404)));
     }
 
@@ -305,13 +305,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo_ForeignTenant(
             WireMockServer edge, String deviceId, String foreignEmpresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":null,"empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":null,"tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, foreignEmpresaId))));
     }

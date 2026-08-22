@@ -79,6 +79,13 @@ public class SecurityConfig {
                                         .hasAuthority("edge.manage")
                                         .requestMatchers(HttpMethod.POST, "/api/v1/edge/heartbeat")
                                         .hasAuthority("edge.device")
+                                        // Superfície interna (C-18 / ADR-008): fora de
+                                        // /api/v1/edge/** de propósito — o GWY não roteia
+                                        // /internal/**, então só a malha de serviços alcança.
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/internal/devices/verify-credential")
+                                        .hasAuthority("edge.internal")
                                         .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/v1/edge/devices/*/liveness",

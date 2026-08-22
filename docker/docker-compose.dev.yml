@@ -284,7 +284,7 @@ services:
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
       SPRING_ARTEMIS_PASSWORD: admin
-      ACS_TOKEN_ENDPOINT: http://acs-service:8088/oauth2/token
+      ACS_TOKEN_ENDPOINT: http://acs-service:8088/oauth2/token/device
       # Service identity EDGE -> GEST (service-identity.md); secret is dev-only
       ACS_SERVICE_URL: http://acs-service:8088
       EDGE_CLIENT_ID: edge-service

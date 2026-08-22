@@ -123,11 +123,75 @@ public class TokenIssuer {
      * <p>The tenant claims are populated exactly as for a caregiver token, because downstream
      * services route the {@code search_path} by them.
      *
+     * <p>{@code tenantId} may be {@code null} for the narrow case of a call whose target resolves
+     * the tenant itself and therefore never reads the claim — today only ACS→EDGE {@code
+     * /internal/devices/verify-credential} (see {@code EdgeInternalTokenProvider}). A null tenant
+     * simply omits the three tenant claims; it never means "any tenant".
+     *
      * @param clientId identifier of the calling service
-     * @param tenantId tenant the token is scoped to (validated by the caller)
+     * @param tenantId tenant the token is scoped to (validated by the caller), or null
      * @param authorities authorities granted to this client
      */
     public AutenticacaoResponse issueServiceToken(
+            String clientId, UUID tenantId, List<String> authorities) {
+        SigningKey activeKey = signingKeyPort.getActiveSigningKey();
+
+        Instant now = Instant.now();
+        Instant expiresAt = now.plusSeconds(expirySeconds);
+
+        JwsHeader header = JwsHeader.with(SignatureAlgorithm.RS256).keyId(activeKey.kid()).build();
+
+        JwtClaimsSet.Builder builder =
+                JwtClaimsSet.builder()
+                        .issuer(issuer)
+                        .issuedAt(now)
+                        .expiresAt(expiresAt)
+                        .subject(clientId)
+                        .id(UUID.randomUUID().toString())
+                        .claim("token_type", "service")
+                        .claim("nome", clientId)
+                        .claim("authorities", authorities);
+        if (tenantId != null) {
+            builder.claim("tenant_id", tenantId.toString())
+                    .claim("tenant", tenantId.toString())
+                    .claim("empresaId", tenantId.toString());
+        }
+        JwtClaimsSet claims = builder.build();
+
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+
+        log.debug(
+                "Issued service JWT for client={} tenant={} authorities={} kid={}",
+                clientId,
+                tenantId,
+                authorities.size(),
+                activeKey.kid());
+
+        return new AutenticacaoResponse(
+                token, null, "Bearer", expirySeconds, tenantId, null, null, authorities);
+    }
+
+    /**
+     * Issues a device-identity access token (E2E-005, {@code standards/service-identity.md} §7).
+     *
+     * <p>Emitted by {@code POST /oauth2/token/device} <b>after</b> edge-service confirmed the
+     * {@code clientId}/{@code clientSecret} pair. Differences from {@link #issueServiceToken}:
+     *
+     * <ul>
+     *   <li>{@code token_type} is {@code device} — the heartbeat is authenticated by a specific
+     *       device, not by a service, and a resource server must be able to tell them apart
+     *   <li>{@code sub} is the device's {@code clientId} ({@code edge-<deviceId>}), which is what
+     *       preserves <i>which</i> device is beating
+     *   <li>{@code tenantId} is mandatory and comes from edge-service's answer, never from the
+     *       request body — the caller is unauthenticated at that point
+     *   <li>no refresh token — the device re-authenticates with its secret
+     * </ul>
+     *
+     * @param clientId device client id, used as {@code sub}
+     * @param tenantId tenant resolved by edge-service
+     * @param authorities authorities granted to the device (today {@code edge.device})
+     */
+    public AutenticacaoResponse issueDeviceToken(
             String clientId, UUID tenantId, List<String> authorities) {
         SigningKey activeKey = signingKeyPort.getActiveSigningKey();
 
@@ -143,7 +207,7 @@ public class TokenIssuer {
                         .expiresAt(expiresAt)
                         .subject(clientId)
                         .id(UUID.randomUUID().toString())
-                        .claim("token_type", "service")
+                        .claim("token_type", "device")
                         .claim("tenant_id", tenantId.toString())
                         .claim("tenant", tenantId.toString())
                         .claim("empresaId", tenantId.toString())
@@ -154,10 +218,10 @@ public class TokenIssuer {
         String token = jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
 
         log.debug(
-                "Issued service JWT for client={} tenant={} authorities={} kid={}",
+                "Issued device JWT for client={} tenant={} authorities={} kid={}",
                 clientId,
                 tenantId,
-                authorities.size(),
+                authorities,
                 activeKey.kid());
 
         return new AutenticacaoResponse(

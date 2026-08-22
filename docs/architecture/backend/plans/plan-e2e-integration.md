@@ -372,12 +372,12 @@ O módulo de integração E2E está DONE quando:
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
 | E2E-003 | 🟡 PARCIAL — DIR-01/DIR-04 DONE; DIR-02 feature ausente (EVNT stub); DIR-03/DIR-05 na Sessão 5 | 2026-08-21 |
 | E2E-004 | 🟡 PARCIAL — AUD-03/04/05 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-06..10 na Sessão 4 | 2026-08-21 |
-| E2E-005 | OPEN | — |
-| E2E-006 | OPEN | — |
+| E2E-005 | 🟡 PARCIAL — HB-01 DONE; HB-02..05 bloqueados pelo ProfilePointerController (501) | 2026-08-22 |
+| E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
 | E2E-007 | OPEN | — |
 | E2E-008 | OPEN | — |
 | E2E-009 | ✅ DONE (17/17 checks) | 2026-08-21 |
-| E2E-010 | OPEN | — |
+| E2E-010 | ✅ DONE — Flow-02 11/11 | 2026-08-22 |
 | E2E-011 | OPEN | — |
 | E2E-012 | OPEN | — |
 | E2E-013 | OPEN | — |
@@ -588,6 +588,56 @@ patient-scope); se é o serviço agindo por conta própria, usa identidade de se
 > O primeiro experimento foi inconclusivo por mudar código *e* carga ao mesmo tempo.
 > O cenário mede wall-clock de **uma** chamada e a chama de p99 — decidir entre medir
 > percentil sobre N chamadas ou tirar o SLA do gate unitário.
+
+### 11.4 Sessão 3 — Device + Heartbeat (2026-08-22)
+
+**Flow-02 (E2E-010): 11/11.** Cadeia completa `registrar → enroll → parear → heartbeat`,
+com o dispositivo saindo de `offline`/`ultimaSincronizacao: null` para **`online`** —
+o `DSH-03` deixou de testar "o endpoint responde" e passou a testar o ciclo real.
+
+| Issue | Estado |
+|---|---|
+| E2E-010 (Flow-02) | ✅ completo |
+| E2E-006 (DEV-01..04) | ✅ completo |
+| E2E-005 (HB-01) | ✅ heartbeat autenticado; **HB-02..05 pendentes** (dependem do `ProfilePointerController`, que lança 501) |
+| DSH-03 (liveness) | ✅ |
+
+#### Defeitos corrigidos
+
+| # | Serviço | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-18** | ACS↔EDGE | `edge.device` sem emissor → heartbeat inalcançável | O enroll já emitia `clientId`/`clientSecret`, mas o `tokenEndpoint` apontava para um Keycloak inexistente | Nenhum teste exercitava o par ACS↔EDGE |
+| **C-20** | EDGE | `POST /devices` → 409 optimistic-lock; **`dispositivo_edge` com 0 linhas** | `@GeneratedValue` + id atribuído pela aplicação + `@Version` primitivo ⇒ `isNew()` id-based ⇒ `save()` vira `merge()` ⇒ UPDATE em linha inexistente | Suíte BDD do EDGE em **dry-run**; unitários mockam o repositório |
+| **C-21** | EDGE | `enroll` → `relation "dispositivo_enrollment" does not exist` | Endpoint anônimo por desenho (ADR-005) ⇒ sem JWT ⇒ sem tenant ⇒ `search_path` no schema global. Ovo-e-galinha: a tabela é por tenant | Mesma razão: os cenários de enroll não executam |
+| **C-22** | PAC→EDGE | Todo paciente com dispositivo pareado → 422 | Path **e** body divergentes (`/api/edge/v1/dispositivos/{id}` × `/api/v1/edge/devices/{id}`; `{id,empresaId}` × `{deviceId,tenantRef}`) | WireMock do PAC stubava o contrato imaginado pelo próprio PAC — **4ª ocorrência do padrão** |
+| **`.gitignore`** | repo | 61 dos 62 `application/port/out/*.java` fora do versionamento | `out/` sem barra inicial casa em qualquer profundidade | O Gradle compila o **diretório de trabalho**, não o índice do git; nenhum gate local detecta, e não há CI |
+
+#### Soluções estruturais introduzidas
+
+- **`Persistable` para id atribuído pela aplicação** (C-20): as 4 entidades do EDGE declaram
+  explicitamente INSERT vs UPDATE, com o adapter decidindo por `existsById`. O mapper sempre
+  constrói uma instância nova, então só o repositório sabe se a linha existe.
+- **Índices globais como quebra de ovo-e-galinha** (C-21, C-18): `enrollment_directory` e
+  `device_directory` no schema global, alcançáveis sem tenant vinculado. **Ponteiro apenas** —
+  o hash do segredo nunca sai do schema do tenant.
+- **Resolução de tenant fora da transação**: o Hibernate fixa o `search_path` ao adquirir a
+  conexão, então vincular o tenant dentro de um método `@Transactional` não re-roteia nada.
+  `DeviceEnrollmentService` e `DeviceCredentialVerificationService` existem por isso.
+- **`edge.internal` ganhou emissor e propósito**: era exigida por endpoints do EDGE e emitida
+  por ninguém; agora é a authority que autoriza o ACS a verificar credencial de dispositivo.
+
+#### Três "falhas" que eram do roteiro, não do sistema
+
+Registradas porque tratá-las como defeito teria gerado correção errada:
+
+1. **409 `pairing-conflict`** — pareamento exclusivo por paciente é invariante correto; faltava
+   isolamento entre execuções do script.
+2. **409 `already-enrolled`** — `isEnrolled()` é `pairingState != registered`, então parear
+   antes do enroll o invalida. **A ordem real da API é registrar → enroll → parear**, não a do
+   plano original (`register → claim → enroll`).
+3. **`HTTP 000000` no token endpoint** — o EDGE anuncia o hostname interno do container
+   (`acs-service:8088`), correto para o dispositivo real na malha docker; só o script, rodando
+   no host, precisava traduzir para a porta publicada.
 
 ### 11.2 Dívidas conhecidas (não corrigidas nesta sessão)
 

@@ -64,11 +64,10 @@ class RoleAuthorityPolicyTest {
     /**
      * No caregiver role may write audit facts.
      *
-     * <p>Audit facts are written by services, not humans: pac-service authenticates to
-     * hist-service with a service identity ({@code POST /oauth2/token/service}), so the
-     * caregiver's token no longer needs — and must not have — {@code hist:write}. Granting it
-     * here would let any caregiver append an arbitrary fact to the audit ledger. See
-     * standards/service-identity.md.
+     * <p>Audit facts are written by services, not humans: pac-service authenticates to hist-service
+     * with a service identity ({@code POST /oauth2/token/service}), so the caregiver's token no
+     * longer needs — and must not have — {@code hist:write}. Granting it here would let any
+     * caregiver append an arbitrary fact to the audit ledger. See standards/service-identity.md.
      */
     @Test
     void noRoleCanWriteAuditFacts() {

@@ -28,6 +28,11 @@ public class DispositivoEdgeRepositoryAdapter implements DispositivoEdgeReposito
     @Override
     public DispositivoEdge save(DispositivoEdge domain) {
         DispositivoEdgeJpaEntity entity = toEntity(domain);
+        // O mapper sempre constrói uma instância nova; só o repositório sabe se a
+        // linha já existe. Sem isto, um update viraria INSERT (C-20).
+        if (entity.getId() != null && repository.existsById(entity.getId())) {
+            entity.markExisting();
+        }
         DispositivoEdgeJpaEntity saved = repository.save(entity);
         return toDomain(saved);
     }

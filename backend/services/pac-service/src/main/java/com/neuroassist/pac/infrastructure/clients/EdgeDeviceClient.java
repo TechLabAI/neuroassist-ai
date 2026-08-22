@@ -27,6 +27,6 @@ public interface EdgeDeviceClient {
      * @return {@link EdgeDispositivoResponse} with id, pacienteId (nullable), empresaId
      * @throws feign.FeignException.NotFound (404) if device is unknown — caller handles
      */
-    @GetMapping("/api/edge/v1/dispositivos/{id}")
+    @GetMapping("/api/v1/edge/devices/{id}")
     EdgeDispositivoResponse getDispositivo(@PathVariable("id") UUID id);
 }

@@ -1,20 +1,26 @@
 package com.neuroassist.edge.security;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.neuroassist.edge.application.port.in.DeviceCredentialVerificationUseCase;
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
 import com.neuroassist.edge.application.port.in.HeartbeatUseCase;
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
 import com.neuroassist.edge.application.port.in.PairingUseCase;
 import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
+import com.neuroassist.edge.application.service.DeviceEnrollmentService;
 import com.neuroassist.edge.domain.model.PairingState;
+import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -82,6 +88,13 @@ class SecurityConfigTest {
 
     @MockitoBean DeviceRegistrationUseCase deviceRegistrationUseCase;
 
+    /**
+     * O controller do enroll passou a delegar para o {@link DeviceEnrollmentService}, que resolve o
+     * tenant no índice global antes da transação (C-21). O cenário aqui é sobre a chain de
+     * segurança (permitAll sem Bearer), então basta mockar o novo colaborador.
+     */
+    @MockitoBean DeviceEnrollmentService deviceEnrollmentService;
+
     @MockitoBean HeartbeatUseCase heartbeatUseCase;
 
     @MockitoBean LivenessUseCase livenessUseCase;
@@ -89,6 +102,8 @@ class SecurityConfigTest {
     @MockitoBean PairingUseCase pairingUseCase;
 
     @MockitoBean ProfilePointerUseCase profilePointerUseCase;
+
+    @MockitoBean DeviceCredentialVerificationUseCase deviceCredentialVerificationUseCase;
 
     // ---- 401 cases (no token) ----
 
@@ -213,7 +228,7 @@ class SecurityConfigTest {
                         "http://acs/token",
                         "edge.device",
                         30);
-        when(deviceRegistrationUseCase.enroll(anyString(), anyString())).thenReturn(result);
+        when(deviceEnrollmentService.enroll(anyString(), anyString())).thenReturn(result);
 
         mvc.perform(
                         post("/api/v1/edge/devices/enroll")
@@ -250,5 +265,95 @@ class SecurityConfigTest {
     @DisplayName("GET /actuator/health sem token retorna 200 (permitAll)")
     void actuatorHealth_semToken_retorna200() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+    }
+
+    // ---- C-18: POST /internal/devices/verify-credential ----
+
+    private static final String VERIFY_PATH = "/internal/devices/verify-credential";
+    private static final String VERIFY_BODY =
+            "{\"clientId\":\"edge-11111111-2222-3333-4444-555555555555\",\"clientSecret\":\"cs_x\"}";
+
+    @Test
+    @DisplayName("POST /internal/devices/verify-credential sem token retorna 401")
+    void verifyCredential_semToken_retorna401() throws Exception {
+        mvc.perform(post(VERIFY_PATH).contentType(MediaType.APPLICATION_JSON).content(VERIFY_BODY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /internal/devices/verify-credential com edge.device (errado) retorna 403")
+    void verifyCredential_scopeErrado_retorna403() throws Exception {
+        mvc.perform(
+                        post(VERIFY_PATH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(VERIFY_BODY)
+                                .with(jwt().authorities(new SimpleGrantedAuthority("edge.device"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("POST /internal/devices/verify-credential com edge.internal retorna 200")
+    void verifyCredential_scopeCorreto_retorna200() throws Exception {
+        UUID deviceId = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        when(deviceCredentialVerificationUseCase.verify(anyString(), anyString()))
+                .thenReturn(
+                        new DeviceCredentialVerificationUseCase.VerificationResult(
+                                deviceId, "e2e00000-0000-0000-0000-000000000001"));
+
+        mvc.perform(
+                        post(VERIFY_PATH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(VERIFY_BODY)
+                                .with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "edge.internal"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.valid").value(true))
+                .andExpect(jsonPath("$.deviceId").value(deviceId.toString()))
+                .andExpect(jsonPath("$.tenantId").value("e2e00000-0000-0000-0000-000000000001"));
+    }
+
+    @Test
+    @DisplayName("POST /internal/devices/verify-credential: credencial inválida vira 401 genérico")
+    void verifyCredential_invalida_retorna401Generico() throws Exception {
+        when(deviceCredentialVerificationUseCase.verify(anyString(), anyString()))
+                .thenThrow(
+                        new CodedException(
+                                "edge.credential-invalid", "Device credential is invalid."));
+
+        mvc.perform(
+                        post(VERIFY_PATH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(VERIFY_BODY)
+                                .with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "edge.internal"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("edge.credential-invalid"))
+                // o corpo não pode devolver o segredo nem qualquer pista do motivo
+                .andExpect(content().string(org.hamcrest.Matchers.not(containsString("cs_x"))));
+    }
+
+    /**
+     * O ADR-008 define {@code /api/v1/edge/**} como a superfície pública roteada pelo GWY. Se
+     * alguém mover esta rota para debaixo daquele prefixo, ela vira pública — este teste falha
+     * primeiro.
+     */
+    @Test
+    @DisplayName("verify-credential NÃO existe sob /api/v1/edge/** (não é superfície pública)")
+    void verifyCredential_naoExisteSobPrefixoPublico() throws Exception {
+        mvc.perform(
+                        post("/api/v1/edge/devices/verify-credential")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(VERIFY_BODY)
+                                .with(
+                                        jwt().authorities(
+                                                        new SimpleGrantedAuthority(
+                                                                "edge.internal"))))
+                // 405 hoje (o prefixo casa o GET /devices/{deviceId}), 404 se aquele mapping
+                // mudar — o que importa é que nunca vira 2xx sob o prefixo público.
+                .andExpect(status().is4xxClientError());
     }
 }

@@ -24,4 +24,11 @@ public interface DispositivoCredentialJpaRepository
      */
     Optional<DispositivoCredentialJpaEntity> findByDispositivoEdgeIdAndStatus(
             UUID dispositivoEdgeId, CredentialStatus status);
+
+    /**
+     * Lookup by OAuth2 client_id + status — device credential verification (C-18). {@code clientId}
+     * is unique per credential row; combined with {@code active} it yields at most one result.
+     */
+    Optional<DispositivoCredentialJpaEntity> findByClientIdAndStatus(
+            String clientId, CredentialStatus status);
 }

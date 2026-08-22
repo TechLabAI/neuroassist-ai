@@ -14,10 +14,10 @@ import org.springframework.stereotype.Component;
  * Every value below matches a literal {@code @PreAuthorize} / SecurityConfig rule in the owning
  * service — a mismatch means a silent 403 at runtime (E2E-003).
  *
- * <p>{@code hist:write} is deliberately absent: audit facts are written by services, not by
- * humans. The producers (PAC today, EVNT/ACS once their clients exist) authenticate to
- * hist-service with a service identity — see standards/service-identity.md. Granting it here
- * would let any caregiver append an arbitrary audit fact.
+ * <p>{@code hist:write} is deliberately absent: audit facts are written by services, not by humans.
+ * The producers (PAC today, EVNT/ACS once their clients exist) authenticate to hist-service with a
+ * service identity — see standards/service-identity.md. Granting it here would let any caregiver
+ * append an arbitrary audit fact.
  */
 @Component
 public class RoleAuthorityPolicy {
@@ -83,10 +83,7 @@ public class RoleAuthorityPolicy {
                             "dash.panel-composition.read",
                             "hist:read"),
                     CuidadorPapel.PACIENTE_APOIO,
-                    List.of(
-                            "acs.directory.read",
-                            "dash.panel-composition.read",
-                            "hist:read"));
+                    List.of("acs.directory.read", "dash.panel-composition.read", "hist:read"));
 
     /**
      * Returns the list of fine-grained authorities for the given role.

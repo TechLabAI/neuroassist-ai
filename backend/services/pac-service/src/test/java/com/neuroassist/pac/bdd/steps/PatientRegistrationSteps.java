@@ -127,7 +127,7 @@ public class PatientRegistrationSteps {
                         .findAll(
                                 com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor(
                                         com.github.tomakehurst.wiremock.client.WireMock
-                                                .urlPathMatching("/api/edge/v1/dispositivos/.*"))),
+                                                .urlPathMatching("/api/v1/edge/devices/.*"))),
                 "EDGE device");
     }
 
