@@ -52,10 +52,10 @@ public class AuditRecordJpaEntity {
     private String actorDisplayName;
 
     /**
-     * AES-256-GCM ciphertext of the JSON payload, encoded as "base64(iv):base64(ciphertext)".
-     * Null when the original payload was null. After LGPD erasure the decryption key is gone —
-     * this column retains the ciphertext (harmless without key) and {@code updatable = false}
-     * ensures it is never overwritten (ADR-004).
+     * AES-256-GCM ciphertext of the JSON payload, encoded as "base64(iv):base64(ciphertext)". Null
+     * when the original payload was null. After LGPD erasure the decryption key is gone — this
+     * column retains the ciphertext (harmless without key) and {@code updatable = false} ensures it
+     * is never overwritten (ADR-004).
      */
     @Column(name = "payload", columnDefinition = "text", updatable = false)
     private String payload;
@@ -80,4 +80,8 @@ public class AuditRecordJpaEntity {
 
     @Column(name = "corrects_record_id", updatable = false)
     private UUID correctsRecordId;
+
+    /** Patient scope for caregiver reads (C-16). See {@code AuditRecord#scopePacienteId}. */
+    @Column(name = "scope_paciente_id", updatable = false)
+    private UUID scopePacienteId;
 }

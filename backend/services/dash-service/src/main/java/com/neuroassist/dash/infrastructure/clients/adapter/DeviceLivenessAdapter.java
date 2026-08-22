@@ -27,7 +27,9 @@ public class DeviceLivenessAdapter implements DeviceLivenessPort {
         log.debug("Consultando EDGE: liveness do dispositivo do paciente [{}]", patientId);
         try {
             DeviceStatusResponse response = edgeClient.getDeviceLiveness(patientId);
-            return new DeviceStatus(response.deviceId(), response.status(), response.degraded());
+            // `degraded` é um conceito DESTE serviço — significa "não consegui falar com o EDGE",
+            // e não algo que o EDGE reporte. O status vem íntegro do produtor (C-34).
+            return new DeviceStatus(response.deviceId(), response.status(), false);
         } catch (Exception ex) {
             log.warn(
                     "EDGE indisponivel para paciente [{}] — retornando status degradado: {}",

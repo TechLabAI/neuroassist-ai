@@ -40,7 +40,20 @@ public interface AuditRecordRepositoryPort {
             String subjectType,
             UUID subjectId,
             String factType,
-            UUID actorCaregiverId,
+
+            /**
+             * Patients the caller may see, or {@code null} for an unrestricted read ({@code
+             * hist:read:all}).
+             *
+             * <p>This replaced {@code actorCaregiverId}, which was applied as {@code caregiver_id =
+             * caller} — a predicate on <i>authorship</i>, not on scope. A caregiver could therefore
+             * never see a fact produced by a device or by another service about her own patient,
+             * which is precisely what the timeline is for (C-16).
+             *
+             * <p>An <b>empty</b> list is not the same as {@code null}: it means the caller is
+             * responsible for no patient and must see nothing.
+             */
+            List<UUID> allowedPacientes,
             Instant from,
             Instant to,
             String order,

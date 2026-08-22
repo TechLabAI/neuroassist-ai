@@ -121,7 +121,8 @@ class ProducerContractTest {
                                             "0000000000000000000000000000000000000000000000000000000000000000",
                                             "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222",
                                             null,
-                                            false);
+                                            false,
+                                            null);
                             return new RecordAuditFactUseCase.AppendResult(echoed, true);
                         });
     }

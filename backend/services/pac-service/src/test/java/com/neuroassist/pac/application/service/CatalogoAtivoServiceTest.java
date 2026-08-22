@@ -77,7 +77,8 @@ class CatalogoAtivoServiceTest {
                 1,
                 catalogoVersao,
                 Instant.now(),
-                Instant.now());
+                Instant.now(),
+                null);
     }
 
     private Comando makePublishedComando() {

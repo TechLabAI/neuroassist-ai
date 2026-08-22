@@ -70,8 +70,25 @@ public record AuditRecord(
         UUID correctsRecordId,
 
         /**
-         * Derived read-time flag — always {@code false} at write time. Set to {@code true} when
-         * the per-patient encryption key has been erased (LGPD crypto-shredding, P10 / HIST-024),
+         * Derived read-time flag — always {@code false} at write time. Set to {@code true} when the
+         * per-patient encryption key has been erased (LGPD crypto-shredding, P10 / HIST-024),
          * making the {@code payload} unreadable. The hash chain structure remains intact.
          */
-        boolean erased) {}
+        boolean erased,
+
+        /**
+         * The patient this fact concerns, used to scope caregiver reads (C-16).
+         *
+         * <p>Denormalized on purpose. The scope cannot be derived at query time: for a command fact
+         * the {@link #subject()} is the command, and the patient id lives inside the {@code
+         * payload}, which is encrypted at rest. Producers supply it; hist-service falls back to the
+         * subject id when the subject already <i>is</i> a patient.
+         *
+         * <p>{@code null} means the fact has no patient scope and is visible only with {@code
+         * hist:read:all}.
+         *
+         * <p><b>Not part of the hash pre-image.</b> {@code Sha256HashChainAdapter#canonicalize}
+         * builds an explicit named map; adding this field there would invalidate every record
+         * already written. It is routing metadata, not attested content.
+         */
+        UUID scopePacienteId) {}

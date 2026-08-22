@@ -81,7 +81,8 @@ public class RecordAuditFactController {
                         request.payload(),
                         request.occurredAt(),
                         request.correctsFactId(),
-                        tenantId);
+                        tenantId,
+                        request.scopePacienteId());
 
         RecordAuditFactUseCase.AppendResult result = recordAuditFactUseCase.append(command);
         RecordAuditFactResponse body = toResponse(result.record());

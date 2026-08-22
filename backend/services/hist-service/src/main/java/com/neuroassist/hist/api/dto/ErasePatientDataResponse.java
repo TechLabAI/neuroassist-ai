@@ -4,7 +4,4 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record ErasePatientDataResponse(
-        UUID subjectId,
-        String tenantId,
-        Instant erasedAt,
-        String message) {}
+        UUID subjectId, String tenantId, Instant erasedAt, String message) {}

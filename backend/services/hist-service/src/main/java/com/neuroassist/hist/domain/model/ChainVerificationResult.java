@@ -11,10 +11,15 @@ public record ChainVerificationResult(
         /** Canonical stream key: {@code "<subjectType>:<subjectId>"}. */
         String streamKey,
 
-        /** Verification outcome: {@code intact}, {@code broken}, {@code empty}, or {@code partially_erased}. */
+        /**
+         * Verification outcome: {@code intact}, {@code broken}, {@code empty}, or {@code
+         * partially_erased}.
+         */
         ChainStatus status,
 
-        /** Number of records whose hash was successfully verified. 0 when status is {@code empty}. */
+        /**
+         * Number of records whose hash was successfully verified. 0 when status is {@code empty}.
+         */
         int recordsVerified,
 
         /**

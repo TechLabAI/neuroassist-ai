@@ -30,6 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
  *
  * <ul>
  *   <li>POST /api/v1/hist/audit-facts → SCOPE_hist:write
+ *   <li>DELETE /api/v1/hist/patients/{id}/personal-data → SCOPE_hist:erase
  *   <li>GET /api/v1/hist/history/verify → SCOPE_hist:read:all
  *   <li>GET /api/v1/hist/history/** → SCOPE_hist:read OR SCOPE_hist:read:all
  *   <li>GET /api/v1/hist/audit-records/** → SCOPE_hist:read OR SCOPE_hist:read:all
@@ -128,6 +129,16 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.POST, "/api/v1/hist/audit-facts")
                                         .hasAuthority("SCOPE_hist:write")
+
+                                        // LGPD erasure — requires hist:erase, an authority
+                                        // distinct from hist:write on purpose: appending a fact
+                                        // and destroying a patient's key are different powers.
+                                        // Declared here rather than relying on @PreAuthorize
+                                        // alone, which was the only guard on this path.
+                                        .requestMatchers(
+                                                HttpMethod.DELETE,
+                                                "/api/v1/hist/patients/*/personal-data")
+                                        .hasAuthority("SCOPE_hist:erase")
 
                                         // Chain verify — requires hist:read:all (more restrictive;
                                         // must be declared before the generic history/** rule)

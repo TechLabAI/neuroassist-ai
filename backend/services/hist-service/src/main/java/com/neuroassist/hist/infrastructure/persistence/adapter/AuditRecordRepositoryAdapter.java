@@ -97,8 +97,17 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
             if (filter.factType() != null) {
                 predicates.add(cb.equal(root.get("factType"), filter.factType()));
             }
-            if (filter.actorCaregiverId() != null) {
-                predicates.add(cb.equal(root.get("caregiverId"), filter.actorCaregiverId()));
+            if (filter.allowedPacientes() != null) {
+                // Scope in SQL, so that LIMIT/OFFSET and the total count both see it. Previously
+                // this was an in-memory filter applied *after* pagination, which leaked the
+                // unscoped total and could return an empty page 0 to a caregiver who had facts on
+                // page 3 (C-16).
+                if (filter.allowedPacientes().isEmpty()) {
+                    // Responsible for no patient — the visible set is empty, not unrestricted.
+                    predicates.add(cb.disjunction());
+                } else {
+                    predicates.add(root.get("scopePacienteId").in(filter.allowedPacientes()));
+                }
             }
             if (filter.from() != null) {
                 predicates.add(cb.greaterThanOrEqualTo(root.get("recordedAt"), filter.from()));

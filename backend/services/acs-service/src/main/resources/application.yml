@@ -127,6 +127,10 @@ acs:
       authorities:
         # PAC→HIST: audit facts for comando lifecycle. hist-service applies the SCOPE_ prefix.
         - hist:write
+        # PAC→HIST: crypto-shredding da chave do paciente no erasure LGPD (Flow-04).
+        # Separada de hist:write de propósito — escrever fato e destruir dado pessoal
+        # são poderes diferentes.
+        - hist:erase
     acs-service:
       secret-hash: ${ACS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
       authorities:

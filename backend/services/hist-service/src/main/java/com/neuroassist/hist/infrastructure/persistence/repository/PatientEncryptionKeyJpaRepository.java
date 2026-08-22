@@ -13,7 +13,8 @@ public interface PatientEncryptionKeyJpaRepository
 
     /** Erases key material: nulls ciphertext + iv, stamps erased_at. */
     @Modifying
-    @Query("""
+    @Query(
+            """
             UPDATE PatientEncryptionKeyJpaEntity k
                SET k.keyCiphertext = NULL,
                    k.keyIv = NULL,

@@ -30,6 +30,20 @@ public interface PacienteUseCase {
      */
     Paciente findById(UUID id);
 
+    /**
+     * Erases the patient's personal data on request (LGPD / Flow-04).
+     *
+     * <p>Two halves, and both must happen: pac-service anonymises its own row, and hist-service
+     * destroys the per-patient encryption key so every audit payload about that patient becomes
+     * unreadable. The audit records themselves, and the hash chain over them, are preserved — the
+     * obligation is to remove the personal data, not to erase the fact that something happened.
+     *
+     * <p>Idempotent: erasing an already-erased patient is a no-op, not an error.
+     *
+     * @return the anonymised Paciente
+     */
+    Paciente erasePersonalData(UUID id);
+
     /** Returns all Pacientes for the current tenant. */
     List<Paciente> listAll();
 

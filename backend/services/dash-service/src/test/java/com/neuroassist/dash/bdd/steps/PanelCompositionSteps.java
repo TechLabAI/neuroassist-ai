@@ -195,14 +195,15 @@ public class PanelCompositionSteps {
         // Verifica que HIST recebeu requisicao para o historico de Marcio
         // (from nao e um param da API atual; verificamos o path correto)
         BaseIntegrationTest.histWireMock.verify(
-                getRequestedFor(urlPathEqualTo("/api/v1/patients/Marcio/history")));
+                getRequestedFor(urlPathEqualTo("/api/v1/hist/history"))
+                        .withQueryParam("subjectId", equalTo("Marcio")));
     }
 
     @And("HIST received size \"100\"")
     public void andHistReceivedSize100() {
         // size=200 enviado pelo browser; o servico capa a 100 antes de chamar HIST
         BaseIntegrationTest.histWireMock.verify(
-                getRequestedFor(urlPathEqualTo("/api/v1/patients/Marcio/history"))
+                getRequestedFor(urlPathEqualTo("/api/v1/hist/history"))
                         .withQueryParam("size", equalTo("100")));
     }
 
@@ -243,25 +244,45 @@ public class PanelCompositionSteps {
                                         .withBody("{\"state\":\"calibrated\"}")));
     }
 
+    /**
+     * Stub do edge-service. O path e o corpo espelham {@code LivenessController} / {@code
+     * LivenessResponse} — antes era {@code /api/v1/devices/patient/.../liveness} com um campo
+     * {@code degraded} que o EDGE nunca devolveu (C-34). O {@code degraded} é conceito do DASH
+     * ("não consegui falar com o EDGE"), por isso o parâmetro continua aqui mas não vai para o
+     * corpo: os cenários que testam degradação stubam falha, não um campo.
+     */
     private void stubEdgeLiveness(String patientId, String status, boolean degraded) {
         BaseIntegrationTest.edgeWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/devices/patient/" + patientId + "/liveness"))
+                get(urlPathEqualTo("/api/v1/edge/patients/" + patientId + "/liveness"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
                                         .withBody(
-                                                "{\"deviceId\":\"dev-1\",\"status\":\"%s\",\"degraded\":%s}"
-                                                        .formatted(status, degraded))));
+                                                ("{\"deviceId\":\"dev-1\",\"pacienteId\":\"%s\","
+                                                                + "\"status\":\"%s\","
+                                                                + "\"stalenessThresholdSeconds\":90}")
+                                                        .formatted(patientId, status))));
     }
 
+    /**
+     * Stub do hist-service. Path e corpo espelham {@code HistoryQueryController} / {@code
+     * HistoryQueryResponse}: {@code GET /api/v1/hist/history?subjectType=paciente&subjectId=…}
+     * devolvendo {@code {items, page, size, total}}. O stub anterior inventava {@code
+     * /api/v1/patients/{id}/history} com {@code {entries, page, totalPages}} — e por isso o gate
+     * ficava verde enquanto o endpoint respondia 404 em runtime (C-33).
+     */
     private void stubHistHistory(String patientId) {
         BaseIntegrationTest.histWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/history"))
+                get(urlPathEqualTo("/api/v1/hist/history"))
+                        .withQueryParam("subjectType", equalTo("paciente"))
+                        .withQueryParam("subjectId", equalTo(patientId))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"entries\":[],\"page\":0,\"totalPages\":0}")));
+                                        .withBody(
+                                                "{\"items\":[],\"page\":0,\"size\":20,"
+                                                        + "\"total\":0}")));
     }
 }

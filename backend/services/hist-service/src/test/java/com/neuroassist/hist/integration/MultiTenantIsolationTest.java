@@ -57,7 +57,8 @@ class MultiTenantIsolationTest extends BaseIntegrationTest {
                         Map.of("action", "button_press"),
                         Instant.now(),
                         null,
-                        TENANT_A);
+                        TENANT_A,
+                        null);
 
         // Set TenantContextHolder for the write operation (adapters require it)
         TenantContextHolder.set(TENANT_A);

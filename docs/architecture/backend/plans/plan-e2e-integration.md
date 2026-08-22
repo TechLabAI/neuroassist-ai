@@ -370,16 +370,16 @@ O módulo de integração E2E está DONE quando:
 | E2E-001 | ✅ DONE | 2026-08-20 |
 | E2E-002 | ✅ DONE (parcial — EVNT stub security; GEST corrigido) | 2026-08-21 |
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
-| E2E-003 | 🟡 PARCIAL — DIR-01/DIR-02/DIR-04 DONE; DIR-03/DIR-05 na Sessão 5 | 2026-08-22 |
-| E2E-004 | 🟡 PARCIAL — AUD-03..09 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-10 na Sessão 5 | 2026-08-22 |
+| E2E-003 | ✅ DONE — DIR-01..05 | 2026-08-22 |
+| E2E-004 | 🟡 PARCIAL — AUD-03..10 DONE; AUD-01/02 feature ausente (ACS não produz facts) | 2026-08-22 |
 | E2E-005 | 🟡 PARCIAL — HB-01 DONE; HB-02..05 bloqueados pelo ProfilePointerController (501) | 2026-08-22 |
 | E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
-| E2E-007 | ✅ DONE — NTF-01..03 e NTF-05 dentro do Flow-03; NTF-04 na Sessão 5 | 2026-08-22 |
-| E2E-008 | OPEN | — |
+| E2E-007 | ✅ DONE — NTF-01..05 | 2026-08-22 |
+| E2E-008 | ✅ DONE — DSH-01..05 | 2026-08-22 |
 | E2E-009 | ✅ DONE (17/17 checks) | 2026-08-21 |
 | E2E-010 | ✅ DONE — Flow-02 11/11 | 2026-08-22 |
 | E2E-011 | ✅ DONE — Flow-03 25/25 | 2026-08-22 |
-| E2E-012 | OPEN | — |
+| E2E-012 | ✅ DONE — Flow-04, erasure ponta a ponta | 2026-08-22 |
 | E2E-013 | OPEN | — |
 
 ---
@@ -715,9 +715,103 @@ O cenário `Directory endpoint responds within 100ms p99` do ACS falhou durante 
 rerun — exatamente a fragilidade já registrada em §11.1d: mede wall-clock de **uma** chamada e a
 chama de p99, e correlaciona com carga, não com código.
 
+### 11.6 Sessão 5 — Dashboard + Circuit Breakers + LGPD (2026-08-22)
+
+**32/32.** Fecha E2E-008, E2E-012, E2E-003 e E2E-007; do E2E-004 restam apenas AUD-01/02, que
+são feature ausente no ACS, não falha de integração.
+
+| Issue | Estado |
+|---|---|
+| E2E-008 (DSH-01..05) | ✅ completo |
+| E2E-003 (DIR-03/05) | ✅ completo |
+| E2E-007 (NTF-04) | ✅ completo |
+| E2E-004 (AUD-10) | ✅ completo |
+| E2E-012 (Flow-04) | ✅ erasure ponta a ponta, com cadeia verificável |
+
+Como nas duas sessões anteriores, a maior parte do trabalho foi implementação: **mais duas
+ocorrências** do padrão consumidor-testado-contra-o-próprio-mock (agora 9 no total), e o C-16 —
+que o plano registrava como dívida conhecida — revelou-se pior do que descrito.
+
+#### O que o C-16 realmente era
+
+O plano dizia "escopo filtrado em memória depois da paginação". A consulta efetiva para uma
+cuidadora era:
+
+```
+SQL:      facts WHERE caregiver_id = <ela>            ← AUTORIA, não escopo
+memória:  ... AND subject.id IN <pacientes dela>      ← depois do LIMIT/OFFSET
+```
+
+Três consequências, e a terceira não estava registrada:
+
+1. `total` não respeitava o escopo de paciente — vazamento de contagem.
+2. A cuidadora podia receber página 0 vazia tendo fatos na página 3.
+3. **Ela nunca via um fato produzido por outra pessoa ou por um dispositivo.** O `evento.criado`
+   do seu próprio paciente tem o dispositivo como ator, então o predicado por autoria o excluía.
+   O timeline dela mostrava apenas o que ela mesma havia feito — que é o oposto do que um
+   timeline de paciente serve para mostrar.
+
+**Correção.** Coluna `audit_record.scope_paciente_id` (V0008), preenchida pelos produtores; o
+escopo virou `scope_paciente_id IN (:escopo)` **em SQL**, e o predicado por autoria saiu. A coluna
+é denormalizada porque não há alternativa: o `subject` de um fato de comando é o comando, e o
+`pacienteId` que está no payload é ilegível para um WHERE — o payload é cifrado em repouso.
+Deliberadamente **fora** da canonicalização do hash, senão todo registro já gravado deixaria de
+verificar.
+
+#### Defeitos corrigidos
+
+| # | Par | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-16** | HIST | cuidadora via `items: []` com `total: 6`, e nunca via fato de dispositivo | escopo em memória pós-paginação + predicado por autoria confundido com escopo | os testes do HIST montam o filtro na mão; nenhum exercita "fato sobre meu paciente produzido por outro" |
+| **C-33** | DASH→HIST | `GET /panel/patients/{id}/history` → 404 em runtime | path `/api/v1/patients/{id}/history` inexistente (real `/api/v1/hist/history?subjectType=&subjectId=`) e DTO totalmente diverso | **8ª** ocorrência do padrão; o WireMock do DASH stubava o path imaginado |
+| **C-34** | DASH→EDGE | liveness inalcançável pelo painel | path `/api/v1/devices/patient/{id}/liveness` inexistente; DTO com campo `degraded` que o EDGE nunca devolveu | **9ª** ocorrência |
+| **C-35** | HIST | consulta roteada para um tenant inexistente | fallback literal `"stub-tenant"` quando o claim falta — resultado vazio indistinguível de "tenant sem fatos" | nenhum teste chama sem o claim |
+| **C-36** | HIST | escalação silenciosa de privilégio | se o `sub` do JWT não fosse UUID, `caregiverId` virava `null`, e `null` downstream significa **sem restrição** — o único caminho que restringe era o mesmo que abria tudo | idem |
+| **C-37** | HIST/DASH | breaker nunca abre | `minimumNumberOfCalls` ausente: default 100 > `slidingWindowSize` 10, condição jamais satisfeita. No DASH é pior — não existe um único `@CircuitBreaker` no código, a config inteira é decorativa | DIR-05 nunca havia sido executado |
+| **C-38** | PAC | erasure LGPD inexistente | zero `@DeleteMapping` no serviço; o erasure do HIST existia, funcionava e não era chamado por ninguém | E2E-012 nunca havia sido executado |
+| **C-39** | HIST | erasure não alcançava os fatos de comando | a chave de cifra era escolhida por `subject_id`: um fato de comando era cifrado sob a chave do **comando**, e apagar o paciente não o tocava — enquanto o payload dele carrega `pacienteId` | o teste de erasure do HIST usa fatos com subject de paciente |
+| **C-41** | HIST | estado do breaker inobservável | `registerHealthIndicator` apenas registra o indicador; sem `management.health.circuitbreakers.enabled` o actuator não o expõe | — |
+
+#### Soluções estruturais introduzidas
+
+- **Escopo no SQL, autoria fora dele.** Ator e escopo eram a mesma coisa no código e são coisas
+  diferentes no domínio: quem produziu o fato não determina quem pode lê-lo.
+- **Erasure em duas metades, com ordem.** O HIST é chamado primeiro; só se ele confirmar é que o
+  PAC anonimiza a própria linha. A ordem inversa deixaria a linha local anonimizada com os
+  payloads ainda legíveis — e sem o nome local, que é o que uma retentativa precisaria. Sem
+  outbox aqui de propósito: um fato de auditoria atrasado ainda é correto, um erasure atrasado é
+  uma cópia viva de dado pessoal que o titular foi informado que sumiu.
+- **A chave de cifra segue o paciente, não o subject.** Na leitura tenta a chave de escopo e cai
+  para a do subject — sem esse fallback, todo fato antigo passaria a ler como *erased*, que é
+  perda de dado disfarçada de conformidade.
+- **`erased_at` no PAC.** Distingue "paciente sem nome cadastrado" de "nome apagado a pedido";
+  sem a coluna as duas situações são indistinguíveis, e a segunda precisa ser auditável.
+
+#### Como testar DIR-03/DIR-05 — o roteiro do plano não funciona
+
+"Desligar o ACS → 503" é inalcançável: **o ACS também hospeda o JWKS**, então derrubá-lo faz o
+hist-service responder 401 a tudo, e a resolução de escopo nunca é atingida. O sintoma não tem
+relação com o cenário.
+
+O que funciona é isolar só a dependência sob teste — sobrescrever `ACS_SERVICE_URL` para uma
+porta morta mantendo `ACS_JWK_URI` válido. Aí sim: DIR-03 responde `503 scope-unavailable`,
+DIR-04 responde 200 (o coordenador não toca no ACS), e o breaker vai a `OPEN` depois de 5
+falhas.
+
+#### Três "falhas" que eram do roteiro, não do sistema
+
+1. **`caregiver_patient_link` existe em dois schemas.** A cópia em `t_emp_dev` está vazia e morta;
+   o ACS grava e lê a de `neuroassist_global`. Conferir a do tenant devolve zero e faz parecer que
+   nada está no escopo.
+2. **Comparar `subject.id` com id de paciente** — a asserção do teste repetia exatamente o erro que
+   o teste deveria pegar. O escopo é `scope_paciente_id`.
+3. **Ler o painel logo após recriar o container** — leituras vazias porque o serviço ainda subia.
+
 ### 11.2 Dívidas conhecidas (não corrigidas nesta sessão)
 
-- **C-16 — escopo de cuidadora no HIST é filtrado em memória, depois da paginação.**
+- ~~**C-16 — escopo de cuidadora filtrado em memória**~~ — resolvido na Sessão 5 (§11.6), e era pior
+  do que aqui descrito. Texto original:
+  **C-16 — escopo de cuidadora no HIST é filtrado em memória, depois da paginação.**
   `HistoryQueryService` pagina primeiro no banco e só então aplica
   `items.filter(allowedPatients.contains(...))`. Três consequências, observadas no Flow-01
   (a cuidadora recebeu `items: []` com `total: 6`):
@@ -829,6 +923,25 @@ chama de p99, e correlaciona com carga, não com código.
 - **`NotificationOrchestrationController` (501) é scaffolding morto, não bloqueio de NTF.** O
   inventário em §11.3 o listava como bloqueio de NTF-01..05; o dispatch real acontece no
   `ReportIngressService`. Correção de registro.
+
+- **`caregiver_patient_link` duplicada em dois schemas (C-42).** A migration cria a tabela no
+  schema do tenant, mas o ACS grava e lê a cópia em `neuroassist_global`. A do tenant fica vazia
+  e morta. Consequência real: os vínculos de todos os tenants convivem numa tabela global, e o
+  isolamento passa a depender do filtro por `tenant_id` em vez do `search_path`.
+- **Os dois endpoints do directory leem fontes diferentes das que o PAC escreve (C-43).** Ver
+  também C-30: criar um paciente pelo PAC não popula o directory do ACS, e o vínculo precisa ser
+  criado por uma chamada explícita.
+- **O DASH não tem circuit breaker nenhum (C-37).** A configuração `resilience4j` do serviço —
+  breakers e time limiters — é inteiramente decorativa: `grep @CircuitBreaker` no `src/main` do
+  dash-service não retorna nada. As chamadas a ACS/PAC/EVNT/HIST/EDGE não têm proteção alguma.
+- **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
+  `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho
+  (ADR-004). O ganho pertence a quem tem onde cachear — o navegador ou um proxy à frente do EDGE.
+- **`neuroassist-ai-migrations` não aplica migrations via `bootRun`.** O Flyway não roda quando o
+  módulo é executado pelo Gradle, mesmo com `spring.flyway.enabled: true` e as propriedades
+  passadas por `--args`. O caminho que funciona é o container (`docker compose up
+  migrations-empresa`), que monta o jar — e portanto exige `bootJar` antes. O comando em
+  CLAUDE.md ("rodar `:neuroassist-ai-migrations:bootRun` primeiro") não funciona como está.
 
 ### 11.3 Inventário de TODO / stub / fake (auditoria pós-Sessão 2)
 

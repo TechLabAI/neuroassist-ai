@@ -60,7 +60,15 @@ public interface AuditTrailClient {
             SubjectRefDto subject,
             ActorRefDto actor,
             Map<String, Object> payload,
-            Instant occurredAt) {}
+            Instant occurredAt,
+
+            /**
+             * Patient this fact concerns, for caregiver scoping in hist-service (C-16). Sent
+             * explicitly even though evnt-service's facts already have a patient subject — relying
+             * on hist-service's fallback would make this consumer depend on a derivation it does
+             * not own.
+             */
+            UUID scopePacienteId) {}
 
     /** Subset of {@code RecordAuditFactResponse} — the hash-chain position of the stored fact. */
     @JsonIgnoreProperties(ignoreUnknown = true)

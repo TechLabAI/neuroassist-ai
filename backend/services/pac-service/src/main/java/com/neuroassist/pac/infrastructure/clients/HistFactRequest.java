@@ -23,7 +23,18 @@ public record HistFactRequest(
         Map<String, Object> payload,
         Instant occurredAt,
         UUID correctsFactId,
-        String empresaId) {
+        String empresaId,
+
+        /**
+         * Patient this fact concerns, for caregiver scoping in hist-service (C-16).
+         *
+         * <p>Required here, unlike for producers whose subject already is a patient: a command
+         * fact's subject is the <i>command</i>, so hist-service cannot derive the patient — and the
+         * {@code pacienteId} carried in the payload is encrypted at rest, hence unreadable to a
+         * WHERE clause. Omitting it makes the fact visible only with {@code hist:read:all}, which
+         * is exactly the hole the caregiver timeline had (defect C-16).
+         */
+        UUID scopePacienteId) {
 
     /** The entity the fact is about — {@code paciente | comando | cuidador | dispositivo}. */
     public record SubjectRef(String type, UUID id) {}

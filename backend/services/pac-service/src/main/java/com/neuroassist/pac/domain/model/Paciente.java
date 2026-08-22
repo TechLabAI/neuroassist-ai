@@ -24,4 +24,23 @@ public record Paciente(
         int rowVersion,
         int catalogoVersao,
         Instant createdAt,
-        Instant updatedAt) {}
+        Instant updatedAt,
+
+        /**
+         * When the personal data was erased on request (LGPD), or {@code null} while the patient is
+         * active.
+         *
+         * <p>The row and its id survive erasure on purpose: {@code comando} and {@code
+         * paciente_cuidador} reference the id, and the point of the exercise is to remove the
+         * personal data while keeping the record of what happened — the same tension hist-service
+         * resolves with crypto-shredding (ADR-006).
+         */
+        Instant erasedAt) {
+
+    /** Marker written over {@code nome} once the personal data is erased. */
+    public static final String ERASED_NOME = "[dados apagados]";
+
+    public boolean isErased() {
+        return erasedAt != null;
+    }
+}

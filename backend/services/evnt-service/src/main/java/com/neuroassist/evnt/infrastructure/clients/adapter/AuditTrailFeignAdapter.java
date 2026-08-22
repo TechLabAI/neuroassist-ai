@@ -40,7 +40,9 @@ public class AuditTrailFeignAdapter implements AuditTrailPort {
                         new AuditTrailClient.ActorRefDto(
                                 fact.actorCaregiverId(), fact.actorDisplayName()),
                         fact.payload(),
-                        fact.occurredAt());
+                        fact.occurredAt(),
+                        // evnt-service facts are about a patient, so the subject IS the scope.
+                        "paciente".equals(fact.subjectType()) ? fact.subjectId() : null);
         try {
             var response = client.recordFact(request);
             log.info(

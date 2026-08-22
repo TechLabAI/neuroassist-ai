@@ -67,4 +67,8 @@ public class PacienteJpaEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** LGPD erasure timestamp — see {@code Paciente#erasedAt}. */
+    @Column(name = "erased_at")
+    private Instant erasedAt;
 }

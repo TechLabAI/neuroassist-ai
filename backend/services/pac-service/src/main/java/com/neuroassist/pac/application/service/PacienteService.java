@@ -3,6 +3,7 @@ package com.neuroassist.pac.application.service;
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
 import com.neuroassist.pac.application.port.out.AcsDirectoryPort;
 import com.neuroassist.pac.application.port.out.EdgeDevicePort;
+import com.neuroassist.pac.application.port.out.HistErasurePort;
 import com.neuroassist.pac.application.port.out.PacienteCuidadorRepositoryPort;
 import com.neuroassist.pac.application.port.out.PacienteRepositoryPort;
 import com.neuroassist.pac.domain.model.Paciente;
@@ -37,6 +38,7 @@ public class PacienteService implements PacienteUseCase {
     private final PacienteDomainService pacienteDomainService;
     private final EdgeDevicePort edgeDevicePort;
     private final AcsDirectoryPort acsDirectoryPort;
+    private final HistErasurePort histErasurePort;
 
     /**
      * Creates a new Paciente scoped to the current tenant.
@@ -66,7 +68,8 @@ public class PacienteService implements PacienteUseCase {
                         0, // initial rowVersion
                         0, // initial catalogoVersao
                         now,
-                        now);
+                        now,
+                        null); // erasedAt — active patient
 
         Paciente saved = pacienteRepository.save(paciente);
         log.info("Paciente created id={} tenant={}", saved.id(), tenantId);
@@ -131,6 +134,60 @@ public class PacienteService implements PacienteUseCase {
      * trigger {@code tg_paciente_touch} also increments it. The trigger is not present in test
      * (ddl-auto=create-drop) — the Java increment is the canonical path for P2.
      */
+    /**
+     * Erases the patient's personal data (LGPD / Flow-04).
+     *
+     * <p><b>Order matters.</b> hist-service is asked first, and only if it confirms does
+     * pac-service anonymise its own row. The reverse order would let the local row be anonymised
+     * while the audit payloads stayed readable, and — because the local name is what a retry would
+     * need — leave no obvious way to notice. Failing before touching anything keeps the request
+     * retryable as a whole.
+     *
+     * <p>The row is kept, with {@code nome} replaced by a marker: {@code comando} and {@code
+     * paciente_cuidador} reference the id, and the obligation is to remove the personal data, not
+     * the record that care happened.
+     *
+     * <p>Idempotent — erasing an already-erased patient returns it unchanged without calling
+     * hist-service again.
+     */
+    @Override
+    @Transactional
+    public Paciente erasePersonalData(UUID id) {
+        String tenantId = TenantContextHolder.require(); // RULE-07
+
+        Paciente existing =
+                pacienteRepository
+                        .findByIdAndTenantId(id, tenantId)
+                        .orElseThrow(
+                                () ->
+                                        new CodedException(
+                                                "not_found.paciente", "Paciente not found: " + id));
+
+        if (existing.isErased()) {
+            log.info("Paciente {} already erased at {} — no-op", id, existing.erasedAt());
+            return existing;
+        }
+
+        histErasurePort.erasePatientData(id, tenantId);
+
+        Instant now = Instant.now();
+        Paciente erased =
+                new Paciente(
+                        existing.id(),
+                        existing.tenantId(),
+                        Paciente.ERASED_NOME,
+                        existing.dispositivoEdgeId(),
+                        existing.cuidadorResponsavelIds(),
+                        existing.rowVersion() + 1,
+                        existing.catalogoVersao(),
+                        existing.createdAt(),
+                        now,
+                        now);
+        Paciente saved = pacienteRepository.save(erased);
+        log.info("Paciente {} personal data erased (tenant={})", id, tenantId);
+        return saved;
+    }
+
     @Override
     @Transactional
     public Paciente update(
@@ -182,7 +239,8 @@ public class PacienteService implements PacienteUseCase {
                         existing.catalogoVersao(), // preserve — bumped separately by
                         // PacienteVersionBumper
                         existing.createdAt(),
-                        now);
+                        now,
+                        existing.erasedAt());
 
         Paciente saved = pacienteRepository.save(updated);
         log.info(
@@ -234,6 +292,7 @@ public class PacienteService implements PacienteUseCase {
                 p.rowVersion(),
                 p.catalogoVersao(),
                 p.createdAt(),
-                p.updatedAt());
+                p.updatedAt(),
+                p.erasedAt());
     }
 }

@@ -96,12 +96,22 @@ class AcsIntegrationTest {
         UUID patientB = UUID.randomUUID();
 
         wireMock.stubFor(
-                get(urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope"))
+                get(urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"cuidadorId\":\"" + caregiverId + "\",\"pacienteIds\":[\"" + patientA + "\",\"" + patientB + "\"]}")));
+                                        .withBody(
+                                                "{\"cuidadorId\":\""
+                                                        + caregiverId
+                                                        + "\",\"pacienteIds\":[\""
+                                                        + patientA
+                                                        + "\",\""
+                                                        + patientB
+                                                        + "\"]}")));
 
         List<UUID> result = actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId);
 
@@ -109,7 +119,10 @@ class AcsIntegrationTest {
         wireMock.verify(
                 1,
                 getRequestedFor(
-                        urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope")));
+                        urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope")));
     }
 
     @Test
@@ -117,7 +130,10 @@ class AcsIntegrationTest {
         UUID caregiverId = UUID.randomUUID();
 
         wireMock.stubFor(
-                get(urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope"))
+                get(urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(aResponse().withStatus(503)));
 
         assertThatThrownBy(() -> actorDirectoryPort.resolvePatientScope("t_empresa_a", caregiverId))
@@ -131,7 +147,10 @@ class AcsIntegrationTest {
 
         // Delay beyond the 2s read timeout configured in application.yml
         wireMock.stubFor(
-                get(urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope"))
+                get(urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)

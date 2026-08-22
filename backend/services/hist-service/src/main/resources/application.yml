@@ -46,10 +46,14 @@ management:
       enabled: true
     readinessState:
       enabled: true
+    # `registerHealthIndicator: true` no resilience4j apenas REGISTRA o indicador; sem esta
+    # chave o actuator não o expõe, e o estado do breaker fica inobservável — o que torna
+    # DIR-05 impossível de verificar por qualquer meio que não seja ler o log (C-37).
+    circuitbreakers:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
-
 feign:
   client:
     config:
@@ -64,6 +68,11 @@ resilience4j:
       acs-directory:
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 10
+        # Sem isto o breaker NUNCA abre: o default do Resilience4j e 100, e a janela
+        # COUNT_BASED so registra 10 chamadas — a condicao 100 <= 10 jamais e satisfeita,
+        # entao o estado permanece CLOSED por mais que o ACS falhe (C-37). O valor tem
+        # de ser <= slidingWindowSize para a janela conseguir alimenta-lo.
+        minimumNumberOfCalls: 5
         failureRateThreshold: 50
         waitDurationInOpenState: 30s
         permittedNumberOfCallsInHalfOpenState: 3

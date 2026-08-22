@@ -39,6 +39,9 @@ public class RoleAuthorityPolicy {
                             "pac.paciente.criar",
                             "pac.paciente.read",
                             "pac.paciente.editar",
+                            // Apagar dados pessoais (LGPD) é irreversível e só o coordenador
+                            // responde por ele — deliberadamente ausente do papel CUIDADORA.
+                            "pac.paciente.deletar",
                             "pac.catalogo-ativo.read",
                             "pac.comando-authoring.criar",
                             "pac.comando-authoring.editar",

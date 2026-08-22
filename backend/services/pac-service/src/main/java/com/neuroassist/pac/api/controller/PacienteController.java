@@ -23,6 +23,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -136,6 +137,32 @@ public class PacienteController {
         Paciente result = pacienteUseCase.findById(id);
         PacienteResponse response = PacienteResponse.from(result);
 
+        return ResponseEntity.ok().eTag(response.etag()).body(response);
+    }
+
+    // -------------------------------------------------------------------------
+    // DELETE /api/pac/v1/pacientes/{id} → 200  (LGPD erasure, Flow-04 / E2E-012)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Erases the patient's personal data on request (LGPD).
+     *
+     * <p><b>Not a delete, despite the verb.</b> The row and its id survive: {@code comando} and
+     * {@code paciente_cuidador} reference them, and hist-service keeps the audit records and the
+     * hash chain over them. What goes away is the personal data — {@code nome} here, and every
+     * encrypted audit payload about this patient in hist-service, whose key is destroyed in the
+     * same operation. DELETE is still the honest verb for "make this person's data go away"; the
+     * response body shows what remains.
+     *
+     * <p>Returns 200 with the anonymised resource rather than 204, so the caller can see the {@code
+     * erasedAt} timestamp it just caused.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('pac.paciente.deletar')")
+    @AuditAction("ERASE_PACIENTE")
+    public ResponseEntity<PacienteResponse> erasePersonalData(@PathVariable UUID id) {
+        Paciente result = pacienteUseCase.erasePersonalData(id);
+        PacienteResponse response = PacienteResponse.from(result);
         return ResponseEntity.ok().eTag(response.etag()).body(response);
     }
 

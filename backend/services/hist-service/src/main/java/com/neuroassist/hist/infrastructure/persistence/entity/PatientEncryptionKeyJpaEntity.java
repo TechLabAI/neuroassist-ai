@@ -8,8 +8,8 @@ import lombok.*;
 /**
  * JPA entity — per-patient AES-256 key for LGPD crypto-shredding (P10, HIST-024).
  *
- * <p>Erasure: {@code keyCiphertext} and {@code keyIv} are set to {@code null} and {@code
- * erasedAt} is stamped. The row is retained as an audit trail of LGPD compliance.
+ * <p>Erasure: {@code keyCiphertext} and {@code keyIv} are set to {@code null} and {@code erasedAt}
+ * is stamped. The row is retained as an audit trail of LGPD compliance.
  */
 @Entity
 @Table(name = "patient_encryption_key")
