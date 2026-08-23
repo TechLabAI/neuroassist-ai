@@ -27,9 +27,12 @@ public class RoleAuthorityPolicy {
                     CuidadorPapel.COORDENADOR_CLINICA,
                     List.of(
                             "ROLE_CAREGIVER",
-                            "acs.tenant.provisionar",
-                            "acs.tenant.read",
-                            "acs.tenant.reprocessar",
+                            // acs.tenant.provisionar / .read / .reprocessar saíram daqui
+                            // (E2E-029). Um coordenador de clínica podia criar e reprocessar
+                            // OUTRAS empresas — não porque o negócio quisesse, mas porque era o
+                            // único caminho existente. Onboarding é operação de plataforma:
+                            // as autoridades vivem agora no cliente de serviço `platform-ops`,
+                            // que obtém um token sem tenant (não há tenant antes de criá-lo).
                             "acs.cuidador.criar",
                             "acs.cuidador.read",
                             "acs.cuidador.desativar",

@@ -52,6 +52,23 @@ public class ServiceTokenService {
         ServiceClientProperties.ServiceClient client =
                 authenticateClient(request.clientId(), request.clientSecret());
 
+        // E2E-029 — the client that creates tenants has no tenant to scope to.
+        //
+        // Rejected through the same opaque 401 as every other failure: whether a client is allowed
+        // to go tenant-less is configuration, and the endpoint must not become a way to probe it.
+        if (request.tenantId() == null) {
+            if (!client.isTenantless()) {
+                throw reject("client is not allowed a tenant-less token: {}", request.clientId());
+            }
+            return issueTenantlessToken(request.clientId(), request.clientSecret());
+        }
+        if (client.isTenantless()) {
+            // A tenant-less client asking for a tenant-scoped token is a misconfiguration on the
+            // caller's side, not a privilege to grant quietly.
+            throw reject(
+                    "tenant-less client requested a tenant-scoped token: {}", request.clientId());
+        }
+
         boolean tenantActive =
                 tenantRepository
                         .findById(request.tenantId())

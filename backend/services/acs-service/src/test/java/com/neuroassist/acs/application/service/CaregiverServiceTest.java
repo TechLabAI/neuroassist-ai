@@ -3,6 +3,7 @@ package com.neuroassist.acs.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,12 +20,14 @@ import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
 import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
+import com.neuroassist.acs.shared.error.TenantAlreadySeededException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -306,5 +309,76 @@ class CaregiverServiceTest {
 
         assertThatThrownBy(() -> caregiverService.updateStatus(cuidadorId, CuidadorStatus.INACTIVE))
                 .isInstanceOf(CaregiverNotFoundException.class);
+    }
+
+    // ------------------------------------------------------------------------
+    // E2E-029 — bootstrap do primeiro coordenador
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("semeia o primeiro coordenador sem exigir tenant do JWT")
+    void seedFirstCoordinator_worksWithoutMatchingJwtTenant() {
+        UUID novoTenant = UUID.randomUUID();
+        when(tenantRepository.findById(novoTenant))
+                .thenReturn(
+                        Optional.of(
+                                new Tenant(
+                                        novoTenant,
+                                        "Clinica Nova",
+                                        TenantTipo.CLINICA,
+                                        TenantStatus.PROVISIONING,
+                                        null,
+                                        Instant.now())));
+        when(cuidadorRepository.findByTenantId(novoTenant)).thenReturn(List.of());
+        when(cuidadorRepository.findByLogin("coord@nova.dev")).thenReturn(Optional.empty());
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> ((Cuidador) inv.getArgument(0)));
+
+        // O TenantContextHolder aponta para OUTRO tenant — e é justamente isso que o
+        // `create` normal rejeitaria. Aqui não há de quem exigir contexto: a empresa
+        // acabou de nascer e ninguém está dentro dela.
+        CaregiverResponse response =
+                caregiverService.seedFirstCoordinator(
+                        novoTenant, "Coord Nova", "coord@nova.dev", "Test@1234!");
+
+        assertThat(response.papel()).isEqualTo(CuidadorPapel.COORDENADOR_CLINICA.name());
+    }
+
+    @Test
+    @DisplayName("recusa semear duas vezes — o bootstrap roda uma vez por empresa, e só")
+    void seedFirstCoordinator_refusesWhenTenantAlreadyHasCaregivers() {
+        UUID novoTenant = UUID.randomUUID();
+        when(tenantRepository.findById(novoTenant))
+                .thenReturn(
+                        Optional.of(
+                                new Tenant(
+                                        novoTenant,
+                                        "Clinica Nova",
+                                        TenantTipo.CLINICA,
+                                        TenantStatus.ACTIVE,
+                                        "t_abc",
+                                        Instant.now())));
+        when(cuidadorRepository.findByTenantId(novoTenant))
+                .thenReturn(
+                        List.of(
+                                new Cuidador(
+                                        UUID.randomUUID(),
+                                        novoTenant,
+                                        "Ja Existe",
+                                        "existente@nova.dev",
+                                        "hash",
+                                        CuidadorPapel.COORDENADOR_CLINICA,
+                                        CuidadorStatus.ACTIVE,
+                                        Instant.now(),
+                                        null)));
+
+        // Esta é a invariante que substitui a comparação de tenant do JWT. Sem ela, o caminho
+        // de bootstrap viraria uma porta permanente para criar gente dentro de outra empresa.
+        assertThatThrownBy(
+                        () ->
+                                caregiverService.seedFirstCoordinator(
+                                        novoTenant, "Outro", "outro@nova.dev", "Test@1234!"))
+                .isInstanceOf(TenantAlreadySeededException.class);
+
+        verify(cuidadorRepository, never()).save(any());
     }
 }

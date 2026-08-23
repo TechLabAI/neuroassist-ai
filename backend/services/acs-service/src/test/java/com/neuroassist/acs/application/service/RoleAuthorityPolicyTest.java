@@ -23,11 +23,16 @@ class RoleAuthorityPolicyTest {
     void coordenadorClinica_hasFullAcsAdminSurface() {
         List<String> authorities = policy.toAuthorities(CuidadorPapel.COORDENADOR_CLINICA);
 
+        // E2E-029 — nenhuma autoridade sobre TENANT aqui. Um coordenador administra a própria
+        // clínica; criar e reprocessar empresas é operação de plataforma, e vive no cliente de
+        // serviço `platform-ops`. Enquanto estas três estiveram neste papel, o coordenador da
+        // clínica A podia criar e reprocessar a clínica B.
+        assertThat(authorities)
+                .doesNotContain(
+                        "acs.tenant.provisionar", "acs.tenant.read", "acs.tenant.reprocessar");
+
         assertThat(authorities)
                 .contains(
-                        "acs.tenant.provisionar",
-                        "acs.tenant.read",
-                        "acs.tenant.reprocessar",
                         "acs.cuidador.criar",
                         "acs.cuidador.read",
                         "acs.cuidador.desativar",

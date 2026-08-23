@@ -2,12 +2,12 @@ package com.neuroassist.acs.application.service;
 
 import com.neuroassist.acs.api.dto.TenantRequest;
 import com.neuroassist.acs.api.dto.TenantResponse;
+import com.neuroassist.acs.application.port.in.CaregiverUseCase;
 import com.neuroassist.acs.application.port.in.TenantUseCase;
 import com.neuroassist.acs.application.port.out.TenantRepositoryPort;
 import com.neuroassist.acs.domain.model.Tenant;
 import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
-import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.TenantNotFoundException;
 import com.neuroassist.acs.shared.error.TenantSuspendedException;
 import java.time.Instant;
@@ -31,6 +31,7 @@ public class TenantService implements TenantUseCase {
 
     private final TenantRepositoryPort tenantRepository;
     private final TenantProvisioningService provisioningService;
+    private final CaregiverUseCase caregiverUseCase;
 
     /**
      * Creates a new tenant and triggers MIG provisioning SAGA.
@@ -57,24 +58,44 @@ public class TenantService implements TenantUseCase {
         log.info("Creating tenant nome={} tipo={}", draft.nome(), draft.tipo());
         Tenant activated = provisioningService.provision(draft);
 
+        // E2E-029 — a empresa nasce com quem a opera dentro dela.
+        //
+        // Sem isto o tenant ficava inalcançável: todo token pertence a um cuidador e todo
+        // cuidador a um tenant, então uma empresa sem ninguém dentro não tinha ator possível.
+        // Criar o coordenador por fora exigiria autoridade para criar pessoas em outro tenant —
+        // exatamente o que o 403 acs.tenant.mismatch existe para impedir.
+        //
+        // Semeado mesmo quando o provisionamento ficou em PROVISIONING: `cuidador` vive no schema
+        // global e não depende do schema da empresa, e o login já é barrado enquanto o tenant não
+        // estiver ACTIVE. Assim um retry bem-sucedido entrega a empresa pronta para uso, sem
+        // precisar guardar a senha do coordenador em lugar nenhum para reaproveitar depois.
+        caregiverUseCase.seedFirstCoordinator(
+                activated.id(),
+                request.primeiroCoordenador().nome(),
+                request.primeiroCoordenador().login(),
+                request.primeiroCoordenador().senha());
+
         return toResponse(activated);
     }
 
     /**
      * Retrieves a tenant by UUID.
      *
-     * <p>RULE-07: calls {@code TenantContextHolder.require()} as first line — tenant context must
-     * be set by the caller (e.g. {@code TenantContextFilter}) before invoking this method.
+     * <p><b>No {@code TenantContextHolder.require()}</b> (E2E-029). {@code tenant} is the global
+     * registry, not empresa data: it lives in {@code neuroassist_global} and no {@code search_path}
+     * routing applies to it. The caller is the {@code platform-ops} client, whose token carries no
+     * tenant claim precisely because onboarding happens outside any tenant. Requiring a context
+     * here would only be satisfiable by a caregiver of some unrelated company — the exact
+     * cross-tenant power this issue removed. The same documented exception {@code createTenant}
+     * already relies on.
      *
      * @param tenantId the tenant UUID
      * @return TenantResponse
      * @throws TenantNotFoundException if tenant does not exist
-     * @throws IllegalStateException if tenant context is not set (RULE-07 enforcement)
      */
     @Override
     @Transactional(readOnly = true)
     public TenantResponse findById(UUID tenantId) {
-        TenantContextHolder.require(); // RULE-07: tenant context must be present
         return tenantRepository
                 .findById(tenantId)
                 .map(
@@ -96,8 +117,13 @@ public class TenantService implements TenantUseCase {
     /**
      * Retries provisioning for a tenant stuck in PROVISIONING status.
      *
-     * <p>RULE-07: calls {@code TenantContextHolder.require()} as first line — tenant context must
-     * be set by the caller before invoking this method.
+     * <p><b>No {@code TenantContextHolder.require()}</b> (E2E-029). {@code tenant} is the global
+     * registry, not empresa data: it lives in {@code neuroassist_global} and no {@code search_path}
+     * routing applies to it. The caller is the {@code platform-ops} client, whose token carries no
+     * tenant claim precisely because onboarding happens outside any tenant. Requiring a context
+     * here would only be satisfiable by a caregiver of some unrelated company — the exact
+     * cross-tenant power this issue removed. The same documented exception {@code createTenant}
+     * already relies on.
      *
      * <p>Status routing:
      *
@@ -109,11 +135,9 @@ public class TenantService implements TenantUseCase {
      *
      * @param tenantId the tenant UUID
      * @return updated TenantResponse
-     * @throws IllegalStateException if tenant context is not set (RULE-07 enforcement)
      */
     @Override
     public TenantResponse retryProvisioning(UUID tenantId) {
-        TenantContextHolder.require(); // RULE-07: tenant context must be present
         Tenant existing =
                 tenantRepository
                         .findById(tenantId)

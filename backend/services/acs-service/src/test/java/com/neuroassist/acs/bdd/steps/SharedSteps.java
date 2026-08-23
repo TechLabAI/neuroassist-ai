@@ -289,6 +289,37 @@ public class SharedSteps {
         }
     }
 
+    /**
+     * Obtains a <b>tenant-less</b> service token for the {@code platform-ops} client (E2E-029).
+     *
+     * <p>Onboarding a company is not a clinical act. Until this issue the BDD called a
+     * COORDENADOR_CLINICA a "platform conductor" and logged in as one — which is exactly the
+     * conflation that let a clinic coordinator create and reprocess other companies. The scenario
+     * name was already right; the credential was not.
+     */
+    void issueServiceToken(String clientId, String clientSecret) {
+        String body =
+                "{\"clientId\":\"" + clientId + "\",\"clientSecret\":\"" + clientSecret + "\"}";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> resp =
+                restTemplate.exchange(
+                        "/oauth2/token/service",
+                        HttpMethod.POST,
+                        new HttpEntity<>(body, headers),
+                        String.class);
+        ctx.lastResponse = resp;
+        if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+            try {
+                JsonNode node = objectMapper.readTree(resp.getBody());
+                if (node.has("accessToken")) {
+                    ctx.bearerToken = node.get("accessToken").asText();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     HttpHeaders bearerHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
