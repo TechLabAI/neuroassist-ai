@@ -179,6 +179,8 @@ services:
     ports:
       - "8084:8084"
     environment:
+      # GEST→EDGE: resolução device→tenant antes de servir o ponteiro de perfil.
+      EDGE_SERVICE_URL: http://edge-service:8087
       SPRING_PROFILES_ACTIVE: docker
       DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist

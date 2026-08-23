@@ -92,3 +92,7 @@ resilience4j:
         wait-duration-in-open-state: 30s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+        # 404 = 'este tenant ainda nao publicou perfil'. E resposta, nao falha: conta-la
+        # abriria o breaker contra um GEST saudavel e faria HB-04 relatar degradado.
+        ignore-exceptions:
+          - feign.FeignException$NotFound

@@ -55,7 +55,6 @@ public class CrossAspectArchTest {
                     "edge.liveness.resolver",
                     "edge.pairing.criar",
                     "edge.pairing.excluir",
-                    "edge.profile-pointer.read",
                     "evnt.event-confirmation.confirmar",
                     "evnt.event-query.read",
                     "evnt.notification-orchestration.processar",

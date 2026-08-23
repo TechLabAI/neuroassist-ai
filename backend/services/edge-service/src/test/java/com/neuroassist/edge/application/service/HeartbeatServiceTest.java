@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.neuroassist.edge.application.port.in.HeartbeatUseCase;
-import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
@@ -36,7 +36,7 @@ class HeartbeatServiceTest {
 
     @Mock private DispositivoEdgeRepositoryPort deviceRepo;
     @Mock private DispositivoEdgeTransitionRepositoryPort transitionRepo;
-    @Mock private DetectionProfilePort detectionProfilePort;
+    @Mock private ProfilePointerUseCase profilePointerUseCase;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private EdgeMetrics edgeMetrics;
 
@@ -53,7 +53,7 @@ class HeartbeatServiceTest {
                 new HeartbeatService(
                         deviceRepo,
                         transitionRepo,
-                        detectionProfilePort,
+                        profilePointerUseCase,
                         domainService,
                         eventPublisher,
                         edgeMetrics);
@@ -91,7 +91,8 @@ class HeartbeatServiceTest {
         DispositivoEdge d = device(deviceId, PairingState.paired, Instant.now().minusSeconds(10));
         when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
         when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(detectionProfilePort.currentProfileVersion(any(), any())).thenReturn(Optional.empty());
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(null, null, true));
 
         HeartbeatUseCase.HeartbeatResult result = sut.recordHeartbeat(deviceId, "1.4.2", 6L);
 
@@ -126,7 +127,8 @@ class HeartbeatServiceTest {
         when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
         when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(transitionRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(detectionProfilePort.currentProfileVersion(any(), any())).thenReturn(Optional.empty());
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(null, null, true));
 
         sut.recordHeartbeat(deviceId, "1.4.2", 5L);
 
@@ -143,7 +145,8 @@ class HeartbeatServiceTest {
         DispositivoEdge d = device(deviceId, PairingState.paired, freshSync);
         when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
         when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(detectionProfilePort.currentProfileVersion(any(), any())).thenReturn(Optional.empty());
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(null, null, true));
 
         sut.recordHeartbeat(deviceId, "1.4.2", 5L);
 
@@ -152,13 +155,14 @@ class HeartbeatServiceTest {
     }
 
     @Test
-    @DisplayName("heartbeat: GEST stub returns empty — profilePointerDegraded=true")
+    @DisplayName("heartbeat: GEST unreachable — profilePointerDegraded=true, drift unknown")
     void heartbeatGestUnavailableDegraded() {
         UUID deviceId = UUID.randomUUID();
         DispositivoEdge d = device(deviceId, PairingState.paired, Instant.now().minusSeconds(10));
         when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
         when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(detectionProfilePort.currentProfileVersion(any(), any())).thenReturn(Optional.empty());
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(null, null, true));
 
         HeartbeatUseCase.HeartbeatResult result = sut.recordHeartbeat(deviceId, "1.4.2", 5L);
 
@@ -174,7 +178,9 @@ class HeartbeatServiceTest {
         DispositivoEdge d = device(deviceId, PairingState.paired, Instant.now().minusSeconds(10));
         when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
         when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(detectionProfilePort.currentProfileVersion(any(), any())).thenReturn(Optional.of(7L));
+        // running=5, active=7 → drift=true (pre-computed by ProfilePointerService)
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(7L, true, false));
 
         HeartbeatUseCase.HeartbeatResult result =
                 sut.recordHeartbeat(deviceId, "1.4.2", 5L); // running=5, current=7
@@ -182,5 +188,26 @@ class HeartbeatServiceTest {
         assertThat(result.profilePointerDegraded()).isFalse();
         assertThat(result.currentProfileVersion()).isEqualTo(7L);
         assertThat(result.profileDrift()).isTrue();
+    }
+
+    @Test
+    @DisplayName("heartbeat: GEST has no published profile — NOT degraded, drift=false (HB-04)")
+    void heartbeatNoActiveProfileIsNotDegraded() {
+        // The case the old Optional<Long> port could not express: "GEST answered, and there is no
+        // profile yet" collapsed into the same empty value as "GEST did not answer", so a healthy
+        // tenant that had published nothing was reported as degraded.
+        UUID deviceId = UUID.randomUUID();
+        DispositivoEdge d = device(deviceId, PairingState.paired, Instant.now().minusSeconds(10));
+        when(deviceRepo.findByIdAndTenantId(deviceId, TENANT)).thenReturn(Optional.of(d));
+        when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        // noActiveProfile: GEST answered "no profile published yet" → degraded=false, drift=false
+        when(profilePointerUseCase.resolveProfileDrift(any(), any(), any()))
+                .thenReturn(new ProfilePointerUseCase.ProfileDriftResult(null, false, false));
+
+        HeartbeatUseCase.HeartbeatResult result = sut.recordHeartbeat(deviceId, "1.4.2", null);
+
+        assertThat(result.profilePointerDegraded()).isFalse();
+        assertThat(result.currentProfileVersion()).isNull();
+        assertThat(result.profileDrift()).isFalse();
     }
 }

@@ -2,8 +2,8 @@ package com.neuroassist.edge.infrastructure.clients;
 
 import com.neuroassist.edge.application.port.out.DetectionProfilePort;
 import com.neuroassist.edge.infrastructure.security.ServiceTokenUnavailableException;
+import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,16 +13,23 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 /**
- * Real Feign-based implementation of {@link DetectionProfilePort} (EDGE-014, P4). Replaces the P2
- * stub ({@link DetectionProfileStubAdapter}) as the {@code @Primary} bean.
+ * Feign-based implementation of {@link DetectionProfilePort} (EDGE-014).
  *
- * <p>Resilience4j circuit breaker {@code gest-detection-profile}: when GEST is unavailable (Feign
- * exception or timeout), {@code fallback()} returns {@link Optional#empty()} — heartbeat continues
- * in degraded mode ({@code profilePointerDegraded=true}). Circuit breaker thresholds are configured
- * high in {@code application-test.yml} to prevent WireMock interference.
+ * <p><b>404 is an answer, not a failure.</b> GEST returns 404 when the tenant has published no
+ * profile yet, and Feign surfaces that as an exception. Left to reach the circuit breaker it would
+ * count as a failure, so a perfectly healthy tenant that has published nothing would degrade the
+ * pointer and, after enough heartbeats, open the breaker against a GEST that is working fine. It is
+ * caught here and translated into {@link DetectionProfilePort.ProfilePointer#noActiveProfile()},
+ * which returns normally and is recorded as a success. The same exception is also listed under
+ * {@code ignoreExceptions} in application.yml — belt and braces, and the config is where a reader
+ * looks to find out what the breaker measures.
  *
- * <p>RULE-06: @FeignClient only in infrastructure.clients (caller of the port). This class lives in
- * the same package. RULE-09: base package com.neuroassist.edge.
+ * <p><b>What still degrades.</b> Timeouts, connection failures and 5xx: cases where the pointer is
+ * genuinely unknown. The heartbeat is accepted either way — liveness never depends on GEST — but
+ * the response now says which of the two happened.
+ *
+ * <p><b>What is never degraded.</b> A missing service identity is a configuration defect, not a
+ * transient outage; swallowing it is what produced C-19, so it is rethrown.
  */
 @Slf4j
 @Primary
@@ -34,30 +41,32 @@ public class DetectionProfileFeignAdapter implements DetectionProfilePort {
 
     @Override
     @CircuitBreaker(name = "gest-detection-profile", fallbackMethod = "fallback")
-    public Optional<Long> currentProfileVersion(UUID deviceId, String tenantId) {
-        ResponseEntity<GestDetectionProfileView> response =
-                detectionProfileClient.getActiveProfileForDevice(deviceId);
+    public ProfilePointer currentProfileVersion(UUID deviceId, String tenantId) {
+        ResponseEntity<GestDetectionProfileView> response;
+        try {
+            response = detectionProfileClient.getActiveProfileForDevice(deviceId);
+        } catch (FeignException.NotFound e) {
+            log.debug("GEST has no active profile for deviceId='{}'", deviceId);
+            return ProfilePointer.noActiveProfile();
+        }
 
+        if (response.getStatusCode() == HttpStatus.NOT_FOUND) {
+            // Reachable when a decoder maps 404 to a body instead of throwing.
+            return ProfilePointer.noActiveProfile();
+        }
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             long version = response.getBody().version();
             log.debug("GEST profile version={} for deviceId='{}'", version, deviceId);
-            return Optional.of(version);
+            return ProfilePointer.of(version);
         }
 
         log.warn(
                 "GEST: unexpected status {} for deviceId='{}'", response.getStatusCode(), deviceId);
-        return Optional.empty();
+        return ProfilePointer.unknown();
     }
 
-    /**
-     * Resilience4j fallback — invoked when circuit is open or Feign throws any exception. Returns
-     * degraded empty so the heartbeat is still accepted with {@code profilePointerDegraded=true}.
-     */
     @SuppressWarnings("unused")
-    Optional<Long> fallback(UUID deviceId, String tenantId, Throwable cause) {
-        // Fail-closed: a missing service identity is a configuration/authentication defect, not a
-        // transient GEST outage. Degrading it to Optional.empty() is exactly the silent failure
-        // that produced C-19, so it is rethrown and surfaces to the caller.
+    ProfilePointer fallback(UUID deviceId, String tenantId, Throwable cause) {
         if (cause instanceof ServiceTokenUnavailableException stue) {
             log.error(
                     "Service identity unavailable for GEST call (deviceId='{}'): {}",
@@ -66,9 +75,9 @@ public class DetectionProfileFeignAdapter implements DetectionProfilePort {
             throw stue;
         }
         log.warn(
-                "GEST circuit breaker fallback (degraded) for deviceId='{}': {}",
+                "GEST unreachable — profile pointer degraded for deviceId='{}': {}",
                 deviceId,
                 cause.getMessage());
-        return Optional.empty();
+        return ProfilePointer.unknown();
     }
 }

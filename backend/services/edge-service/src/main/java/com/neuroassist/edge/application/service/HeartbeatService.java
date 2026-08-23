@@ -1,7 +1,7 @@
 package com.neuroassist.edge.application.service;
 
 import com.neuroassist.edge.application.port.in.HeartbeatUseCase;
-import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.domain.event.DispositivoVoltouOnline;
@@ -14,7 +14,6 @@ import com.neuroassist.edge.infrastructure.metrics.EdgeMetrics;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +37,7 @@ public class HeartbeatService implements HeartbeatUseCase {
 
     private final DispositivoEdgeRepositoryPort deviceRepo;
     private final DispositivoEdgeTransitionRepositoryPort transitionRepo;
-    private final DetectionProfilePort detectionProfilePort;
+    private final ProfilePointerUseCase profilePointerUseCase;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
     private final EdgeMetrics edgeMetrics;
@@ -113,28 +112,16 @@ public class HeartbeatService implements HeartbeatUseCase {
         String livenessStatus =
                 domainService.deriveLivenessStatus(updated, serverNow, stalenessThresholdSeconds);
 
-        // Fetch detection profile version from GEST (stub returns empty in P2)
-        Optional<Long> currentProfileOpt = Optional.empty();
-        boolean profilePointerDegraded = false;
-        try {
-            currentProfileOpt = detectionProfilePort.currentProfileVersion(deviceId, tenantId);
-        } catch (Exception e) {
-            log.warn(
-                    "GEST unavailable — heartbeat still accepted for deviceId='{}': {}",
-                    deviceId,
-                    e.getMessage());
-            profilePointerDegraded = true;
-        }
-        if (currentProfileOpt.isEmpty() && !profilePointerDegraded) {
-            // Stub returns empty (P2) — treat as degraded for honest response
-            profilePointerDegraded = true;
-        }
+        // Fetch the active detection-profile pointer from GEST and derive drift.
+        // Liveness never depends on GEST (doc 06 R5): whatever happens here, the heartbeat is
+        // still accepted. Three-state semantics delegated to ProfilePointerService (collaborator).
+        ProfilePointerUseCase.ProfileDriftResult driftResult =
+                profilePointerUseCase.resolveProfileDrift(
+                        deviceId, tenantId, runningProfileVersion);
 
-        Long currentProfileVersion = currentProfileOpt.orElse(null);
-        Boolean profileDrift =
-                (currentProfileVersion != null && runningProfileVersion != null)
-                        ? !currentProfileVersion.equals(runningProfileVersion)
-                        : null;
+        boolean profilePointerDegraded = driftResult.profilePointerDegraded();
+        Long currentProfileVersion = driftResult.activeProfileVersion();
+        Boolean profileDrift = driftResult.profileDrift();
 
         log.debug(
                 "Heartbeat processed deviceId='{}' status='{}' profileDegraded={}",

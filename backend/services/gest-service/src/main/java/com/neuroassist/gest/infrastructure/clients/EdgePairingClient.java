@@ -9,9 +9,18 @@ import org.springframework.web.bind.annotation.PathVariable;
 /**
  * Feign client for the EDGE pairing service. Disabled in poc profile — replaced by
  * EdgePairingPortStub. RULE-06: @FeignClient only in infrastructure.clients.
+ *
+ * <p><b>The default url used to be {@code http://localhost:8090}</b>, wrong twice over: 8090 is
+ * dash-service, and {@code localhost} inside a container is gest-service itself. Every
+ * device→tenant resolution — which {@code GET
+ * /gest-service/detection-profile/devices/&#123;id&#125;} performs before answering the EDGE
+ * heartbeat — therefore went nowhere. Registered as debt in plan-e2e-integration.md §11.2 since
+ * Sessão 2.
  */
 @Profile("!poc")
-@FeignClient(name = "edge-pairing-client", url = "${edge.pairing.url:http://localhost:8090}")
+@FeignClient(
+        name = "edge-pairing-client",
+        url = "${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}")
 public interface EdgePairingClient {
 
     /**

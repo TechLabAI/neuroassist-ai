@@ -1,7 +1,7 @@
 package com.neuroassist.edge.application.service;
 
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
-import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
 import com.neuroassist.edge.domain.event.DispositivoFicouOffline;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
@@ -10,7 +10,6 @@ import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,7 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class LivenessService implements LivenessUseCase {
 
     private final DispositivoEdgeRepositoryPort deviceRepo;
-    private final DetectionProfilePort detectionProfilePort;
+    private final ProfilePointerUseCase profilePointerUseCase;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -167,19 +166,14 @@ public class LivenessService implements LivenessUseCase {
         long threshold = stalenessThresholdSeconds();
         String status = domainService.deriveLivenessStatus(device, serverNow, threshold);
 
-        // Detection profile drift (stub returns empty in P2; GEST in P4)
-        Optional<Long> currentProfileOpt = Optional.empty();
-        try {
-            currentProfileOpt = detectionProfilePort.currentProfileVersion(device.id(), tenantId);
-        } catch (Exception e) {
-            log.warn("GEST unavailable resolving device profile deviceId='{}'", device.id());
-        }
+        // Detection profile pointer, with the three-state semantics delegated to the
+        // ProfilePointerService collaborator (c4-component.puml:58).
+        ProfilePointerUseCase.ProfileDriftResult driftResult =
+                profilePointerUseCase.resolveProfileDrift(
+                        device.id(), tenantId, device.runningProfileVersion());
 
-        Long currentProfileVersion = currentProfileOpt.orElse(null);
-        Boolean profileDrift =
-                (currentProfileVersion != null && device.runningProfileVersion() != null)
-                        ? !currentProfileVersion.equals(device.runningProfileVersion())
-                        : null;
+        Long currentProfileVersion = driftResult.activeProfileVersion();
+        Boolean profileDrift = driftResult.profileDrift();
 
         return new DeviceResult(
                 device.id(),
