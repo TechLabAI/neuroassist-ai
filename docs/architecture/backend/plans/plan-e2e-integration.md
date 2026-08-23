@@ -382,6 +382,28 @@ O módulo de integração E2E está DONE quando:
 | E2E-012 | ✅ DONE — Flow-04, erasure ponta a ponta | 2026-08-22 |
 | E2E-013 | OPEN | — |
 
+### Issues abertas em 2026-08-23 — as dívidas de §11.2/§11.3 viram backlog rastreado
+
+Até aqui as dívidas conhecidas viviam só na prosa deste plano. Uma dívida sem issue é uma
+dívida que ninguém prioriza.
+
+| Issue | Título | Prio | Status |
+|---|---|---|---|
+| E2E-015 | Vínculo cuidador↔paciente não chega ao directory do ACS (C-30/C-42/C-43) | P1 | ✅ DONE — critério de aceite fechado no stack real (2026-08-23); C-42 segue aberto |
+| E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | OPEN |
+| E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | OPEN |
+| E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | OPEN |
+| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | OPEN |
+| E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
+| E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
+| E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
+| E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
+| E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | OPEN |
+| E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | OPEN |
+| E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | OPEN |
+| E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | OPEN |
+| E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | OPEN |
+
 ---
 
 ## 9. Ordem de Execução — Context Engineering Sessions
@@ -997,12 +1019,22 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   porta 8084 (GEST, não ACS). **DIR-02 é feature ausente** — a Sessão 2 valida o endpoint
   do ACS diretamente; o consumo pelo EVNT fica para a Sessão 4 (Flow-03).
 
-- **O vínculo cuidador-paciente vive em duas tabelas do mesmo schema (C-30).** O PAC grava
-  `paciente_cuidador` ao criar o paciente; o directory do ACS lê `caregiver_patient_link`. Nada
-  sincroniza as duas, então todo paciente criado pelo PAC tem directory vazio — e um alarme sem
-  destino. O Flow-03 contorna chamando `POST /api/v1/acs/caregivers/{c}/patients/{p}/link`
-  explicitamente. **Decisão necessária:** ou o PAC chama o ACS na criação do paciente, ou uma
-  única tabela passa a ser dona do vínculo.
+- ~~**O vínculo cuidador-paciente vive em duas tabelas do mesmo schema (C-30).**~~ — resolvido em
+  2026-08-23 (E2E-015). Decisão: o **ACS é o dono** do vínculo como fato de controle de acesso, e o
+  `paciente_cuidador` do PAC vira projeção tenant-local que **propaga**. A propagação é por outbox
+  (`directory_outbox`, gravado na mesma transação, drenado por `DirectoryOutboxScheduler` com
+  identidade de serviço), e não por chamada síncrona: antes do commit tornaria a criação de
+  paciente fail-closed sem necessidade; depois do commit reintroduziria a mesma divergência com
+  janela menor. Migration V0209 faz o backfill dos vínculos já existentes. Texto original: o PAC
+  gravava `paciente_cuidador` ao criar o paciente e o directory do ACS lia `caregiver_patient_link`;
+  nada sincronizava as duas, então todo paciente criado pelo PAC tinha directory vazio — e um
+  alarme sem destino. O Flow-03 contornava chamando o endpoint de link explicitamente.
+  **Validado no stack real em 2026-08-23:** migration V0209 aplicada (`Successfully applied 1
+  migration … v0209`), backfill enfileirou **9 vínculos que nunca haviam chegado ao ACS** e o dreno
+  os entregou no primeiro tick. Paciente criado só pelo PAC → `GET /api/v1/acs/directory/patients/
+  {id}/caregivers` respondeu `responsibleCaregivers: []` antes do tick e a cuidadora depois, sem
+  chamada extra. **Ainda em aberto:** `erasePersonalData` não enfileira UNLINK, e a validação
+  revelou o conflito de invariante registrado em E2E-028 (C-47).
 - **O HIST não tem tipo de ator para serviço ou dispositivo (C-32).** `subject_type` aceita
   `dispositivo`, mas `ActorRefDto` só modela cuidador e exige `caregiverId`. O `evento.criado`
   grava o `deviceId` nesse campo com `displayName = "dispositivo <id>"` — funciona e é rastreável,
@@ -1039,6 +1071,14 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   passadas por `--args`. O caminho que funciona é o container (`docker compose up
   migrations-empresa`), que monta o jar — e portanto exige `bootJar` antes. O comando em
   CLAUDE.md ("rodar `:neuroassist-ai-migrations:bootRun` primeiro") não funciona como está.
+
+- **O PAC aceita remover a última cuidadora e o ACS recusa (C-47).** Descoberto ao validar E2E-015
+  contra o stack real: `PUT /pacientes/{id}` com `cuidadorResponsavelIds: []` responde 200, o
+  UNLINK propagado leva 409 `acs.link.last-caregiver-link` (invariante de cobertura D-204), e os
+  dois lados ficam em desacordo — `paciente_cuidador` vazio, `caregiver_patient_link` ainda
+  `ACTIVE`. A propagação se comportou como projetada (recusa terminal, registrada com motivo, não
+  reentregue); o problema é a invariante existir em um lado só. Não foi introduzido pela
+  propagação — foi revelado por ela. Ver E2E-028.
 
 - **Um alarme `NO_SESSION` desiste em silêncio (C-46).** Após `max-attempts` o dispatch vai para
   `FAILED` sem escalonamento — cerca de 5 minutos no default. Decisão de produto pendente; ver
