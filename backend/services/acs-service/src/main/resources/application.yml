@@ -131,6 +131,16 @@ acs:
         # Separada de hist:write de propósito — escrever fato e destruir dado pessoal
         # são poderes diferentes.
         - hist:erase
+        # PAC→ACS: propagação do vínculo cuidador-paciente para o directory (E2E-015 / C-30).
+        # O dreno roda num @Scheduled — não há chamador de quem herdar token.
+        - acs.vinculo.criar
+        - acs.vinculo.revogar
+        # PAC→ACS→PAC: `createLink` resolve o paciente chamando de volta o pac-service
+        # (PacPatientResolveClient), propagando o token de quem chamou o ACS — que neste
+        # caminho é o próprio pac-service. Sem esta authority a chamada volta 403, o ACS
+        # a lê como "paciente desconhecido" e responde 422: um erro de permissão disfarçado
+        # de dado ausente, que o outbox marcaria como recusa terminal.
+        - pac.paciente.read
     acs-service:
       secret-hash: ${ACS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
       authorities:

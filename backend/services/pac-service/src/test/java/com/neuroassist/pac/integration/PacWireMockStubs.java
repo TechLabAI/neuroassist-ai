@@ -2,6 +2,7 @@ package com.neuroassist.pac.integration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -351,5 +352,42 @@ public final class PacWireMockStubs {
      */
     public static void stubHistAvailable(WireMockServer hist) {
         hist.stubFor(any(urlPathMatching(".*")).willReturn(aResponse().withStatus(200)));
+    }
+
+    // =========================================================================
+    // ACS — POST/DELETE /api/v1/acs/caregivers/{c}/patients/{p}/link  (E2E-015)
+    // =========================================================================
+
+    /**
+     * Path shape copied from {@code CaregiverPatientLinkController} in acs-service, not inferred.
+     *
+     * <p>A stub written from the consumer's assumption makes the test pass exactly when the
+     * assumption is wrong — that is how ten of the sixteen cross-service defects in this project
+     * survived their module gates (C-4, C-5, C-8, C-9, C-22).
+     */
+    private static final String ACS_LINK_PATH =
+            "/api/v1/acs/caregivers/[0-9a-f-]+/patients/[0-9a-f-]+/link";
+
+    /** Stub: ACS accepts the caregiver-patient link (201 for a new link). */
+    public static void stubAcsCreateLink_Created(WireMockServer acs) {
+        acs.stubFor(post(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(201)));
+    }
+
+    /** Stub: ACS is down — the outbox entry must stay pending, not be dropped. */
+    public static void stubAcsCreateLink_Unavailable(WireMockServer acs) {
+        acs.stubFor(post(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(503)));
+    }
+
+    /**
+     * Stub: ACS refuses the revocation because it is the patient's last active caregiver — the
+     * coverage invariant D-204. A refusal, not an outage: it will answer 409 every time.
+     */
+    public static void stubAcsRevokeLink_LastActiveLink(WireMockServer acs) {
+        acs.stubFor(delete(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(409)));
+    }
+
+    /** Stub: ACS accepts the revocation. */
+    public static void stubAcsRevokeLink_Ok(WireMockServer acs) {
+        acs.stubFor(delete(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(200)));
     }
 }

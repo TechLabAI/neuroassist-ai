@@ -1,0 +1,23 @@
+package com.neuroassist.pac.infrastructure.clients;
+
+import com.neuroassist.pac.infrastructure.security.ServiceTokenProvider;
+import feign.RequestInterceptor;
+import org.springframework.context.annotation.Bean;
+
+/**
+ * Per-client Feign configuration for {@link AcsLinkClient} (E2E-015).
+ *
+ * <p>Deliberately <b>not</b> annotated with {@code @Configuration}, for the same reason as {@link
+ * HistFeignConfig}: this package is component scanned, and a scanned {@code @Configuration} would
+ * make {@link ServiceIdentityInterceptor} global — every Feign client of pac-service would start
+ * calling as pac-service instead of as the caregiver, silently widening the authority of calls
+ * whose authorization is supposed to depend on who asked.
+ */
+public class AcsLinkFeignConfig {
+
+    @Bean
+    public RequestInterceptor acsLinkServiceIdentityInterceptor(
+            ServiceTokenProvider serviceTokenProvider) {
+        return new ServiceIdentityInterceptor(serviceTokenProvider);
+    }
+}

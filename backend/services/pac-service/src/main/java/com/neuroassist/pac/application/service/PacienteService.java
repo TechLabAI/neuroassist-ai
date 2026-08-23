@@ -2,6 +2,7 @@ package com.neuroassist.pac.application.service;
 
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
 import com.neuroassist.pac.application.port.out.AcsDirectoryPort;
+import com.neuroassist.pac.application.port.out.DirectoryOutboxPort;
 import com.neuroassist.pac.application.port.out.EdgeDevicePort;
 import com.neuroassist.pac.application.port.out.HistErasurePort;
 import com.neuroassist.pac.application.port.out.PacienteCuidadorRepositoryPort;
@@ -13,6 +14,7 @@ import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class PacienteService implements PacienteUseCase {
 
     private final PacienteRepositoryPort pacienteRepository;
     private final PacienteCuidadorRepositoryPort cuidadorRepository;
+    private final DirectoryOutboxPort directoryOutboxPort;
     private final PacienteDomainService pacienteDomainService;
     private final EdgeDevicePort edgeDevicePort;
     private final AcsDirectoryPort acsDirectoryPort;
@@ -80,6 +83,11 @@ public class PacienteService implements PacienteUseCase {
                             .map(cid -> new PacienteCuidador(saved.id(), cid, now))
                             .collect(Collectors.toList());
             cuidadorRepository.saveAll(links);
+            // E2E-015 (C-30): the ACS directory — not this table — is what EVNT reads to decide
+            // who receives an alarm. Writing only here left every patient created through the PAC
+            // with an empty directory, i.e. an alarm with no destination. Same transaction, so the
+            // link and the intent to propagate it are committed together or not at all.
+            cuidadores.forEach(cid -> directoryOutboxPort.enqueueLink(saved.id(), cid));
         }
 
         return withCuidadores(saved, cuidadores);
@@ -246,6 +254,15 @@ public class PacienteService implements PacienteUseCase {
         log.info(
                 "Paciente updated id={} tenant={} newVersion={}", id, tenantId, saved.rowVersion());
 
+        // E2E-015: read the previous set before destroying it. The rewrite below is delete-all +
+        // insert-all, which says nothing about what actually changed — and the ACS directory needs
+        // the difference, not the result. Revoking and re-creating every link on each update would
+        // trip the ACS coverage invariant (D-204) on a patient with a single caregiver.
+        Set<UUID> previousCuidadores =
+                cuidadorRepository.findByPacienteId(id).stream()
+                        .map(PacienteCuidador::cuidadorResponsavelId)
+                        .collect(Collectors.toSet());
+
         cuidadorRepository.deleteByPacienteId(id);
         if (!cuidadores.isEmpty()) {
             List<PacienteCuidador> links =
@@ -254,6 +271,14 @@ public class PacienteService implements PacienteUseCase {
                             .collect(Collectors.toList());
             cuidadorRepository.saveAll(links);
         }
+
+        Set<UUID> currentCuidadores = Set.copyOf(cuidadores);
+        previousCuidadores.stream()
+                .filter(cid -> !currentCuidadores.contains(cid))
+                .forEach(cid -> directoryOutboxPort.enqueueUnlink(id, cid));
+        currentCuidadores.stream()
+                .filter(cid -> !previousCuidadores.contains(cid))
+                .forEach(cid -> directoryOutboxPort.enqueueLink(id, cid));
 
         return withCuidadores(saved, cuidadores);
     }

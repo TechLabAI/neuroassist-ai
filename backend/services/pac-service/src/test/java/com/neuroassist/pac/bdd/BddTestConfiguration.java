@@ -101,6 +101,19 @@ public class BddTestConfiguration {
         return new EmergencyEligibilityGateSteps(ctx, http, data);
     }
 
+    /** E2E-015 — propagação do vínculo cuidador-paciente para o directory do ACS. */
+    @Bean
+    @org.springframework.context.annotation.Primary
+    public com.neuroassist.pac.bdd.steps.DirectoryPropagationSteps directoryPropagationSteps(
+            ScenarioContext ctx,
+            com.neuroassist.pac.infrastructure.persistence.repository.DirectoryOutboxJpaRepository
+                    outboxRepository,
+            com.neuroassist.pac.application.port.in.DirectoryOutboxDrainUseCase drainUseCase,
+            TransactionTemplate transactionTemplate) {
+        return new com.neuroassist.pac.bdd.steps.DirectoryPropagationSteps(
+                ctx, outboxRepository, drainUseCase, transactionTemplate);
+    }
+
     @Bean
     @org.springframework.context.annotation.Primary
     public CatalogPublicationSteps catalogPublicationSteps(

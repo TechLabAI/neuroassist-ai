@@ -33,6 +33,9 @@ spring:
           hist-service:
             connect-timeout: 2000
             read-timeout: 3000
+          acs-service-link:
+            connect-timeout: 2000
+            read-timeout: 3000
 eureka:
   client:
     enabled: false
@@ -40,6 +43,17 @@ eureka:
 # These values are overridden by @DynamicPropertySource in BaseIntegrationTest with the
 # actual dynamic ports assigned at runtime.
 neuroassist:
+  # Os dois sweepers ficam WIRED mas nao disparam durante a suite: um tick no meio de um
+  # cenario drenaria a fila que o cenario esta prestes a inspecionar, e a falha apareceria
+  # como flakiness em maquina lenta. Desligar por `enabled: false` esconderia um erro de
+  # wiring do proprio scheduler (@ConditionalOnProperty removeria o bean), entao o que se
+  # empurra e o primeiro disparo, nao a existencia dele.
+  hist-outbox:
+    drain:
+      initial-delay-ms: 3600000
+  directory-outbox:
+    drain:
+      initial-delay-ms: 3600000
   integration:
     gest:
       url: http://localhost:19991

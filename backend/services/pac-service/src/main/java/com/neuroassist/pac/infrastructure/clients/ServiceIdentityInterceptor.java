@@ -8,13 +8,17 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 
 /**
- * Replaces the caller's bearer token with pac-service's own service-identity token on calls to
- * hist-service (see {@code docs/architecture/backend/standards/service-identity.md} §5).
+ * Replaces the caller's bearer token with pac-service's own service-identity token (see {@code
+ * docs/architecture/backend/standards/service-identity.md} §5).
  *
- * <p>Only wired into {@link HistFactClient} via {@link HistFeignConfig} — {@code
- * AcsDirectoryClient}, {@code GestDetectabilityClient} and {@code EdgeDeviceClient} keep
- * propagating the caller's token, because those authorizations depend on <i>who asked</i>. Writing
- * an audit fact does not: it is pac-service acting on its own behalf.
+ * <p>Wired per client, never globally: into {@link HistFactClient} via {@link HistFeignConfig}, and
+ * into {@code AcsLinkClient} via {@code AcsLinkFeignConfig}. {@code AcsDirectoryClient}, {@code
+ * GestDetectabilityClient} and {@code EdgeDeviceClient} keep propagating the caller's token,
+ * because those authorizations depend on <i>who asked</i>.
+ *
+ * <p>The criterion is that sentence: writing an audit fact does not depend on who asked, and
+ * neither does propagating a caregiver-patient link from a scheduled sweep — there is no caller
+ * there at all. Both are pac-service acting on its own behalf.
  *
  * <p><b>Two traps this class exists to avoid.</b>
  *
@@ -26,7 +30,7 @@ import org.springframework.core.annotation.Order;
  *       OpenFeign sorts the injected {@code List<RequestInterceptor>} with {@code
  *       AnnotationAwareOrderComparator}, so this class is {@link Ordered#LOWEST_PRECEDENCE} while
  *       {@code CallerTokenPropagationInterceptor} pins itself to a higher precedence. Both orders
- *       are asserted by {@code HistServiceIdentityInterceptorTest}.
+ *       are asserted by {@code ServiceIdentityInterceptorTest}.
  * </ol>
  *
  * <p><b>Fail-closed.</b> No tenant on the thread, or ACS unable to mint a token, throws. Feign
@@ -35,7 +39,7 @@ import org.springframework.core.annotation.Order;
  */
 @Order(Ordered.LOWEST_PRECEDENCE)
 @RequiredArgsConstructor
-public class HistServiceIdentityInterceptor implements RequestInterceptor {
+public class ServiceIdentityInterceptor implements RequestInterceptor {
 
     private static final String AUTH_HEADER = "Authorization";
 

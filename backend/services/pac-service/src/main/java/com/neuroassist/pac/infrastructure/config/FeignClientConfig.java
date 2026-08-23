@@ -27,7 +27,7 @@ public class FeignClientConfig {
 
     /**
      * Precedence of {@link CallerTokenPropagationInterceptor}. Must be strictly higher (numerically
-     * lower) than {@code HistServiceIdentityInterceptor}'s {@code LOWEST_PRECEDENCE} so the
+     * lower) than {@code ServiceIdentityInterceptor}'s {@code LOWEST_PRECEDENCE} so the
      * service-identity swap always runs last on hist-service calls.
      */
     public static final int CALLER_TOKEN_PROPAGATION_ORDER = 0;
@@ -75,8 +75,8 @@ public class FeignClientConfig {
      * <p>Returns a named, {@code @Order}ed class rather than a lambda on purpose: Spring Cloud
      * OpenFeign sorts interceptors with {@code AnnotationAwareOrderComparator}, which reads the
      * annotation off the instance's class. A lambda would be unordered (== {@code
-     * LOWEST_PRECEDENCE}) and would tie with {@code HistServiceIdentityInterceptor}, making the
-     * final {@code Authorization} header on hist-service calls non-deterministic.
+     * LOWEST_PRECEDENCE}) and would tie with {@code ServiceIdentityInterceptor}, making the final
+     * {@code Authorization} header on hist-service calls non-deterministic.
      */
     @Bean
     public RequestInterceptor feignAuthPropagationInterceptor() {

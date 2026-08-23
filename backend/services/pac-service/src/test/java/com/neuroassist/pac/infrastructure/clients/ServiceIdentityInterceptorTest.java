@@ -33,19 +33,19 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
  * final header is the service token <b>and only</b> the service token, with the interceptors
  * ordered exactly as Spring Cloud OpenFeign orders them.
  */
-class HistServiceIdentityInterceptorTest {
+class ServiceIdentityInterceptorTest {
 
     private static final String TENANT = "e2e00000-0000-0000-0000-000000000001";
     private static final String CAREGIVER_TOKEN = "caregiver.jwt.value";
     private static final String SERVICE_TOKEN = "service.jwt.value";
 
     private ServiceTokenProvider provider;
-    private HistServiceIdentityInterceptor interceptor;
+    private ServiceIdentityInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         provider = mock(ServiceTokenProvider.class);
-        interceptor = new HistServiceIdentityInterceptor(provider);
+        interceptor = new ServiceIdentityInterceptor(provider);
         TenantContextHolder.set(TENANT);
     }
 
