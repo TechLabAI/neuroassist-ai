@@ -3,10 +3,11 @@
   "module": "EDGE",
   "service": "edge-service",
   "pipeline": "implement",
-  "currentStep": "full-validate",
-  "nextStep": "finalize",
-  "progressUnit": "done",
-  "timestamp": "2026-08-19T20:29:02",
+  "currentStep": "implement-P11",
+  "nextStep": "decision",
+  "progressUnit": "P11 DONE; proximo P12",
+  "timestamp": "2026-08-22T16:24:46",
   "capReached": false,
-  "iteration": 5
+  "iteration": 2,
+  "notes": "iteration reiniciada: run fresh sobre checkpoint residual de execucao anterior (detect retornou mode=fresh; o contador herdado marcaria cap no primeiro save)"
 }
