@@ -1,9 +1,29 @@
 {
   "name": "shared-auth-session",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
   "sourceRoot": "libs/shared/auth-session/src",
   "tags": [
     "type:data-access",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/shared/auth-session"],
+      "options": {
+        "jestConfig": "libs/shared/auth-session/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/shared/auth-session/**/*.ts"
+        ]
+      }
+    }
+  }
 }

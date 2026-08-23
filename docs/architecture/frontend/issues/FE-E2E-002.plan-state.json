@@ -1,0 +1,37 @@
+{
+  "issue": "FE-E2E-002",
+  "layer": "fe",
+  "computedAt": "2026-08-22T10:30:31",
+  "checklist": {
+    "total": 7,
+    "done": 0,
+    "partial": 0,
+    "missing": 7,
+    "blocked": 0
+  },
+  "priorPlan": {
+    "exists": false,
+    "file": null,
+    "phases": []
+  },
+  "delta": {
+    "done": [],
+    "partial": [],
+    "notStarted": [
+      "`access-http.interceptor.ts` implementado (functional interceptor, Angular 21)",
+      "Registrado em `app.config.ts`: `withInterceptors([accessHttpInterceptor])`",
+      "`ACCESS_HTTP_BASE` promovido a `InjectionToken` configurável por perfil",
+      "Endpoints públicos isentos de `Authorization` (`/oauth2/token`, enroll do EDGE)",
+      "Testes unitários com `HttpTestingController` cobrindo AUTH-FE-03..09 e DEG-08",
+      "`nx test shared-access-http-base` PASS",
+      "Fronteiras Nx respeitadas (`nx-boundaries.md`) — shared não importa scope de módulo"
+    ],
+    "inconsistencies": []
+  },
+  "dependencies": {
+    "issues": [],
+    "notes": []
+  },
+  "suggestedPlanType": "INCREMENTAL",
+  "needsAgentConfirm": true
+}

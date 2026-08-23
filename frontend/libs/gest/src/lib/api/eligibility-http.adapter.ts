@@ -25,8 +25,11 @@ interface EligibilityResponseDto {
   missingStates: string[];
 }
 
-// Real adapter — POST /gest-service/eligibility (api-contract §3; backend
-// EligibilityController). Backend shape {eligible, missingStates} is mapped to
+// Real adapter — POST /api/v1/gest/eligibility (GWY-normalized — ADR-008 / E2E-014).
+// Previously: POST ${baseUrl}/gest-service/eligibility (direct service path, pre-ADR-008).
+// In 'integrated' profile: baseUrl = '/api/v1/gest' (overridden in app.config.ts).
+// In 'mock' profile: adapter not used (provideGest({ adapter: 'mock' }) bypasses this).
+// Backend shape {eligible, missingStates} is mapped to
 // the FE contract {eligible, reason, unsupportedPrimitiveIds} here.
 @Injectable()
 export class EligibilityHttpAdapter implements EligibilityPort {
@@ -40,13 +43,14 @@ export class EligibilityHttpAdapter implements EligibilityPort {
   private readonly empresaContext = inject(EMPRESA_CONTEXT_SEAM);
 
   async check(urgencia: Urgencia): Promise<EligibilityResult> {
+    // Path construction (option a, FE-E2E-004):
+    //   baseUrl is overridden to '/api/v1/gest' in integrated profile via app.config.ts.
+    //   ${baseUrl}/eligibility → /api/v1/gest/eligibility (proxied via proxy.conf.js).
     // Seam preparatório multi-empresa: quando empresaContext.id não é null, o interceptor de
     // access-http-base será responsável por injetar o header X-Empresa-Id automaticamente.
-    // Por ora, a chamada prossegue sem o header (stub retorna id: null).
-    // Referência: this.empresaContext.id (disponível mas não enviado até o interceptor existir).
     try {
       const res = await firstValueFrom(
-        this.http.post<EligibilityResponseDto>(`${this.baseUrl}/gest-service/eligibility`, {
+        this.http.post<EligibilityResponseDto>(`${this.baseUrl}/eligibility`, {
           urgencyLevel: urgencia,
         }),
       );

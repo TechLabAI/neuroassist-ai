@@ -1,0 +1,38 @@
+{
+  "issue": "FE-E2E-006",
+  "layer": "fe",
+  "computedAt": "2026-08-22T17:51:41",
+  "checklist": {
+    "total": 8,
+    "done": 0,
+    "partial": 0,
+    "missing": 8,
+    "blocked": 0
+  },
+  "priorPlan": {
+    "exists": false,
+    "file": null,
+    "phases": []
+  },
+  "delta": {
+    "done": [],
+    "partial": [],
+    "notStarted": [
+      "Token `APP_ADAPTER_MODE: 'mock' | 'http'` definido",
+      "`app.config.ts` deriva os 7 `provide<Module>({ adapter: mode })` do token",
+      "Configuração `integrated` resolve `'http'`; default permanece `'mock'`",
+      "Flip **verificável por módulo** (permite integrar HIST antes de DASH, p.ex.)",
+      "`nx serve` (default) → mock; 44 testes continuam verdes",
+      "`nx serve -c integrated` → http; requests reais no DevTools",
+      "`nx run-many --target=test --all` PASS",
+      "`nx run-many --target=lint --all` limpo"
+    ],
+    "inconsistencies": []
+  },
+  "dependencies": {
+    "issues": [],
+    "notes": []
+  },
+  "suggestedPlanType": "INCREMENTAL",
+  "needsAgentConfirm": true
+}

@@ -29,3 +29,8 @@ export { EDGE_DETECTION_PORT } from './lib/api/edge-detection.port';
 export type { EdgeDetectionPort } from './lib/api/edge-detection.port';
 export { ELIGIBILITY_PORT } from './lib/api/eligibility.port';
 export type { EligibilityPort } from './lib/api/eligibility.port';
+
+// Config tokens (needed by app.config.ts to override base URL per profile)
+// EDGE_BRIDGE_WS_URL is NOT exported — it is an internal localhost-only bridge,
+// never routed through GWY, and has no per-profile override requirement.
+export { GEST_SERVICE_BASE_URL } from './lib/api/gest-service.config';
