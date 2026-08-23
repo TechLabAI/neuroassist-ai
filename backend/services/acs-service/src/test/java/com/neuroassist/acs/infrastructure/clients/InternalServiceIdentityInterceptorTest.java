@@ -32,18 +32,18 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
  * the final header is the service token <b>and only</b> the service token, with the interceptors
  * ordered exactly as Spring Cloud OpenFeign orders them — which is why neither is a lambda.
  */
-class EdgeInternalRequestInterceptorTest {
+class InternalServiceIdentityInterceptorTest {
 
     private static final String CALLER_TOKEN = "caregiver.jwt.value";
     private static final String SERVICE_TOKEN = "acs.internal.jwt.value";
 
     private EdgeInternalTokenProvider provider;
-    private EdgeInternalRequestInterceptor interceptor;
+    private InternalServiceIdentityInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
         provider = mock(EdgeInternalTokenProvider.class);
-        interceptor = new EdgeInternalRequestInterceptor(provider);
+        interceptor = new InternalServiceIdentityInterceptor(provider);
     }
 
     @AfterEach

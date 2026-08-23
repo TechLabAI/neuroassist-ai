@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.RequestBody;
  *
  * <p>{@code /internal/**} has no route in the gateway (ADR-008), so this call is reachable only
  * inside the cluster, and edge-service still requires the {@code edge.internal} authority on it —
- * supplied by {@link EdgeInternalRequestInterceptor} through {@link EdgeInternalFeignConfig}, not
- * by propagating the caller's token (there is no caller token: the device endpoint is public).
+ * supplied by {@link InternalServiceIdentityInterceptor} through {@link EdgeInternalFeignConfig},
+ * not by propagating the caller's token (there is no caller token: the device endpoint is public).
  */
 @FeignClient(
         name = "edge-service",

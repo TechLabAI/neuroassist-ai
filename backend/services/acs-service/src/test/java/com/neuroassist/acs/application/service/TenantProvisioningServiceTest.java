@@ -52,7 +52,34 @@ class TenantProvisioningServiceTest {
                         migProvisioningPort,
                         histAuditPort,
                         new SimpleMeterRegistry(),
-                        ObservationRegistry.NOOP);
+                        ObservationRegistry.NOOP,
+                        // Sem banco nestes testes: o gerenciador só precisa deixar o
+                        // TransactionTemplate executar o bloco. O que o REQUIRES_NEW garante —
+                        // que o passo 1 é visível para o mig-service antes da chamada — é
+                        // propriedade de transação real e está coberto no stack, não aqui.
+                        new org.springframework.transaction.support
+                                .AbstractPlatformTransactionManager() {
+                            @Override
+                            protected Object doGetTransaction() {
+                                return new Object();
+                            }
+
+                            @Override
+                            protected void doBegin(
+                                    Object transaction,
+                                    org.springframework.transaction.TransactionDefinition
+                                            definition) {}
+
+                            @Override
+                            protected void doCommit(
+                                    org.springframework.transaction.support.DefaultTransactionStatus
+                                            status) {}
+
+                            @Override
+                            protected void doRollback(
+                                    org.springframework.transaction.support.DefaultTransactionStatus
+                                            status) {}
+                        });
     }
 
     @Test

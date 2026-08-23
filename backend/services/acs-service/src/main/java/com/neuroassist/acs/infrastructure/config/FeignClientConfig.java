@@ -27,7 +27,7 @@ public class FeignClientConfig {
 
     /**
      * Precedence of {@link CallerTokenPropagationInterceptor}. Must be strictly higher (numerically
-     * lower) than {@code EdgeInternalRequestInterceptor}'s {@code LOWEST_PRECEDENCE}, so the
+     * lower) than {@code InternalServiceIdentityInterceptor}'s {@code LOWEST_PRECEDENCE}, so the
      * service-identity swap always runs last on edge-service calls.
      */
     public static final int CALLER_TOKEN_PROPAGATION_ORDER = 0;
@@ -60,8 +60,8 @@ public class FeignClientConfig {
      * injected {@code List<RequestInterceptor>} — reads the order from the <i>instance</i>, and a
      * lambda does not carry the {@code @Order} of the {@code @Bean} method that produced it (see
      * {@code standards/service-identity.md} §5). Without this, {@code
-     * EdgeInternalRequestInterceptor} could run <i>before</i> this one and the caller's token would
-     * silently survive.
+     * InternalServiceIdentityInterceptor} could run <i>before</i> this one and the caller's token
+     * would silently survive.
      */
     /**
      * Propagates {@code X-Empresa-Id} alongside {@code X-Tenant-Id}.

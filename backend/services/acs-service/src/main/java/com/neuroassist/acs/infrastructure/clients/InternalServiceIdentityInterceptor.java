@@ -25,7 +25,7 @@ import org.springframework.core.annotation.Order;
  *       interceptors are real classes carrying {@code @Order}, never lambdas. This one is {@link
  *       Ordered#LOWEST_PRECEDENCE}; {@code CallerTokenPropagationInterceptor} pins itself to {@link
  *       FeignClientConfig#CALLER_TOKEN_PROPAGATION_ORDER}. Both are asserted by {@code
- *       EdgeInternalRequestInterceptorTest}.
+ *       InternalServiceIdentityInterceptorTest}.
  * </ol>
  *
  * <p><b>Fail-closed.</b> If the token cannot be minted the interceptor throws, Feign surfaces a
@@ -34,7 +34,7 @@ import org.springframework.core.annotation.Order;
  */
 @Order(Ordered.LOWEST_PRECEDENCE)
 @RequiredArgsConstructor
-public class EdgeInternalRequestInterceptor implements RequestInterceptor {
+public class InternalServiceIdentityInterceptor implements RequestInterceptor {
 
     private static final String AUTH_HEADER = "Authorization";
 

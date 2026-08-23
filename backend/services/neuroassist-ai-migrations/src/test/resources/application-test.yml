@@ -1,4 +1,19 @@
-# Profile 'test' — flyway disabled; no datasource needed.
+# Profile 'test' — flyway de startup desligado; o datasource vem do Testcontainers via
+# @DynamicPropertySource quando o teste precisa de banco.
 spring:
   flyway:
     enabled: false
+  # O profile `api` sobe um resource server. O decoder do Nimbus resolve a JWK set de forma
+  # preguiçosa, então esta URI nunca é buscada nos testes que não exercitam autenticação —
+  # mas precisa estar presente para o contexto subir.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:0/.well-known/jwks.json
+
+neuroassist:
+  mig:
+    global-schema: neuroassist_global
+    tenant-locations: classpath:db/migration/empresa
+    out-of-order: true

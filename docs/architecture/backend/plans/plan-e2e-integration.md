@@ -390,11 +390,12 @@ dívida que ninguém prioriza.
 | Issue | Título | Prio | Status |
 |---|---|---|---|
 | E2E-015 | Vínculo cuidador↔paciente não chega ao directory do ACS (C-30/C-42/C-43) | P1 | ✅ DONE — critério de aceite fechado no stack real (2026-08-23); C-42 segue aberto |
-| E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | OPEN |
+| E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | OPEN |
 | E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | OPEN |
 | E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | OPEN |
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
+| E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | OPEN — revelado ao validar E2E-016 |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
@@ -1071,6 +1072,14 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   passadas por `--args`. O caminho que funciona é o container (`docker compose up
   migrations-empresa`), que monta o jar — e portanto exige `bootJar` antes. O comando em
   CLAUDE.md ("rodar `:neuroassist-ai-migrations:bootRun` primeiro") não funciona como está.
+
+- **Um tenant novo nasce vazio e ninguém consegue entrar nele (C-48).** Descoberto ao validar
+  E2E-016: o schema passa a ser criado de verdade e o tenant fica `ACTIVE`, mas criar o primeiro
+  cuidador dentro dele responde `403 acs.tenant.mismatch` — corretamente, porque quem chama
+  pertence a outro tenant. Como todo token pertence a um cuidador e todo cuidador a um tenant,
+  não existe ator capaz de agir dentro de uma empresa recém-criada. O seed resolve isso para
+  `t_emp_dev` inserindo linhas direto no banco, e é por isso que seis sessões de E2E nunca
+  esbarraram nisto. Ver E2E-029.
 
 - **O PAC aceita remover a última cuidadora e o ACS recusa (C-47).** Descoberto ao validar E2E-015
   contra o stack real: `PUT /pacientes/{id}` com `cuidadorResponsavelIds: []` responde 200, o

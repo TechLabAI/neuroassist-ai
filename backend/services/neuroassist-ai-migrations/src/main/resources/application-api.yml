@@ -1,0 +1,51 @@
+# Profile 'api' — a face HTTP interna do MIG (E2E-016, plan-MIG P1, api-contract §1).
+#
+# O MIG tem DUAS faces e elas nao podem se misturar:
+#
+#   1. Job de deploy (default)  — `java -jar app.jar`, migra e SAI. E o que os conteineres
+#      migrations-global/migrations-empresa fazem, e o `depends_on:
+#      service_completed_successfully` do compose depende de eles terminarem.
+#   2. API interna (este profile) — servidor de longa duracao que o acs-service chama no
+#      onboarding de empresa.
+#
+# Por isso `web-application-type` continua `none` no application.yml e so aqui vira `servlet`.
+# Se o starter web promovesse o processo a servidor por padrao, os dois conteineres de job
+# nunca terminariam e o stack inteiro travaria na subida.
+spring:
+  main:
+    web-application-type: servlet
+  # O Flyway de startup fica DESLIGADO nesta face. Ele migra um conjunto fixo de schemas
+  # decidido na subida; esta face precisa migrar um schema diferente por requisicao, e faz
+  # isso pelo Flyway programatico do FlywaySchemaMigrationAdapter. Deixar os dois ligados
+  # faria a API migrar na subida o schema que o job ja migrou — trabalho duplicado com
+  # duas fontes de verdade sobre o que rodou.
+  flyway:
+    enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # O acs-service assina os tokens de servico; o MIG so os valida.
+          jwk-set-uri: ${ACS_JWK_URI:http://acs-service:8088/oauth2/jwks}
+
+server:
+  port: ${MIG_API_PORT:8091}
+
+neuroassist:
+  mig:
+    global-schema: ${MIG_GLOBAL_SCHEMA:neuroassist_global}
+    # O template de tenant. Mesma location que o conteiner migrations-empresa usa — um unico
+    # conjunto de migrations descreve o schema de empresa, venha ele do job ou da API.
+    tenant-locations: ${MIG_TENANT_LOCATIONS:classpath:db/migration/empresa}
+    out-of-order: ${FLYWAY_OUT_OF_ORDER:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always

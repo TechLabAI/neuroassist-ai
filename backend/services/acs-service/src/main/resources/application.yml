@@ -24,6 +24,13 @@ spring:
           edge-service:
             connectTimeout: 2000
             readTimeout: 3000
+          # E2E-016 — provisionamento de schema. readTimeout generoso de propósito: criar o
+          # schema e aplicar o histórico inteiro do template de empresa é DDL, não uma leitura.
+          # O time limiter de 5s do resilience4j (mig-service, acima) continua sendo o teto
+          # efetivo do passo síncrono; este valor é só a paciência do socket.
+          neuroassist-ai-migrations:
+            connectTimeout: 2000
+            readTimeout: 30000
       circuitbreaker:
         enabled: true
     loadbalancer:
@@ -147,6 +154,10 @@ acs:
         # ACS→EDGE: verificação de credencial de dispositivo em POST /oauth2/token/device.
         # Até aqui edge.internal era exigida por endpoints do EDGE e emitida por ninguém (C-18).
         - edge.internal
+        # ACS→MIG: provisionamento do schema do tenant no onboarding (E2E-016, ADR-005).
+        # O token é emitido SEM claim de tenant — o tenant provisionado ainda não tem schema
+        # para onde rotear, e é justamente isso que a chamada vai criar.
+        - migrations:internal
     evnt-service:
       secret-hash: ${EVNT_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
       authorities:
