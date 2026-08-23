@@ -1,7 +1,7 @@
 {
   "issue": "EDGE-019",
   "layer": "be",
-  "computedAt": "2026-08-23T15:38:25",
+  "computedAt": "2026-08-23T16:01:55",
   "checklist": {
     "total": 8,
     "done": 8,
@@ -58,10 +58,10 @@
     "e2e": "pass"
   },
   "score": {
-    "total": 90,
-    "provisional": true,
+    "total": 100,
+    "provisional": false,
     "range": [
-      90,
+      100,
       100
     ],
     "breakdown": {
@@ -87,17 +87,19 @@
         "basis": "deterministic"
       },
       "soft": {
-        "max": 10,
-        "value": null,
+        "value": 10,
         "basis": "agent",
-        "needsAgentConfirm": true
+        "needsAgentConfirm": false,
+        "assessedAt": "2026-08-23",
+        "rationale": [
+          "a11y: nao se aplica (servico backend).",
+          "observabilidade: logging JSON estruturado (LogstashEncoder em logback-spring.xml), CorrelationIdFilter + MDC propagado a Feign (CorrelationIdInterceptor) e a JMS (MdcContextRestorer), actuator expondo health/info/metrics/prometheus, metricas tagueadas com application e module.",
+          "enforcement multi-empresa: RULE-07 respeitada nos 8 application services. As 3 excecoes sem require() sao principiadas e documentadas — DeviceCredentialVerificationService e DeviceEnrollmentService sao entradas anonimas/service-to-service onde nao ha tenant vinculado ainda: resolvem pelo indice global FORA da transacao, fazem set() e restauram o valor anterior em finally; ProfilePointerService e colaborador e recebe tenantId por parametro.",
+          "prova executavel: MultiTenantIsolationIT (12 cenarios) criado em 2026-08-23 fecha a lacuna que impedia a nota — o comentario de RULE-07 no ArchitectureTest afirmava verificacao por testes de integracao que nao existiam no EDGE. Inclui anti-vacuidade (o device E visivel ao proprio tenant A) e prova de roteamento pelo catalogo tenant_id->schema_nome, nao pelo fallback identificador-como-schema."
+        ]
       }
     },
     "band": "Maduro",
-    "statusTag": "NEAR-CLOSED"
-  },
-  "agentTodo": [
-    "Confirmar functionality 30/30 -- a funcionalidade alvo funciona?",
-    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
-  ]
+    "statusTag": "CLOSED"
+  }
 }

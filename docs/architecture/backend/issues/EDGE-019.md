@@ -1,7 +1,7 @@
 # EDGE-019 -- Wire Cucumber integration test infrastructure (Testcontainers PostgreSQL, Spring Security test stubs, device-credential mock, tenant schema setup)
 
-**Status:** NEAR-CLOSED -- pos-validacao 2026-08-23
-**Maturidade:** 90 -- Maduro
+**Status:** CLOSED -- pos-validacao 2026-08-23
+**Maturidade:** 100 -- Maduro (soft avaliado: observabilidade completa + RULE-07 com prova executavel em MultiTenantIsolationIT)
 **Done/Total:** 8/8 itens
 
 > **Correção de estado — BASELINE 2026-08-22 (`/be-autopilot EDGE`).** A infraestrutura foi de

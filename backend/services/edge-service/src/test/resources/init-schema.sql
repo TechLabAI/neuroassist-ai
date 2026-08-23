@@ -125,6 +125,112 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_test TO test;
 
 -- -------------------------------------------------------------------------
+-- Second tenant schema: t_emp_other (tenant UUID 00000000-0000-0000-0000-000000000002).
+-- Used exclusively by MultiTenantIsolationIT to verify cross-tenant data isolation.
+-- Structure mirrors t_emp_test / V0700__edge_initial_schema.sql exactly.
+-- -------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS t_emp_other;
+
+GRANT ALL PRIVILEGES ON SCHEMA t_emp_other TO test;
+
+CREATE TABLE IF NOT EXISTS t_emp_other.dispositivo_edge (
+    id                       uuid          NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id                varchar(60)   NOT NULL,
+    label                    varchar(160)  NULL,
+    paciente_id              uuid          NULL,
+    pairing_state            varchar(20)   NOT NULL DEFAULT 'registered',
+    versao                   varchar(40)   NULL,
+    ultima_sincronizacao     timestamptz   NULL,
+    running_profile_version  bigint        NULL,
+    row_version              bigint        NOT NULL DEFAULT 0,
+    created_at               timestamptz   NOT NULL DEFAULT now(),
+    updated_at               timestamptz   NOT NULL DEFAULT now(),
+    created_by               varchar(120)  NULL,
+    updated_by               varchar(120)  NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT ck_dispositivo_edge_other_state
+        CHECK (pairing_state IN ('registered','paired','unpaired','retired')),
+    CONSTRAINT ck_dispositivo_edge_other_paired_has_patient
+        CHECK (pairing_state <> 'paired' OR paciente_id IS NOT NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_dispositivo_edge_other_active_pairing
+    ON t_emp_other.dispositivo_edge (paciente_id)
+    WHERE pairing_state = 'paired';
+
+CREATE INDEX IF NOT EXISTS ix_dispositivo_edge_other_paciente
+    ON t_emp_other.dispositivo_edge (paciente_id);
+CREATE INDEX IF NOT EXISTS ix_dispositivo_edge_other_state
+    ON t_emp_other.dispositivo_edge (pairing_state);
+CREATE INDEX IF NOT EXISTS ix_dispositivo_edge_other_sync
+    ON t_emp_other.dispositivo_edge (ultima_sincronizacao);
+
+CREATE TABLE IF NOT EXISTS t_emp_other.dispositivo_enrollment (
+    id                   uuid          NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id            varchar(60)   NOT NULL,
+    dispositivo_edge_id  uuid          NOT NULL,
+    token_hash           varchar(200)  NOT NULL,
+    expires_at           timestamptz   NOT NULL,
+    consumed_at          timestamptz   NULL,
+    created_at           timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (id),
+    CONSTRAINT ux_dispositivo_enrollment_other_token UNIQUE (token_hash),
+    CONSTRAINT fk_enrollment_other_device
+        FOREIGN KEY (dispositivo_edge_id)
+        REFERENCES t_emp_other.dispositivo_edge (id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS ix_enrollment_other_device
+    ON t_emp_other.dispositivo_enrollment (dispositivo_edge_id);
+
+CREATE TABLE IF NOT EXISTS t_emp_other.dispositivo_credential (
+    id                   uuid          NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id            varchar(60)   NOT NULL,
+    dispositivo_edge_id  uuid          NOT NULL,
+    client_id            varchar(120)  NOT NULL,
+    secret_hash          varchar(200)  NOT NULL,
+    status               varchar(20)   NOT NULL DEFAULT 'active',
+    issued_at            timestamptz   NOT NULL DEFAULT now(),
+    revoked_at           timestamptz   NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT ux_dispositivo_credential_other_client UNIQUE (client_id),
+    CONSTRAINT ck_dispositivo_credential_other_status CHECK (status IN ('active','revoked')),
+    CONSTRAINT fk_credential_other_device
+        FOREIGN KEY (dispositivo_edge_id)
+        REFERENCES t_emp_other.dispositivo_edge (id) ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_dispositivo_credential_other_active
+    ON t_emp_other.dispositivo_credential (dispositivo_edge_id)
+    WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS ix_credential_other_device
+    ON t_emp_other.dispositivo_credential (dispositivo_edge_id);
+
+CREATE TABLE IF NOT EXISTS t_emp_other.dispositivo_edge_transition (
+    id                   uuid          NOT NULL DEFAULT gen_random_uuid(),
+    tenant_id            varchar(60)   NOT NULL,
+    dispositivo_edge_id  uuid          NOT NULL,
+    kind                 varchar(20)   NOT NULL,
+    from_state           varchar(20)   NULL,
+    to_state             varchar(20)   NOT NULL,
+    actor                varchar(120)  NOT NULL,
+    reason               varchar(500)  NULL,
+    at                   timestamptz   NOT NULL DEFAULT now(),
+    PRIMARY KEY (id),
+    CONSTRAINT ck_transition_other_kind CHECK (kind IN ('pairing','liveness')),
+    CONSTRAINT fk_transition_other_device
+        FOREIGN KEY (dispositivo_edge_id)
+        REFERENCES t_emp_other.dispositivo_edge (id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS ix_transition_other_device
+    ON t_emp_other.dispositivo_edge_transition (dispositivo_edge_id, at);
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_other TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_other TO test;
+
+-- -------------------------------------------------------------------------
 -- Global schema: tenant catalogue + cross-tenant lookup indices (C-18, C-21).
 -- All types mirror production migrations exactly — no intentional divergence.
 -- tenant_id is uuid in all global tables, matching V0100/V0700/V0701.
@@ -153,10 +259,15 @@ CREATE TABLE IF NOT EXISTS neuroassist_global.tenant (
 
 -- Test tenant: UUID 00000000-0000-0000-0000-000000000001 → schema t_emp_test.
 -- TestJwtFactory.TEST_TENANT carries this UUID in all BDD JWTs.
+-- Test tenant B: UUID 00000000-0000-0000-0000-000000000002 → schema t_emp_other.
+-- Used by MultiTenantIsolationIT to prove UUID→schema catalogue routing (not fallback).
+-- The UUID differs from the schema name, so a broken provider that uses the UUID as the
+-- schema name directly would fail — only catalogue lookup produces the right schema.
 INSERT INTO neuroassist_global.tenant
     (tenant_id, nome, tipo, status, schema_nome)
 VALUES
-    ('00000000-0000-0000-0000-000000000001', 'Test Tenant', 'CLINICA', 'ACTIVE', 't_emp_test');
+    ('00000000-0000-0000-0000-000000000001', 'Test Tenant',       'CLINICA', 'ACTIVE', 't_emp_test'),
+    ('00000000-0000-0000-0000-000000000002', 'Other Test Tenant', 'CLINICA', 'ACTIVE', 't_emp_other');
 
 -- Enrollment directory: token_hash → tenant (C-21).
 -- Mirrors V0700__edge_enrollment_directory.sql — tenant_id is uuid, NOT varchar.

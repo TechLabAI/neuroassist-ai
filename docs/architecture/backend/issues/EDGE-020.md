@@ -1,7 +1,7 @@
 # EDGE-020 -- Implement full BDD feature coverage — wire all 4 Gherkin features (~38 scenarios: device-registration-enrollment, device-pairing, heartbeat-liveness, profile-pointer-drift)
 
-**Status:** NEAR-CLOSED -- pos-validacao 2026-08-23
-**Maturidade:** 90 -- Maduro
+**Status:** CLOSED -- pos-validacao 2026-08-23
+**Maturidade:** 100 -- Maduro (soft avaliado: observabilidade completa + RULE-07 com prova executavel em MultiTenantIsolationIT)
 **Done/Total:** 10/10 itens
 
 > **Correção de estado — BASELINE 2026-08-22 (`/be-autopilot EDGE`).** Esta issue estava marcada

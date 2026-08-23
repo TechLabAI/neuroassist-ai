@@ -372,7 +372,7 @@ O módulo de integração E2E está DONE quando:
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
 | E2E-003 | ✅ DONE — DIR-01..05 | 2026-08-22 |
 | E2E-004 | 🟡 PARCIAL — AUD-03..10 DONE; AUD-01/02 feature ausente (ACS não produz facts) | 2026-08-22 |
-| E2E-005 | ✅ DONE — HB-01..05 DONE (P13: ProfilePointerController implementado, dry-run removido, 37 cenários Cucumber PASS) | 2026-08-23 |
+| E2E-005 | ✅ DONE — HB-01..05 DONE (P11 removeu o `ProfilePointerController` — a superfície nunca esteve no api-contract; a lógica virou colaborador do heartbeat. P13 removeu o dry-run: 37 cenários Cucumber executam de fato) | 2026-08-23 |
 | E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
 | E2E-007 | ✅ DONE — NTF-01..05 | 2026-08-22 |
 | E2E-008 | ✅ DONE — DSH-01..05 | 2026-08-22 |
@@ -535,7 +535,23 @@ Sessão 2. São **pré-requisitos da Sessão 3**, não parte do Flow-01.
 > o **edge-service propagar o header `Authorization`** nas chamadas Feign (o pac-service já
 > propaga via `feignAuthPropagationInterceptor`). Sem isso, o heartbeat da Sessão 3 quebra.
 
-### 11.1c EVNT — integrações de saída são fakes `@Primary`
+### 11.1c ~~EVNT — integrações de saída são fakes `@Primary`~~ — RESOLVIDO
+
+> **Verificado em 2026-08-23 (`/be-autopilot EVNT`).** Esta seção descreve um estado que não
+> existe mais e foi mantida por engano depois das Sessões 4 e 6. Os quatro adapters falsos
+> (`CaregiverRoutingHardcodedAdapter`, `AuditTrailNoOpAdapter`, `NotificationDispatchLogAdapter`,
+> `CommandLookupHardcodedAdapter`) foram removidos; `grep -rn "@Primary"` em
+> `evnt-service/src/main` não retorna nada. Os cinco adapters Feign reais vivem em
+> `infrastructure/clients/adapter/` (`AuditTrail`, `CaregiverRouting`, `CommandLookup`,
+> `GestValidation`, `NotificationDispatch`), e as portas default dos `@FeignClient` estão
+> corretas: HIST→8089, ACS→8088, PAC→8082, GEST→8084, DASH→8090 — não as portas erradas
+> descritas abaixo.
+>
+> **Consequência:** o bloqueio que esta seção atribuía a DIR-02, AUD-06/07 e NTF-01..05 não
+> se aplica mais. O que resta de stub no EVNT é outra coisa — `EventoDomainService` vazio e
+> DTOs órfãos em `api/dto` — registrado no ciclo de 2026-08-23.
+>
+> Texto original preservado abaixo como histórico:
 
 Descoberto ao investigar o DIR-02. **Não é só o `CaregiverRoutingClient`**: os quatro ports
 de saída do EVNT são implementados por adapters falsos em código de produção, e os
@@ -945,9 +961,11 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
 - **Gateway não injeta header de tenant.** `grep -i "tenant\|empresa"` no `src/main` do
   `neuroassist-ai-api-gateway` retorna zero: cada serviço precisa extrair o tenant do JWT
   por conta própria. Relevante para qualquer serviço que dependa de `X-Empresa-Id`.
-- **`edge.pairing.url` do GEST aponta para a porta 8090** (DASH), não 8087 (EDGE) —
-  `@FeignClient(name = "edge-pairing-client", url = "${edge.pairing.url:http://localhost:8090}")`.
-  Resolver na Sessão 3, junto com o heartbeat EDGE ↔ GEST.
+- ~~**`edge.pairing.url` do GEST aponta para a porta 8090**~~ — resolvido em 2026-08-23
+  (commit `f835f0d`). Passou a `${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}`,
+  com `EDGE_SERVICE_URL` no `docker-compose.dev.yml`. Texto original: a URL default era
+  `http://localhost:8090` — errada duas vezes, porque 8090 é o dash-service e `localhost`
+  dentro do contêiner é o próprio gest-service; toda resolução device→tenant ia para o vazio.
 - **Divergência test/prod de schema.** A causa-raiz de C-12 não é o ENUM em si: as suítes
   rodam `ddl-auto=create-drop` (Hibernate desenha o schema) enquanto produção roda Flyway,
   então **nenhum teste valida o schema real**. Qualquer divergência entre migration e
@@ -965,10 +983,11 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   Correção proposta (decisão de arquitetura): EDGE→GEST deveria usar **identidade de serviço**
   (client credentials) em vez de propagar o JWT do chamador — mesma família da dívida
   `hist:write` em token de cuidadora.
-- **`fallback()` do `DetectionProfileFeignAdapter` engole 4xx.** O `@CircuitBreaker` sem
-  `ignoreExceptions` trata 403/404 como falha de infraestrutura, transformando erro de
-  autorização em "degradado". É o mecanismo que esconde o C-19 — e o mesmo padrão que fez o
-  C-9 aparecer como "ACS indisponível" em vez de "path errado".
+- ~~**`fallback()` do `DetectionProfileFeignAdapter` engole 4xx**~~ — resolvido em 2026-08-23.
+  O `@CircuitBreaker` ganhou `ignoreExceptions: [feign.FeignException$NotFound]`, e o
+  `DetectionProfilePort` passou a devolver `ProfilePointer(version, degraded)` com três estados
+  (`of`/`noActiveProfile`/`unknown`) em vez de `Optional<Long>` — "GEST respondeu que não há
+  perfil" deixou de ser indistinguível de "GEST caiu". Era o que travava HB-04.
 - **`POST /gest-service/detection-contract` é guardado por `gest.detection-contract.read`** —
   uma escrita protegida por authority de leitura. Funciona hoje (o ACS emite `.read` para
   ambos os papéis), mas o modelo está errado; corrigir exige mexer no catálogo e no ACS.
@@ -1027,8 +1046,12 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
 
 ### 11.3 Inventário de TODO / stub / fake (auditoria pós-Sessão 2)
 
-`grep -rn "TODO\|FIXME\|XXX\|HACK" backend/services/*/src/main` → **97 ocorrências**:
-hist 32 · evnt 27 · pac 10 · dash 9 · edge 9 · acs 8 · gest 2.
+`grep -rn "TODO\|FIXME\|XXX\|HACK" backend/services/*/src/main` → **79 ocorrências**
+(recontado em 2026-08-23; era 97 na auditoria pós-Sessão 2):
+hist 32 · evnt 18 · pac 10 · dash 9 · acs 8 · gest 2 · **edge 0**.
+
+> A contagem por si diz pouco — boa parte das ocorrências do EVNT é javadoc histórico
+> descrevendo o que já foi corrigido, não dívida. O EDGE zerou no ciclo de 2026-08-23.
 
 O que importa não é a contagem, é a distinção entre **stub vivo** (alcançável em runtime,
 mente sobre funcionar) e **scaffolding morto** (gerado, nunca chamado).
@@ -1037,9 +1060,9 @@ mente sobre funcionar) e **scaffolding morto** (gerado, nunca chamado).
 
 | Serviço | Local | O que falta | Bloqueia |
 |---|---|---|---|
-| **EDGE** | `ProfilePointerController.currentPointerForTenant` + `ProfilePointerService` | Ambos lançam `UnsupportedOperationException` | **HB-01..05 (Sessão 3)** — o ponteiro de perfil do heartbeat EDGE↔GEST não existe |
+| ~~**EDGE**~~ | ~~`ProfilePointerController.currentPointerForTenant` + `ProfilePointerService`~~ | ✅ resolvido em 2026-08-23 (P11): o controller e seus DTOs foram removidos — o `api-contract.md` nunca declarou essa superfície — e o `ProfilePointerService` virou o colaborador do heartbeat que a spec pedia (`c4-component.puml:24,58`). Zero `UnsupportedOperationException` em `edge-service/src/main`. | — |
 | ~~**EVNT**~~ | ~~`NotificationOrchestrationController` + service~~ | ✅ resolvido na Sessão 6 (C-45): o retry sweep existe e é agendado | — |
-| **EVNT** | 4 adapters `@Primary` (`CaregiverRoutingHardcoded`, `AuditTrailNoOp`, `NotificationDispatchLog`, `CommandLookupHardcoded`) | Fakes em código de produção; os 4 `@FeignClient` vazios e com porta default errada | **DIR-02, AUD-06/07, NTF-01..05** |
+| ~~**EVNT**~~ | ~~4 adapters `@Primary` (`CaregiverRoutingHardcoded`, `AuditTrailNoOp`, `NotificationDispatchLog`, `CommandLookupHardcoded`)~~ | ✅ resolvido (verificado em 2026-08-23): as quatro classes não existem mais, `grep -rn "@Primary" evnt-service/src/main` não retorna nada, e os cinco adapters Feign reais estão em `infrastructure/clients/adapter/`. Ver §11.1c. | — |
 | **ACS** | `HistAuditClient` (vazio) + `HistAuditAdapter` (`// TODO: call histAuditClient.recordFact(...)`) | O ACS **nunca** envia audit fact ao HIST | **AUD-01 e AUD-02** — esta é a causa raiz de "ACS não produz audit facts" |
 | **ACS** | `MigProvisioningClient` (vazio) + `MigProvisioningAdapter` (`// TODO: call requestSchema/getSchemaStatus`) | Provisionar tenant **não chama as migrations** | **E2E-009 passo 1 real.** Na Sessão 2 usamos o tenant seedado, então esse caminho nunca foi exercitado |
 

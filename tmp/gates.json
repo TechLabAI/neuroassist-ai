@@ -1,6 +1,5 @@
 {
   "test": "pass",
   "build": "pass",
-  "e2e": "pass",
   "lint": "pass"
 }
