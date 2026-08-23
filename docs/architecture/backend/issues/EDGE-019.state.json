@@ -1,28 +1,28 @@
 {
   "issue": "EDGE-019",
   "layer": "be",
-  "computedAt": "2026-08-23T15:23:39",
+  "computedAt": "2026-08-23T15:38:25",
   "checklist": {
     "total": 8,
-    "done": 5,
+    "done": 8,
     "partial": 0,
-    "missing": 3,
+    "missing": 0,
     "blocked": 0,
     "items": [
       {
         "text": "configurar `CucumberSpringContext.java` (ja existe do M3 BDD scaffold) com `@SpringBootTest(webEnvironment=RANDOM_PORT)` + `@Testcontainers` + PostgreSQL container",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: CucumberSpringContext.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: CucumberSpringContext.java"
       },
       {
         "text": "criar (ou completar) `SharedSteps.java` com: setup de tenant schema (CREATE SCHEMA t_test), criacao de JWT de teste (human/device/service via TestJwtFactory), configuracao de WireMock para GEST (`/api/v1/gest/detection-profiles/active`)",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: SharedSteps.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: SharedSteps.java"
       },
       {
         "text": "criar `application-test.yml` com: datasource apontando para Testcontainers, `jwk-set-uri` apontando para stub local, GEST URL apontando para WireMock",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: application-test.yml"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: application-test.yml"
       },
       {
         "text": "verificar que os 4 StepDefs ja gerados no M3 (DeviceRegistrationSteps, DevicePairingSteps, HeartbeatLivenessSteps, ProfilePointerDriftSteps) compilam com o contexto e `CucumberIT` encontra as features",
@@ -58,21 +58,21 @@
     "e2e": "pass"
   },
   "score": {
-    "total": 64,
+    "total": 90,
     "provisional": true,
     "range": [
-      64,
-      74
+      90,
+      100
     ],
     "breakdown": {
       "structure": {
         "max": 30,
-        "value": 15,
+        "value": 30,
         "basis": "deterministic"
       },
       "functionality": {
         "max": 30,
-        "value": 19,
+        "value": 30,
         "basis": "heuristic",
         "needsAgentConfirm": true
       },
@@ -93,11 +93,11 @@
         "needsAgentConfirm": true
       }
     },
-    "band": "Consistente",
-    "statusTag": "REDUCED"
+    "band": "Maduro",
+    "statusTag": "NEAR-CLOSED"
   },
   "agentTodo": [
-    "Confirmar functionality 19/30 -- a funcionalidade alvo funciona?",
+    "Confirmar functionality 30/30 -- a funcionalidade alvo funciona?",
     "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
   ]
 }

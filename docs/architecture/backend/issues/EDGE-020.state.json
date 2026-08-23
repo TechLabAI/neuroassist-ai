@@ -1,33 +1,33 @@
 {
   "issue": "EDGE-020",
   "layer": "be",
-  "computedAt": "2026-08-23T15:23:21",
+  "computedAt": "2026-08-23T15:38:30",
   "checklist": {
     "total": 10,
-    "done": 6,
+    "done": 10,
     "partial": 0,
-    "missing": 4,
+    "missing": 0,
     "blocked": 0,
     "items": [
       {
         "text": "implementar step definitions completas em `DeviceRegistrationEnrollmentSteps.java` (cenarios: register, enroll, token-expired, already-enrolled, retire, scope-guard)",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: DeviceRegistrationEnrollmentSteps.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: DeviceRegistrationEnrollmentSteps.java"
       },
       {
         "text": "implementar step definitions completas em `DevicePairingSteps.java` (cenarios: pair, unpair, exclusive-pairing-conflict, pair-retired-device, re-pair-with-credential-rotation)",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: DevicePairingSteps.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: DevicePairingSteps.java"
       },
       {
         "text": "implementar step definitions completas em `HeartbeatLivenessSteps.java` (cenarios: online, offline-after-staleness, offline->online transition, device-retired heartbeat, ETag 304, serverTime present)",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: HeartbeatLivenessSteps.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: HeartbeatLivenessSteps.java"
       },
       {
         "text": "implementar step definitions completas em `ProfilePointerDriftSteps.java` (cenarios: no-drift, drift-detected, GEST-unavailable degraded, no-active-profile)",
-        "state": "MISSING",
-        "evidence": "marcado mas arquivo ausente: ProfilePointerDriftSteps.java"
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: ProfilePointerDriftSteps.java"
       },
       {
         "text": "garantir que todos os ~38 cenarios passam no `./gradlew :services:edge-service:test -Dcucumber.filter.tags=@integration`",
@@ -68,21 +68,21 @@
     "e2e": "pass"
   },
   "score": {
-    "total": 63,
+    "total": 90,
     "provisional": true,
     "range": [
-      63,
-      73
+      90,
+      100
     ],
     "breakdown": {
       "structure": {
         "max": 30,
-        "value": 15,
+        "value": 30,
         "basis": "deterministic"
       },
       "functionality": {
         "max": 30,
-        "value": 18,
+        "value": 30,
         "basis": "heuristic",
         "needsAgentConfirm": true
       },
@@ -103,11 +103,11 @@
         "needsAgentConfirm": true
       }
     },
-    "band": "Consistente",
-    "statusTag": "REDUCED"
+    "band": "Maduro",
+    "statusTag": "NEAR-CLOSED"
   },
   "agentTodo": [
-    "Confirmar functionality 18/30 -- a funcionalidade alvo funciona?",
+    "Confirmar functionality 30/30 -- a funcionalidade alvo funciona?",
     "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
   ]
 }

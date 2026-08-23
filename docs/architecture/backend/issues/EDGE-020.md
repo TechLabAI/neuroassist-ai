@@ -1,8 +1,8 @@
 # EDGE-020 -- Implement full BDD feature coverage — wire all 4 Gherkin features (~38 scenarios: device-registration-enrollment, device-pairing, heartbeat-liveness, profile-pointer-drift)
 
-**Status:** DONE
-**Maturidade:** 100
-**Done/Total:** 5/5 itens
+**Status:** NEAR-CLOSED -- pos-validacao 2026-08-23
+**Maturidade:** 90 -- Maduro
+**Done/Total:** 10/10 itens
 
 > **Correção de estado — BASELINE 2026-08-22 (`/be-autopilot EDGE`).** Esta issue estava marcada
 > `DONE` sem que os cenários executassem. O runner `CucumberIT` está com
