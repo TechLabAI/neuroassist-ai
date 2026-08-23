@@ -1,6 +1,8 @@
 package com.neuroassist.evnt.infrastructure.clients.adapter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.evnt.application.port.out.AuditTrailPort;
+import com.neuroassist.evnt.application.port.out.HistOutboxPort;
 import com.neuroassist.evnt.infrastructure.clients.AuditTrailClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,12 +18,17 @@ import org.springframework.stereotype.Component;
  * it: a caregiver's confirmation is not rolled back because hist-service is down. The failure is
  * logged at {@code warn} and the call returns.
  *
- * <p><b>Known gap, deliberately not hidden.</b> pac-service backs the same concern with a durable
- * outbox, so a fact survives a hist-service outage and is retried. evnt-service has no outbox
- * table, so a fact lost here is lost for good. Adding one is real work (a table, a sweeper, and the
- * {@code factId} minted once and reused across retries, per defect C-5) and belongs to the EVNT
- * backlog, not to this session — but the loss is silent from the caller's point of view, so it is
- * stated here rather than left to be discovered.
+ * <p><b>Fail-open is not the same as fail-forgetful</b> (E2E-017). Until this issue the failure
+ * branch logged {@code "was NOT recorded and is lost — evnt-service has no outbox"} and returned: a
+ * fact produced while hist-service was down was gone for good, and these are the facts of an
+ * <i>alarm</i> — the record that matters most in a clinical audit. The fact now goes to {@code
+ * hist_outbox} and {@code HistOutboxDrainService} redelivers it.
+ *
+ * <p>The outbox write joins the caller's transaction ({@code EventConfirmationService} and {@code
+ * ReportIngressService} are both {@code @Transactional}), so an audit fact exists if and only if
+ * the event that produced it exists. The request is serialised and stored whole rather than
+ * re-derived later, because the {@code factId} must be reused byte-for-byte for hist-service to
+ * treat the redelivery as a replay instead of a second fact (defect C-5).
  */
 @Slf4j
 @Component
@@ -29,6 +36,8 @@ import org.springframework.stereotype.Component;
 public class AuditTrailFeignAdapter implements AuditTrailPort {
 
     private final AuditTrailClient client;
+    private final HistOutboxPort outboxPort;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void record(AuditFact fact) {
@@ -52,11 +61,31 @@ public class AuditTrailFeignAdapter implements AuditTrailPort {
                     response == null ? null : response.sequenceNo());
         } catch (Exception e) {
             log.warn(
-                    "Audit fact {} ({}) was NOT recorded and is lost — evnt-service has no outbox:"
-                            + " {}",
+                    "Audit fact {} ({}) not delivered, queued for retry: {}",
                     fact.factId(),
                     fact.factType(),
                     e.getMessage());
+            enqueueForRetry(fact, request);
+        }
+    }
+
+    /**
+     * Last line of defence. If queueing itself fails, the fact really is lost — and that must be
+     * loud, because it is the state this issue exists to eliminate. Throwing here would roll back
+     * the caller's transaction, which is exactly the fail-open contract of AUD-10: an audit write
+     * must never undo a caregiver's confirmation.
+     */
+    private void enqueueForRetry(AuditFact fact, AuditTrailClient.RecordAuditFactRequest request) {
+        try {
+            outboxPort.enqueue(
+                    fact.factId(), fact.factType(), objectMapper.writeValueAsString(request));
+        } catch (Exception queueFailure) {
+            log.error(
+                    "Audit fact {} ({}) could NOT be queued and is lost: {}",
+                    fact.factId(),
+                    fact.factType(),
+                    queueFailure.getMessage(),
+                    queueFailure);
         }
     }
 }

@@ -391,11 +391,12 @@ dívida que ninguém prioriza.
 |---|---|---|---|
 | E2E-015 | Vínculo cuidador↔paciente não chega ao directory do ACS (C-30/C-42/C-43) | P1 | ✅ DONE — critério de aceite fechado no stack real (2026-08-23); C-42 segue aberto |
 | E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | ✅ DONE — validado no stack (2026-08-23) |
-| E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | OPEN |
+| E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | OPEN |
 | E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | OPEN |
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
+| E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | OPEN — revelado ao validar E2E-017 |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
@@ -1040,7 +1041,14 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   `dispositivo`, mas `ActorRefDto` só modela cuidador e exige `caregiverId`. O `evento.criado`
   grava o `deviceId` nesse campo com `displayName = "dispositivo <id>"` — funciona e é rastreável,
   mas abusa do nome do campo.
-- **O EVNT não tem outbox de auditoria.** O `AuditTrailFeignAdapter` é fail-open (correto para
+- **Tenant provisionado pela API congela na versão do template (C-50).** Descoberto ao validar
+  E2E-017: a V0501 entrou e os 4 tenants criados pelas validações anteriores não a receberam — o
+  contêiner `migrations-empresa` migra um schema fixo (`FLYWAY_SCHEMAS: t_emp_dev`). O modo
+  `migrate-all` que o `api-contract` §2 descreve ("global + every existing tenant schema") nunca
+  foi implementado; ele só passou a ser necessário quando criar empresas deixou de ser um stub.
+  Ver E2E-030.
+
+- ~~**O EVNT não tem outbox de auditoria.**~~ — resolvido em 2026-08-23 (E2E-017). Texto original: O `AuditTrailFeignAdapter` é fail-open (correto para
   AUD-10), mas sem durabilidade: um fato perdido numa indisponibilidade do HIST é perdido para
   sempre. O PAC resolve isso com `hist_outbox` + `factId` cunhado uma vez (C-5) — e desde a
   Sessão 6 esse outbox é de fato drenado (C-44), então o padrão a copiar existe inteiro.

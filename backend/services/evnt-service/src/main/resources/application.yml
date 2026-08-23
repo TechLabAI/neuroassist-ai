@@ -63,6 +63,22 @@ evnt:
     # Curto de proposito: este intervalo e quanto tempo uma cuidadora que se ausentou espera
     # por um alarme que nao encontrou sessao aberta.
     interval-ms: 30000
+
+  # Reentrega de fatos de auditoria presos no outbox (E2E-017).
+  # O AuditTrailFeignAdapter e fail-open — um alarme nao pode falhar porque o HIST caiu
+  # (AUD-10) — mas ate aqui era fail-open SEM durabilidade: o adapter registrava
+  # "was NOT recorded and is lost" e seguia. Sao os fatos de um alarme, o registro que
+  # mais importa numa auditoria clinica.
+  hist-outbox:
+    batch-size: 50          # entradas por tick — evita replay de um backlog inteiro numa transacao
+    max-retries: 10         # depois disso a entrada vai para 'failed' COM o motivo registrado
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do hist-service subir junto no compose
+      # Mais longo que o de notificacao de proposito: um fato de auditoria atrasado um minuto
+      # nao machuca ninguem; um alarme atrasado, sim.
+      interval-ms: 60000
+
   # Base URLs of the downstream services. The defaults are the docker-compose service names —
   # a `localhost` default resolves to the evnt-service container itself, which is how four of
   # these clients silently pointed at nothing (and two at the wrong service entirely).
