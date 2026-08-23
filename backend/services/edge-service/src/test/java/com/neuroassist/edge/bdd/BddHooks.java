@@ -16,8 +16,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * Cucumber lifecycle hooks for BDD tests. Runs before/after each scenario to ensure isolation:
  *
  * <ul>
- *   <li>{@code @Before} — truncates tenant tables + resets WireMock stubs + re-installs the
- *       default ACS service-token stub.
+ *   <li>{@code @Before} — truncates tenant tables + resets WireMock stubs + re-installs the default
+ *       ACS service-token stub.
  *   <li>{@code @After} — resets the Resilience4j circuit breaker for {@code gest-detection-profile}
  *       and invalidates the {@link ServiceTokenProvider} cache for the test tenant, so state does
  *       not leak between scenarios.
@@ -28,16 +28,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
  */
 public class BddHooks {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private CircuitBreakerRegistry circuitBreakerRegistry;
+    @Autowired private CircuitBreakerRegistry circuitBreakerRegistry;
 
-    @Autowired
-    private ServiceTokenProvider serviceTokenProvider;
+    @Autowired private ServiceTokenProvider serviceTokenProvider;
 
-    /** Name of the Resilience4j circuit breaker protecting the GEST detection-profile Feign call. */
+    /**
+     * Name of the Resilience4j circuit breaker protecting the GEST detection-profile Feign call.
+     */
     private static final String CB_GEST = "gest-detection-profile";
 
     @Before
@@ -45,6 +44,12 @@ public class BddHooks {
         // Truncate all tenant-schema tables. CASCADE handles FK references
         // (dispositivo_enrollment, dispositivo_credential, dispositivo_edge_transition).
         jdbcTemplate.update("TRUNCATE t_emp_test.dispositivo_edge CASCADE");
+
+        // Truncate global index tables so enrollment and device directory entries from previous
+        // scenarios do not interfere. These are schema-qualified so the raw DataSource connection
+        // (no search_path override) can always reach them.
+        jdbcTemplate.update("TRUNCATE neuroassist_global.enrollment_directory");
+        jdbcTemplate.update("TRUNCATE neuroassist_global.device_directory");
 
         // Reset WireMock to remove any stubs added in previous scenarios.
         CucumberSpringContext.WIRE_MOCK.resetAll();

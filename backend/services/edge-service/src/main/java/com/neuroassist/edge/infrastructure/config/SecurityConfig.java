@@ -1,6 +1,7 @@
 package com.neuroassist.edge.infrastructure.config;
 
 import com.neuroassist.edge.infrastructure.security.TenantContextFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -94,6 +95,28 @@ public class SecurityConfig {
                                         .hasAnyAuthority("edge.read", "edge.internal")
                                         .anyRequest()
                                         .authenticated())
+                .exceptionHandling(
+                        ex ->
+                                ex.accessDeniedHandler(
+                                        (request, response, denied) -> {
+                                            // Filter-chain authorization denial (hasAuthority
+                                            // check).
+                                            // The default handler returns 403 with no body.
+                                            // This handler writes a ProblemDetail JSON so FE and
+                                            // BDD
+                                            // assertions on the error type are not vacuous.
+                                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                                            response.setContentType(
+                                                    "application/problem+json;charset=UTF-8");
+                                            response.getWriter()
+                                                    .write(
+                                                            "{"
+                                                                    + "\"type\":\"https://neuroassist-ai.com/errors/edge.insufficient-scope\","
+                                                                    + "\"status\":403,"
+                                                                    + "\"title\":\"Insufficient scope for this operation\","
+                                                                    + "\"detail\":\"The token does not carry the required authority\""
+                                                                    + "}");
+                                        }))
                 .oauth2ResourceServer(
                         oauth2 ->
                                 oauth2.jwt(

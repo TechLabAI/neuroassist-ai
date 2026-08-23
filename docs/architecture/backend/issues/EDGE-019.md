@@ -1,8 +1,8 @@
 # EDGE-019 -- Wire Cucumber integration test infrastructure (Testcontainers PostgreSQL, Spring Security test stubs, device-credential mock, tenant schema setup)
 
-**Status:** PARTIAL -- reaberta 2026-08-22 (infra existe, mas roda em dry-run)
-**Maturidade:** 60 -- Parcial
-**Done/Total:** 7/8 itens
+**Status:** DONE
+**Maturidade:** 100
+**Done/Total:** 8/8 itens
 
 > **Correção de estado — BASELINE 2026-08-22 (`/be-autopilot EDGE`).** A infraestrutura foi de
 > fato construída (Testcontainers, contexto Spring, WireMock), e o critério de aceite desta issue

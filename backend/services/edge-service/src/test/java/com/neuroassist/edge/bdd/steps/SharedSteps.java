@@ -25,11 +25,9 @@ public class SharedSteps {
 
     private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
 
-    @Autowired
-    private TestContext testContext;
+    @Autowired private TestContext testContext;
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     // -------------------------------------------------------------------------
     // Background steps
@@ -37,14 +35,16 @@ public class SharedSteps {
 
     /**
      * Sets up the test tenant context. In production, the tenant is bound to a request via the JWT
-     * {@code tenant_id} claim. Here we initialize the operator token (needed for liveness polls)
-     * so it is ready for any step in this scenario without needing an explicit "caller has role" step.
+     * {@code tenant_id} claim. Here we initialize the operator token (needed for liveness polls) so
+     * it is ready for any step in this scenario without needing an explicit "caller has role" step.
      */
     @Given("the tenant \"empresa-test\" is active")
     public void givenTheTenantEmpresatestIsActive() {
         // Operator token covers edge.read + edge.manage — sufficient for liveness polls and
-        // manage operations. Device token is set separately in andTheDeviceCredentialForD7b1IsValid.
-        testContext.setOperatorToken(TestJwtFactory.createOperatorToken(TestJwtFactory.TEST_TENANT));
+        // manage operations. Device token is set separately in
+        // andTheDeviceCredentialForD7b1IsValid.
+        testContext.setOperatorToken(
+                TestJwtFactory.createOperatorToken(TestJwtFactory.TEST_TENANT));
     }
 
     /**
@@ -76,11 +76,21 @@ public class SharedSteps {
     // -------------------------------------------------------------------------
 
     /**
-     * Updates device "d7b1" to the "retired" state. Used by scenarios that verify heartbeats from
-     * retired devices are rejected.
+     * Ensures device "d7b1" exists and is in the "retired" state. Uses INSERT ON CONFLICT DO
+     * NOTHING so the step is idempotent: when an earlier step (e.g.,
+     * andDeviceD7b1IsPairedToPatient9c2a) already inserted the device, the INSERT is skipped and
+     * the UPDATE changes the state. When the device was not yet inserted (standalone scenario in
+     * device-pairing.feature), the INSERT creates it first.
      */
     @Given("device \"d7b1\" is in state \"retired\"")
     public void givenDeviceD7b1IsInStateRetired() {
+        jdbcTemplate.update(
+                "INSERT INTO t_emp_test.dispositivo_edge"
+                        + " (id, tenant_id, pairing_state, label, row_version)"
+                        + " VALUES (?, ?, 'registered', 'test-device-d7b1', 0)"
+                        + " ON CONFLICT (id) DO NOTHING",
+                TestJwtFactory.D7B1_ID,
+                TestJwtFactory.TEST_TENANT);
         jdbcTemplate.update(
                 "UPDATE t_emp_test.dispositivo_edge SET pairing_state = 'retired'"
                         + " WHERE id = ?",
@@ -90,7 +100,8 @@ public class SharedSteps {
     /** Creates an operator JWT with edge.manage authority and stores it in {@link TestContext}. */
     @And("the caller has role \"edge.manage\"")
     public void andTheCallerHasRoleEdgemanage() {
-        testContext.setOperatorToken(TestJwtFactory.createOperatorToken(TestJwtFactory.TEST_TENANT));
+        testContext.setOperatorToken(
+                TestJwtFactory.createOperatorToken(TestJwtFactory.TEST_TENANT));
     }
 
     // -------------------------------------------------------------------------
@@ -152,7 +163,8 @@ public class SharedSteps {
             assertThat(deviceIdNode).as("deviceId field in response").isNotNull();
             assertThat(deviceIdNode.asText()).isEqualTo(TestJwtFactory.D7B1_ID.toString());
         } catch (Exception e) {
-            throw new AssertionError("Cannot parse response body for deviceId assertion: " + e.getMessage(), e);
+            throw new AssertionError(
+                    "Cannot parse response body for deviceId assertion: " + e.getMessage(), e);
         }
     }
 
@@ -178,15 +190,16 @@ public class SharedSteps {
             assertThat(statusNode).as("status field in response body").isNotNull();
             assertThat(statusNode.asText()).as("status value").isEqualTo(expected);
         } catch (Exception e) {
-            throw new AssertionError("Cannot parse response body for status assertion: " + e.getMessage(), e);
+            throw new AssertionError(
+                    "Cannot parse response body for status assertion: " + e.getMessage(), e);
         }
     }
 
     /**
      * Asserts that the response body's {@code type} field (RFC 7807 ProblemDetail) contains the
-     * given error code fragment. Uses {@code contains} because {@code ProblemDetailFactory} prefixes
-     * codes with {@code "edge."} and the full type URI is
-     * {@code https://neuroassist-ai.com/errors/edge.<code>}.
+     * given error code fragment. Uses {@code contains} because {@code ProblemDetailFactory}
+     * prefixes codes with {@code "edge."} and the full type URI is {@code
+     * https://neuroassist-ai.com/errors/edge.<code>}.
      */
     private void assertErrorBodyContains(String errorCodeFragment) {
         try {
@@ -195,9 +208,7 @@ public class SharedSteps {
             JsonNode tree = MAPPER.readTree(body);
             JsonNode typeNode = tree.get("type");
             assertThat(typeNode).as("'type' field in ProblemDetail").isNotNull();
-            assertThat(typeNode.asText())
-                    .as("error type URI")
-                    .contains(errorCodeFragment);
+            assertThat(typeNode.asText()).as("error type URI").contains(errorCodeFragment);
         } catch (Exception e) {
             throw new AssertionError("Cannot parse error response body: " + e.getMessage(), e);
         }

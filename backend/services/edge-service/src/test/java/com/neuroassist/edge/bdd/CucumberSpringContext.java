@@ -2,10 +2,10 @@ package com.neuroassist.edge.bdd;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.neuroassist.edge.integration.BaseIntegrationTest;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
-import com.neuroassist.edge.integration.BaseIntegrationTest;
 import io.cucumber.spring.CucumberContextConfiguration;
 import java.text.ParseException;
 import java.time.Instant;
@@ -29,9 +29,9 @@ import org.springframework.test.context.DynamicPropertySource;
  *   <li>Static WireMock server for GEST detection-profile + ACS service-token stubs.
  *   <li>{@code @DynamicPropertySource} to override {@code neuroassist.gest.url} and {@code
  *       neuroassist.acs.service-token.url} to the WireMock port.
- *   <li>{@code @TestConfiguration} inner class providing a {@code @Primary JwtDecoder} that
- *       accepts unsigned {@code PlainJWT} tokens without signature validation (test seam), and a
- *       {@code cucumber-glue} scoped {@link TestContext} bean for per-scenario shared state.
+ *   <li>{@code @TestConfiguration} inner class providing a {@code @Primary JwtDecoder} that accepts
+ *       unsigned {@code PlainJWT} tokens without signature validation (test seam), and a {@code
+ *       cucumber-glue} scoped {@link TestContext} bean for per-scenario shared state.
  * </ul>
  *
  * <p><b>WireMock lifecycle:</b> The server is started once (static initializer) and shared across
@@ -72,8 +72,8 @@ public class CucumberSpringContext extends BaseIntegrationTest {
     }
 
     /**
-     * Test-only Spring beans for the Cucumber context. Not annotated with {@code @Configuration}
-     * to avoid component scan; loaded automatically because it is a static inner class of the
+     * Test-only Spring beans for the Cucumber context. Not annotated with {@code @Configuration} to
+     * avoid component scan; loaded automatically because it is a static inner class of the
      * {@code @CucumberContextConfiguration} class (Spring Boot Test convention).
      */
     @TestConfiguration
@@ -86,9 +86,9 @@ public class CucumberSpringContext extends BaseIntegrationTest {
          *
          * <p>{@code @Primary} ensures this bean is chosen when multiple {@code JwtDecoder} beans
          * exist. In practice, because this class is inside a {@code @TestConfiguration} loaded
-         * before {@code OAuth2ResourceServerJwtConfiguration} — which is {@code
-         * @ConditionalOnMissingBean(JwtDecoder.class)} — the auto-configured decoder is never
-         * created.
+         * before {@code OAuth2ResourceServerJwtConfiguration} — which is
+         * {@code @ConditionalOnMissingBean(JwtDecoder.class)} — the auto-configured decoder is
+         * never created.
          */
         @Bean
         @Primary
@@ -115,15 +115,16 @@ public class CucumberSpringContext extends BaseIntegrationTest {
                             .expiresAt(expiresAt)
                             .build();
                 } catch (ParseException e) {
-                    throw new JwtException("Test JWT decoder: cannot parse token — " + e.getMessage());
+                    throw new JwtException(
+                            "Test JWT decoder: cannot parse token — " + e.getMessage());
                 }
             };
         }
 
         /**
-         * Per-scenario shared state. The {@code cucumber-glue} scope is registered by the
-         * {@code cucumber-spring} module when the Cucumber context is bootstrapped. A fresh
-         * {@link TestContext} is created for each scenario and destroyed when the scenario ends.
+         * Per-scenario shared state. The {@code cucumber-glue} scope is registered by the {@code
+         * cucumber-spring} module when the Cucumber context is bootstrapped. A fresh {@link
+         * TestContext} is created for each scenario and destroyed when the scenario ends.
          */
         @Bean
         @Scope("cucumber-glue")

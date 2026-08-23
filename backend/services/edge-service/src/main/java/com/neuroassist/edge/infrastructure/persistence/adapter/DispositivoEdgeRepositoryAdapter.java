@@ -5,10 +5,13 @@ import com.neuroassist.edge.domain.model.DispositivoEdge;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.infrastructure.persistence.entity.DispositivoEdgeJpaEntity;
 import com.neuroassist.edge.infrastructure.persistence.repository.DispositivoEdgeJpaRepository;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -19,6 +22,7 @@ import org.springframework.stereotype.Component;
  * {@code @Transactional} here — transaction boundary belongs to {@code application.service}
  * (RULE-03).
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DispositivoEdgeRepositoryAdapter implements DispositivoEdgeRepositoryPort {
@@ -44,9 +48,28 @@ public class DispositivoEdgeRepositoryAdapter implements DispositivoEdgeReposito
 
     @Override
     public Optional<DispositivoEdge> findByIdAndTenantId(UUID id, String tenantId) {
-        return repository
-                .findByIdAndTenantId(id, tenantId)
-                .map(DispositivoEdgeRepositoryAdapter::toDomain);
+        try {
+            return repository
+                    .findByIdAndTenantId(id, tenantId)
+                    .map(DispositivoEdgeRepositoryAdapter::toDomain);
+        } catch (DataAccessException e) {
+            // Only swallow "undefined table" (42P01) or "invalid schema name" (3F000) —
+            // both signal that the tenant schema does not exist (unknown tenant).
+            // Any other DataAccessException (connection failure, timeout, deadlock,
+            // constraint violation…) must propagate so infrastructure issues are not
+            // silently masked as 404. We inspect the SQLState instead of matching by
+            // message to avoid fragility across Postgres versions or locales.
+            if (!isUnknownTenantSchema(e)) {
+                throw e;
+            }
+            log.warn(
+                    "Unknown tenant schema for device={} tenant={} (SQLState={}): {}",
+                    id,
+                    tenantId,
+                    sqlStateOf(e),
+                    e.getMostSpecificCause().getMessage());
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -66,9 +89,54 @@ public class DispositivoEdgeRepositoryAdapter implements DispositivoEdgeReposito
     @Override
     public Optional<DispositivoEdge> findByPairingStateAndPacienteIdAndTenantId(
             PairingState state, UUID pacienteId, String tenantId) {
-        return repository
-                .findByPairingStateAndPacienteIdAndTenantId(state, pacienteId, tenantId)
-                .map(DispositivoEdgeRepositoryAdapter::toDomain);
+        try {
+            return repository
+                    .findByPairingStateAndPacienteIdAndTenantId(state, pacienteId, tenantId)
+                    .map(DispositivoEdgeRepositoryAdapter::toDomain);
+        } catch (DataAccessException e) {
+            if (!isUnknownTenantSchema(e)) {
+                throw e;
+            }
+            log.warn(
+                    "Unknown tenant schema for patient={} tenant={} (SQLState={}): {}",
+                    pacienteId,
+                    tenantId,
+                    sqlStateOf(e),
+                    e.getMostSpecificCause().getMessage());
+            return Optional.empty();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Tenant-schema error detection
+    // -------------------------------------------------------------------------
+
+    /**
+     * Returns {@code true} only when {@code e} represents an "undefined table" ({@code 42P01}) or
+     * "invalid schema name" ({@code 3F000}) error — both indicate that the tenant schema does not
+     * exist (unknown/unprovisioned tenant). Every other {@link DataAccessException} — connection
+     * failure, timeout, deadlock, constraint violation — must propagate.
+     */
+    private static boolean isUnknownTenantSchema(DataAccessException e) {
+        String state = sqlStateOf(e);
+        return "42P01".equals(state) || "3F000".equals(state);
+    }
+
+    /** Walks the cause chain looking for a {@link SQLException} and returns its SQL state. */
+    private static String sqlStateOf(DataAccessException e) {
+        Throwable cause = e.getMostSpecificCause();
+        if (cause instanceof SQLException sqle) {
+            return sqle.getSQLState();
+        }
+        // getMostSpecificCause already drills to the bottom; still walk manually as fallback.
+        Throwable t = e;
+        while (t != null) {
+            if (t instanceof SQLException sqle) {
+                return sqle.getSQLState();
+            }
+            t = t.getCause();
+        }
+        return null;
     }
 
     // -------------------------------------------------------------------------

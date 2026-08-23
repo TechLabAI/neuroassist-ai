@@ -1,5 +1,6 @@
 package com.neuroassist.edge.bdd;
 
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 
 /**
@@ -27,6 +28,18 @@ public class TestContext {
 
     /** Service JWT (scope=edge.internal) for GEST-to-EDGE internal requests. */
     private String serviceToken;
+
+    /**
+     * Plaintext enrollment token returned by POST /api/v1/edge/devices registration. Stored so
+     * subsequent enrollment steps can present it to POST /api/v1/edge/devices/enroll.
+     */
+    private String enrollmentToken;
+
+    /**
+     * UUID of the device registered via POST /api/v1/edge/devices. Stored for follow-up DB checks
+     * (hash verification, credential status, etc.) without re-querying the response body.
+     */
+    private UUID enrolledDeviceId;
 
     public ResponseEntity<String> getLastResponse() {
         return lastResponse;
@@ -66,5 +79,21 @@ public class TestContext {
 
     public void setServiceToken(String serviceToken) {
         this.serviceToken = serviceToken;
+    }
+
+    public String getEnrollmentToken() {
+        return enrollmentToken;
+    }
+
+    public void setEnrollmentToken(String enrollmentToken) {
+        this.enrollmentToken = enrollmentToken;
+    }
+
+    public UUID getEnrolledDeviceId() {
+        return enrolledDeviceId;
+    }
+
+    public void setEnrolledDeviceId(UUID enrolledDeviceId) {
+        this.enrolledDeviceId = enrolledDeviceId;
     }
 }

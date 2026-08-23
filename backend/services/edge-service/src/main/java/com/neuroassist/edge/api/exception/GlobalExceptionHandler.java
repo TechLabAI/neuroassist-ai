@@ -6,11 +6,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 @Slf4j
@@ -55,5 +60,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ProblemDetail handleGenericException(Exception ex, HttpServletRequest req) {
         log.error("Unhandled exception", ex);
         return ProblemDetailFactory.forCode(null, ex, req);
+    }
+
+    /**
+     * Malformed or structurally invalid request body (e.g. unrecognised property, wrong type,
+     * broken JSON). Privacy invariant #6: unknown fields in the heartbeat body surface here as a
+     * 400 — {@link com.neuroassist.edge.api.dto.HeartbeatRequest} rejects them in its canonical
+     * constructor via a {@code @JsonAnySetter} catch-all, and Jackson wraps that rejection into
+     * {@link HttpMessageNotReadableException}. The rule is scoped to that one payload; there is no
+     * global {@code fail-on-unknown-properties} switch.
+     *
+     * <p>Overrides the parent's default (which returns a generic 400 without a problem-type URI) so
+     * the response conforms to the documented error schema.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        log.warn("Unreadable request body: {}", ex.getMostSpecificCause().getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.BAD_REQUEST);
+        pd.setType(URI.create("https://neuroassist-ai.com/errors/validation"));
+        pd.setTitle("Invalid request body");
+        pd.setDetail(ex.getMostSpecificCause().getMessage());
+        String correlationId = MDC.get("correlationId");
+        if (correlationId != null) {
+            pd.setProperty("correlationId", correlationId);
+        }
+        return ResponseEntity.badRequest().body(pd);
     }
 }

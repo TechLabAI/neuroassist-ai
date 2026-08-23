@@ -123,3 +123,63 @@ SET search_path = public;
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA t_emp_test TO test;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA t_emp_test TO test;
+
+-- -------------------------------------------------------------------------
+-- Global schema: tenant catalogue + cross-tenant lookup indices (C-18, C-21).
+-- All types mirror production migrations exactly — no intentional divergence.
+-- tenant_id is uuid in all global tables, matching V0100/V0700/V0701.
+-- -------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS neuroassist_global;
+
+GRANT ALL PRIVILEGES ON SCHEMA neuroassist_global TO test;
+
+-- Tenant catalogue: mirrors neuroassist_global.tenant from V0100__acs_global_schema.sql.
+-- Required so MultiTenantConnectionProvider.resolveSchema() exercises the real catalogue
+-- path (tenant UUID → schema_nome) instead of falling back to the identifier-as-schema.
+CREATE TABLE IF NOT EXISTS neuroassist_global.tenant (
+    tenant_id                 uuid          NOT NULL DEFAULT gen_random_uuid(),
+    nome                      varchar(200)  NOT NULL,
+    tipo                      varchar(50)   NOT NULL,
+    status                    varchar(50)   NOT NULL DEFAULT 'PROVISIONING',
+    schema_nome               varchar(80)   NULL,
+    criado_em                 timestamptz   NOT NULL DEFAULT now(),
+    criado_por_usuario_id     uuid          NULL,
+    atualizado_em             timestamptz   NULL,
+    atualizado_por_usuario_id uuid          NULL,
+    PRIMARY KEY (tenant_id),
+    CONSTRAINT ck_tenant_tipo   CHECK (tipo   IN ('CLINICA','PAC_HOME','TELEHEALTH')),
+    CONSTRAINT ck_tenant_status CHECK (status IN ('PROVISIONING','ACTIVE','SUSPENDED'))
+);
+
+-- Test tenant: UUID 00000000-0000-0000-0000-000000000001 → schema t_emp_test.
+-- TestJwtFactory.TEST_TENANT carries this UUID in all BDD JWTs.
+INSERT INTO neuroassist_global.tenant
+    (tenant_id, nome, tipo, status, schema_nome)
+VALUES
+    ('00000000-0000-0000-0000-000000000001', 'Test Tenant', 'CLINICA', 'ACTIVE', 't_emp_test');
+
+-- Enrollment directory: token_hash → tenant (C-21).
+-- Mirrors V0700__edge_enrollment_directory.sql — tenant_id is uuid, NOT varchar.
+-- EnrollmentDirectoryJdbcAdapter uses ?::uuid cast to pass the UUID string parameter.
+CREATE TABLE IF NOT EXISTS neuroassist_global.enrollment_directory (
+    token_hash           varchar(200) NOT NULL,
+    tenant_id            uuid         NOT NULL,
+    dispositivo_edge_id  uuid         NOT NULL,
+    expires_at           timestamptz  NOT NULL,
+    created_at           timestamptz  NOT NULL DEFAULT now(),
+    PRIMARY KEY (token_hash)
+);
+
+-- Device directory: client_id → tenant (C-18).
+-- Mirrors V0701__edge_device_directory.sql — tenant_id is uuid, NOT varchar.
+-- DeviceDirectoryJdbcAdapter uses ?::uuid cast to pass the UUID string parameter.
+CREATE TABLE IF NOT EXISTS neuroassist_global.device_directory (
+    client_id            varchar(120) NOT NULL,
+    tenant_id            uuid         NOT NULL,
+    dispositivo_edge_id  uuid         NOT NULL,
+    created_at           timestamptz  NOT NULL DEFAULT now(),
+    PRIMARY KEY (client_id)
+);
+
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA neuroassist_global TO test;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA neuroassist_global TO test;

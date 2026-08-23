@@ -226,9 +226,11 @@ class GestDetectionProfileContractTest {
                 .containsExactly("Bearer " + SERVICE_TOKEN);
 
         // The token was fetched from the ACS with the tenant of the request in course.
+        // clientId matches neuroassist.acs.service-token.client-id from application-test.yml.
         gestMock.verify(
                 postRequestedFor(urlEqualTo("/oauth2/token/service"))
-                        .withRequestBody(matchingJsonPath("$.clientId", equalTo("edge-service")))
+                        .withRequestBody(
+                                matchingJsonPath("$.clientId", equalTo("test-edge-service")))
                         .withRequestBody(matchingJsonPath("$.tenantId", equalTo(TENANT))));
     }
 

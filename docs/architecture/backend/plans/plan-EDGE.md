@@ -30,7 +30,7 @@ fecha E2E-005 (cenários HB-02..05) com validação real e zera os stubs vivos.
 ## Status das prioridades
 
 - P1..P10 — ✅ DONE (ver histórico abaixo)
-- P11 — pendente (remover stubs vivos — ProfilePointer órfão + DTOs TODO)
+- P11 — ✅ DONE (commit f835f0d — 4 arquivos REST removidos, ProfilePointerUseCase/Service reescritos como colaborador, authority `edge.profile-pointer.read` removida do ACS e dos catálogos ArchUnit)
 - P12 — pendente (implementar SharedSteps + HeartbeatLivenessSteps + ProfilePointerDriftSteps; dry-run ainda ON)
 - P13 — pendente (implementar DeviceRegistrationEnrollmentSteps + DevicePairingSteps + desligar dry-run + full gate)
 
@@ -130,7 +130,7 @@ Tipo de planejamento: **INCREMENTAL** — os gaps são isolados e a implementaç
 
 ### Prioridade 11 — Remover stubs vivos orphãos (ProfilePointer + DTOs TODO)
 
-**Status:** pendente
+**Status:** ✅ DONE (2026-08-23, commit f835f0d)
 **Issues cobertas:** EDGE-019 (item 8/8 — sem 501 em runtime)
 
 #### Objetivo

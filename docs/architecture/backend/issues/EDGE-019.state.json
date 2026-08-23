@@ -1,84 +1,84 @@
 {
   "issue": "EDGE-019",
   "layer": "be",
-  "computedAt": "2026-08-19T18:25:00",
+  "computedAt": "2026-08-23T15:23:39",
   "checklist": {
     "total": 8,
-    "done": 8,
+    "done": 5,
     "partial": 0,
-    "missing": 0,
+    "missing": 3,
     "blocked": 0,
     "items": [
       {
         "text": "configurar `CucumberSpringContext.java` (ja existe do M3 BDD scaffold) com `@SpringBootTest(webEnvironment=RANDOM_PORT)` + `@Testcontainers` + PostgreSQL container",
-        "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/java/com/neuroassist/edge/bdd/CucumberSpringContext.java"
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: CucumberSpringContext.java"
       },
       {
         "text": "criar (ou completar) `SharedSteps.java` com: setup de tenant schema (CREATE SCHEMA t_test), criacao de JWT de teste (human/device/service via TestJwtFactory), configuracao de WireMock para GEST (`/api/v1/gest/detection-profiles/active`)",
-        "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/java/com/neuroassist/edge/bdd/steps/SharedSteps.java"
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: SharedSteps.java"
       },
       {
         "text": "criar `application-test.yml` com: datasource apontando para Testcontainers, `jwk-set-uri` apontando para stub local, GEST URL apontando para WireMock",
-        "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/resources/application-test.yml"
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: application-test.yml"
       },
       {
         "text": "verificar que os 4 StepDefs ja gerados no M3 (DeviceRegistrationSteps, DevicePairingSteps, HeartbeatLivenessSteps, ProfilePointerDriftSteps) compilam com o contexto e `CucumberIT` encontra as features",
         "state": "DONE",
-        "evidence": "120/120 tests PASS incluindo BDD steps (P8 implementation confirmed)"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Testcontainers inicia PostgreSQL e aplica V0700 migration corretamente",
         "state": "DONE",
-        "evidence": "CucumberSpringContext configurado com @Testcontainers + aplicacao de migrations confirmada em testes"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "JWT de teste (human com `edge.manage` e device com `edge.device`) e aceito pelo SecurityConfig de teste",
         "state": "DONE",
-        "evidence": "SharedSteps.java contém TestJwtFactory e configuracao de seguranca de teste"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "WireMock stub para GEST configurado e chamado pelo HeartbeatService no teste",
         "state": "DONE",
-        "evidence": "SharedSteps.java contém configuracao de WireMock para GEST detection-profiles endpoint"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "`CucumberIT` executa os 4 arquivos de feature sem `ClassNotFoundException` ou `AmbiguousStepDefinitionsException`",
         "state": "DONE",
-        "evidence": "120/120 tests PASS - todas as features executaram sem erros de classe ou ambiguidade"
+        "evidence": "marcado (sem arquivo verificavel)"
       }
     ]
   },
   "gates": {
-    "build": "deferred",
+    "build": "pass",
     "lint": "pass",
-    "test": "deferred",
-    "e2e": "skip"
+    "test": "pass",
+    "e2e": "pass"
   },
   "score": {
-    "total": 85,
+    "total": 64,
     "provisional": true,
     "range": [
-      0,
-      100
+      64,
+      74
     ],
     "breakdown": {
       "structure": {
         "max": 30,
-        "value": 30,
+        "value": 15,
         "basis": "deterministic"
       },
       "functionality": {
         "max": 30,
-        "value": 30,
+        "value": 19,
         "basis": "heuristic",
-        "needsAgentConfirm": false
+        "needsAgentConfirm": true
       },
       "tests_lint": {
         "max": 20,
-        "value": 15,
+        "value": 20,
         "basis": "deterministic"
       },
       "e2e": {
@@ -88,13 +88,16 @@
       },
       "soft": {
         "max": 10,
-        "value": 10,
+        "value": null,
         "basis": "agent",
-        "needsAgentConfirm": false
+        "needsAgentConfirm": true
       }
     },
-    "band": "Maduro",
-    "statusTag": "READY"
+    "band": "Consistente",
+    "statusTag": "REDUCED"
   },
-  "agentTodo": []
+  "agentTodo": [
+    "Confirmar functionality 19/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
 }

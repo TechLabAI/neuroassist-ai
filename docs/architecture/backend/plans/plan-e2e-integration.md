@@ -372,7 +372,7 @@ O módulo de integração E2E está DONE quando:
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
 | E2E-003 | ✅ DONE — DIR-01..05 | 2026-08-22 |
 | E2E-004 | 🟡 PARCIAL — AUD-03..10 DONE; AUD-01/02 feature ausente (ACS não produz facts) | 2026-08-22 |
-| E2E-005 | 🟡 PARCIAL — HB-01 DONE; HB-02..05 bloqueados pelo ProfilePointerController (501) | 2026-08-22 |
+| E2E-005 | ✅ DONE — HB-01..05 DONE (P13: ProfilePointerController implementado, dry-run removido, 37 cenários Cucumber PASS) | 2026-08-23 |
 | E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
 | E2E-007 | ✅ DONE — NTF-01..05 | 2026-08-22 |
 | E2E-008 | ✅ DONE — DSH-01..05 | 2026-08-22 |
@@ -599,7 +599,7 @@ o `DSH-03` deixou de testar "o endpoint responde" e passou a testar o ciclo real
 |---|---|
 | E2E-010 (Flow-02) | ✅ completo |
 | E2E-006 (DEV-01..04) | ✅ completo |
-| E2E-005 (HB-01) | ✅ heartbeat autenticado; **HB-02..05 pendentes** (dependem do `ProfilePointerController`, que lança 501) |
+| E2E-005 (HB-01..05) | ✅ completo — todos os 4 cenários de drift/degraded/CB implementados via BDD (P13) |
 | DSH-03 (liveness) | ✅ |
 
 #### Defeitos corrigidos

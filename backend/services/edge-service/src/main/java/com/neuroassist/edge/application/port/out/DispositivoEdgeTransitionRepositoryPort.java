@@ -2,6 +2,7 @@ package com.neuroassist.edge.application.port.out;
 
 import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.TransitionKind;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,4 +25,12 @@ public interface DispositivoEdgeTransitionRepositoryPort {
      */
     Optional<DispositivoEdgeTransition> findLatestLivenessByDeviceId(
             UUID deviceId, TransitionKind kind);
+
+    /**
+     * Idempotency guard for online→offline transition writing. Returns {@code true} if a liveness
+     * transition with {@code to_state='offline'} already exists for this device with {@code at >
+     * after}. LivenessService uses this to ensure exactly one online→offline row per staleness
+     * epoch (identified by {@code after = device.ultimaSincronizacao()}).
+     */
+    boolean existsLivenessTransitionToOfflineAfter(UUID deviceId, Instant after);
 }

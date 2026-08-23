@@ -1,0 +1,113 @@
+{
+  "issue": "EDGE-020",
+  "layer": "be",
+  "computedAt": "2026-08-23T15:23:21",
+  "checklist": {
+    "total": 10,
+    "done": 6,
+    "partial": 0,
+    "missing": 4,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "implementar step definitions completas em `DeviceRegistrationEnrollmentSteps.java` (cenarios: register, enroll, token-expired, already-enrolled, retire, scope-guard)",
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: DeviceRegistrationEnrollmentSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `DevicePairingSteps.java` (cenarios: pair, unpair, exclusive-pairing-conflict, pair-retired-device, re-pair-with-credential-rotation)",
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: DevicePairingSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `HeartbeatLivenessSteps.java` (cenarios: online, offline-after-staleness, offline->online transition, device-retired heartbeat, ETag 304, serverTime present)",
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: HeartbeatLivenessSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `ProfilePointerDriftSteps.java` (cenarios: no-drift, drift-detected, GEST-unavailable degraded, no-active-profile)",
+        "state": "MISSING",
+        "evidence": "marcado mas arquivo ausente: ProfilePointerDriftSteps.java"
+      },
+      {
+        "text": "garantir que todos os ~38 cenarios passam no `./gradlew :services:edge-service:test -Dcucumber.filter.tags=@integration`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Todos os ~38 cenarios do `@integration` tag passam (exit 0)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Nenhum cenario com status `Pending` ou `Undefined`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de credential enrollment retorna `clientSecret` uma unica vez e invalida token na segunda tentativa",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de liveness: poll apos staleness retorna `status=offline`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de GEST degraded: heartbeat aceito com `profilePointerDegraded=true`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "pass"
+  },
+  "score": {
+    "total": 63,
+    "provisional": true,
+    "range": [
+      63,
+      73
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 15,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 18,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 20,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 10,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Consistente",
+    "statusTag": "REDUCED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 18/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}
