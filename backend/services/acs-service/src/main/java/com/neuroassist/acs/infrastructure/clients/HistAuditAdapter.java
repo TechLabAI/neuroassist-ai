@@ -1,5 +1,7 @@
 package com.neuroassist.acs.infrastructure.clients;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neuroassist.acs.application.port.out.HistAuditOutboxPort;
 import com.neuroassist.acs.application.port.out.HistAuditPort;
 import com.neuroassist.acs.application.port.out.HistAuditPort.AuditFact;
 import java.util.UUID;
@@ -17,8 +19,16 @@ import org.springframework.stereotype.Component;
  *
  * <p><b>Fire-and-forget, e assim deve continuar.</b> Uma falha ao auditar nunca pode impedir alguém
  * de autenticar: a cuidadora precisa entrar no painel quando o alarme chega, mesmo com o
- * hist-service fora do ar. A perda é registrada em {@code error} — ver a limitação conhecida no
- * final desta classe.
+ * hist-service fora do ar.
+ *
+ * <p><b>Fail-open, mas não fail-forgetful</b> (E2E-031). Até aqui a falha era registrada em {@code
+ * error} e o fato se ia — e um fato de autenticação perdido é lacuna em "quem entrou e quando", que
+ * é o registro que uma auditoria LGPD pede primeiro. Agora vai para {@code acs_hist_outbox} e
+ * {@code HistAuditOutboxDrainService} o reentrega.
+ *
+ * <p>O request é serializado e guardado inteiro, e não re-derivado depois: o {@code factId} tem de
+ * ser reenviado idêntico para o hist-service tratar a reentrega como replay em vez de um segundo
+ * fato (defeito C-5).
  */
 @Slf4j
 @Component
@@ -28,6 +38,8 @@ public class HistAuditAdapter implements HistAuditPort {
     private static final String SUBJECT_CUIDADOR = "cuidador";
 
     private final HistAuditClient histAuditClient;
+    private final HistAuditOutboxPort outboxPort;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void recordFact(AuditFact fact) {
@@ -66,16 +78,34 @@ public class HistAuditAdapter implements HistAuditPort {
                     response == null ? null : response.sequenceNo(),
                     fact.empresaId());
         } catch (Exception e) {
-            // Best-effort — nunca propaga. `error` e não `warn`: um fato de autenticação perdido é
-            // um buraco na trilha, não um contratempo.
-            //
-            // LIMITAÇÃO CONHECIDA: o acs-service não tem outbox. O PAC e o EVNT têm, e um fato
-            // produzido durante uma indisponibilidade do HIST sobrevive lá. Aqui, não. Registrado
-            // no corpo de E2E-019 em vez de deixado para alguém descobrir.
-            log.error(
-                    "Audit fact {} NAO gravado e perdido — acs-service nao tem outbox: {}",
+            log.warn(
+                    "Audit fact {} nao entregue, enfileirado para retry: {}",
                     fact.fact(),
                     e.getMessage());
+            enqueueForRetry(request, fact.empresaId());
+        }
+    }
+
+    /**
+     * Última linha de defesa. Se o próprio enfileiramento falhar, o fato está mesmo perdido — e
+     * isso precisa ser barulhento, porque é o estado que esta issue existe para eliminar.
+     *
+     * <p>Propagar aqui derrubaria a autenticação por causa da auditoria, que é o contrário do que
+     * fire-and-forget significa.
+     */
+    private void enqueueForRetry(HistAuditClient.RecordAuditFactRequest request, UUID tenantId) {
+        try {
+            outboxPort.enqueue(
+                    request.factId(),
+                    request.factType(),
+                    tenantId,
+                    objectMapper.writeValueAsString(request));
+        } catch (Exception queueFailure) {
+            log.error(
+                    "Audit fact {} NAO pode ser enfileirado e esta perdido: {}",
+                    request.factType(),
+                    queueFailure.getMessage(),
+                    queueFailure);
         }
     }
 

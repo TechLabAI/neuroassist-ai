@@ -32,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class HistAuditAdapterTest {
 
     @Mock private HistAuditClient client;
+    @Mock private com.neuroassist.acs.application.port.out.HistAuditOutboxPort outboxPort;
 
     private HistAuditAdapter adapter;
 
@@ -40,7 +41,17 @@ class HistAuditAdapterTest {
 
     @BeforeEach
     void setUp() {
-        adapter = new HistAuditAdapter(client);
+        adapter =
+                new HistAuditAdapter(
+                        client,
+                        outboxPort,
+                        // JavaTimeModule porque occurredAt e um Instant: um ObjectMapper cru
+                        // falharia ao serializar, a excecao seria capturada, e o fato se perderia
+                        // — com log diferente e resultado igual ao de antes do outbox.
+                        com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                                .addModule(
+                                        new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                                .build());
     }
 
     private AuditFact loginOk() {
@@ -98,6 +109,41 @@ class HistAuditAdapterTest {
 
         // Propagar aqui impediria a cuidadora de entrar no painel porque a auditoria caiu — o
         // oposto do que fire-and-forget significa.
+        assertThatCode(() -> adapter.recordFact(loginOk())).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("HIST fora do ar → fato vai para o outbox, com o mesmo factId e o tenant certo")
+    void outageQueuesTheFact() {
+        doThrow(new RuntimeException("connection refused")).when(client).recordFact(any());
+
+        adapter.recordFact(loginOk());
+
+        ArgumentCaptor<UUID> factId = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UUID> tenant = ArgumentCaptor.forClass(UUID.class);
+        verify(outboxPort)
+                .enqueue(
+                        factId.capture(),
+                        org.mockito.ArgumentMatchers.eq("autenticacao.realizada"),
+                        tenant.capture(),
+                        org.mockito.ArgumentMatchers.anyString());
+
+        assertThat(tenant.getValue()).isEqualTo(tenantId);
+        assertThat(factId.getValue()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("falha ao enfileirar NÃO derruba a autenticação")
+    void queueFailureNeverBreaksAuthentication() {
+        doThrow(new RuntimeException("hist down")).when(client).recordFact(any());
+        doThrow(new RuntimeException("outbox insert failed"))
+                .when(outboxPort)
+                .enqueue(
+                        any(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        any(),
+                        org.mockito.ArgumentMatchers.anyString());
+
         assertThatCode(() -> adapter.recordFact(loginOk())).doesNotThrowAnyException();
     }
 

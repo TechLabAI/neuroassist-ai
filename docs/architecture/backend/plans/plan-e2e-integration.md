@@ -398,6 +398,7 @@ dívida que ninguém prioriza.
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
 | E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | ✅ DONE — validado no stack (2026-08-23) |
+| E2E-031 | ACS perde fato de autenticação — fail-open sem outbox (C-52) | P2 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
 | E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
@@ -976,7 +977,9 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   dos seus outros dois destinos de identidade de serviço, que são tenant-less). Um login com
   usuário inexistente segue sem gerar fato de propósito: não pertence a empresa nenhuma, e
   atribuí-lo a uma deixaria um desconhecido escrever na trilha alheia só chutando logins.
-  **Em aberto:** o ACS não tem outbox — um fato produzido com o HIST fora do ar é perdido.
+  O outbox que faltava foi feito em seguida (E2E-031): `neuroassist_global.acs_hist_outbox`,
+  global em vez de por tenant, porque o ACS grava fatos de várias empresas e o dreno roda sem
+  tenant vinculado. Com ele fecham os três produtores de fato da plataforma — PAC, EVNT e ACS.
 - ~~**C-17 — EVNT em modo PoC**~~ — resolvido na Sessão 4 (§11.5). Texto original:
   **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
   `infrastructure/security/TenantContextFilter` faz `TenantContextHolder.set("poc")` em
