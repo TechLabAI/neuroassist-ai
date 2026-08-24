@@ -24,6 +24,9 @@
       "@neuroassist/evnt": [
         "libs/evnt/src/index.ts"
       ],
+      "@neuroassist/evnt/testing": [
+        "libs/evnt/src/testing/index.ts"
+      ],
       "@neuroassist/pac": [
         "libs/pac/src/index.ts"
       ],

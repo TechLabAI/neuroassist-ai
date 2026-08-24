@@ -75,15 +75,14 @@ import { DeviceActionsComponent } from './device-actions.component';
 
         <!-- Device identity + metadata card -->
         <div class="rounded-2xl border border-line bg-surface p-6 shadow-card">
-          <!-- Device identity header -->
-          <div class="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <p class="text-xs font-medium uppercase tracking-wider text-ink-faint">
-                ID do dispositivo
-              </p>
-              <p class="mt-0.5 font-mono text-sm text-ink">{{ detail.device.deviceId }}</p>
-            </div>
-          </div>
+          <!--
+            NÃO reintroduzir aqui um cabeçalho "ID do dispositivo": o
+            <edge-device-meta-list> logo abaixo já publica esse mesmo par
+            rótulo/valor como primeiro item da <dl>. Enquanto os dois existiam,
+            a página repetia "ID do dispositivo — edge-marcio-01" duas vezes
+            seguidas, o que o leitor de tela lê duas vezes e torna qualquer
+            locator por esse rótulo ambíguo.
+          -->
 
           <!-- Metadata list (FE-EDGE-013) -->
           <edge-device-meta-list
@@ -110,7 +109,7 @@ import { DeviceActionsComponent } from './device-actions.component';
       } @else {
         <!-- Not paired state (FE-EDGE-018 DoD: caregiver vs conductor paths) -->
         <div class="rounded-2xl border border-line bg-surface p-8 text-center" data-testid="not-paired-state">
-          <span class="material-symbols-outlined text-[48px] text-ink-faint">device_unknown</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[48px] text-ink-faint">device_unknown</span>
           <p class="mt-3 text-sm font-medium text-ink">Nenhum dispositivo pareado</p>
 
           @if (facade.canManage()) {

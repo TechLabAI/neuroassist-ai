@@ -243,6 +243,9 @@ export class OnboardingWizardPageComponent implements OnInit {
   /** Inputs for NgComponentOutlet — pacienteHint bound from active patient (SPEC-06 §3). */
   readonly pairingInputs = computed<Record<string, unknown>>(() => ({
     pacienteHint: this.pacFacade.patient()?.id ?? null,
+    // Aqui ele é um PEDAÇO da página, não a página: sem isto o passo 3 trazia o
+    // próprio <h1>, e /onboarding ficava com dois títulos de nível 1.
+    composto: true,
   }));
 
   /**

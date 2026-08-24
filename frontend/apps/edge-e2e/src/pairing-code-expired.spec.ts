@@ -21,13 +21,22 @@ import { test, expect } from '@playwright/test';
 import { EDGE_BASE, fulfillRegister, EDGE_DEVICE_ID, makeDevicePayload } from './fixtures/edge-stubs';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
-// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
-// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
-// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
-// depois do goto seria tarde demais.
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
 });
 
 // ---------------------------------------------------------------------------
@@ -35,6 +44,20 @@ test.beforeEach(async ({ page }) => {
 // The mock adapter returns `enrollmentExpiresAt = now + 5min`, so we install
 // a fake clock, advance past that boundary, and assert the expired UI.
 // ---------------------------------------------------------------------------
+
+
+// A tela ociosa traz o rótulo "Solicitar código" DUAS vezes: no botão e na frase
+// de instrução `Clique em "Solicitar código" para iniciar o pareamento`. Não é
+// defeito — a instrução cita o botão de propósito —, mas obriga o teste a dizer
+// qual dos dois quer. `getByRole('button')` com nome exato é o locator honesto.
+const botaoSolicitarCodigo = (page: import('@playwright/test').Page) =>
+  page.getByRole('button', { name: 'Solicitar código' });
+
+// O rótulo da fase corrente é ecoado na linha "Estado: …" no rodapé da página,
+// com o MESMO texto do cartão de desfecho ("Dispositivo pareado!", "Código
+// expirado"). Quem representa o desfecho é o cartão — escopamos nele.
+const cartaoResultado = (page: import('@playwright/test').Page) =>
+  page.locator('edge-pairing-result');
 
 test.describe('EDGE – Pairing code expired (mock-adapter mode)', () => {
   test('pairing page renders the pairing surface correctly', async ({ page }) => {
@@ -47,23 +70,36 @@ test.describe('EDGE – Pairing code expired (mock-adapter mode)', () => {
     await page.clock.install({ time: new Date('2026-08-19T10:00:00.000Z') });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
 
     // Wait for the token to appear (mock: 400ms delay)
     await expect(page.getByText(/MOCK-TOKEN/i)).toBeVisible({ timeout: 2000 });
 
     // Advance clock past the mock token TTL (mock returns 5 min = 300s).
     // Advance by 310 seconds to be safely past the expiry.
-    await page.clock.fastForward('5:30'); // advance 5m30s (330 seconds)
+    // Em milissegundos, e não na forma '5:30': o relógio do Playwright aceita
+    // 'mm:ss' apenas com dois dígitos no primeiro campo, e '5:30' era rejeitado
+    // em tempo de execução ("Clock only understands numbers, 'mm:ss' and
+    // 'hh:mm:ss'"). O erro estava aqui desde sempre; só não aparecia porque o
+    // teste morria antes, no clique ambíguo em "Solicitar código".
+    await page.clock.fastForward(330_000); // 5m30s — bem além do TTL de 5 min do mock
 
     // After TTL expiry the PairingCodeCardComponent should show "Código expirado"
     // and the re-register CTA must be present (SPEC-03 §7).
     // The mock adapter timer fires a TTL check via startTtlWatch().
     // In mock mode the token expires at Date.now() + 5min — if clock is advanced
     // the expired state should trigger (phase = 'expired').
+    // Duas asserções específicas no lugar da alternância solta: o cartão de
+    // desfecho declara a expiração E oferece o CTA de novo código. O regex
+    // original casava também com a linha "Estado: Código expirado" do rodapé —
+    // três nós para um locator estrito. Separar aperta a asserção em vez de
+    // afrouxá-la: agora exige as duas coisas, não uma qualquer das três.
     await expect(
-      page.getByText(/Código expirado|Novo código|expirou/i),
+      cartaoResultado(page).getByText('Código expirado'),
     ).toBeVisible({ timeout: 5000 });
+    await expect(
+      cartaoResultado(page).getByRole('button', { name: 'Novo código' }),
+    ).toBeVisible();
   });
 });
 

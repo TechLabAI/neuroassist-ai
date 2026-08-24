@@ -23,13 +23,22 @@
 import { test, expect, Page } from '@playwright/test';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
-// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
-// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
-// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
-// depois do goto seria tarde demais.
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
 });
 
 // ── Navigation helper ─────────────────────────────────────────────────────────
@@ -136,24 +145,26 @@ test.describe('Histórico — linha do tempo por período', () => {
       page.getByRole('tab', { name: 'Período Semana' }),
     ).toHaveAttribute('aria-selected', 'false');
 
-    // No records exist in the hoje window (all mock records are from Aug 8–16,
-    // outside the Aug 18–19 window) → empty state after 400ms mock delay.
-    await expect(page.getByText('Nenhum evento neste período.')).toBeVisible({ timeout: 3000 });
-
-    // Items from semana are gone (paginação reset: page=0, items=[])
-    await expect(page.getByTestId('history-item')).toHaveCount(0, { timeout: 3000 });
+    // A janela "Hoje" (24h) pega só o registro de hoje; a "Semana" pegava três.
+    // É a MUDANÇA da lista que prova o recarregamento com page=0 — a versão
+    // anterior deste cenário esperava zero item, o que só valia enquanto a
+    // semente do mock estivesse velha o bastante para escapar da janela de 24h.
+    // Passou a reprovar no dia em que a âncora virou o presente, sem que nada no
+    // aplicativo tivesse mudado.
+    await expect(page.getByTestId('history-item')).toHaveCount(1, { timeout: 3000 });
+    await expect(page.getByTestId('history-item').first()).toContainText('"água"');
   });
 
   // ── Scenario 5: Período vazio ─────────────────────────────────────────────
   // BDD: "An empty period shows a reassuring empty state message"
   test('Período vazio mostra estado tranquilizador', async ({ page }) => {
+    // O vazio é PEDIDO ao mock, e não obtido escolhendo uma janela que por acaso
+    // não pega nada: o que este cenário afirma é sobre a TELA diante de zero
+    // registro, e isso não deve depender de que dia é hoje.
+    await page.addInitScript(() => {
+      localStorage.setItem('__HIST_E2E_EMPTY__', 'true');
+    });
     await openHistorico(page);
-    // Start on semana — wait for data so we know the app is fully loaded
-    await waitForSemanaItems(page);
-
-    // Switch to "Hoje" — all mock records are from Aug 8–16, outside the
-    // Aug 18–19 (1-day) window → list() returns [] → facade sets status='empty'
-    await page.getByRole('tab', { name: 'Período Hoje' }).click();
 
     // Empty state card must appear (reassuring message from template)
     await expect(page.getByText('Nenhum evento neste período.')).toBeVisible({ timeout: 3000 });

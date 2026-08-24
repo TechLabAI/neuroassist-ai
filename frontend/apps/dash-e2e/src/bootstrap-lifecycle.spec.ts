@@ -18,7 +18,12 @@
  *     ShellOutletRegistry is a Map-based service — it does NOT render DOM elements directly.
  *     The `data-outlet-region="dash.global-interrupt"` would require a dedicated outlet
  *     component to be rendered. In Wave-0: registry is populated but no DOM attribute visible.
- *     AlarmOverlayComponent (evnt-alarm-overlay) is rendered directly by AppShellComponent.
+ *     AlarmOverlayComponent (evnt-alarm-overlay) is rendered directly by AppShellComponent
+ *     — quem PROVA essa renderização é a evnt-e2e, que semeia a emergência de propósito.
+ *     Nenhum cenário daqui asserta o overlay: os três medem o ciclo de vida das rotas do
+ *     DASH (montar / desmontar / remontar). Por isso esta suíte apaga a emergência: com
+ *     ela no ar o alarme preempta a tela, `calm` vira false e "Márcio está bem" — que é
+ *     o sinal de que a home montou com dados — nunca aparece.
  *
  *   TODO[INT-FE-DASH-003]: when ShellRegistry + SidebarComponent are dynamically wired,
  *   assert "Status" as first sidebar item and data-outlet-region in DOM.
@@ -27,6 +32,7 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
 
 // Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
@@ -35,6 +41,8 @@ import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
 // depois do goto seria tarde demais.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(scriptSemearSessao());
+  // Ver a nota do cabeçalho: o overlay de alarme é objeto da evnt-e2e, não daqui.
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
 });
 
 // ── Navigation helper ─────────────────────────────────────────────────────────
@@ -65,11 +73,16 @@ test.describe('DASH — Bootstrap lifecycle: nav + outlet (FE-DASH-028, G6)', ()
     // Patient data loads after mock delay
     await expect(page.getByRole('heading', { name: /Márcio está bem/i })).toBeVisible({ timeout: 5000 });
 
-    // Shell chrome: sidebar and topbar present (AppShellComponent mounted)
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    // Shell chrome: sidebar and topbar present (AppShellComponent mounted).
+    // `nav.sidebar` e `.sidebar-brand` não existem no shell: a SidebarComponent
+    // renderiza <app-sidebar><aside> com <nav data-testid="sidebar-nav"> e a marca é
+    // o <img alt="NeuroAssist AI"> do topo. Os seletores antigos vinham de uma
+    // estrutura de shell que já não é a que roda.
+    await expect(page.locator('app-sidebar')).toBeVisible();
+    await expect(page.locator('app-topbar')).toBeVisible();
 
     // Brand in sidebar visible (NeuroAssist AI)
-    await expect(page.locator('.sidebar-brand')).toBeVisible();
+    await expect(page.locator('app-sidebar img[alt="NeuroAssist AI"]')).toBeVisible();
   });
 
   // ── Scenario 2: Navegação entre rotas sem crash ────────────────────────────
@@ -116,18 +129,19 @@ test.describe('DASH — Bootstrap lifecycle: nav + outlet (FE-DASH-028, G6)', ()
     await openDashHome(page);
 
     // Sidebar chrome is present
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
 
-    // Sidebar brand: "NeuroAssist AI"
-    await expect(page.locator('.sidebar-brand')).toContainText('NeuroAssist AI');
+    // Sidebar brand: a marca é a imagem do logo, não um `.sidebar-brand` textual.
+    await expect(page.locator('app-sidebar img[alt="NeuroAssist AI"]')).toBeVisible();
 
-    // Static nav items exist (PAC, EVNT, ACS hardcoded in SidebarComponent)
-    const sidebarLinks = page.locator('nav.sidebar ul.sidebar-nav a');
+    // Itens do menu existem para o papel semeado. O `ul.sidebar-nav` do seletor antigo
+    // não existe: os <a> são filhos diretos do <nav data-testid="sidebar-nav">.
+    const sidebarLinks = page.locator('[data-testid="sidebar-nav"] a');
     await expect(sidebarLinks).not.toHaveCount(0);
 
     // Wave-0: no duplicate Status link (DASH is not in static sidebar)
     // When INT-FE-DASH-003 is done: assert sidebarLinks.first() has text "Status"
-    const statusLinks = page.locator('nav.sidebar a[href="/"]');
+    const statusLinks = page.locator('[data-testid="sidebar-nav"] a[href="/"]');
     // Status link count should be 0 or 1 (no duplication)
     const count = await statusLinks.count();
     expect(count).toBeLessThanOrEqual(1);

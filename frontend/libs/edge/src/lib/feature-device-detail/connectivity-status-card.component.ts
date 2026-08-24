@@ -77,7 +77,7 @@ function statePresentation(state: DerivedState): StatePresentation {
       [class]="presentation().badgeClass">
 
       <!-- Icon -->
-      <span class="material-symbols-outlined mt-0.5 text-[22px]">
+      <span aria-hidden="true" class="material-symbols-outlined mt-0.5 text-[22px]">
         {{ presentation().icon }}
       </span>
 

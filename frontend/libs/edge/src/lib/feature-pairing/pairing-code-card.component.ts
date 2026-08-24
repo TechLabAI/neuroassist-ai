@@ -39,14 +39,14 @@ import {
           (click)="onCopy()"
           aria-label="Copiar código de pareamento"
           class="flex items-center gap-1.5 rounded-lg border border-brand px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand hover:text-brand-ink">
-          <span class="material-symbols-outlined text-[16px]">content_copy</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px]">content_copy</span>
           Copiar
         </button>
       </div>
 
       <!-- Countdown -->
       <div class="mt-3 flex items-center gap-1.5">
-        <span class="material-symbols-outlined text-[16px]"
+        <span aria-hidden="true" class="material-symbols-outlined text-[16px]"
               [class.text-warning-ink]="_countdown() <= 30"
               [class.text-ink-faint]="_countdown() > 30">timer</span>
         <span class="text-xs"

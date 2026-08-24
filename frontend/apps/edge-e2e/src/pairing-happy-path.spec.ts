@@ -29,18 +29,41 @@ import {
 } from './fixtures/edge-stubs';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
-// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
-// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
-// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
-// depois do goto seria tarde demais.
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
 });
 
 // ---------------------------------------------------------------------------
 // Mode A — works with mock adapter (no route intercepts required)
 // ---------------------------------------------------------------------------
+
+// A tela ociosa traz o rótulo "Solicitar código" DUAS vezes: no botão e na frase
+// de instrução `Clique em "Solicitar código" para iniciar o pareamento`. Não é
+// defeito — a instrução cita o botão de propósito —, mas obriga o teste a dizer
+// qual dos dois quer. `getByRole('button')` com nome exato é o locator honesto:
+// falha se o botão deixar de ser um <button>, ou se o rótulo mudar.
+const botaoSolicitarCodigo = (page: import('@playwright/test').Page) =>
+  page.getByRole('button', { name: 'Solicitar código' });
+
+// "Dispositivo pareado!" também aparece duas vezes quando o pareamento conclui:
+// no cartão de resultado e na linha "Estado: …" no rodapé da página, que ecoa o
+// mesmo rótulo de fase. Quem representa o desfecho é o cartão de resultado.
+const cartaoResultado = (page: import('@playwright/test').Page) =>
+  page.locator('edge-pairing-result');
 
 test.describe('EDGE – Pairing happy path (mock-adapter mode)', () => {
   test.beforeEach(async ({ page }) => {
@@ -49,28 +72,28 @@ test.describe('EDGE – Pairing happy path (mock-adapter mode)', () => {
 
   test('renders idle state on load with "Solicitar código" button', async ({ page }) => {
     await expect(page.getByText(/Parear dispositivo/i)).toBeVisible({ timeout: 4000 });
-    await expect(page.getByText(/Solicitar código/i)).toBeVisible();
+    await expect(botaoSolicitarCodigo(page)).toBeVisible();
   });
 
   test('shows enrollment token (MOCK-TOKEN) after requesting code', async ({ page }) => {
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
     // Mock adapter: token appears within 600ms (400ms delay + render).
     await expect(page.getByText(/MOCK-TOKEN/i)).toBeVisible({ timeout: 2000 });
   });
 
   test('enrollment token is visible in DOM before paired state', async ({ page }) => {
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
     // Immediately after register response: token visible, pairing NOT yet complete.
     await expect(page.getByText(/MOCK-TOKEN/i)).toBeVisible({ timeout: 2000 });
     // At this instant, "Dispositivo pareado!" must NOT be visible (pre-heartbeat).
     // Using a short timeout so we don't wait for the full mock poll cycle.
-    await expect(page.getByText(/Dispositivo pareado!/i)).not.toBeVisible();
+    await expect(cartaoResultado(page).getByText('Dispositivo pareado!')).not.toBeVisible();
   });
 
   test('advances to paired state after mock claim + heartbeat', async ({ page }) => {
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
     // Mock adapter simulates a claim + heartbeat within the poll window (~5-10s poll).
-    await expect(page.getByText(/Dispositivo pareado!/i)).toBeVisible({ timeout: 15_000 });
+    await expect(cartaoResultado(page).getByText('Dispositivo pareado!')).toBeVisible({ timeout: 15_000 });
   });
 });
 
@@ -116,7 +139,7 @@ test.describe('EDGE – Pairing happy path (HTTP mode, route intercepts)', () =>
 
     // Navigate to pairing page
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
 
     // Token must be visible before any heartbeat
     await expect(page.getByText(/E2E-HAPPY-TOKEN/i)).toBeVisible({ timeout: 3000 });

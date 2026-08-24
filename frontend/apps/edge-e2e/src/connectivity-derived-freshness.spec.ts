@@ -26,13 +26,22 @@ import {
 } from './fixtures/edge-stubs';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
-// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
-// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
-// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
-// depois do goto seria tarde demais.
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
 });
 
 // ---------------------------------------------------------------------------
@@ -50,9 +59,16 @@ test.describe('EDGE – Connectivity derived from freshness — mock mode', () =
 
   test('derives online state from fresh heartbeat (12s ago < 45s threshold)', async ({ page }) => {
     // Mock adapter seeds device with ultimaSincronizacao = 12s ago → online.
-    // The ConnectivityStatusCardComponent or chip should display the online label.
+    //
+    // "online" aparece em TRÊS lugares desta rota, e todos legítimos: o chip do
+    // topbar (shell, "Dispositivo online · 1.4.2"), o cartão de status da própria
+    // página ("Online") e a nota de rodapé que explica a derivação ("…nunca
+    // aparece como online"). Varrer a página inteira por esse texto é ambíguo por
+    // construção. O sujeito desta asserção é o cartão de status da página — é ele
+    // que publica o estado derivado do dispositivo aberto —, então o locator é
+    // escopado nele.
     await expect(
-      page.getByText(/Online|Dispositivo online/i),
+      page.locator('edge-connectivity-status-card').getByText('Online', { exact: true }),
     ).toBeVisible({ timeout: 4000 });
   });
 

@@ -27,7 +27,7 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
   template: `
     @if (isSuccess()) {
       <div class="flex flex-col items-center gap-4 py-4 text-center">
-        <span class="material-symbols-outlined text-[48px] text-success">check_circle</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[48px] text-success">check_circle</span>
         <div>
           <p class="font-display text-base font-bold text-ink">Dispositivo pareado!</p>
           @if (_versao()) {
@@ -36,7 +36,7 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
         </div>
         <a routerLink="/edge/device"
            class="mt-2 inline-flex items-center gap-2 rounded-xl bg-success px-5 py-2 text-sm font-bold text-success-ink">
-          <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[16px]">arrow_forward</span>
           Ver dispositivo
         </a>
       </div>
@@ -44,7 +44,7 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
 
     @if (isExpired()) {
       <div class="flex flex-col items-center gap-4 py-4 text-center">
-        <span class="material-symbols-outlined text-[40px] text-warning">timer_off</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-warning">timer_off</span>
         <div>
           <p class="text-sm font-medium text-ink">Código expirado</p>
           @if (_errorMessage()) {
@@ -60,7 +60,7 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
 
     @if (isError()) {
       <div class="flex flex-col items-center gap-4 py-4 text-center">
-        <span class="material-symbols-outlined text-[40px] text-danger">error</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-danger">error</span>
         <div>
           <p class="text-sm font-medium text-ink">Erro no pareamento</p>
           @if (_errorMessage()) {

@@ -26,12 +26,20 @@ import { RouterLink } from '@angular/router';
   template: `
     <!-- Hidden entirely when conductor entitlement is absent (DoD P3: hidden, not disabled) -->
     @if (_canManage()) {
+      <!--
+        Os <span> de ícone são LIGATURAS do Material Symbols: o texto do nó é o
+        nome do ícone ("link_off"), não um glifo. Sem aria-hidden esse nome entra
+        no nome acessível do botão, e o leitor de tela anuncia
+        "link off Despareador" em vez de "Despareador" — e qualquer locator por
+        nome exato passa a falhar. São decorativos: o rótulo textual ao lado já
+        carrega o significado.
+      -->
       <div class="flex flex-wrap gap-3" data-testid="device-actions-container">
         <!-- Re-pair: navigates to the pairing flow -->
         <a
           routerLink="/edge/pairing"
           class="inline-flex items-center gap-1.5 rounded-xl border border-brand bg-brand-subtle px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand hover:text-brand-ink">
-          <span class="material-symbols-outlined text-[18px]">link</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[18px]">link</span>
           Reparear
         </a>
 
@@ -39,7 +47,7 @@ import { RouterLink } from '@angular/router';
         <button
           (click)="unpairAction.emit()"
           class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger hover:text-danger-ink">
-          <span class="material-symbols-outlined text-[18px]">link_off</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[18px]">link_off</span>
           Despareador
         </button>
 
@@ -47,7 +55,7 @@ import { RouterLink } from '@angular/router';
         <button
           (click)="retireAction.emit()"
           class="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-soft transition-colors hover:border-danger hover:text-danger-ink">
-          <span class="material-symbols-outlined text-[18px]">cancel</span>
+          <span aria-hidden="true" class="material-symbols-outlined text-[18px]">cancel</span>
           Aposentar
         </button>
       </div>

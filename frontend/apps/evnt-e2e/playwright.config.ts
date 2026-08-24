@@ -37,4 +37,6 @@ export default defineConfig({
         reuseExistingServer: true,
         timeout: 180_000,
       },
+  // Recusa rodar contra um app que não é o nosso — ver o arquivo para o caso real.
+  globalSetup: '../../tools/e2e/assert-app-servido.ts',
 });

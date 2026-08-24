@@ -39,7 +39,16 @@ import { PairingResultComponent } from './pairing-result.component';
   template: `
     <div class="mx-auto max-w-lg p-8">
       <header class="mb-6">
-        <h1 class="font-display text-xl font-bold tracking-tight text-ink">Parear dispositivo</h1>
+        <!--
+          O <h1> só existe quando este componente É a página (rota /edge/pareamento).
+          Composto dentro do assistente de configuração, ele fica DENTRO de uma seção
+          já encabeçada por <h2>Dispositivo edge</h2> — e um <h1> ali produzia duas
+          coisas ruins: uma página com dois títulos de nível 1, e uma hierarquia de
+          títulos invertida para quem navega por cabeçalho no leitor de tela.
+        -->
+        @if (!_composto()) {
+          <h1 class="font-display text-xl font-bold tracking-tight text-ink">Parear dispositivo</h1>
+        }
         <p class="mt-1 text-sm text-ink-soft">
           Conecte o agente edge ao paciente.
         </p>
@@ -59,15 +68,20 @@ import { PairingResultComponent } from './pairing-result.component';
 
           @case ('idle') {
             <div class="flex flex-col items-center gap-4 py-4 text-center">
-              <span class="material-symbols-outlined text-[40px] text-ink-faint">link</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-ink-faint">link</span>
               <p class="text-sm text-ink-soft">
                 Clique em "Solicitar código" para iniciar o pareamento.
                 O código de uso único é apresentado ao agente edge.
               </p>
+              <!--
+                aria-hidden no ícone: a ligatura "add_link" é o texto do nó e
+                entrava no nome acessível do botão ("add_link Solicitar código").
+                O ícone é decorativo — o rótulo ao lado já diz o que o botão faz.
+              -->
               <button
                 (click)="onRegister()"
                 class="mt-2 inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-sm font-bold text-brand-ink shadow-card transition-colors hover:bg-brand-strong">
-                <span class="material-symbols-outlined text-[18px]">add_link</span>
+                <span aria-hidden="true" class="material-symbols-outlined text-[18px]">add_link</span>
                 Solicitar código
               </button>
             </div>
@@ -75,7 +89,7 @@ import { PairingResultComponent } from './pairing-result.component';
 
           @case ('registering') {
             <div class="flex items-center gap-3 text-sm text-brand">
-              <span class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
+              <span aria-hidden="true" class="material-symbols-outlined animate-spin text-[20px]">progress_activity</span>
               Solicitando código ao edge-service…
             </div>
           }
@@ -90,7 +104,7 @@ import { PairingResultComponent } from './pairing-result.component';
                 (copied)="onCodeCopied()" />
 
               <div class="flex items-center gap-2 text-sm text-ink-soft">
-                <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                <span aria-hidden="true" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
                 Aguardando o agente reclamar o código…
               </div>
             </div>
@@ -99,7 +113,7 @@ import { PairingResultComponent } from './pairing-result.component';
           @case ('awaiting-first-heartbeat') {
             <div class="flex flex-col gap-3">
               <div class="flex items-center gap-2 text-sm text-brand">
-                <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
+                <span aria-hidden="true" class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
                 Aguardando primeiro heartbeat do agente…
               </div>
               <p class="text-xs text-ink-soft">
@@ -139,6 +153,22 @@ export class DevicePairingPageComponent implements OnDestroy {
     this._pacienteHint.set(value ?? null);
   }
   protected readonly _pacienteHint = signal<string | null>(null);
+
+  /**
+   * Este componente está COMPOSTO dentro de outra página (o assistente de
+   * configuração inicial) em vez de ser a própria página?
+   *
+   * <p>Quem compõe é quem sabe — por isso é entrada, e não uma adivinhação a
+   * partir da rota. Hoje muda só o título; é o ponto onde qualquer outra decisão
+   * de "sou página" vs. "sou pedaço" deve entrar.
+   *
+   * <p>{@code @Input()} e não {@code input()} pelo mesmo motivo do
+   * {@code pacienteHint} acima (limitação do ts-jest).
+   */
+  @Input() set composto(value: boolean) {
+    this._composto.set(value);
+  }
+  protected readonly _composto = signal(false);
 
   /** Emitted to host page when pairing completes (SPEC-03 §6). */
   readonly paired = output<PairedDeviceOutcome>();
