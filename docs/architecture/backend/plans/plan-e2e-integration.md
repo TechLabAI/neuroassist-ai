@@ -403,7 +403,7 @@ dívida que ninguém prioriza.
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | 🟡 PARCIAL — piloto no PAC fechado (2026-08-23) |
 | E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
 | E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | OPEN |
-| E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | OPEN |
+| E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | ✅ DONE — drops aplicados no dev (2026-08-23) |
 | E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
 
