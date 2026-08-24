@@ -57,34 +57,36 @@ describe('PacErrorHandler', () => {
   afterEach(() => TestBed.resetTestingModule());
 
   // -------------------------------------------------------------------------
-  // SAFETY-CRITICAL: emergency-not-detectable → blocking modal (fail-closed)
+  // SAFETY-CRITICAL: emergency-not-detectable → modal bloqueante DO EDITOR
   // -------------------------------------------------------------------------
 
-  describe('emergency-not-detectable (safety-critical)', () => {
-    it('deve chamar showModal com blocking: true', () => {
+  describe('emergency-not-detectable (crítico de segurança)', () => {
+    // Este bloco mudou de ideia, e a razão importa.
+    //
+    // Antes o handler abria um modal genérico. Ele diria a mensagem e ofereceria
+    // "Entendi" — devolvendo a pessoa à mesma tela, com o mesmo comando
+    // recusado e nenhum caminho à frente. Quem tem a saída é o
+    // CommandEditorComponent, cujo modal traz "Alterar para Rotina". Rotear para
+    // cá era mandar a decisão para quem não pode tomá-la, e ligar as duas coisas
+    // produziria DOIS modais sobre o mesmo fato.
+    //
+    // A recusa em si não depende de nada disto: a publicação já foi negada.
+
+    it('devolve "inline" — quem desenha o modal é o editor', () => {
+      const result = handler.handle(buildError('emergency-not-detectable'), 'editor');
+      expect(result).toBe('inline');
+    });
+
+    it('NÃO abre um modal genérico', () => {
+      // O controle que impede a duplicação de voltar por descuido.
       handler.handle(buildError('emergency-not-detectable'), 'editor');
-      expect(mockFeedback.showModal).toHaveBeenCalledWith(
-        expect.objectContaining({ blocking: true }),
-      );
+      expect(mockFeedback.showModal).not.toHaveBeenCalled();
     });
 
-    it('deve incluir a mensagem de erro no modal', () => {
-      const msg = 'Gesto não detectável pelo motor de visão.';
-      handler.handle({ code: 'emergency-not-detectable', message: msg }, 'editor');
-      expect(mockFeedback.showModal).toHaveBeenCalledWith(
-        expect.objectContaining({ message: msg }),
-      );
-    });
-
-    it('não deve chamar showToast nem showBanner para emergency-not-detectable', () => {
+    it('não usa toast nem banner: a recusa não é recado passageiro', () => {
       handler.handle(buildError('emergency-not-detectable'), 'editor');
       expect(mockFeedback.showToast).not.toHaveBeenCalled();
       expect(mockFeedback.showBanner).not.toHaveBeenCalled();
-    });
-
-    it('deve retornar "handled"', () => {
-      const result = handler.handle(buildError('emergency-not-detectable'), 'editor');
-      expect(result).toBe('handled');
     });
   });
 

@@ -15,6 +15,12 @@ import {
 import { TipoGesto } from './api/tipos-gesto-read.port';
 import { EdgeDeviceAckStubAdapter } from './api/edge-device-ack-stub.adapter';
 import { PacTelemetryService } from './telemetry/pac-telemetry.service';
+import type { AppError } from '@neuroassist/shared/error-model';
+import { PacErrorHandler } from './error-surface/pac-error.handler';
+import {
+  mapProblemDetailToAppError,
+  type ProblemDetail,
+} from './error-surface/pac-problem-detail.mapper';
 
 /** Crypto-safe idempotency key (browser-native). */
 function generateIdempotencyKey(): string {
@@ -94,6 +100,7 @@ export class PacComandoFacade {
   private readonly ackStub = inject(EdgeDeviceAckStubAdapter);
   private readonly destroyRef = inject(DestroyRef);
   private readonly telemetry = inject(PacTelemetryService);
+  private readonly errorHandler = inject(PacErrorHandler);
 
   private readonly _catalog = signal<ComandoRowVM[]>([]);
   private readonly _loadState = signal<CatalogLoadState>('idle');
@@ -298,29 +305,75 @@ export class PacComandoFacade {
     };
   }
 
+  /**
+   * Encaminha a falha de gravação para a superfície certa.
+   *
+   * <p><b>O que havia aqui antes.</b> A classificação era feita procurando
+   * substring na mensagem do erro — {@code msg.includes('emergency-not-detectable')} —
+   * com o status como segunda tentativa. Frágil por três motivos: a mensagem é
+   * texto para humanos e muda; {@code status === 422} atribuía o portão de
+   * emergência a QUALQUER 422, inclusive os que não são; e nove dos doze tipos de
+   * erro do SPEC-07 caíam todos no mesmo balde genérico.
+   *
+   * <p>Enquanto isso, o {@code mapProblemDetailToAppError} e o
+   * {@code PacErrorHandler} existiam, com testes, e ninguém os chamava — o
+   * handler era exportado no barrel e não tinha um único ponto de invocação no
+   * repositório. Agora tem este.
+   */
   private _handleSaveError(err: unknown, cid?: string | null): void {
-    // Emergency gate (422) surfaces a blocking modal (PAC-FE-021)
-    const msg = err instanceof Error ? err.message : 'Erro ao salvar comando';
-    const status = (err && typeof err === 'object' && 'status' in err)
-      ? (err as { status: number }).status
-      : null;
+    const appError = this._paraAppError(err);
 
-    const isEmergencyGate = msg.includes('emergency-not-detectable') || status === 422;
-    const isConflict = msg.includes('conflict-precondition') || status === 409;
-
-    if (isEmergencyGate) {
+    // Telemetria antes de decidir a superfície: o que aconteceu não depende de
+    // como será mostrado.
+    if (appError.code === 'emergency-not-detectable') {
       this.telemetry.trackEmergencyGateBlocked(cid ?? 'unknown');
+    } else if (appError.code === 'conflict-precondition') {
+      this.telemetry.trackConflictPrecondition(cid ?? 'unknown');
+    }
+
+    // 'handled' = o handler já pôs na tela (aviso, faixa ou modal). 'inline' = o
+    // erro pertence a esta tela e é ela quem o desenha.
+    const superficie = this.errorHandler.handle(appError, 'editor');
+
+    if (appError.code === 'emergency-not-detectable') {
+      // O modal bloqueante é do editor, porque só ele oferece "Alterar para
+      // Rotina" — a saída. Ver a justificativa no PacErrorHandler.
       this._editor.update((e) => ({
         ...e,
         saveState: 'error',
-        emergencyGateError: 'Este comando de emergência requer um gesto reconhecível pelo motor de detecção. Verifique o catálogo de gestos com a equipe técnica.',
+        emergencyGateError:
+          'Este comando de emergência requer um gesto reconhecível pelo motor de detecção. Verifique o catálogo de gestos com a equipe técnica.',
       }));
-    } else {
-      if (isConflict) {
-        this.telemetry.trackConflictPrecondition(cid ?? 'unknown');
-      }
-      this._editor.update((e) => ({ ...e, saveState: 'error', emergencyGateError: null }));
-      this._error.set(msg);
+      return;
     }
+
+    this._editor.update((e) => ({ ...e, saveState: 'error', emergencyGateError: null }));
+
+    // Erro já mostrado pelo handler não é repetido aqui: a mesma frase em dois
+    // lugares faz procurar dois problemas.
+    if (superficie === 'inline') {
+      this._error.set(appError.message);
+    }
+  }
+
+  /**
+   * Extrai o ProblemDetail do erro do HttpClient.
+   *
+   * <p>O corpo vem em {@code HttpErrorResponse.error}. Sem {@code type} não há
+   * ProblemDetail — é falha de rede, corpo vazio ou erro que não veio do nosso
+   * backend —, e aí o código é {@code 'unknown'}, que o handler trata como
+   * consultivo. Nunca devolver o erro cru: {@code String(HttpErrorResponse)} é
+   * {@code "[object Object]"}, e foi assim que a tela do EDGE passou a exibir
+   * isso a uma cuidadora.
+   */
+  private _paraAppError(err: unknown): AppError {
+    const corpo = (err as { error?: unknown } | null)?.error;
+    if (corpo && typeof corpo === 'object' && 'type' in corpo) {
+      return mapProblemDetailToAppError(corpo as ProblemDetail);
+    }
+    return {
+      code: 'unknown',
+      message: err instanceof Error ? err.message : 'Erro ao salvar comando',
+    };
   }
 }

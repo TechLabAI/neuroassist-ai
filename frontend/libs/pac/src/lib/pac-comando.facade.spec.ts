@@ -4,6 +4,7 @@ import { HttpResponse } from '@angular/common/http';
 import { PacComandoFacade, ComandoRowVM } from './pac-comando.facade';
 import { PAC_COMANDO_PORT, Comando } from './api/comando.port';
 import { EdgeDeviceAckStubAdapter } from './api/edge-device-ack-stub.adapter';
+import { PacErrorHandler } from './error-surface/pac-error.handler';
 
 // =============================================================================
 // PacComandoFacade — unit tests (P6 / PAC-FE-011)
@@ -260,7 +261,26 @@ describe('PacComandoFacade', () => {
 
   describe('emergency gate (ADR-005 BE / SPEC-07)', () => {
     it('deve popular emergencyGateError quando save() recebe erro 422 emergency-not-detectable', fakeAsync(() => {
-      const emergencyError = Object.assign(new Error('emergency-not-detectable'), { status: 422 });
+      // A forma REAL do erro, copiada do que o produtor emite: o
+      // `ComandoMockAdapter` (e o backend) lançam `HttpErrorResponse` com o
+      // ProblemDetail no corpo, em `error.type`.
+      //
+      // Antes esta fixture era `Object.assign(new Error('emergency-not-detectable'),
+      // {status: 422})` — texto na mensagem e nada de ProblemDetail. Ela casava
+      // com a classificação por substring que a facade fazia, e as duas estavam
+      // erradas juntas: o teste concordava com o consumidor e discordava do
+      // produtor, então ficava verde justamente enquanto o código não sabia ler
+      // o erro de verdade.
+      const emergencyError = {
+        status: 422,
+        error: {
+          type: 'https://neuroassist.ai/problems/emergency-not-detectable',
+          title: 'Emergency gate: gesture not detectable',
+          status: 422,
+          detail:
+            'O gesto escolhido não é detectável pelo motor atual. Escolha outro gesto ou mude a urgência para Rotina.',
+        },
+      };
       mockPort.create.mockReturnValue(throwError(() => emergencyError));
 
       facade.openNew('p1', 'g1');
@@ -271,6 +291,60 @@ describe('PacComandoFacade', () => {
       const ed = facade.editor();
       expect(ed.saveState).toBe('error');
       expect(ed.emergencyGateError).not.toBeNull();
+    }));
+
+    it('encaminha o erro ao PacErrorHandler — a ligação que faltava', fakeAsync(() => {
+      // O `PacErrorHandler` era exportado no barrel e NÃO TINHA um único ponto de
+      // invocação no repositório: uma superfície de erro completa, com testes, e
+      // jamais chamada pelo código de tela. Este teste é o que impede a ligação
+      // de ser desfeita em silêncio.
+      const handler = TestBed.inject(PacErrorHandler);
+      const espiao = jest.spyOn(handler, 'handle');
+
+      mockPort.create.mockReturnValue(
+        throwError(() => ({
+          status: 403,
+          error: {
+            type: 'https://neuroassist.ai/problems/missing-tenant',
+            title: 'Missing tenant',
+            status: 403,
+            detail: 'Empresa não identificada nesta sessão.',
+          },
+        })),
+      );
+
+      facade.openNew('p1', 'g1');
+      facade.patchEditor({ rotulo: 'Água' });
+      facade.save();
+      tick();
+
+      // Chegou classificado: o código veio do ProblemDetail, e não de procurar
+      // substring na mensagem.
+      expect(espiao).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'missing-tenant' }),
+        'editor',
+      );
+    }));
+
+    it('erro já mostrado pelo handler não é repetido inline', fakeAsync(() => {
+      // A mesma frase em dois lugares faz a pessoa procurar dois problemas.
+      mockPort.create.mockReturnValue(
+        throwError(() => ({
+          status: 403,
+          error: {
+            type: 'https://neuroassist.ai/problems/missing-tenant',
+            status: 403,
+            detail: 'Empresa não identificada nesta sessão.',
+          },
+        })),
+      );
+
+      facade.openNew('p1', 'g1');
+      facade.patchEditor({ rotulo: 'Água' });
+      facade.save();
+      tick();
+
+      expect(facade.error()).toBeNull();
     }));
 
     it('emergencyGateError deve ser null quando o erro não é do tipo 422', fakeAsync(() => {
