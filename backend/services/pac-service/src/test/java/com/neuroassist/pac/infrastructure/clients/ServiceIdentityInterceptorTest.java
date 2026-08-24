@@ -183,7 +183,7 @@ class ServiceIdentityInterceptorTest {
                         Instant.now(),
                         Instant.now().plusSeconds(600),
                         Map.of("alg", "RS256"),
-                        Map.of("sub", "11111111-1111-1111-1111-111111111111", "empresaId", TENANT));
+                        Map.of("sub", "11111111-1111-1111-1111-111111111111", "tenant_id", TENANT));
         return new JwtAuthenticationToken(jwt);
     }
 }

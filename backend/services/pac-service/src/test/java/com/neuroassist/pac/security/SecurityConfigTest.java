@@ -143,7 +143,7 @@ class SecurityConfigTest extends BaseIntegrationTest {
                                         jwt().jwt(
                                                         jwtBuilder ->
                                                                 jwtBuilder.claim(
-                                                                        "empresaId", jwtEmpresaId))
+                                                                        "tenant_id", jwtEmpresaId))
                                                 .authorities(
                                                         new SimpleGrantedAuthority(
                                                                 "pac.paciente.read"))))
@@ -166,7 +166,7 @@ class SecurityConfigTest extends BaseIntegrationTest {
                                         jwt().jwt(
                                                         jwtBuilder ->
                                                                 jwtBuilder.claim(
-                                                                        "empresaId", empresaId))
+                                                                        "tenant_id", empresaId))
                                                 .authorities(
                                                         new SimpleGrantedAuthority(
                                                                 "pac.paciente.read"))))
@@ -222,7 +222,7 @@ class SecurityConfigTest extends BaseIntegrationTest {
                                 .header("X-Empresa-Id", headerEmpresaId)
                                 .header("X-Correlation-Id", "corr-tenant-002")
                                 .with(
-                                        jwt().jwt(b -> b.claim("empresaId", jwtEmpresaId))
+                                        jwt().jwt(b -> b.claim("tenant_id", jwtEmpresaId))
                                                 .authorities(
                                                         new SimpleGrantedAuthority(
                                                                 "pac.paciente.read"))))

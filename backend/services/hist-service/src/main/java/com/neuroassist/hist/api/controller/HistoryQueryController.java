@@ -128,7 +128,7 @@ public class HistoryQueryController {
     private String extractTenantId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
-            String tenant = jwt.getClaimAsString("tenant");
+            String tenant = jwt.getClaimAsString("tenant_id");
             if (tenant != null && !tenant.isBlank()) {
                 return tenant;
             }

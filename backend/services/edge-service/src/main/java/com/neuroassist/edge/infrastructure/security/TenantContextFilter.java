@@ -53,6 +53,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
             }
             TenantContextHolder.set(claims.tenantId());
             MDC.put(MDC_TENANT_ID, claims.tenantId());
+        } else if (requiresTenantClaim()) {
+            writeMissingTenantClaim(response);
+            return;
         }
         if (claims.actor() != null) {
             MDC.put(MDC_ACTOR, claims.actor());
@@ -83,4 +86,32 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
     /** Value object for extracted JWT claims (tenantId + actor/sub). */
     private record JwtClaims(String tenantId, String actor) {}
+
+    /**
+     * Um JWT autenticado sem claim de tenant tem de ser recusado aqui (E2E-021).
+     *
+     * <p>Antes o filtro seguia em frente sem ligar nada ao {@code TenantContextHolder}, e a
+     * requisicao morria adiante com {@code relation ... does not exist}, porque o resolver cai em
+     * {@code neuroassist_global}, onde as tabelas de negocio nao existem. Nao vazava dado — mas a
+     * seguranca dependia de uma coincidencia, e o chamador recebia 500 em vez de saber o que
+     * faltava. Era tambem o que tornava perigoso remover os aliases de claim.
+     *
+     * <p><b>Excecao deliberada:</b> {@code token_type=service} pode legitimamente nao ter tenant
+     * (E2E-029 — o cliente que cria empresas nao tem empresa a que se escopar).
+     */
+    private boolean requiresTenantClaim() {
+        Authentication current = SecurityContextHolder.getContext().getAuthentication();
+        if (!(current instanceof JwtAuthenticationToken jwtAuth)) {
+            return false; // sem JWT: quem decide o acesso e o SecurityConfig
+        }
+        return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+    }
+
+    /** 403 explicito, com um codigo que diz o que faltava. */
+    private void writeMissingTenantClaim(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
+    }
+
 }

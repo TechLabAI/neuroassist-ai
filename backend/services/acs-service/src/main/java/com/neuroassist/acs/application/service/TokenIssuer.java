@@ -72,13 +72,12 @@ public class TokenIssuer {
                         .expiresAt(expiresAt)
                         .subject(cuidador.id().toString())
                         .claim("token_type", "access")
+                        // tenant_id e o UNICO nome do tenant no token (E2E-021). Ate aqui o mesmo
+                        // valor saia tambem como "tenant" e "empresaId", porque quatro servicos
+                        // liam so um alias — gest e hist liam "tenant", pac lia "empresaId". Cada
+                        // alias era um lugar a mais onde um servico novo podia ler o nome errado e
+                        // resolver o tenant como nulo.
                         .claim("tenant_id", cuidador.tenantId().toString())
-                        // Compatibility aliases for the same tenant value: gest-service and the
-                        // hist-service controllers read "tenant", pac-service reads "empresaId".
-                        // Canonical claim is tenant_id — see plan-e2e-integration.md §11 for the
-                        // follow-up to converge the resource servers on it (E2E-003).
-                        .claim("tenant", cuidador.tenantId().toString())
-                        .claim("empresaId", cuidador.tenantId().toString())
                         .claim("papel", cuidador.papel().name())
                         .claim("nome", cuidador.nome())
                         .claim("authorities", authorities)
@@ -151,10 +150,11 @@ public class TokenIssuer {
                         .claim("token_type", "service")
                         .claim("nome", clientId)
                         .claim("authorities", authorities);
+        // Token de servico pode ser legitimamente SEM tenant (E2E-029: o cliente que cria
+        // empresas nao tem empresa a que se escopar). Por isso os filtros nao exigem o claim de
+        // tenant quando token_type=service — e exigem em todos os outros tipos.
         if (tenantId != null) {
-            builder.claim("tenant_id", tenantId.toString())
-                    .claim("tenant", tenantId.toString())
-                    .claim("empresaId", tenantId.toString());
+            builder.claim("tenant_id", tenantId.toString());
         }
         JwtClaimsSet claims = builder.build();
 
@@ -209,8 +209,6 @@ public class TokenIssuer {
                         .id(UUID.randomUUID().toString())
                         .claim("token_type", "device")
                         .claim("tenant_id", tenantId.toString())
-                        .claim("tenant", tenantId.toString())
-                        .claim("empresaId", tenantId.toString())
                         .claim("nome", clientId)
                         .claim("authorities", authorities)
                         .build();

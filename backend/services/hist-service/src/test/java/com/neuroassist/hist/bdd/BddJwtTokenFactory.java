@@ -51,7 +51,7 @@ public class BddJwtTokenFactory {
                             .subject(subject)
                             .issuer("http://bdd-test-issuer")
                             .claim("tenant_id", tenantId)
-                            .claim("tenant", tenantId)
+                            .claim("tenant_id", tenantId)
                             .claim("scope", scopes)
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
                             .issueTime(new Date())
@@ -74,7 +74,7 @@ public class BddJwtTokenFactory {
                             .subject("test-user-no-scope")
                             .issuer("http://bdd-test-issuer")
                             .claim("tenant_id", tenantId)
-                            .claim("tenant", tenantId)
+                            .claim("tenant_id", tenantId)
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
                             .issueTime(new Date())
                             .build();

@@ -402,7 +402,7 @@ dívida que ninguém prioriza.
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | ✅ DONE — 6 serviços (2026-08-23) |
 | E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
-| E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | OPEN |
+| E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | ✅ DONE — frota converge em `tenant_id` (2026-08-24) |
 | E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | ✅ DONE — drops aplicados no dev (2026-08-23) |
 | E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
@@ -1176,6 +1176,34 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   `ignoreExceptions` e abria com três "não pareado" seguidos, passando a reportar "EDGE
   indisponível" até para dispositivos pareados. (5) `EdgePairingClientIT` registrava
   `gest.edge.url`, propriedade que não existe — o WireMock nunca era usado.
+
+- ~~**O mesmo valor de tenant viajava com três nomes no token e dois no header (C-3/C-28).**~~ —
+  resolvido em 2026-08-24 (E2E-021). O inventário achou mais do que a issue descrevia: **quatro
+  serviços liam apenas um alias e nenhum lia o canônico** — `gest` lia `tenant`, `pac` lia
+  `empresaId`, quatro controllers do `hist` liam `tenant`, e dois proxies do `dash` liam
+  `details.get("tenant")`. O passo "TokenIssuer para de emitir os aliases", que a própria issue
+  listava como passo 2, teria quebrado gest e pac inteiros.
+
+  **O achado que reenquadrou a issue: os 7 filtros falhavam ABERTO.** Todos tinham a forma `if
+  (tenantId != null) { liga }` e, sem claim, seguiam em frente sem nada ligado. Verifiquei até
+  onde isso vai: o resolver de todos cai em `neuroassist_global`, que **não tem** as tabelas de
+  negócio, então a requisição morre com `relation ... does not exist`. **Não é vazamento entre
+  empresas** — mas a segurança dependia dessa coincidência, o chamador recebia 500 em vez de saber
+  o que faltava, e era exatamente isso que tornava perigoso remover os aliases. Agora: token
+  autenticado sem `tenant_id` → **403 `tenant_claim_missing`**, com uma exceção deliberada para
+  `token_type=service`, que pode legitimamente não ter tenant (E2E-029 — um fail-closed cego teria
+  quebrado a criação de empresa).
+
+  **Decisão sobre o gateway: não injetar header de tenant.** O JWT é assinado e já o carrega; um
+  header injetado seria uma segunda fonte de verdade, e a única razão de hoje ser seguro é que
+  nenhum serviço confia no header — os sete o usam como conferência e respondem 403 se divergir.
+
+  Dois stubs vivos caíram junto: o `extractTenantId` dos proxies do DASH lia `auth.getDetails()`
+  como `Map` (que `JwtAuthenticationToken` nunca é) e devolvia **string vazia sempre**; e o
+  `AuditRecordQueryController` do HIST ainda caía no literal `"stub-tenant"` — os outros três
+  controllers já tinham sido corrigidos em C-35 e este ficou para trás.
+
+  `X-Empresa-Id` segue aceito no PAC por uma versão, com log de depreciação.
 
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
   `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho

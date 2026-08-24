@@ -73,8 +73,11 @@ class TokenIssuerDeviceTokenTest {
         assertThat(jwt.getClaimAsString("token_type")).isEqualTo("device");
         assertThat(jwt.getClaimAsStringList("authorities")).containsExactly("edge.device");
         assertThat(jwt.getClaimAsString("tenant_id")).isEqualTo(TENANT_ID.toString());
-        assertThat(jwt.getClaimAsString("tenant")).isEqualTo(TENANT_ID.toString());
-        assertThat(jwt.getClaimAsString("empresaId")).isEqualTo(TENANT_ID.toString());
+        // E2E-021 — tenant_id e o UNICO nome. Ate aqui este teste AFIRMAVA a presenca dos aliases
+        // "tenant" e "empresaId", que era a razao pela qual eles nao podiam ser removidos: quatro
+        // servicos liam so um deles. Agora afirma a ausencia.
+        assertThat(jwt.hasClaim("tenant")).isFalse();
+        assertThat(jwt.hasClaim("empresaId")).isFalse();
         assertThat(jwt.getClaimAsString("papel")).isNull();
     }
 

@@ -137,7 +137,10 @@ public final class TestJwtHelper {
                     new JWTClaimsSet.Builder()
                             .issuer(ISSUER)
                             .subject(CAREGIVER_SUB)
-                            .claim("empresaId", empresaId)
+                            // E2E-021 — o ACS emite so tenant_id; a suite forjava o
+                            // alias "empresaId", entao ela testava um token que o
+                            // sistema nao emite mais.
+                            .claim("tenant_id", empresaId)
                             .claim("nome", CAREGIVER_DISPLAY_NAME)
                             .claim("scope", scopeString)
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))

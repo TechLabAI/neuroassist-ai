@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -43,7 +44,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class TenantContextFilter extends OncePerRequestFilter {
 
     /** Canonical claim first, then the compatibility aliases acs-service still emits (C-3). */
-    private static final List<String> TENANT_CLAIMS = List.of("tenant_id", "tenant", "empresaId");
+    /**
+     * Um nome so (E2E-021). Este filtro lia a uniao dos tres — {@code tenant_id}, {@code tenant} e
+     * {@code empresaId} —, o que o tornava imune ao problema mas mantinha os aliases vivos: eram
+     * lidos em algum lugar, logo nao podiam ser removidos.
+     */
+    private static final List<String> TENANT_CLAIMS = List.of("tenant_id");
 
     private static final String MDC_ACTOR = "userId";
 
@@ -58,11 +64,15 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
         if (tenantId != null) {
             TenantContextHolder.set(tenantId);
-        } else if (jwt != null) {
-            log.debug(
-                    "Authenticated request without a tenant claim path={} sub={}",
+        } else if (jwt != null && requiresTenantClaim()) {
+            // Era um log.debug. Um debug e exatamente o que ninguem le quando a requisicao morre
+            // 200ms depois com "relation ... does not exist" (E2E-021).
+            log.warn(
+                    "Requisicao autenticada sem claim de tenant path={} sub={} — recusada",
                     request.getRequestURI(),
                     actor);
+            writeMissingTenantClaim(response);
+            return;
         }
         if (actor != null) {
             MDC.put(MDC_ACTOR, actor);
@@ -97,4 +107,32 @@ public class TenantContextFilter extends OncePerRequestFilter {
         String value = claim.toString();
         return value.isBlank() ? null : value;
     }
+
+    /**
+     * Um JWT autenticado sem claim de tenant tem de ser recusado aqui (E2E-021).
+     *
+     * <p>Antes o filtro seguia em frente sem ligar nada ao {@code TenantContextHolder}, e a
+     * requisicao morria adiante com {@code relation ... does not exist}, porque o resolver cai em
+     * {@code neuroassist_global}, onde as tabelas de negocio nao existem. Nao vazava dado — mas a
+     * seguranca dependia de uma coincidencia, e o chamador recebia 500 em vez de saber o que
+     * faltava. Era tambem o que tornava perigoso remover os aliases de claim.
+     *
+     * <p><b>Excecao deliberada:</b> {@code token_type=service} pode legitimamente nao ter tenant
+     * (E2E-029 — o cliente que cria empresas nao tem empresa a que se escopar).
+     */
+    private boolean requiresTenantClaim() {
+        Authentication current = SecurityContextHolder.getContext().getAuthentication();
+        if (!(current instanceof JwtAuthenticationToken jwtAuth)) {
+            return false; // sem JWT: quem decide o acesso e o SecurityConfig
+        }
+        return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+    }
+
+    /** 403 explicito, com um codigo que diz o que faltava. */
+    private void writeMissingTenantClaim(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
+    }
+
 }

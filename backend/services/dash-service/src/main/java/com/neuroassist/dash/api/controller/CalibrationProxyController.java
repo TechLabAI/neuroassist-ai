@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 /** Write-through de calibracao para o PAC. Superficie /panel/** (JWT do cuidador). */
@@ -32,7 +33,6 @@ public class CalibrationProxyController {
             Authentication auth) {
 
         String caregiverId = auth.getName();
-        // tenantId extraido do principal via claim "tenant" (preenchido pelo SecurityConfig / P6)
         String tenantId = extractTenantId(auth);
 
         CalibrationParams params =
@@ -49,15 +49,23 @@ public class CalibrationProxyController {
         return ResponseEntity.ok(response);
     }
 
+    /**
+     * Le o tenant do claim canonico {@code tenant_id} (E2E-021).
+     *
+     * <p>Lia {@code auth.getDetails()} como um {@code Map} e pegava a chave {@code "tenant"}. Mas
+     * {@code JwtAuthenticationToken.getDetails()} e um {@code WebAuthenticationDetails}, nunca um
+     * {@code Map} — a condicao nunca era verdadeira e o metodo devolvia <b>string vazia,
+     * sempre</b>. O comentario original admitia: "Por ora, retorna vazio; substituir quando
+     * SecurityConfig estiver completo". Este proxy operava sem tenant desde que existe.
+     */
     private String extractTenantId(Authentication auth) {
-        // Claim "tenant" extraido do JWT pelo SecurityConfig (implementado em P6).
-        // Por ora, retorna vazio; substituir quando SecurityConfig estiver completo.
-        if (auth.getDetails() instanceof java.util.Map<?, ?> details) {
-            Object tenant = details.get("tenant");
-            if (tenant instanceof String t) {
-                return t;
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            String tenant = jwtAuth.getToken().getClaimAsString("tenant_id");
+            if (tenant != null && !tenant.isBlank()) {
+                return tenant;
             }
         }
-        return "";
+        // Nunca inventa um tenant. Quem decide o que fazer sem ele e o caso de uso.
+        return null;
     }
 }
