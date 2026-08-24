@@ -70,11 +70,24 @@ class SecurityConfigTest {
 
     static {
         POSTGRES.start();
+
+        // E2E-022 — esta classe sobe o SEU PRÓPRIO container e por isso aplica as migrations por
+        // conta. Sem isto o `ddl-auto=validate` do profile de teste derruba o contexto.
+        com.neuroassist.edge.integration.SchemaMigrations.applyTo(
+                POSTGRES, java.util.List.of("t_emp_test", "t_emp_other"));
+    }
+
+    /** Ver {@code BaseIntegrationTest.jdbcUrlWithSearchPath} — container próprio, mesma razão. */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", SecurityConfigTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }

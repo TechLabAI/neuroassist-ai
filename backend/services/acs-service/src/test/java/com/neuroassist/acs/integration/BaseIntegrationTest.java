@@ -22,11 +22,31 @@ public abstract class BaseIntegrationTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+
+        // E2E-022 — as migrations REAIS, aplicadas antes de o Spring subir, exatamente como no
+        // deploy. Com `ddl-auto=validate`, uma divergência entre migration e mapeamento JPA passa
+        // a derrubar o contexto em vez de aparecer só em produção.
+        SchemaMigrations.applyTo(POSTGRES, java.util.List.of("t_emp_test"));
+    }
+
+    /**
+     * A URL do Testcontainers já vem com query string ({@code ?loggerLevel=OFF}), então o separador
+     * precisa ser {@code &}. Um segundo {@code ?} produz uma URL que o driver aceita e ignora — o
+     * parâmetro some em silêncio.
+     */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        // E2E-022 — `currentSchema` com um schema de tenant à frente do global: com
+        // `ddl-auto=validate` o Hibernate valida contra a conexão de bootstrap, que não tem tenant
+        // vinculado, e sem isso reprovaria por não achar as tabelas em vez de por divergência.
+        registry.add("spring.datasource.url", BaseIntegrationTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }

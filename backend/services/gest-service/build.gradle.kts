@@ -80,6 +80,10 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
+    // E2E-022 — Flyway applies the REAL migrations in Testcontainers before ddl-auto=validate.
+    testImplementation("org.flywaydb:flyway-core")
+    testImplementation("org.flywaydb:flyway-database-postgresql")
+
 }
 
 // Unit tests: excludes "integration"-tagged tests and the CucumberIT @Suite runner (P8/BDD).

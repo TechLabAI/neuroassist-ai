@@ -3,10 +3,14 @@
 spring:
   jpa:
     hibernate:
-      # P12: none — tabelas criadas manualmente em init-schema.sql para que
-      # o multi-tenant schema-per-tenant funcione corretamente nos testes BDD.
-      # create-drop com multi-tenancy nao cria tabelas no schema de tenant correto.
-      ddl-auto: none
+      # E2E-022 — `validate`, no lugar de `none`.
+      #
+      # Antes as tabelas vinham de 11 CREATE TABLE escritos a mao no init-schema.sql — uma copia
+      # do schema que podia divergir das migrations nos DOIS sentidos, com `none` garantindo que
+      # nada validasse a diferenca. Agora o init-schema so cria schemas e extensoes, o Flyway
+      # aplica as migrations reais, e `validate` derruba o contexto se entity e migration
+      # discordarem. Ver testing-conventions.md §4.1.
+      ddl-auto: validate
   flyway:
     enabled: false
   artemis:

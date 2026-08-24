@@ -196,8 +196,18 @@ public class TenantProvisioningSteps {
     @Given("a tenant with status \"active\" exists")
     public void givenATenantWithStatusActiveExists() {
         ctx.retryTenantId = UUID.randomUUID();
+        // Schema PRÓPRIO, e não `neuroassist_global` (E2E-022).
+        //
+        // O Background já criou um tenant com aquele schema, e o schema real tem
+        // `ux_tenant_schema_nome` — duas empresas não podem apontar para o mesmo schema, o que é a
+        // própria definição de isolamento por schema. Com `ddl-auto=create-drop` o Hibernate nunca
+        // criava essa constraint, então a fixture descrevia um estado que produção rejeita.
         shared.ensureTenant(
-                ctx.retryTenantId, "Active Tenant", "CLINICA", "ACTIVE", "neuroassist_global");
+                ctx.retryTenantId,
+                "Active Tenant",
+                "CLINICA",
+                "ACTIVE",
+                "t_" + ctx.retryTenantId.toString().replace("-", ""));
     }
 
     @And("MIG is not called")

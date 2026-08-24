@@ -53,6 +53,12 @@ class AcsIntegrationTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+
+        // E2E-022 — esta classe sobe o SEU PRÓPRIO container, independente de
+        // BaseIntegrationTest, e por isso precisa aplicar as migrations por conta. Sem isto o
+        // `ddl-auto=validate` do profile de teste derruba o contexto com "missing table".
+        SchemaMigrations.applyTo(
+                POSTGRES, java.util.List.of("t_emp_test", "t_emp_other", "empresa_a", "empresa_b"));
     }
 
     // ---- WireMock (singleton — started in static initializer so @DynamicPropertySource can read
@@ -75,10 +81,18 @@ class AcsIntegrationTest {
         wireMock.resetAll();
     }
 
+    /** Ver {@code BaseIntegrationTest.jdbcUrlWithSearchPath} — mesma razão, container próprio. */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
+    }
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         // Redirect datasource to Testcontainers PostgreSQL
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", AcsIntegrationTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         // Redirect Feign ACS client to WireMock

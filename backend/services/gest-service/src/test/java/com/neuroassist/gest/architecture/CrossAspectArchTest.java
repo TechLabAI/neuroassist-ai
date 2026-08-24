@@ -38,6 +38,7 @@ public class CrossAspectArchTest {
     private static final Set<String> PERMISSION_CATALOGUE =
             Set.of(
                     "gest.detection-contract.read",
+                    "gest.detection-contract.validar",
                     "gest.detection-profile.publicar",
                     "gest.detection-profile.read",
                     "gest.eligibility.read",

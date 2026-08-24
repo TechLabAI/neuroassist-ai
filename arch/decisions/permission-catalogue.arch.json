@@ -18,7 +18,8 @@
         "gest.eligibility.read",
         "gest.detection-profile.publicar",
         "gest.detection-profile.read",
-        "gest.detection-contract.read"
+        "gest.detection-contract.read",
+        "gest.detection-contract.validar"
       ]
     },
     {

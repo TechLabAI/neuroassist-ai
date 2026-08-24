@@ -142,9 +142,10 @@ public class SecurityConfig {
                                 "gest.detection-profile.read",
                                 "gest.detection-profile.publicar",
                                 "gest.detection-contract.read",
+                                "gest.detection-contract.validar",
                                 "gest.eligibility.read")
                         .build();
-        // Mirrors CuidadorPapel.CUIDADORA — read-only, no criar/editar/publicar
+        // Mirrors CuidadorPapel.CUIDADORA — read-only for tipo-gesto, but can validate reports
         UserDetails reader =
                 User.withUsername("gest-reader")
                         .password("{noop}reader-secret")
@@ -152,6 +153,7 @@ public class SecurityConfig {
                                 "gest.tipo-gesto.read",
                                 "gest.detection-profile.read",
                                 "gest.detection-contract.read",
+                                "gest.detection-contract.validar",
                                 "gest.eligibility.read")
                         .build();
         return new InMemoryUserDetailsManager(manager, reader);

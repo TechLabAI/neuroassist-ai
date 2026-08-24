@@ -61,17 +61,23 @@ public final class TestJwtFactory {
                 "gest.detection-profile.publicar",
                 "gest.detection-profile.read",
                 "gest.eligibility.read",
-                "gest.detection-contract.read");
+                "gest.detection-contract.read",
+                "gest.detection-contract.validar");
     }
 
-    /** Builds a read-only token (read scopes only — no criar/editar/publicar). */
+    /**
+     * Builds a read-only token (read scopes only — no criar/editar/publicar). CUIDADORA mirrors:
+     * both read and validar for detection-contract (POST is guarded by validar, not read —
+     * E2E-026).
+     */
     public static String buildReadToken(String tenant) {
         return buildToken(
                 tenant,
                 "gest.tipo-gesto.read",
                 "gest.eligibility.read",
                 "gest.detection-profile.read",
-                "gest.detection-contract.read");
+                "gest.detection-contract.read",
+                "gest.detection-contract.validar");
     }
 
     /**

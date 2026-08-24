@@ -1,6 +1,7 @@
 package com.neuroassist.gest.integration;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -114,6 +115,45 @@ class SecurityIT extends BaseIntegrationTest {
         mockMvc.perform(get("/gest-service/tipo-gesto").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(header().exists("X-Correlation-Id"));
+    }
+
+    // ── Scenario 5: POST /detection-contract with read-only scope → 403 ──────
+    //
+    // E2E-026: the POST endpoint must be guarded by gest.detection-contract.validar,
+    // not gest.detection-contract.read. A caller with only the read authority must be
+    // rejected — before this fix both GET and POST shared the same read guard, so a
+    // role that had .read could write without realising it.
+
+    @Test
+    void post_detection_contract_with_read_only_scope_returns_403() throws Exception {
+        // Token carries only the read authority — deliberately excluded validar
+        String token = buildToken("user-001", "emp_test", "gest.detection-contract.read");
+
+        mockMvc.perform(
+                        post("/gest-service/detection-contract")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(
+                                        "{\"report\":{\"gestureId\":\"g1\","
+                                                + "\"confidence\":0.91,\"windowMs\":700}}"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── Scenario 6: POST /detection-contract with validar scope → 200 ────────
+
+    @Test
+    void post_detection_contract_with_validar_scope_returns_200() throws Exception {
+        // Token carries the correct write authority for the POST endpoint
+        String token = buildToken("user-001", "emp_test", "gest.detection-contract.validar");
+
+        mockMvc.perform(
+                        post("/gest-service/detection-contract")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(
+                                        "{\"report\":{\"gestureId\":\"g1\","
+                                                + "\"confidence\":0.91,\"windowMs\":700}}"))
+                .andExpect(status().isOk());
     }
 
     // ── JWT helper ────────────────────────────────────────────────────────────
