@@ -189,14 +189,26 @@ class RoleAuthorityPolicyTest {
 
         assertThat(authorities)
                 .containsExactlyInAnyOrder(
-                        "acs.directory.read", "dash.panel-composition.read", "hist:read");
+                        "acs.directory.read",
+                        "dash.panel-composition.read",
+                        "hist:read",
+                        // Ultimo degrau da escada (ADR-011): recebe o alarme, entao precisa poder
+                        // confirma-lo. ACKNOWLEDGED e o unico caminho de saida de um alarme de
+                        // ajuda, que nunca expira.
+                        "evnt.event-confirmation.confirmar");
         assertThat(authorities)
+                .as("confirmar alarme nao pode arrastar junto poder de escrita sobre nada")
                 .doesNotContain(
                         "acs.tenant.read",
                         "acs.cuidador.read",
+                        "acs.cuidador.criar",
+                        "acs.vinculo.criar",
                         "hist:read:all",
                         "hist:write",
                         "pac.paciente.criar",
-                        "pac.paciente.editar");
+                        "pac.paciente.editar",
+                        "pac.paciente.vincular",
+                        "pac.comando-lifecycle.recalibrar",
+                        "edge.manage");
     }
 }

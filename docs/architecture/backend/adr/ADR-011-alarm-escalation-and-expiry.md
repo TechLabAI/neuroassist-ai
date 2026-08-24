@@ -51,11 +51,15 @@ um paciente; o apoio é vinculado ao paciente mas não é cuidadora dele. A orde
 registro de cada tentativa precisa dizer **em que degrau** ela aconteceu — sem isso não há como
 responder "por que a coordenadora foi acionada?" depois de um incidente.
 
-> **Lacuna conhecida no degrau 4.** `PACIENTE_APOIO` tem hoje apenas `acs.directory.read`,
-> `dash.panel-composition.read` e `hist:read`. **Não tem `evnt.event-confirmation.confirmar`** — ou
-> seja, o último degrau da escada recebe um alarme que não consegue confirmar. É um beco sem saída
-> e precisa de decisão: ou o papel ganha a permissão de confirmar, ou o degrau 4 é notificação sem
-> ação e alguém precisa dizer o que se espera de quem o recebe.
+> **O degrau 4 pode confirmar** (decidido em 2026-08-24). `PACIENTE_APOIO` recebeu
+> `evnt.event-confirmation.confirmar`. Sem isso o último degrau seria um beco sem saída: ele
+> receberia o pedido e não conseguiria responder — e `ACKNOWLEDGED` é o **único** caminho de saída
+> de um alarme de ajuda, que por decisão clínica nunca expira. O alarme ficaria na fila para
+> sempre, com alguém olhando para ele sem poder fechá-lo.
+>
+> O que ele **não** ganhou: nenhuma autoridade de escrita sobre paciente, comando, cuidadora ou
+> dispositivo. Poder dizer "eu vi e vou atender" não é poder configurar nada. Há teste afirmando
+> essa ausência.
 
 ### 2. Nunca desistir
 

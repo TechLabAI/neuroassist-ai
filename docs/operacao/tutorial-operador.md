@@ -28,7 +28,7 @@ ninguém fique sem resposta.
 |---|---|
 | **Coordenadora** | Responde pela clínica: cadastra a equipe, os pacientes, e configura os gestos |
 | **Cuidadora** | Cuida de pacientes específicos e **recebe os pedidos de ajuda** |
-| **Apoio** | Acompanha um paciente, sem mexer em nada (tipicamente família) |
+| **Apoio** | Acompanha um paciente (tipicamente família). Não configura nada — mas **recebe o pedido de ajuda quando mais ninguém atendeu**, e pode confirmá-lo |
 
 Há ainda um passo anterior a todos: **alguém cria a clínica**. Hoje isso é feito pela equipe
 técnica, a pedido — não existe tela.
@@ -130,6 +130,8 @@ alta para ser ouvido.
                  │
                  ├─ o sistema insiste com a mesma cuidadora
                  ├─ depois procura as OUTRAS cuidadoras do paciente, uma a uma
+                 ├─ depois a COORDENADORA da clínica
+                 ├─ por último, o APOIO do paciente
                  └─ um pedido de AJUDA nunca é descartado — fica na fila até alguém atender
 ```
 

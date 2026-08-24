@@ -117,7 +117,22 @@ public class RoleAuthorityPolicy {
                             "dash.panel-composition.read",
                             "hist:read"),
                     CuidadorPapel.PACIENTE_APOIO,
-                    List.of("acs.directory.read", "dash.panel-composition.read", "hist:read"));
+                    List.of(
+                            "acs.directory.read",
+                            "dash.panel-composition.read",
+                            "hist:read",
+                            // O apoio e o ULTIMO degrau da escada de escalonamento (ADR-011):
+                            // quando nenhuma cuidadora e nem a coordenadora atendem, o alarme
+                            // chega a ele. Sem esta authority ele receberia o pedido e nao
+                            // conseguiria responder — e ACKNOWLEDGED e o unico caminho de saida
+                            // de um alarme de ajuda, que por decisao clinica nunca expira. O
+                            // ultimo degrau seria um beco sem saida, e o alarme ficaria na fila
+                            // para sempre com alguem olhando para ele sem poder fecha-lo.
+                            //
+                            // Note o que ele NAO ganhou: continua sem qualquer autoridade de
+                            // escrita sobre paciente, comando, cuidadora ou dispositivo. Poder
+                            // dizer "eu vi e vou atender" nao e poder configurar nada.
+                            "evnt.event-confirmation.confirmar"));
 
     /**
      * Returns the list of fine-grained authorities for the given role.

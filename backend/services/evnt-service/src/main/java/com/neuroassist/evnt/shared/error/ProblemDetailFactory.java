@@ -43,6 +43,14 @@ public final class ProblemDetailFactory {
                                     "conflict",
                                     409,
                                     "Event feedback is terminal and cannot be changed")),
+                    // Identidade de quem confirma divergente do token — 403, nao 422: nao e dado
+                    // invalido, e alguem declarando ser outra pessoa.
+                    Map.entry(
+                            "confirmador-divergente",
+                            new ErrorMetadata(
+                                    "forbidden",
+                                    403,
+                                    "confirmedBy does not match the authenticated subject")),
                     Map.entry(
                             "confirmador-unresolved",
                             new ErrorMetadata(

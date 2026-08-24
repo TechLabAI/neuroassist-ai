@@ -79,7 +79,7 @@ Extraída do que o backend concede hoje, não do que se imagina.
 | **Publicar o perfil de detecção da clínica** | — | ✅ | — | — |
 | Gerenciar dispositivos | — | ✅ | — | — |
 | Ver dispositivos | — | ✅ | ✅ | — |
-| Ver e confirmar alarmes | — | ✅ | ✅ | — |
+| Ver e confirmar alarmes | — | ✅ | ✅ | ✅ |
 | Ver o painel | — | ✅ | ✅ | ✅ |
 | Ver histórico do próprio escopo | — | ✅ | ✅ | ✅ |
 | Ver histórico de **toda** a clínica | — | ✅ | — | — |
@@ -97,8 +97,9 @@ Notas sobre a matriz:
 3. **Apagar dados de paciente (LGPD) é só da coordenadora**, deliberadamente — é irreversível.
 4. **Apoio ao paciente** vê principalmente o **histórico**, e é o **último degrau do escalonamento
    de alarme**: quando nenhuma cuidadora e nem a coordenadora atendem, o alarme chega a ele
-   (ADR-011). Há uma lacuna aberta: ele não tem permissão de **confirmar** alarme, então hoje
-   receberia um pedido sem poder responder a ele.
+   (ADR-011). **Pode confirmar alarme** — sem isso o último degrau seria um beco sem saída, já que
+   confirmar é o único caminho de saída de um alarme de ajuda, que nunca expira. Continua sem
+   qualquer autoridade de escrita: poder dizer "eu vi e vou atender" não é poder configurar nada.
 
 ---
 
@@ -139,9 +140,8 @@ Histórico do paciente que acompanha, e o painel. Sem ação de configuração a
 cuidadoras do paciente → coordenadora → apoio. Ou seja, este perfil não é só espectador — ele é
 quem recebe o pedido quando mais ninguém recebeu.
 
-> **Decisão pendente:** o apoio não tem `evnt.event-confirmation.confirmar`. Recebendo o alarme
-> como último recurso, ele não consegue confirmá-lo. Ou o papel ganha essa permissão, ou o degrau 4
-> é aviso sem ação e é preciso dizer o que se espera de quem o recebe.
+> **Resolvido em 2026-08-24:** o apoio recebeu `evnt.event-confirmation.confirmar`. Receber o
+> alarme como último recurso sem poder confirmá-lo deixaria o pedido preso na fila para sempre.
 
 > **Alerta que precisa existir:** *pacientes sem cuidadora*. Um paciente descoberto é invisível ao
 > painel — o painel lista pacientes **pela cuidadora**, e quem não tem vínculo não está na lista de
@@ -206,7 +206,5 @@ do ACS é *acesso*, e acesso a um paciente apagado não tem a mesma justificativ
 
 1. **O apagamento LGPD não revoga o vínculo no ACS** (§6). 7 pacientes apagados seguem com link
    `ACTIVE`.
-2. **Permissão de confirmar alarme para o apoio ao paciente** — sem ela, o último degrau da escada
-   é um beco sem saída.
 3. **Tela do admin de plataforma** — criar clínica + primeira coordenadora.
 4. **Menu por perfil e tela de login** — o que §4 propõe, ainda não construído.

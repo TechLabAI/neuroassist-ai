@@ -39,6 +39,16 @@ public class EventConfirmationService implements EventConfirmationUseCase {
         try {
             known = caregiverRoutingPort.isKnownCaregiver(confirmedBy);
         } catch (Exception e) {
+            // A causa era descartada aqui. O chamador recebia "confirmador nao resolvido" e o log
+            // nao dizia se o ACS recusou, caiu, ou respondeu algo inesperado — tres problemas
+            // diferentes com o mesmo texto. Perder a causa numa guarda de autorizacao e caro: e
+            // exatamente onde alguem vai precisar saber POR QUE o acesso foi negado.
+            log.error(
+                    "Nao foi possivel resolver o confirmador {} contra o acs-service: {}: {}",
+                    confirmedBy,
+                    e.getClass().getSimpleName(),
+                    e.getMessage(),
+                    e);
             throw new CodedException(
                     "confirmador-unresolved", "Caregiver confirmador could not be resolved");
         }
