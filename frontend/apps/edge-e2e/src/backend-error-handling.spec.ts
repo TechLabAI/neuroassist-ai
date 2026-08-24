@@ -128,8 +128,15 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
   });
 
   test('403 /errors/insufficient-scope → toast (not banner/modal)', async ({ page }) => {
+    // O 403 só chega DEPOIS que o poll observa a reivindicação do código e
+    // dispara o pairToPatient — e o intervalo do poll é da ordem de segundos.
+    // Esperar o aviso com um prazo fixo tornava o cenário instável (reprovava
+    // uma vez a cada três). Contar a chamada dá um marco determinístico: espera-se
+    // o POST acontecer, e só então se afirma sobre a tela.
+    let tentativasDePareamento = 0;
     await page.route(`${EDGE_BASE}/devices/${EDGE_DEVICE_ID}/pairings`, async (route, req) => {
       if (req.method() !== 'POST') { await route.continue(); return; }
+      tentativasDePareamento += 1;
       await fulfillError(
         route,
         '/errors/insufficient-scope',
@@ -167,10 +174,13 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
     await page.goto('/edge/pairing');
     await page.getByRole('button', { name: 'Solicitar código' }).click();
 
+    // Marco: o pareamento foi de fato tentado.
+    await expect.poll(() => tentativasDePareamento, { timeout: 30_000 }).toBeGreaterThan(0);
+
     // O 403 chega pelo pairToPatient. A superfície tem de ser AVISO, e não
     // banner ou modal: perder permissão no meio de um pareamento é notícia, não
     // uma decisão a tomar.
-    await expect(page.locator('[data-testid="toast"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="toast"]')).toBeVisible({ timeout: 10_000 });
     // A frase é a do 403, e não a de falha de conexão: dizer "temporária" para
     // uma permissão negada manda a pessoa insistir num caminho fechado.
     await expect(page.locator('[data-testid="toast"]')).toContainText(
@@ -220,8 +230,13 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
     await page.waitForTimeout(11_000);
     await expect(aviso).toBeVisible();
 
-    // Anunciável por leitor de tela: o contêiner é uma live region educada.
-    await expect(page.locator('[role="status"][aria-live="polite"]')).toBeAttached();
+    // Anunciável por leitor de tela: o contêiner do AVISO é uma live region
+    // educada. Escopado no próprio aviso porque a faixa (ui-banner-outlet) também
+    // é `role=status`/`aria-live=polite` — as duas são regiões legítimas, e um
+    // locator solto casava com ambas.
+    await expect(
+      page.locator('[role="status"][aria-live="polite"]').filter({ has: page.locator('[data-testid="toast"]') }),
+    ).toBeAttached();
 
     expect(tentativas).toBeGreaterThanOrEqual(3);
   });

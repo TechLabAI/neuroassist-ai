@@ -20,6 +20,7 @@ import {
 import { PAIRING_PORT } from './api/pairing.port';
 import { DEVICE_PORT } from './api/device.port';
 import { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './edge-toast.token';
+import { EdgeActivePatientService } from './integration/edge-active-patient.service';
 import {
   PairingVM,
   PairingPhase,
@@ -83,6 +84,7 @@ export class PairingFacade {
   private readonly devicePort = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
+  private readonly pacienteAtivo = inject(EdgeActivePatientService);
   private readonly observability = inject(ObservabilityService);
 
   private readonly _vm = signal<PairingVM>(idleVm());
@@ -290,7 +292,15 @@ export class PairingFacade {
         const phase = this._vm().phase;
         if (phase === 'awaiting-claim' && dev.ultimaSincronizacao) {
           // Agent has claimed and reported first heartbeat
-          const pacienteId = this._vm().pacienteId;
+          //
+          // O paciente é relido AGORA, e não só o que ficou guardado no registro.
+          // Se a pessoa clicou "Solicitar código" antes de o shell terminar de
+          // resolver o paciente ativo, o registro nasceu sem paciente — e o
+          // dispositivo terminava pareado a ninguém. A falha era intermitente
+          // (dependia de quem chegasse primeiro), e "às vezes vincula" é o pior
+          // resultado possível aqui: cada câmera olha uma pessoa, e um alarme
+          // atribuído a ninguém não chega a lugar nenhum.
+          const pacienteId = this._vm().pacienteId ?? this.pacienteAtivo.pacienteAtivo();
           if (pacienteId) {
             this.pairToPatient(pacienteId);
           } else {

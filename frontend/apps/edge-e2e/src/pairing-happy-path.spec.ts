@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  makeDevicePayload,
   aplicarModoHttp,
   EDGE_DEVICE_ID,
   EDGE_PATIENT_ID,
@@ -144,6 +145,23 @@ test.describe('EDGE – Pairing happy path (HTTP mode, route intercepts)', () =>
       ultimaSincronizacao: null,
     });
     await page.route(`${EDGE_BASE}/patients/${EDGE_PATIENT_ID}/liveness`, livenessStub.handler);
+
+    // O vínculo dispositivo→paciente passou a ser PEDIDO pela app, e não apenas
+    // observado. A página avulsa de pareamento agora conhece o paciente ativo
+    // (antes não conhecia nenhum, e por isso nunca concluía um pareamento), então
+    // ao ver o primeiro heartbeat ela faz o POST abaixo. Sem estubá-lo o cenário
+    // veria a chamada real falhar e nunca chegaria a "Dispositivo pareado!".
+    await page.route(`${EDGE_BASE}/devices/${EDGE_DEVICE_ID}/pairings`, async (route, req) => {
+      if (req.method() !== 'POST') { await route.continue(); return; }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(makeDevicePayload({
+          pairingState: 'paired',
+          pacienteId: EDGE_PATIENT_ID,
+        })),
+      });
+    });
 
     // Navigate to pairing page
     await page.goto('/edge/pairing');

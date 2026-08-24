@@ -17,6 +17,11 @@ import { ToastService, type TipoDeAviso } from './toast.service';
 // criado junto com o conteúdo costuma não ser anunciado: o leitor de tela
 // precisa já estar observando a região quando o texto entra.
 //
+// CAMADAS: o alarme de emergência é `z-50` e cobre a tela inteira. O aviso fica
+// ABAIXO dele (z-30), e o modal entre os dois (z-40). Durante uma emergência não
+// existe nada mais para ler — e a primeira versão deste componente estava em
+// z-[60], por cima do alarme, exatamente ao contrário da prioridade do produto.
+//
 // O toast NÃO rouba o foco. Mover o foco tira a pessoa de onde ela estava, e o
 // aviso é informação, não um pedido de ação. Por isso o botão de ação fica na
 // ordem natural de tabulação, e por isso avisos com ação não somem sozinhos.
@@ -31,7 +36,7 @@ import { ToastService, type TipoDeAviso } from './toast.service';
       role="status"
       aria-live="polite"
       aria-relevant="additions"
-      class="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
+      class="pointer-events-none fixed bottom-4 right-4 z-30 flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2">
       @for (aviso of toasts.avisos(); track aviso.id) {
         <div
           class="pointer-events-auto rounded-xl border px-4 py-3 shadow-card"
