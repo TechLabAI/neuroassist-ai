@@ -396,7 +396,7 @@ dívida que ninguém prioriza.
 | E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | OPEN |
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
-| E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | OPEN — revelado ao validar E2E-017 |
+| E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
@@ -1041,7 +1041,11 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   `dispositivo`, mas `ActorRefDto` só modela cuidador e exige `caregiverId`. O `evento.criado`
   grava o `deviceId` nesse campo com `displayName = "dispositivo <id>"` — funciona e é rastreável,
   mas abusa do nome do campo.
-- **Tenant provisionado pela API congela na versão do template (C-50).** Descoberto ao validar
+- ~~**Tenant provisionado pela API congela na versão do template (C-50).**~~ — resolvido em
+  2026-08-23 (E2E-030). O modo `migrate-all` do `plan-MIG` P2 foi implementado: schema global
+  primeiro, depois todo schema de tenant do catálogo, falha isolada por schema e run report que
+  **nomeia** os divergentes. `migrations-empresa` deixou de migrar um schema fixo. Os 5 schemas do
+  ambiente de dev convergiram para 23 migrations. Texto original: Descoberto ao validar
   E2E-017: a V0501 entrou e os 4 tenants criados pelas validações anteriores não a receberam — o
   contêiner `migrations-empresa` migra um schema fixo (`FLYWAY_SCHEMAS: t_emp_dev`). O modo
   `migrate-all` que o `api-contract` §2 descreve ("global + every existing tenant schema") nunca

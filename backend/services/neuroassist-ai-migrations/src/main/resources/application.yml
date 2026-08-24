@@ -27,6 +27,23 @@ spring:
       schema: ${FLYWAY_SCHEMAS:teste_e2e}
       hist_service_role: ${HIST_SERVICE_ROLE:neuroassist}
 
+neuroassist:
+  mig:
+    # NAO declare `mode` aqui.
+    #
+    # O modo do job (api-contract §2) chega por argumento: `--neuroassist.mig.mode=migrate-all`.
+    # Declarado no yml com default vazio, a chave passaria a EXISTIR sempre, e o
+    # @ConditionalOnProperty do MigrationJobRunner casaria mesmo sem modo nenhum — o job perderia
+    # o comportamento antigo (Flyway do Spring migrando o que FLYWAY_SCHEMAS nomeia), que e o que
+    # o conteiner migrations-global ainda faz.
+    #
+    # `migrate-all` faz o leque: schema global primeiro, depois TODO schema de tenant do catalogo.
+    # Existe porque provisionar um tenant aplica o template do momento e nada o revisitava —
+    # quatro tenants de dev ficaram sem `evnt_hist_outbox` no dia seguinte a migration que a cria.
+    global-schema: ${MIG_GLOBAL_SCHEMA:neuroassist_global}
+    global-locations: ${MIG_GLOBAL_LOCATIONS:classpath:db/migration/global}
+    tenant-locations: ${MIG_TENANT_LOCATIONS:classpath:db/migration/empresa}
+
 management:
   endpoints:
     web:

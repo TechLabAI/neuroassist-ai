@@ -38,6 +38,8 @@ public class FlywaySchemaMigrationAdapter implements SchemaMigrationPort {
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
     private final String locations;
+    private final String globalLocations;
+    private final String globalSchema;
     private final String histServiceRole;
     private final boolean outOfOrder;
 
@@ -45,12 +47,17 @@ public class FlywaySchemaMigrationAdapter implements SchemaMigrationPort {
             DataSource dataSource,
             @Value("${neuroassist.mig.tenant-locations:classpath:db/migration/empresa}")
                     String locations,
+            @Value("${neuroassist.mig.global-locations:classpath:db/migration/global}")
+                    String globalLocations,
+            @Value("${neuroassist.mig.global-schema:neuroassist_global}") String globalSchema,
             @Value("${neuroassist.mig.hist-service-role:${HIST_SERVICE_ROLE:neuroassist}}")
                     String histServiceRole,
             @Value("${neuroassist.mig.out-of-order:true}") boolean outOfOrder) {
         this.dataSource = dataSource;
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.locations = locations;
+        this.globalLocations = globalLocations;
+        this.globalSchema = globalSchema;
         this.histServiceRole = histServiceRole;
         this.outOfOrder = outOfOrder;
     }
@@ -91,6 +98,22 @@ public class FlywaySchemaMigrationAdapter implements SchemaMigrationPort {
     public String currentVersion(String schema) {
         guard(schema);
         MigrationInfo current = flywayFor(schema).info().current();
+        return current == null || current.getVersion() == null
+                ? null
+                : current.getVersion().getVersion();
+    }
+
+    @Override
+    public List<String> migrateGlobalToHead() {
+        MigrateResult result = flywayFor(globalSchema, globalLocations).migrate();
+        return result.migrations == null
+                ? List.of()
+                : result.migrations.stream().map(m -> m.version).filter(v -> v != null).toList();
+    }
+
+    @Override
+    public String currentGlobalVersion() {
+        MigrationInfo current = flywayFor(globalSchema, globalLocations).info().current();
         return current == null || current.getVersion() == null
                 ? null
                 : current.getVersion().getVersion();
@@ -149,12 +172,16 @@ public class FlywaySchemaMigrationAdapter implements SchemaMigrationPort {
     }
 
     private Flyway flywayFor(String schema) {
+        return flywayFor(schema, locations);
+    }
+
+    private Flyway flywayFor(String schema, String locationSet) {
         return Flyway.configure()
                 .dataSource(dataSource)
                 .schemas(schema)
                 .defaultSchema(schema)
                 .locations(
-                        Arrays.stream(locations.split(","))
+                        Arrays.stream(locationSet.split(","))
                                 .map(String::trim)
                                 .toArray(String[]::new))
                 .placeholders(

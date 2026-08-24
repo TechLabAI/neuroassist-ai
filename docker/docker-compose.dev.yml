@@ -87,10 +87,18 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  # E2E-030 — migra o schema global E TODO schema de tenant do catalogo, nao um schema fixo.
+  #
+  # `FLYWAY_SCHEMAS: t_emp_dev` bastava enquanto existia um tenant so — e existia um so porque o
+  # provisionamento era um stub. Assim que criar empresas passou a funcionar (E2E-016), o job
+  # virou o gargalo: conhecia um schema e a plataforma tinha N. Quatro tenants ficaram sem
+  # `evnt_hist_outbox` no dia seguinte a migration que a cria.
+  #
+  # Exit code 2 = frota em versoes mistas: NAO fazer rollout dos servicos de negocio.
   migrations-empresa:
     image: eclipse-temurin:21-jre-alpine
     container_name: neuroassist-migrations-empresa
-    command: java -jar /app/app.jar
+    command: java -jar /app/app.jar --neuroassist.mig.mode=migrate-all
     volumes:
       - ../backend/services/neuroassist-ai-migrations/build/libs/neuroassist-ai-migrations-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     environment:
@@ -98,9 +106,15 @@ services:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
       FLYWAY_USER: neuroassist
       FLYWAY_PASSWORD: neuroassist_dev_pass
+      # O leque le as locations por `neuroassist.mig.*`; as FLYWAY_* abaixo continuam servindo
+      # a auto-configuracao do Spring, que neste modo nao migra nada (JobModeFlywayConfig).
       FLYWAY_LOCATIONS: classpath:db/migration/empresa
       FLYWAY_SCHEMAS: t_emp_dev
       FLYWAY_BASELINE_ON_MIGRATE: "false"
+      MIG_GLOBAL_SCHEMA: neuroassist_global
+      MIG_GLOBAL_LOCATIONS: classpath:db/migration/global
+      MIG_TENANT_LOCATIONS: classpath:db/migration/empresa
+      HIST_SERVICE_ROLE: neuroassist
     depends_on:
       migrations-global:
         condition: service_completed_successfully

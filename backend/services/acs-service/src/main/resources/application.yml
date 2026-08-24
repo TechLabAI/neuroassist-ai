@@ -190,6 +190,10 @@ acs:
         - acs.tenant.provisionar
         - acs.tenant.read
         - acs.tenant.reprocessar
+        # E2E-030 — ler o status de migração da frota (GET /internal/migrations/status).
+        # `migrations:admin` e não `migrations:internal`: aquela é a identidade do acs-service
+        # chamando o MIG; esta é o operador perguntando quem está atrasado (api-contract §1.4).
+        - migrations:admin
     dash-service:
       secret-hash: ${DASH_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
       authorities:

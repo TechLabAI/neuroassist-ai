@@ -27,6 +27,20 @@ public interface SchemaMigrationPort {
     String currentVersion(String schema);
 
     /**
+     * Applies the <b>global</b> migration set to the global schema (E2E-030).
+     *
+     * <p>Separate method rather than a locations parameter: the two sets are not interchangeable,
+     * and a caller that could pass either would eventually pass the tenant template at the global
+     * schema. Naming them apart makes that unrepresentable.
+     *
+     * @return the versions applied by this call — empty when already at head
+     */
+    List<String> migrateGlobalToHead();
+
+    /** Current applied version of the global schema, or null when it has no history. */
+    String currentGlobalVersion();
+
+    /**
      * Runs {@code work} while holding a Postgres advisory lock keyed on the tenant.
      *
      * <p>plan-MIG R5: two concurrent provisioning calls for the same tenant would otherwise race

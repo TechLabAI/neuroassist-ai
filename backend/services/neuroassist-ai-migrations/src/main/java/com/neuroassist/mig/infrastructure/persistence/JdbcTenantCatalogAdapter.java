@@ -45,6 +45,15 @@ public class JdbcTenantCatalogAdapter implements TenantCatalogPort {
     }
 
     @Override
+    public List<String> allTenantSchemas() {
+        return jdbcTemplate.queryForList(
+                "SELECT schema_nome FROM "
+                        + globalSchema
+                        + ".tenant WHERE schema_nome IS NOT NULL ORDER BY schema_nome",
+                String.class);
+    }
+
+    @Override
     public boolean tenantExists(UUID tenantId) {
         Integer found =
                 jdbcTemplate.queryForObject(
