@@ -400,7 +400,7 @@ dívida que ninguém prioriza.
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-031 | ACS perde fato de autenticação — fail-open sem outbox (C-52) | P2 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
-| E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | 🟡 PARCIAL — piloto no PAC fechado (2026-08-23) |
+| E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | ✅ DONE — 6 serviços (2026-08-23) |
 | E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
 | E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | OPEN |
 | E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | ✅ DONE — drops aplicados no dev (2026-08-23) |

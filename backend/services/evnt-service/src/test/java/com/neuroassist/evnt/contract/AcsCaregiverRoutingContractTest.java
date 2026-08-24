@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.neuroassist.evnt.integration.SchemaMigrations;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,15 @@ class AcsCaregiverRoutingContractTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+        // E2E-022 — own container; migrations must be applied before Spring starts.
+        SchemaMigrations.applyTo(POSTGRES, List.of("t_emp_test"));
+    }
+
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     private static final int WIREMOCK_PORT = 9879;
@@ -64,7 +75,8 @@ class AcsCaregiverRoutingContractTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add(
+                "spring.datasource.url", AcsCaregiverRoutingContractTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("evnt.acs.baseurl", () -> "http://localhost:" + WIREMOCK_PORT);

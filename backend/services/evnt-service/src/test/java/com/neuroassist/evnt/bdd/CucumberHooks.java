@@ -14,6 +14,7 @@ import com.neuroassist.evnt.application.port.out.NotificationDispatchPort;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import com.neuroassist.evnt.infrastructure.persistence.repository.NotificationDispatchJpaRepository;
 import com.neuroassist.evnt.infrastructure.persistence.repository.ReportIdempotencyJpaRepository;
+import com.neuroassist.evnt.infrastructure.security.TenantContextHolder;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,13 @@ import lombok.RequiredArgsConstructor;
 /**
  * Cucumber lifecycle hooks: reset mocks before each scenario and clean database after. Singleton
  * Spring bean — injected repositories and mocked ports are reused across scenarios.
+ *
+ * <p>E2E-022 note: {@link TenantContextHolder} must be bound on the test thread before any direct
+ * repository call in a {@code @Given} or {@code @After} step. Without it, {@code
+ * TenantIdentifierResolver} falls back to {@code neuroassist_global}, and {@code
+ * MultiTenantConnectionProvider} routes the connection there — where the evnt tables do not exist.
+ * The fix: bind the default tenant in {@code @Before} and clear it in {@code @After}. HTTP requests
+ * are unaffected: the server thread gets its own binding from {@code TenantContextFilter}.
  */
 @RequiredArgsConstructor
 public class CucumberHooks {
@@ -42,11 +50,20 @@ public class CucumberHooks {
     private final ReportIdempotencyJpaRepository reportIdempotencyJpaRepository;
 
     /**
-     * Before each scenario: reset all mocks and set sensible defaults so individual Given steps
-     * only need to override what's specific to their scenario.
+     * Before each scenario: bind the default tenant on the test thread, then reset all mocks.
+     *
+     * <p>Binding must happen before any {@code @Given} step calls a JPA repository directly. The
+     * default is "empresa_demo" — all current BDD scenarios use this tenant. If a future scenario
+     * needs a different tenant, the {@code @Given} step that seeds data for that tenant must call
+     * {@code TenantContextHolder.set(...)} immediately before the repository call and restore the
+     * previous value after.
      */
     @Before
     public void beforeScenario() {
+        // E2E-022: bind tenant so direct repository calls in @Given steps route to the right
+        // schema.
+        TenantContextHolder.set("empresa_demo");
+
         reset(
                 gestValidationPort,
                 commandLookupPort,
@@ -81,11 +98,24 @@ public class CucumberHooks {
         doNothing().when(auditTrailPort).record(any());
     }
 
-    /** After each scenario: purge all rows inserted during the scenario. */
+    /**
+     * After each scenario: purge all rows inserted during the scenario.
+     *
+     * <p>The test thread may have had its {@link TenantContextHolder} cleared by the scenario (e.g.
+     * if a step explicitly called {@code TenantContextHolder.clear()}). Re-bind before the deletes
+     * so {@code MultiTenantConnectionProvider} routes to the correct tenant schema. Clear at the
+     * very end so the thread is clean for the next scenario's {@code @Before}.
+     */
     @After
     public void afterScenario() {
-        reportIdempotencyJpaRepository.deleteAll();
-        notificationDispatchJpaRepository.deleteAll();
-        eventoJpaRepository.deleteAll();
+        try {
+            // E2E-022: ensure deletes route to the same schema that holds the rows.
+            TenantContextHolder.set("empresa_demo");
+            reportIdempotencyJpaRepository.deleteAll();
+            notificationDispatchJpaRepository.deleteAll();
+            eventoJpaRepository.deleteAll();
+        } finally {
+            TenantContextHolder.clear();
+        }
     }
 }

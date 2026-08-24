@@ -9,6 +9,7 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.neuroassist.evnt.application.port.out.GestValidationPort;
 import com.neuroassist.evnt.infrastructure.security.ServiceTokenProvider;
 import com.neuroassist.evnt.infrastructure.security.TenantContextHolder;
+import com.neuroassist.evnt.integration.SchemaMigrations;
 import feign.FeignException;
 import java.util.List;
 import java.util.UUID;
@@ -59,6 +60,15 @@ class GestValidationContractTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+        // E2E-022 — own container; migrations must be applied before Spring starts.
+        SchemaMigrations.applyTo(POSTGRES, List.of("t_emp_test"));
+    }
+
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     private static final int WIREMOCK_PORT = 9877;
@@ -71,7 +81,7 @@ class GestValidationContractTest {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", GestValidationContractTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("evnt.gest.baseurl", () -> "http://localhost:" + WIREMOCK_PORT);

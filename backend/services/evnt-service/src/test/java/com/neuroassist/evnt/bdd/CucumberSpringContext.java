@@ -6,7 +6,9 @@ import com.neuroassist.evnt.application.port.out.CommandLookupPort;
 import com.neuroassist.evnt.application.port.out.GestValidationPort;
 import com.neuroassist.evnt.application.port.out.NotificationDispatchPort;
 import com.neuroassist.evnt.infrastructure.sse.SseEmitterAdapter;
+import com.neuroassist.evnt.integration.SchemaMigrations;
 import io.cucumber.spring.CucumberContextConfiguration;
+import java.util.List;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.mock.mockito.SpyBean;
@@ -21,6 +23,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
  *
  * <p>Uses a singleton PostgreSQLContainer (P8 fix: EVNT-022). @MockBean declarations centralise all
  * port mocks so step definition classes can @Autowired them without creating additional contexts.
+ *
+ * <p>E2E-022: this context has its own container (it does not extend BaseIntegrationTest), so
+ * migrations must be applied here too. Without this, ddl-auto=validate would fail at context
+ * startup because no tables exist yet.
  */
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -42,11 +48,31 @@ public class CucumberSpringContext {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+
+        // E2E-022 — migrations reais antes do Spring subir (este contexto tem container próprio).
+        // O BDD usa tenant "empresa_demo" (SharedSteps.givenATenantEmpresademoWithPatientPac1).
+        // "empresa_other" é usado pelo cenário de isolamento multi-tenant: a requisição
+        // cross-tenant
+        // roteia para esse schema via MultiTenantConnectionProvider; sem as tabelas lá, a query
+        // falha com 42P01 antes da guarda de tenant ser avaliada, produzindo 500 em vez de 403.
+        SchemaMigrations.applyTo(POSTGRES, List.of("t_emp_test", "empresa_demo", "empresa_other"));
+    }
+
+    /**
+     * A URL do Testcontainers já vem com query string ({@code ?loggerLevel=OFF}), então o separador
+     * precisa ser {@code &}. Concatenar um segundo {@code ?} produz uma URL que o driver aceita e
+     * ignora — o parâmetro some em silêncio e a validação falha por um motivo que não é o real.
+     */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", CucumberSpringContext::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
