@@ -49,6 +49,17 @@ public class DetectionProfilePrimitiveJpaEntity implements Persistable<UUID> {
     @Column(name = "engine_feature_ref", nullable = false, length = 200, updatable = false)
     private String engineFeatureRef;
 
+    /**
+     * Faixa de sensibilidade deste gesto no perfil (V0401).
+     *
+     * <p>Guardado como texto e nao como {@code @Enumerated}: a coluna e {@code text} com
+     * {@code CHECK (sensibilidade IN ('baixa','media','alta'))}, e o mapeamento fica no adapter.
+     * Um ENUM do Postgres mapeado como String foi o que quebrou toda escrita de outbox neste
+     * repositorio — aqui a coluna e texto de verdade dos dois lados.
+     */
+    @Column(name = "sensibilidade", nullable = false, length = 10, updatable = false)
+    private String sensibilidade;
+
     @Override
     public boolean isNew() {
         return isNew;

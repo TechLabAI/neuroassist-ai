@@ -1,6 +1,7 @@
 package com.neuroassist.gest.application.service;
 
 import com.neuroassist.gest.api.dto.DetectionProfileRequest;
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
@@ -40,6 +41,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class DetectionProfileService implements DetectionProfileUseCase {
 
+    /**
+     * Subiu de v1.0.0 quando o perfil passou a carregar limiares tipados e a devolver os
+     * primitivos (E2E-033). Menor, nao maior: o que existia continua no lugar e com o mesmo
+     * significado — o agente antigo ignora os campos novos e segue funcionando.
+     */
+    private static final String CONTRACT_VERSION = "v1.1.0";
+
     private final DetectionProfileRepositoryPort detectionProfileRepositoryPort;
     private final DetectionProfilePrimitiveRepositoryPort detectionProfilePrimitiveRepositoryPort;
     private final TipoGestoRepositoryPort tipoGestoRepositoryPort;
@@ -77,8 +85,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
         DetectionProfile profile =
                 DetectionProfile.publish(
                         version,
-                        "v1.0.0",
-                        request.classificationParams(),
+                        CONTRACT_VERSION,
+                        request.thresholds(),
                         supported,
                         tenantContextPort.getTenantIdOrNull(),
                         null);
@@ -86,22 +94,28 @@ public class DetectionProfileService implements DetectionProfileUseCase {
 
         // 4. Snapshot SUPPORTED primitives via domain service and persist
         List<DetectionProfilePrimitive> primitives =
-                detectionProfileDomainService.createSnapshot(supported, saved.id());
-        detectionProfilePrimitiveRepositoryPort.saveAll(primitives);
+                detectionProfileDomainService.createSnapshot(
+                        supported, saved.id(), request.sensibilidadePorGesto());
+        List<DetectionProfilePrimitive> savedPrimitives =
+                detectionProfilePrimitiveRepositoryPort.saveAll(primitives);
 
         // 5. Publish in-process domain event (AFTER_COMMIT listener in P6)
         eventPublisher.publishEvent(
                 new DetectionProfilePublished(saved.id(), saved.version(), Instant.now()));
 
-        log.info("DetectionProfile published: id={} version={}", saved.id(), saved.version());
-        return toResponse(saved);
+        log.info(
+                "DetectionProfile published: id={} version={} primitivos={}",
+                saved.id(),
+                saved.version(),
+                savedPrimitives.size());
+        return toResponse(saved, savedPrimitives);
     }
 
     /** Returns the currently active profile for the tenant, if any. */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findActive() {
-        return detectionProfileRepositoryPort.findActive().map(this::toResponse);
+        return detectionProfileRepositoryPort.findActive().map(this::toResponseWithPrimitives);
     }
 
     /**
@@ -128,13 +142,27 @@ public class DetectionProfileService implements DetectionProfileUseCase {
 
     // ── Mapping ──────────────────────────────────────────────────────────────
 
-    private DetectionProfileResponse toResponse(DetectionProfile profile) {
+    /**
+     * Carrega os primitivos do perfil antes de responder.
+     *
+     * <p>Sem isto o agente de borda recebe um perfil sem gesto nenhum — os primitivos eram
+     * gravados no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida
+     * (E2E-033).
+     */
+    private DetectionProfileResponse toResponseWithPrimitives(DetectionProfile profile) {
+        return toResponse(
+                profile, detectionProfilePrimitiveRepositoryPort.findByProfileId(profile.id()));
+    }
+
+    private DetectionProfileResponse toResponse(
+            DetectionProfile profile, List<DetectionProfilePrimitive> primitives) {
         return new DetectionProfileResponse(
                 profile.id(),
                 profile.version(),
                 profile.active(),
                 profile.contractVersion(),
-                profile.classificationParams(),
+                profile.thresholds(),
+                primitives.stream().map(DetectionProfilePrimitiveResponse::from).toList(),
                 profile.publishedAt(),
                 "\"" + profile.version() + "\"");
     }

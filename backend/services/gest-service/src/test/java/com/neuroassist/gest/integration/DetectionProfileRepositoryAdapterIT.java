@@ -8,6 +8,8 @@ import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.model.DetectabilityState;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.DetectionThresholdTable;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfileJpaRepository;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfilePrimitiveJpaRepository;
@@ -66,7 +68,7 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     @Test
     void save_thenFindActive_returnsActiveProfile() {
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.85, "minWindowMs", 100);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
 
         // Given: one supported primitive
         TipoGesto supported = createSupportedPrimitive("Piscar Olho IT", "ref/piscar-olho-v1");
@@ -83,7 +85,9 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
         assertThat(found.get().version()).isEqualTo(1L);
         assertThat(found.get().active()).isTrue();
         assertThat(found.get().contractVersion()).isEqualTo("v1.0.0");
-        assertThat(found.get().classificationParams()).containsEntry("confidenceThreshold", 0.85);
+        assertThat(found.get().thresholds()).isEqualTo(DetectionThresholdTable.defaults());
+        // A faixa media reproduz, valor por valor, o que o agente usava como constante.
+        assertThat(found.get().thresholds().media().earClose()).isEqualTo(0.22);
     }
 
     // deactivateCurrent() is a bare @Modifying query with no @Transactional of its own by design
@@ -92,7 +96,7 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
     @Test
     @Transactional
     void deactivateCurrent_thenSaveNew_onlyOneActiveProfile() {
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.9);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
         TipoGesto supported =
                 createSupportedPrimitive("Levantar Sobrancelha IT", "ref/sobrancelha-v1");
 
@@ -119,14 +123,14 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
     void saveAll_primitives_thenFindByProfileId() {
         TipoGesto supported = createSupportedPrimitive("Sorrir IT", "ref/sorrir-v1");
 
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.8);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
         DetectionProfile profile =
                 DetectionProfile.publish(
                         20L, "v1.0.0", params, List.of(supported), TEST_TENANT, "actor");
         DetectionProfile savedProfile = profilePort.save(profile);
 
         DetectionProfilePrimitive primitive =
-                DetectionProfilePrimitive.fromSupported(savedProfile.id(), supported);
+                DetectionProfilePrimitive.fromSupported(savedProfile.id(), supported, Sensibilidade.alta);
         List<DetectionProfilePrimitive> savedPrimitives = primitivePort.saveAll(List.of(primitive));
 
         List<DetectionProfilePrimitive> found = primitivePort.findByProfileId(savedProfile.id());

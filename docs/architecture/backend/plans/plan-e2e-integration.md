@@ -407,6 +407,7 @@ dívida que ninguém prioriza.
 | E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
 | E2E-032 | Limiares EAR/BRI duplicados em dois agentes de borda (C-53) | P2 | ✅ DONE — fonte única + guarda de drift no CI (2026-08-24) |
+| E2E-033 | Perfil publicado não carrega sensibilidade nenhuma (C-54) | P2 | ✅ DONE — validado no stack (2026-08-24) |
 
 ---
 
@@ -1111,6 +1112,37 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   estão ativos, não *com que sensibilidade* detectá-los —, enquanto o PAC tem `sensibilidade` por
   comando. Há um conceito de sensibilidade no sistema que nunca chega ao agente de borda, e ALS
   afeta cada pessoa de forma diferente.
+
+- ~~**O perfil publicado pelo GEST não carregava sensibilidade nenhuma (C-54).**~~ — resolvido em
+  2026-08-24 (E2E-033). O `/active` dizia *quais* gestos estavam ativos, nunca *com que
+  sensibilidade*; os limiares eram constante de código, iguais para todo paciente, enquanto o PAC
+  guarda `comando.sensibilidade` por paciente desde a V0201. Existia transporte —
+  `classificationParams`, um `Map<String,Object>` cujo comentário de coluna prometia quatro chaves
+  — e ele nunca transportou nada: nenhuma das quatro é escrita ou lida em lugar nenhum do código.
+  Agora é uma `DetectionThresholdTable` tipada, com invariantes dentro da faixa e monotonicidade
+  entre faixas (um perfil onde "alta" detecta menos que "baixa" deixou de ser publicável). A faixa
+  `media` reproduz, valor por valor, as constantes históricas — adotar o perfil não muda
+  comportamento até alguém escolher outra faixa.
+
+  Junto saiu um defeito vivo: **`DetectionProfileResponse` não tinha campo `primitives`**. Eles
+  eram persistidos no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida
+  com "Perfil ativo não possui primitivos" contra qualquer GEST real.
+
+  **Continua por empresa.** `ux_profile_single_active` garante um perfil ativo por tenant,
+  enquanto a sensibilidade é por paciente — não foi esquecimento de fiação, o modelo não expressa
+  "o limiar deste paciente". Ligar a rota por paciente exige romper esse invariante e resolver
+  `device → paciente` (o GEST só resolve `device → tenant`). Issue própria.
+
+- **Três stubs vivos no `DetectionProfileService` (achados na E2E-033).**
+  `findForDevice(UUID)` e `findByVersion(long)` devolvem `Optional.empty()` **sempre**, marcados
+  "P4" e "P3". O primeiro é grave: é exatamente o endpoint que o `DetectionProfileClient` do EDGE
+  chama, então o ponteiro de perfil do EDGE lê `noActiveProfile()` para todo dispositivo, para
+  sempre. Sinalizados no ES.
+
+- **7 falhas de `integrationTest` no gest-service, pré-existentes.** Confirmado rodando a suíte no
+  `HEAD` limpo: as mesmas 7, uma a uma. Duas causas — `relation "tipo_gesto" does not exist`
+  (schema não aplicado no contexto desses ITs) e Feign tentando resolver `http://edge-service:8087`,
+  um nome de container, a partir do host. O gate `:test` não as vê.
 
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
   `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho

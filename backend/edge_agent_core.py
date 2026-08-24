@@ -22,6 +22,8 @@ afeta cada pessoa de forma diferente; um limiar único para todos é uma simplif
 ainda não superou.
 """
 
+from dataclasses import dataclass
+
 import numpy as np
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,3 +121,114 @@ def compute_bri(landmarks, side):
 
     inter = abs(landmarks[RIGHT_EYE_OUTER].x - landmarks[LEFT_EYE_OUTER].x)
     return (eye_y - brow_y) / inter if inter > 1e-6 else 0.0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Faixas de sensibilidade — E2E-033
+# ─────────────────────────────────────────────────────────────────────────────
+# Até aqui os limiares acima eram TUDO: constantes de código, iguais para todo paciente. O GEST
+# passou a publicá-los no perfil, em três faixas, e o agente escolhe a faixa por gesto.
+#
+# `media` é, valor por valor, o bloco de constantes deste arquivo — de propósito. Adotar o perfil
+# não muda comportamento nenhum até alguém escolher outra faixa.
+#
+# Sentido da sensibilidade: EAR CAI quando o olho fecha, então detectar mais fácil é um limiar
+# MAIOR; BRI SOBE quando a sobrancelha levanta, então detectar mais fácil é um limiar MENOR. O
+# GEST valida essa monotonicidade no publish (DetectionThresholdTable).
+#
+# Estes números têm espelho em DetectionThresholdTable.defaults() (Java) e no backfill da
+# V0401__gest_detection_thresholds.sql. check_edge_agent_drift.py compara os quatro lados.
+
+@dataclass(frozen=True)
+class Thresholds:
+    """Conjunto completo de limiares de uma faixa. Imutável — ninguém ajusta no meio do vídeo."""
+
+    ear_close: float
+    ear_open: float
+    ear_other_max: float
+    blink_min_frames: int
+    double_blink_window: float  # segundos (o perfil transporta ms)
+    bri_raise_on: float
+    bri_raise_off: float
+    bri_other_max: float
+    brow_min_frames: int
+
+
+DEFAULT_BANDS = {
+    "baixa": Thresholds(0.19, 0.24, 0.27, 3, 1.5, 0.34, 0.26, 0.29, 7),
+    "media": Thresholds(0.22, 0.27, 0.30, 2, 2.0, 0.30, 0.22, 0.25, 5),
+    "alta": Thresholds(0.25, 0.30, 0.33, 2, 2.5, 0.26, 0.18, 0.21, 3),
+}
+
+DEFAULT_BAND = "media"
+
+
+def _band_from_json(raw):
+    """Uma faixa do JSON do perfil. Campo ausente cai no valor da faixa padrão."""
+    fallback = DEFAULT_BANDS[DEFAULT_BAND]
+    window_ms = raw.get("doubleBlinkWindowMs")
+    return Thresholds(
+        ear_close=float(raw.get("earClose", fallback.ear_close)),
+        ear_open=float(raw.get("earOpen", fallback.ear_open)),
+        ear_other_max=float(raw.get("earOtherMax", fallback.ear_other_max)),
+        blink_min_frames=int(raw.get("blinkMinFrames", fallback.blink_min_frames)),
+        double_blink_window=(
+            float(window_ms) / 1000.0 if window_ms is not None else fallback.double_blink_window
+        ),
+        bri_raise_on=float(raw.get("briRaiseOn", fallback.bri_raise_on)),
+        bri_raise_off=float(raw.get("briRaiseOff", fallback.bri_raise_off)),
+        bri_other_max=float(raw.get("briOtherMax", fallback.bri_other_max)),
+        brow_min_frames=int(raw.get("browMinFrames", fallback.brow_min_frames)),
+    )
+
+
+def bands_from_profile(profile):
+    """
+    As três faixas do payload de `GET /gest-service/detection-profile/active`.
+
+    Perfil ausente, sem `thresholds`, ou malformado devolve os padrões — o agente de borda roda na
+    casa do paciente e não pode parar de detectar porque o GEST está fora do ar. Degradar para o
+    comportamento histórico é a única falha aceitável aqui.
+    """
+    if not isinstance(profile, dict):
+        return dict(DEFAULT_BANDS)
+    raw = profile.get("thresholds")
+    if not isinstance(raw, dict):
+        return dict(DEFAULT_BANDS)
+
+    bands = {}
+    for name in DEFAULT_BANDS:
+        entry = raw.get(name)
+        try:
+            bands[name] = _band_from_json(entry) if isinstance(entry, dict) else DEFAULT_BANDS[name]
+        except (TypeError, ValueError):
+            bands[name] = DEFAULT_BANDS[name]
+    return bands
+
+
+def sensitivity_by_gesture(profile):
+    """
+    `{tipoGestoId: faixa}` a partir dos primitivos do perfil.
+
+    Gesto sem faixa declarada, ou com faixa desconhecida, recebe a padrão — um nome de faixa
+    inventado não pode virar KeyError a 30 fps.
+    """
+    if not isinstance(profile, dict):
+        return {}
+    result = {}
+    for primitive in profile.get("primitives") or []:
+        if not isinstance(primitive, dict):
+            continue
+        gesture = primitive.get("tipoGestoId")
+        if not gesture:
+            continue
+        band = primitive.get("sensibilidade")
+        result[gesture] = band if band in DEFAULT_BANDS else DEFAULT_BAND
+    return result
+
+
+def thresholds_for(profile, tipo_gesto_id):
+    """Os limiares que valem para UM gesto — a única função que os agentes precisam chamar."""
+    bands = bands_from_profile(profile)
+    band = sensitivity_by_gesture(profile).get(tipo_gesto_id, DEFAULT_BAND)
+    return bands.get(band, bands[DEFAULT_BAND]), band

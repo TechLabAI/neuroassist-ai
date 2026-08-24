@@ -9,9 +9,11 @@
 #      whose integrationTest task uses Testcontainers/PostgreSQL, not a delegate).
 #   4. An explicit canary verifies that a new file placed in application/port/out/
 #      would NOT be gitignored — catching any future regression of the out/ pattern.
-#   5. The two webcam edge agents still agree on the EAR/BRI thresholds and math.
-#      The frozen paper artifact keeps its own self-contained copy on purpose, so a
-#      guard — not an import — is what keeps it from drifting (E2E-032).
+#   5. The EAR/BRI thresholds still agree across all four places that state them:
+#      the python core, the frozen paper artifact, the Java profile defaults, and the
+#      migration backfill. The artifact and the two backend copies exist for good
+#      reasons; a guard — not an import — is what keeps them from drifting
+#      (E2E-032 / E2E-033).
 #
 # Services and tasks verified (as of E2E-027):
 #
@@ -245,6 +247,10 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Thresholds and math agree across both edge agents
+      - name: Thresholds and math agree across python / java / sql
         shell: bash
         run: python backend/scripts/check_edge_agent_drift.py
+
+      - name: Edge agent core — profile reading and fallbacks
+        shell: bash
+        run: python backend/scripts/test_edge_agent_core.py

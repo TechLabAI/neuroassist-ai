@@ -2,7 +2,6 @@ package com.neuroassist.gest.domain.model;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -19,7 +18,7 @@ public record DetectionProfile(
         long version,
         boolean active,
         String contractVersion,
-        Map<String, Object> classificationParams,
+        DetectionThresholdTable thresholds,
         Instant publishedAt,
         String publishedBy,
         String tenantId) {
@@ -31,7 +30,7 @@ public record DetectionProfile(
      *
      * @param version next monotonic version from DetectionProfileRepositoryPort.nextVersion()
      * @param contractVersion frozen contract version string (e.g. "v1.0.0")
-     * @param classificationParams detection parameters (confidenceThreshold, minWindowMs, etc.)
+     * @param thresholds tabela de limiares EAR/BRI das tres faixas; {@code null} adota os padroes
      * @param supported list of currently SUPPORTED primitives (must be non-empty)
      * @param tenantId tenant context at publish time
      * @param publishedBy actor performing the publish
@@ -39,7 +38,7 @@ public record DetectionProfile(
     public static DetectionProfile publish(
             long version,
             String contractVersion,
-            Map<String, Object> classificationParams,
+            DetectionThresholdTable thresholds,
             List<TipoGesto> supported,
             String tenantId,
             String publishedBy) {
@@ -52,7 +51,7 @@ public record DetectionProfile(
                 version,
                 true,
                 contractVersion,
-                classificationParams != null ? classificationParams : Map.of(),
+                thresholds != null ? thresholds : DetectionThresholdTable.defaults(),
                 Instant.now(),
                 publishedBy,
                 tenantId);

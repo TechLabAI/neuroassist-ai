@@ -3,20 +3,28 @@ package com.neuroassist.gest.api.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
+import com.neuroassist.gest.domain.model.DetectionThresholdTable;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
 import com.neuroassist.gest.infrastructure.security.CorrelationIdInterceptor;
 import com.neuroassist.gest.shared.error.CodedException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
+import org.springframework.http.MediaType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,6 +76,43 @@ class DetectionProfileControllerTest {
         // preHandle must return true; Mockito default for boolean is false which would block
         // requests
         when(correlationIdInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+    }
+
+    // ── publish — corpo recusado pelo dominio (E2E-033) ──────────────────────
+
+    /**
+     * O 400 tem de dizer O QUE esta errado. A validacao vive no construtor compacto do record, e
+     * portanto dispara durante a desserializacao do Jackson; sem o handler dedicado, o Spring
+     * responde "Failed to read request" e a mensagem util fica enterrada na causa.
+     */
+    @Test
+    void publish_tabelaComAltaMenosSensivelQueBaixa_explicaOMotivo() throws Exception {
+        String invertida =
+                """
+                {"thresholds":{
+                 "baixa":{"earClose":0.25,"earOpen":0.30,"earOtherMax":0.33,"blinkMinFrames":3,"doubleBlinkWindowMs":1500,"briRaiseOn":0.34,"briRaiseOff":0.26,"briOtherMax":0.29,"browMinFrames":7},
+                 "media":{"earClose":0.22,"earOpen":0.27,"earOtherMax":0.30,"blinkMinFrames":2,"doubleBlinkWindowMs":2000,"briRaiseOn":0.30,"briRaiseOff":0.22,"briOtherMax":0.25,"browMinFrames":5},
+                 "alta":{"earClose":0.19,"earOpen":0.24,"earOtherMax":0.27,"blinkMinFrames":2,"doubleBlinkWindowMs":2500,"briRaiseOn":0.26,"briRaiseOff":0.18,"briOtherMax":0.21,"browMinFrames":3}}}
+                """;
+
+        mockMvc.perform(
+                        post(BASE_PATH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(invertida))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("earClose")))
+                .andExpect(jsonPath("$.detail").value(containsString("crescer")));
+    }
+
+    /** JSON quebrado nao ganha a mensagem do parser — ela nao ajuda quem chamou. */
+    @Test
+    void publish_jsonMalformado_mantemMensagemGenerica() throws Exception {
+        mockMvc.perform(
+                        post(BASE_PATH)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"thresholds\": {{{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Failed to read request"));
     }
 
     // ── findActive — 200 with ETag ────────────────────────────────────────────
@@ -165,8 +210,14 @@ class DetectionProfileControllerTest {
                 UUID.randomUUID(),
                 3L,
                 true,
-                "v1.0.0",
-                Map.of("threshold", 0.85),
+                "v1.1.0",
+                DetectionThresholdTable.defaults(),
+                List.of(
+                        new DetectionProfilePrimitiveResponse(
+                                UUID.randomUUID(),
+                                "Piscar",
+                                "ref/piscar-v1",
+                                Sensibilidade.media)),
                 Instant.now(),
                 etag);
     }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,6 +20,8 @@ import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.DetectionThresholdTable;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
 import java.time.Instant;
@@ -94,8 +97,8 @@ class DetectionProfileServiceTest {
                         profileId,
                         2L,
                         true,
-                        "v1.0.0",
-                        Map.of(),
+                        "v1.1.0",
+                        DetectionThresholdTable.defaults(),
                         Instant.now(),
                         null,
                         "tenant-pending-p5");
@@ -105,7 +108,8 @@ class DetectionProfileServiceTest {
                         profileId,
                         supportedGesto.id(),
                         supportedGesto.nome(),
-                        supportedGesto.engineFeatureRef());
+                        supportedGesto.engineFeatureRef(),
+                        Sensibilidade.media);
 
         // all gestos includes one non-supported — service must filter to SUPPORTED only
         when(tipoGestoRepositoryPort.findAllByTenant())
@@ -114,18 +118,18 @@ class DetectionProfileServiceTest {
         doNothing().when(detectionProfileRepositoryPort).deactivateCurrent();
         when(detectionProfileRepositoryPort.save(any(DetectionProfile.class)))
                 .thenReturn(savedProfile);
-        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class)))
+        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class), nullable(Map.class)))
                 .thenReturn(List.of(primitive));
         when(detectionProfilePrimitiveRepositoryPort.saveAll(anyList()))
                 .thenReturn(List.of(primitive));
 
         DetectionProfileResponse response =
                 detectionProfileService.publish(
-                        new DetectionProfileRequest(Map.of("confidenceThreshold", 0.8)));
+                        new DetectionProfileRequest(DetectionThresholdTable.defaults(), Map.of()));
 
         assertThat(response.version()).isEqualTo(2L);
         assertThat(response.active()).isTrue();
-        assertThat(response.contractVersion()).isEqualTo("v1.0.0");
+        assertThat(response.contractVersion()).isEqualTo("v1.1.0");
         assertThat(response.etag()).isEqualTo("\"2\"");
 
         // Verify protocol steps
@@ -143,7 +147,7 @@ class DetectionProfileServiceTest {
         assertThatThrownBy(
                         () ->
                                 detectionProfileService.publish(
-                                        new DetectionProfileRequest(Map.of())))
+                                        new DetectionProfileRequest(null, null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("no supported primitives");
 
@@ -158,7 +162,7 @@ class DetectionProfileServiceTest {
         assertThatThrownBy(
                         () ->
                                 detectionProfileService.publish(
-                                        new DetectionProfileRequest(Map.of())))
+                                        new DetectionProfileRequest(null, null)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("no supported primitives");
     }
@@ -172,8 +176,8 @@ class DetectionProfileServiceTest {
                         profileId,
                         5L,
                         true,
-                        "v1.0.0",
-                        Map.of(),
+                        "v1.1.0",
+                        DetectionThresholdTable.defaults(),
                         Instant.now(),
                         null,
                         "tenant-pending-p5");
@@ -182,12 +186,12 @@ class DetectionProfileServiceTest {
         when(detectionProfileRepositoryPort.nextVersion()).thenReturn(5L);
         doNothing().when(detectionProfileRepositoryPort).deactivateCurrent();
         when(detectionProfileRepositoryPort.save(any())).thenReturn(savedProfile);
-        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class)))
+        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class), nullable(Map.class)))
                 .thenReturn(List.of());
         when(detectionProfilePrimitiveRepositoryPort.saveAll(anyList())).thenReturn(List.of());
 
         DetectionProfileResponse response =
-                detectionProfileService.publish(new DetectionProfileRequest(Map.of()));
+                detectionProfileService.publish(new DetectionProfileRequest(null, null));
 
         assertThat(response.etag()).isEqualTo("\"5\"");
     }
@@ -199,7 +203,14 @@ class DetectionProfileServiceTest {
         UUID profileId = UUID.randomUUID();
         DetectionProfile profile =
                 new DetectionProfile(
-                        profileId, 3L, true, "v1.0.0", Map.of(), Instant.now(), null, "t1");
+                        profileId,
+                        3L,
+                        true,
+                        "v1.1.0",
+                        DetectionThresholdTable.defaults(),
+                        Instant.now(),
+                        null,
+                        "t1");
         when(detectionProfileRepositoryPort.findActive()).thenReturn(Optional.of(profile));
 
         Optional<DetectionProfileResponse> response = detectionProfileService.findActive();
