@@ -91,8 +91,15 @@ mensagem explicando exatamente isso.
 O dispositivo é o computador com a câmera que fica com o paciente. Parear é dizer ao sistema
 "esta câmera olha esta pessoa".
 
+O sistema pareia o dispositivo ao **paciente que está aberto na tela**. Confira de quem é o nome
+no alto antes de começar: parear é dizer "esta câmera olha esta pessoa", e um dispositivo ligado
+ao paciente errado manda os pedidos de uma pessoa para os cuidadores de outra.
+
 Um dispositivo pareado passa a dar sinal de vida periodicamente. Se ele parar, aparece como
 offline — e vale tratar isso como urgente: **um dispositivo offline é um paciente sem voz.**
+
+> Se a tela ficar em "aguardando o agente" e não passar disso, o dispositivo do lado do paciente
+> ainda não recebeu o código. Confira se ele está ligado e conectado antes de pedir um código novo.
 
 ### Passo 5 — A calibração: ensinar o que cada gesto quer dizer
 
@@ -124,6 +131,22 @@ alta para ser ouvido.
 
 > **A sensibilidade é por paciente e por gesto.** Mudar a sensibilidade de um paciente não afeta
 > nenhum outro, e a mudança chega ao dispositivo dele sozinha — não é preciso reiniciar nada.
+
+### Quando alguma coisa dá errado
+
+O sistema fala de três jeitos, e a diferença entre eles é proposital:
+
+| O que aparece | O que significa |
+|---|---|
+| **Um aviso no canto**, que some sozinho | Alguma coisa falhou agora. Quando dá para tentar de novo, ele traz o botão — e nesse caso **não** some sozinho, para você não perder o botão de vista |
+| **Uma faixa no alto da tela**, que fica | Uma condição que continua valendo, não um tropeço. Ela permanece enquanto a condição existir |
+| **Uma caixa no meio da tela** | Precisa de uma decisão sua antes de seguir |
+
+A caixa que aparece ao tentar publicar um comando de **emergência** com um gesto que a câmera não
+consegue reconhecer é a mais importante: ela **não fecha por engano** — nem apertando Esc, nem
+clicando fora. O comando não foi publicado, e o botão dela leva à saída ("Alterar para Rotina").
+Isso é de propósito: um pedido de socorro apoiado num gesto que o sistema não enxerga seria um
+pedido que nunca chega.
 
 ---
 
@@ -199,7 +222,10 @@ no sistema; a tela ainda não foi construída.)*
 Honestidade sobre o estado atual, para ninguém contar com o que não está pronto:
 
 - **Não há tela para criar clínica.** É feito pela equipe técnica.
-- **Não há tela dos pacientes sem cuidadora.** A informação existe, a tela não.
+- **Não há tela dos pacientes sem cuidadora.** A informação existe, a tela não; o item aparece no
+  menu marcado como *em breve* e leva à tela mais próxima.
+- **Não há uma lista de todos os pacientes da clínica.** A coordenadora vê os pacientes pelos
+  vínculos, como as cuidadoras.
 - **Não há aviso por celular, SMS ou e-mail.** O alarme só aparece no painel — e só chega a quem
   estiver com o painel aberto.
 

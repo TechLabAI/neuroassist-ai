@@ -10,6 +10,14 @@ import { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto, CuidadorStatus } from 
 // E2E test-support flags (localStorage, browser-only — never set in prod):
 //   __ACS_E2E_LIST_FAIL__   = 'true'  → list()   throws (enables error-state e2e)
 //   __ACS_E2E_CREATE_FAIL__ = 'true'  → create() throws (enables draft-preservation e2e)
+//   __ACS_E2E_SLOW_LIST__   = 'true'  → list() demora 3s em vez de 400ms
+//
+// Sobre o __ACS_E2E_SLOW_LIST__: o cenário que observa o ESTADO DE CARREGAMENTO
+// disputava uma janela de 400ms com o arranque do Angular. Contra o build de
+// desenvolvimento dava tempo; contra o build de produção, que arranca mais
+// rápido, o dado já tinha chegado quando o teste foi olhar — e o cenário
+// reprovava sem que nada estivesse errado. Alongar a espera A PEDIDO do teste
+// torna a janela observável sem mexer no tempo que a pessoa real espera.
 // =============================================================================
 
 const _cuidadores = new Map<string, CuidadorDto>([
@@ -51,7 +59,12 @@ let _idSeq = 1;
 @Injectable({ providedIn: 'root' })
 export class AcsCuidadorMockAdapter implements AcsCuidadorPort {
   list(): Observable<CuidadorDto[]> {
-    return timer(400).pipe(
+    const espera =
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem('__ACS_E2E_SLOW_LIST__') === 'true'
+        ? 3000
+        : 400;
+    return timer(espera).pipe(
       switchMap(() => {
         // E2E test-support: localStorage flag forces an error to test the roster error state.
         if (typeof localStorage !== 'undefined' && localStorage.getItem('__ACS_E2E_LIST_FAIL__') === 'true') {

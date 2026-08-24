@@ -128,4 +128,32 @@ describe('AuthApiService', () => {
       .expectOne('/acs-api/oauth2/token')
       .flush({ detail: 'Invalid credentials' }, { status: 401, statusText: 'Unauthorized' });
   });
+})
+// =============================================================================
+// O caminho PADRÃO é o que a implantação depende — os testes acima injetam uma
+// base própria, o que prova que a base é respeitada, mas não que a default está
+// certa. Sem esta verificação, mudar o padrão para algo que o nginx não roteia
+// passaria por todos eles: o fallback da SPA responde 200 com HTML, então o
+// sintoma em produção seria um erro de parse, não um 404.
+// =============================================================================
+
+describe('AuthApiService — caminho padrão', () => {
+  let http: HttpTestingController;
+  let api: AuthApiService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), AuthApiService],
+    });
+    http = TestBed.inject(HttpTestingController);
+    api = TestBed.inject(AuthApiService);
+  });
+
+  afterEach(() => http.verify());
+
+  it('sem base configurada, chama /oauth2/token — o mesmo caminho que o nginx do container encaminha ao gateway', () => {
+    api.login('coord@neuroassist.dev', 'x').subscribe();
+    http.expectOne('/oauth2/token').flush(RESPOSTA_TOKEN_COORD);
+  });
 });
+;

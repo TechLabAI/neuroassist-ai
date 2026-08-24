@@ -38,9 +38,9 @@ describe('authBearerInterceptorFn', () => {
     comInterceptor();
     TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
 
-    TestBed.inject(HttpClient).get('/acs-api/v1/acs/cuidadores').subscribe();
+    TestBed.inject(HttpClient).get('/api/v1/acs/cuidadores').subscribe();
     const req = TestBed.inject(HttpTestingController).expectOne(
-      '/acs-api/v1/acs/cuidadores',
+      '/api/v1/acs/cuidadores',
     );
     expect(req.request.headers.get('Authorization')).toBe(
       `Bearer ${RESPOSTA_TOKEN_COORD.accessToken}`,
@@ -50,8 +50,8 @@ describe('authBearerInterceptorFn', () => {
 
   it('sem sessão, não inventa header', () => {
     comInterceptor();
-    TestBed.inject(HttpClient).get('/acs-api/v1/x').subscribe();
-    const req = TestBed.inject(HttpTestingController).expectOne('/acs-api/v1/x');
+    TestBed.inject(HttpClient).get('/api/v1/x').subscribe();
+    const req = TestBed.inject(HttpTestingController).expectOne('/api/v1/x');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush({});
   });
@@ -60,9 +60,9 @@ describe('authBearerInterceptorFn', () => {
     comInterceptor();
     TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
 
-    TestBed.inject(HttpClient).get('https://terceiro.example.com/acs-api/x').subscribe();
+    TestBed.inject(HttpClient).get('https://terceiro.example.com/api/x').subscribe();
     const req = TestBed.inject(HttpTestingController).expectOne(
-      'https://terceiro.example.com/acs-api/x',
+      'https://terceiro.example.com/api/x',
     );
     // O caminho até casa com o prefixo — é justamente por isso que o teste
     // existe: filtrar por `includes('/acs-api')` passaria aqui.
@@ -74,11 +74,26 @@ describe('authBearerInterceptorFn', () => {
     comInterceptor();
     TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
 
+    // A URL tem de ser uma que ESTÁ na lista de prefixos, senão o teste passa por
+    // vacuidade: o header não iria de qualquer jeito, e o que estaria sendo
+    // provado é o filtro de origem, não a bandeira. `/oauth2` está na lista
+    // justamente porque é o nosso backend — é o próprio login que precisa da
+    // bandeira para não mandar o token velho ao pedir um novo.
     TestBed.inject(HttpClient)
-      .post('/acs-api/oauth2/token', {}, { context: new HttpContext().set(SKIP_AUTH_HEADER, true) })
+      .post('/oauth2/token', {}, { context: new HttpContext().set(SKIP_AUTH_HEADER, true) })
       .subscribe();
-    const req = TestBed.inject(HttpTestingController).expectOne('/acs-api/oauth2/token');
+    const req = TestBed.inject(HttpTestingController).expectOne('/oauth2/token');
     expect(req.request.headers.has('Authorization')).toBe(false);
+    req.flush({});
+  });
+
+  it('sem a bandeira, /oauth2 RECEBERIA o header — o controle do teste acima', () => {
+    comInterceptor();
+    TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
+
+    TestBed.inject(HttpClient).post('/oauth2/token', {}).subscribe();
+    const req = TestBed.inject(HttpTestingController).expectOne('/oauth2/token');
+    expect(req.request.headers.get('Authorization')).toBe(`Bearer ${RESPOSTA_TOKEN_COORD.accessToken}`);
     req.flush({});
   });
 
@@ -99,8 +114,8 @@ describe('authBearerInterceptorFn', () => {
     });
     TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
 
-    TestBed.inject(HttpClient).get('/acs-api/v1/x').subscribe();
-    const req = TestBed.inject(HttpTestingController).expectOne('/acs-api/v1/x');
+    TestBed.inject(HttpClient).get('/api/v1/x').subscribe();
+    const req = TestBed.inject(HttpTestingController).expectOne('/api/v1/x');
     expect(req.request.headers.get('Authorization')).toContain('Bearer');
     expect(req.request.headers.get('X-Empresa-Id')).toBe('emp-1');
     req.flush({});
@@ -110,8 +125,8 @@ describe('authBearerInterceptorFn', () => {
     comInterceptor([{ provide: AUTH_BEARER_URL_PREFIXES, useValue: ['/outro'] }]);
     TestBed.inject(AuthSessionStore).entrar(RESPOSTA_TOKEN_COORD);
 
-    TestBed.inject(HttpClient).get('/acs-api/v1/x').subscribe();
-    const req = TestBed.inject(HttpTestingController).expectOne('/acs-api/v1/x');
+    TestBed.inject(HttpClient).get('/api/v1/x').subscribe();
+    const req = TestBed.inject(HttpTestingController).expectOne('/api/v1/x');
     expect(req.request.headers.has('Authorization')).toBe(false);
     req.flush({});
   });

@@ -8,7 +8,7 @@
  * All addInitScript calls MUST be made before page.goto() so the overrides are
  * in place when Angular bootstraps and the facade calls getUserMedia.
  */
-import { Page } from '@playwright/test';
+import { Page, test } from '@playwright/test';
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
@@ -67,7 +67,17 @@ export async function mockCameraError(page: Page): Promise<void> {
  * Cenários que só olham câmera/rota/ciclo de vida NÃO devem chamar: eles valem
  * mais rodando contra o motor de verdade.
  */
+/**
+ * Páginas que pediram o motor simulado.
+ *
+ * <p>Lembrado porque o pedido acontece ANTES do `goto` (o `provideGest` lê a
+ * global uma vez, no bootstrap) e a verificação só é possível DEPOIS, quando há
+ * página carregada. `WeakSet` para não segurar a página viva.
+ */
+const pediramMotorSimulado = new WeakSet<Page>();
+
 export async function usarMotorSimulado(page: Page): Promise<void> {
+  pediramMotorSimulado.add(page);
   await page.addInitScript(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (window as any).__GEST_E2E_DETECTION = 'mock';
@@ -91,5 +101,38 @@ export async function gotoGest(page: Page): Promise<void> {
   // já registrava isso num comentário do composition-boundary.spec e contornava a mão.
   await page.addInitScript(scriptSemAlarmeDeEmergencia());
   await page.goto('/gest');
+
+  // Quem pediu o motor simulado precisa de um build de DESENVOLVIMENTO: o gancho
+  // que troca o motor é fechado por `isDevMode()`, porque uma global capaz de
+  // desligar a detecção de gesto não pode existir onde há paciente. Contra o
+  // container (build de produção) estes cenários não têm como passar — e reprovar
+  // ali daria a impressão de defeito onde há uma decisão deliberada.
+  //
+  // Pular DIZENDO o motivo é honesto; reprovar em silêncio, não; e um `skip`
+  // incondicional esconderia a cobertura que existe em desenvolvimento.
+  if (pediramMotorSimulado.has(page)) {
+    const ehDesenvolvimento = await page.evaluate(() =>
+      Boolean((globalThis as Record<string, unknown>)['__NEUROASSIST_DEV__']),
+    );
+    test.skip(
+      !ehDesenvolvimento,
+      'Requer build de desenvolvimento: o motor de detecção simulado é inerte em produção, por segurança.',
+    );
+  }
   await page.waitForSelector('gest-gesture-live-test', { timeout: 10_000 });
+}
+
+/**
+ * Recusa seguir quando o gancho do motor simulado não pode funcionar.
+ *
+ * <p>O `__GEST_E2E_DETECTION` é honrado apenas em build de desenvolvimento
+ * (`isDevMode()`), porque uma global capaz de desligar a detecção de gesto não
+ * pode existir onde há paciente. Rodando contra o container (build de produção),
+ * estes cenários não têm como passar — e reprovar ali dava a impressão de defeito
+ * onde há uma decisão de segurança.
+ *
+ * <p>Pular com o motivo dito é honesto; reprovar em silêncio, não.
+ */
+export async function exigeBuildDeDesenvolvimento(page: Page): Promise<boolean> {
+  return page.evaluate(() => Boolean((globalThis as Record<string, unknown>)['__NEUROASSIST_DEV__']));
 }

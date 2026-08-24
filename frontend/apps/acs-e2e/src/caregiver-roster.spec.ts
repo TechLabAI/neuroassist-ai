@@ -122,11 +122,17 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
   // We observe the roster-loading element during this window without HTTP interception.
   test('The roster shows a loading roster state while the caregiver list is in flight', async ({ page }) => {
     await page.goto('/acs');
-    // Loading spinner appears immediately after Angular mounts (before timer(400) fires).
-    // waitForSelector with 4s timeout catches the ~400ms loading window reliably.
+    // O estado de carregamento é uma janela de tempo, e disputá-la com o arranque
+    // do Angular é corrida: contra o build de produção (container) o dado já
+    // tinha chegado quando o teste ia olhar, e o cenário reprovava sem que nada
+    // estivesse errado. A bandeira alonga a espera do mock A PEDIDO deste teste.
+    await page.addInitScript(() => {
+      localStorage.setItem('__ACS_E2E_SLOW_LIST__', 'true');
+    });
+    await page.reload();
     await page.waitForSelector('[data-testid="roster-loading"]', { timeout: 4000 });
-    // After 400ms: data arrives, roster-row appears, loading spinner hides
-    await expect(page.locator('[data-testid="roster-row"]')).toHaveCount(2, { timeout: 3000 });
+    // Com a bandeira a espera é de 3s, então o prazo aqui tem de ser maior que ela.
+    await expect(page.locator('[data-testid="roster-row"]')).toHaveCount(2, { timeout: 8000 });
     await expect(page.locator('[data-testid="roster-loading"]')).not.toBeVisible();
   });
 

@@ -16,16 +16,23 @@ import { HttpContextToken } from '@angular/common/http';
  * acs-service **rejeita CORS** — um `OPTIONS` vindo de `http://localhost:4200`
  * responde `403 Invalid CORS request`. Chamar a porta 8088 direto do navegador
  * não funciona, e "arrumar" isso seria mexer no backend. A saída é manter tudo
- * na mesma origem: o dev-server do Angular faz proxy de `/acs-api` para
- * `http://localhost:8088` (ver `apps/neuroassist-ai-web/proxy.conf.json`), e em
- * produção o mesmo caminho é responsabilidade do reverse proxy / gateway.
+ * na mesma origem, e o navegador nunca conhece a porta do serviço.
  *
- * <p>Consequência: o navegador nunca conhece a porta do serviço, o que também é
- * o comportamento correto fora do ambiente de desenvolvimento.
+ * <p><b>Por que vazio, e não `/acs-api`:</b> a primeira versão inventou o
+ * prefixo `/acs-api` e deixou como pendência "alguém precisa rotear isso em
+ * produção" — uma dependência de implantação criada por nós, que faria o login
+ * falhar no container servindo HTML no lugar do JSON (o fallback da SPA responde
+ * 200, então o sintoma seria um erro de parse, não um 404).
+ *
+ * <p>Não era preciso: o nginx do container já encaminha `/oauth2/` para o
+ * gateway, e o gateway já leva ao acs-service — verificado com uma chamada real
+ * a `http://localhost:14200/oauth2/token`, que devolve o token completo. Com a
+ * base vazia o caminho é `/oauth2/token` em dev e em produção, e o dev-server
+ * faz proxy do MESMO caminho. Um caminho só, nada a lembrar na implantação.
  */
 export const AUTH_API_BASE = new InjectionToken<string>('AUTH_API_BASE', {
   providedIn: 'root',
-  factory: () => '/acs-api',
+  factory: () => '',
 });
 
 /**
@@ -39,7 +46,7 @@ export const AUTH_API_BASE = new InjectionToken<string>('AUTH_API_BASE', {
  */
 export const AUTH_BEARER_URL_PREFIXES = new InjectionToken<readonly string[]>(
   'AUTH_BEARER_URL_PREFIXES',
-  { providedIn: 'root', factory: () => ['/acs-api', '/api'] },
+  { providedIn: 'root', factory: () => ['/oauth2', '/api'] },
 );
 
 /**

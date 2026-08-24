@@ -74,7 +74,7 @@ export const appConfig: ApplicationConfig = {
     // chamada tem de ser de mesma origem. O dev-server faz o proxy
     // (apps/neuroassist-ai-web/proxy.conf.json); em produção é o reverse proxy.
     // ------------------------------------------------------------------
-    provideAuth({ apiBase: '/acs-api' }),
+    provideAuth({ apiBase: '' }),
 
     // FIM DO "Wave-0 bypass" do ACS (libs/acs/.../acs.guard.ts):
     // enquanto ACS_AUTH_SESSION resolvia para null — o padrão —, o
