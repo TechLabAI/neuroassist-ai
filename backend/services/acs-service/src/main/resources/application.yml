@@ -148,6 +148,21 @@ acs:
         # a lê como "paciente desconhecido" e responde 422: um erro de permissão disfarçado
         # de dado ausente, que o outbox marcaria como recusa terminal.
         - pac.paciente.read
+    gest-service:
+      secret-hash: ${GEST_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # GEST->EDGE: resolve device->paciente ao projetar o perfil por dispositivo (E2E-034).
+        # Quem chama o GEST nesse caminho e o EDGE, com um token de servico que carrega apenas
+        # gest.detection-profile.read — propagar aquele token daria 403 aqui.
+        - edge.read
+        # GEST->EDGE: guarda de pareamento em GET /devices/{id}/tenant, o endpoint congelado
+        # (GEST FROZEN 4.2) que exige exatamente esta authority. O GEST ja o chamava propagando o
+        # JWT do chamador — que nunca a carrega —, entao a resolucao de pareamento so funcionava
+        # por acidente. Mesma razao pela qual o acs-service ja a tem.
+        - edge.internal
+        # GEST->PAC: le comando.sensibilidade do catalogo ativo do paciente. E a authority do
+        # endpoint que o proprio javadoc do PAC ja dizia que o GEST deveria consumir.
+        - pac.catalogo-ativo.read
     acs-service:
       secret-hash: ${ACS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
       authorities:

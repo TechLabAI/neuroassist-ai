@@ -102,6 +102,44 @@ def main() -> int:
         f"recebido {th.brow_min_frames}",
     )
 
+    # ── resposta POR DISPOSITIVO, com a faixa do paciente (E2E-034) ─────────
+    # Mesma forma da resposta da empresa, mais pacienteId/catalogoVersao/origem. O core nao
+    # precisou mudar nada para le-la — essa era a aposta do formato da E2E-033.
+    por_dispositivo = {
+        "version": 1,
+        "pacienteId": "0cd405c6-49c5-45ff-864e-6cc2157f0c71",
+        "catalogoVersao": 2,
+        "catalogoDegradado": False,
+        "etag": '"1-2"',
+        "thresholds": profile["thresholds"],
+        "primitives": [
+            {"tipoGestoId": "tg-piscar-duplo-001", "sensibilidade": "alta", "origem": "PACIENTE"},
+            {"tipoGestoId": "tg-sobrancelha-dupla", "sensibilidade": "media",
+             "origem": "PERFIL_EMPRESA"},
+        ],
+    }
+
+    th, band = core.thresholds_for(por_dispositivo, "tg-piscar-duplo-001")
+    check("faixa calibrada para o paciente vence a da empresa", (band, th.ear_close) == ("alta", 0.25))
+    check(
+        "origem distingue calibrado de herdado",
+        (core.origin_for(por_dispositivo, "tg-piscar-duplo-001"),
+         core.origin_for(por_dispositivo, "tg-sobrancelha-dupla")) == ("PACIENTE", "PERFIL_EMPRESA"),
+    )
+
+    degradado = dict(por_dispositivo, catalogoDegradado=True, catalogoVersao=None,
+                     primitives=[{"tipoGestoId": "tg-piscar-duplo-001", "sensibilidade": "media",
+                                  "origem": "INDISPONIVEL"}])
+    th, band = core.thresholds_for(degradado, "tg-piscar-duplo-001")
+    check(
+        "catalogo indisponivel detecta na faixa padrao, e diz que e indisponivel",
+        (band, th.ear_close, core.origin_for(degradado, "tg-piscar-duplo-001"))
+        == ("media", 0.22, "INDISPONIVEL"),
+        "'media escolhida' e 'media por falta de resposta' nao podem parecer iguais",
+    )
+    check("origem de gesto ausente do perfil e None",
+          core.origin_for(por_dispositivo, "tg-nao-existe") is None)
+
     # ── degradacao: o agente roda na casa do paciente ───────────────────────
     for label, payload in [
         ("perfil ausente", None),

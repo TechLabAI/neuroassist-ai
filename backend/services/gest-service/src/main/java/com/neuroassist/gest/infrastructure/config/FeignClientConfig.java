@@ -3,6 +3,7 @@ package com.neuroassist.gest.infrastructure.config;
 import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
 import feign.Logger;
 import feign.RequestInterceptor;
+import org.springframework.core.Ordered;
 import feign.RequestTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,9 +35,32 @@ public class FeignClientConfig {
         };
     }
 
+    /**
+     * Propaga o JWT do chamador nos clientes Feign que não usam identidade de serviço.
+     *
+     * <p><b>Classe {@link Ordered} nomeada, e não lambda</b> (E2E-034). O Spring Cloud ordena a
+     * {@code List<RequestInterceptor>} injetada com {@code AnnotationAwareOrderComparator}, que lê
+     * a ordem da <em>instância</em>: um {@code @Order} num {@code @Bean} que devolve lambda é
+     * invisível para ele. Sem ordem explícita, este interceptor empatava em {@code
+     * LOWEST_PRECEDENCE} com o {@link
+     * com.neuroassist.gest.infrastructure.clients.ServiceIdentityRequestInterceptor} — e, quando
+     * rodava depois, <b>reanexava</b> o token do chamador ao header que o outro acabara de
+     * substituir ({@code RequestTemplate.header} acrescenta, não sobrescreve). A requisição saía
+     * com dois {@code Authorization} e o servidor lia o primeiro: o do chamador, sem a authority
+     * necessária. Resultado observado: 403 do EDGE, traduzido pelo breaker em "EDGE indisponível".
+     */
     @Bean
     public RequestInterceptor feignAuthPropagationInterceptor() {
-        return (RequestTemplate template) -> {
+        return new AuthPropagationInterceptor();
+    }
+
+    /** Estritamente antes de {@code LOWEST_PRECEDENCE}, onde vive o interceptor de identidade. */
+    static final class AuthPropagationInterceptor implements RequestInterceptor, Ordered {
+
+        static final int ORDER = Ordered.LOWEST_PRECEDENCE - 1000;
+
+        @Override
+        public void apply(RequestTemplate template) {
             var auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth instanceof JwtAuthenticationToken jwtAuth) {
                 Jwt jwt = jwtAuth.getToken();
@@ -44,7 +68,12 @@ public class FeignClientConfig {
                     template.header(AUTH_HEADER, "Bearer " + jwt.getTokenValue());
                 }
             }
-        };
+        }
+
+        @Override
+        public int getOrder() {
+            return ORDER;
+        }
     }
 
     @Bean

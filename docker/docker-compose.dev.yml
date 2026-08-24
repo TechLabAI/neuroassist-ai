@@ -242,8 +242,17 @@ services:
     ports:
       - "8084:8084"
     environment:
-      # GEST→EDGE: resolução device→tenant antes de servir o ponteiro de perfil.
+      # GEST→EDGE: resolução device→tenant antes de servir o ponteiro de perfil,
+      # e device→paciente ao projetar o perfil por dispositivo (E2E-034).
       EDGE_SERVICE_URL: http://edge-service:8087
+      # GEST→PAC: catálogo ativo do paciente, de onde vem comando.sensibilidade (E2E-034).
+      # Um default apontando para localhost resolveria para o próprio gest-service.
+      PAC_SERVICE_URL: http://pac-service:8082
+      # GEST→ACS: identidade de serviço. Quem chama o GEST no caminho por dispositivo é o EDGE,
+      # com um token que só carrega gest.detection-profile.read — propagá-lo daria 403.
+      ACS_SERVICE_URL: http://acs-service:8088
+      GEST_CLIENT_ID: gest-service
+      GEST_CLIENT_SECRET: dev-service-secret
       SPRING_PROFILES_ACTIVE: docker
       DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist

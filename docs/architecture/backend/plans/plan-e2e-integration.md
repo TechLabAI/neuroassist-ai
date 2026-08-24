@@ -408,6 +408,7 @@ dívida que ninguém prioriza.
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
 | E2E-032 | Limiares EAR/BRI duplicados em dois agentes de borda (C-53) | P2 | ✅ DONE — fonte única + guarda de drift no CI (2026-08-24) |
 | E2E-033 | Perfil publicado não carrega sensibilidade nenhuma (C-54) | P2 | ✅ DONE — validado no stack (2026-08-24) |
+| E2E-034 | Sensibilidade do paciente não chega ao dispositivo dele (C-55) | P1 | ✅ DONE — validado no stack (2026-08-24) |
 
 ---
 
@@ -1133,16 +1134,48 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   "o limiar deste paciente". Ligar a rota por paciente exige romper esse invariante e resolver
   `device → paciente` (o GEST só resolve `device → tenant`). Issue própria.
 
-- **Três stubs vivos no `DetectionProfileService` (achados na E2E-033).**
-  `findForDevice(UUID)` e `findByVersion(long)` devolvem `Optional.empty()` **sempre**, marcados
-  "P4" e "P3". O primeiro é grave: é exatamente o endpoint que o `DetectionProfileClient` do EDGE
-  chama, então o ponteiro de perfil do EDGE lê `noActiveProfile()` para todo dispositivo, para
-  sempre. Sinalizados no ES.
+- ~~**`findForDevice(UUID)` devolve `Optional.empty()` sempre.**~~ — resolvido em 2026-08-24
+  (E2E-034). Passou a ser o caminho real da projeção por paciente. **`findByVersion(long)`
+  continua stub vivo**, marcado "P3": `GET /detection-profile/{version}` é 404 eterno, e não há
+  como auditar qual perfil estava ativo numa versão passada. Sinalizado no ES.
 
-- **7 falhas de `integrationTest` no gest-service, pré-existentes.** Confirmado rodando a suíte no
+- **4 falhas de `integrationTest` no gest-service, pré-existentes** (eram 7 até a E2E-034, que
+  corrigiu as três de pareamento). As que restam são `DetectionProfileRepositoryAdapterIT`,
+  `LGPDAuditIT` e `ObservabilityIT`, todas com `relation "tipo_gesto" does not exist`. Texto
+  original: 7 falhas de `integrationTest` no gest-service, pré-existentes. Confirmado rodando a suíte no
   `HEAD` limpo: as mesmas 7, uma a uma. Duas causas — `relation "tipo_gesto" does not exist`
   (schema não aplicado no contexto desses ITs) e Feign tentando resolver `http://edge-service:8087`,
   um nome de container, a partir do host. O gate `:test` não as vê.
+
+- ~~**A sensibilidade calibrada para o paciente nunca chegava ao dispositivo dele (C-55).**~~ —
+  resolvido em 2026-08-24 (E2E-034). `comando.sensibilidade` existia por paciente desde a V0201 e
+  morria na fronteira do PAC; o dispositivo na casa do paciente detectava com a faixa da clínica.
+  A tubulação já existia — o javadoc do `CatalogoAtivoResponse` dizia *"GEST polls this endpoint
+  with If-None-Match"* —, mas o GEST não tinha **nenhum** cliente do PAC.
+
+  **A decisão foi projeção na leitura, não mudança de schema.** `ux_profile_single_active` não foi
+  rompido: o invariante estava certo. Sensibilidade não é propriedade do perfil — é do comando do
+  paciente. O perfil da empresa define o vocabulário (o que "alta" significa numericamente); o
+  catálogo do paciente diz qual faixa cada gesto dele usa; a junção acontece em
+  `GET /detection-profile/devices/{id}` — que era o stub vivo que o EDGE já chamava. Assim
+  recalibrar um paciente não exige republicar o perfil da clínica, e nenhuma cópia envelhece.
+
+  ETag combinado `perfil-catálogo`: só a versão do perfil faria a recalibração não invalidar o
+  cache do dispositivo — 304 com a faixa velha por tempo indeterminado. Degradação distinguível:
+  "o PAC não respondeu" nunca se confunde com "este paciente usa a faixa padrão mesmo".
+
+- **Cinco defeitos encontrados no caminho da E2E-034, nenhum visível num gate verde.**
+  (1) `TenantPairingResponse` declarava `{tenantId, paired}` e o EDGE envia `{deviceId, tenantRef}`
+  — **os dois campos errados**, então `paired` era sempre `false` e o guarda de pareamento do GEST
+  nunca funcionou, para dispositivo nenhum; o stub do WireMock repetia a mesma suposição. 18ª
+  ocorrência do padrão de §11. (2) O EDGE servia **todo 403 como 500**, faltando
+  `@ExceptionHandler(AuthorizationDeniedException.class)` — e um 5xx derruba o breaker do
+  consumidor, enquanto um 4xx seria ignorado: C-19 pelo lado do produtor, afetando a API inteira.
+  (3) Os interceptors Feign globais do GEST eram lambdas sem ordem, empatando com o de identidade
+  de serviço e **reanexando** o token do chamador. (4) O breaker `edgePairing` não tinha
+  `ignoreExceptions` e abria com três "não pareado" seguidos, passando a reportar "EDGE
+  indisponível" até para dispositivos pareados. (5) `EdgePairingClientIT` registrava
+  `gest.edge.url`, propriedade que não existe — o WireMock nunca era usado.
 
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
   `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho

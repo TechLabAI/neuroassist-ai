@@ -217,7 +217,11 @@ class DetectionProfileControllerTest {
                                 UUID.randomUUID(),
                                 "Piscar",
                                 "ref/piscar-v1",
-                                Sensibilidade.media)),
+                                Sensibilidade.media,
+                                DetectionProfilePrimitiveResponse.Origem.PERFIL_EMPRESA)),
+                null,
+                null,
+                false,
                 Instant.now(),
                 etag);
     }

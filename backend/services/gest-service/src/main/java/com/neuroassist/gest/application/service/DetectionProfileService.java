@@ -4,18 +4,23 @@ import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse.Origem;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
+import com.neuroassist.gest.application.port.out.EdgeDevicePort;
+import com.neuroassist.gest.application.port.out.PatientCatalogPort;
 import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +59,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     private final DetectionProfileDomainService detectionProfileDomainService;
     private final ApplicationEventPublisher eventPublisher;
     private final TenantContextPort tenantContextPort;
+    private final EdgeDevicePort edgeDevicePort;
+    private final PatientCatalogPort patientCatalogPort;
 
     /**
      * Publishes a new versioned DetectionProfile. Steps (GEST-009):
@@ -130,14 +137,44 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     }
 
     /**
-     * Returns the active profile for a device identified by its paired deviceId. Device-lookup via
-     * EdgePairingClient deferred to P4.
+     * O perfil ativo projetado sobre a calibracao DO PACIENTE pareado com este dispositivo
+     * (E2E-034).
+     *
+     * <p>Devolvia {@code Optional.empty()} sempre — 404 eterno —, e e exatamente o endpoint que o
+     * EDGE chama no heartbeat: o ponteiro de perfil do EDGE leu "sem perfil ativo" para todo
+     * dispositivo desde sempre.
+     *
+     * <p>A juncao acontece aqui, na leitura, e nao no publish: o perfil da empresa diz o que "alta"
+     * significa; o catalogo do paciente diz qual faixa cada gesto dele usa. Nada e copiado para
+     * dentro do perfil publicado, entao recalibrar um paciente nao exige republicar o perfil da
+     * clinica — e nenhuma copia envelhece.
+     *
+     * <p>Nenhum dos dois lados externos derruba a resposta. Sem EDGE ou sem PAC, o dispositivo
+     * recebe o perfil da empresa com a faixa padrao e a resposta diz que esta degradada: o
+     * aparelho esta na casa do paciente, e detectar impreciso e melhor que nao detectar.
      */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findForDevice(UUID deviceId) {
-        // P4: requires EdgePairingClient.getTenant(deviceId) + findActive() for that tenant
-        return Optional.empty();
+        Optional<DetectionProfile> active = detectionProfileRepositoryPort.findActive();
+        if (active.isEmpty()) {
+            return Optional.empty();
+        }
+        DetectionProfile profile = active.get();
+        List<DetectionProfilePrimitive> primitives =
+                detectionProfilePrimitiveRepositoryPort.findByProfileId(profile.id());
+
+        EdgeDevicePort.DeviceBinding binding = edgeDevicePort.resolveBinding(deviceId);
+        if (!binding.hasPaciente()) {
+            log.debug(
+                    "Dispositivo {} sem paciente resolvido (degradado={}) — perfil da empresa",
+                    deviceId,
+                    binding.degraded());
+            return Optional.of(toResponse(profile, primitives, null, null, binding.degraded()));
+        }
+
+        PatientCatalogPort.PatientBands bands = patientCatalogPort.bandsFor(binding.pacienteId());
+        return Optional.of(toPatientResponse(profile, primitives, binding.pacienteId(), bands));
     }
 
     // ── Mapping ──────────────────────────────────────────────────────────────
@@ -156,14 +193,91 @@ public class DetectionProfileService implements DetectionProfileUseCase {
 
     private DetectionProfileResponse toResponse(
             DetectionProfile profile, List<DetectionProfilePrimitive> primitives) {
+        return toResponse(profile, primitives, null, null, false);
+    }
+
+    private DetectionProfileResponse toResponse(
+            DetectionProfile profile,
+            List<DetectionProfilePrimitive> primitives,
+            UUID pacienteId,
+            Integer catalogoVersao,
+            boolean catalogoDegradado) {
+        Origem origem = catalogoDegradado ? Origem.INDISPONIVEL : Origem.PERFIL_EMPRESA;
         return new DetectionProfileResponse(
                 profile.id(),
                 profile.version(),
                 profile.active(),
                 profile.contractVersion(),
                 profile.thresholds(),
-                primitives.stream().map(DetectionProfilePrimitiveResponse::from).toList(),
+                primitives.stream()
+                        .map(p -> DetectionProfilePrimitiveResponse.forPatient(p, null, origem))
+                        .toList(),
+                pacienteId,
+                catalogoVersao,
+                catalogoDegradado,
                 profile.publishedAt(),
-                "\"" + profile.version() + "\"");
+                etag(profile.version(), catalogoVersao));
+    }
+
+    /**
+     * Projeta a calibracao do paciente sobre os primitivos do perfil da empresa.
+     *
+     * <p>Gesto com {@code comando} publicado recebe a faixa da cuidadora; gesto sem comando fica
+     * com a do perfil e e marcado como tal. As duas coisas sao visiveis na resposta de proposito:
+     * "media porque escolheram media" e "media porque ninguem calibrou" nao podem parecer iguais.
+     */
+    private DetectionProfileResponse toPatientResponse(
+            DetectionProfile profile,
+            List<DetectionProfilePrimitive> primitives,
+            UUID pacienteId,
+            PatientCatalogPort.PatientBands bands) {
+        Map<UUID, Sensibilidade> porPrimitivo = bands.porPrimitivo();
+        Origem semComando = bands.degraded() ? Origem.INDISPONIVEL : Origem.PERFIL_EMPRESA;
+
+        List<DetectionProfilePrimitiveResponse> projetados =
+                primitives.stream()
+                        .map(
+                                p -> {
+                                    Sensibilidade doPaciente = porPrimitivo.get(p.tipoGestoId());
+                                    return DetectionProfilePrimitiveResponse.forPatient(
+                                            p,
+                                            doPaciente,
+                                            doPaciente != null ? Origem.PACIENTE : semComando);
+                                })
+                        .toList();
+
+        log.debug(
+                "Perfil v{} projetado para o paciente {} — {}/{} calibrado(s), catalogo v{}",
+                profile.version(),
+                pacienteId,
+                porPrimitivo.size(),
+                projetados.size(),
+                bands.catalogoVersao());
+
+        return new DetectionProfileResponse(
+                profile.id(),
+                profile.version(),
+                profile.active(),
+                profile.contractVersion(),
+                profile.thresholds(),
+                projetados,
+                pacienteId,
+                bands.catalogoVersao(),
+                bands.degraded(),
+                profile.publishedAt(),
+                etag(profile.version(), bands.catalogoVersao()));
+    }
+
+    /**
+     * ETag da resposta por dispositivo combina as DUAS versoes.
+     *
+     * <p>So {@code profileVersion} faria a recalibracao de um paciente nao invalidar o cache do
+     * dispositivo dele: a cuidadora mudaria de {@code media} para {@code alta}, o GEST responderia
+     * {@code 304}, e o aparelho seguiria detectando com a faixa velha por tempo indeterminado.
+     */
+    private String etag(long profileVersion, Integer catalogoVersao) {
+        return catalogoVersao == null
+                ? "\"" + profileVersion + "\""
+                : "\"" + profileVersion + "-" + catalogoVersao + "\"";
     }
 }

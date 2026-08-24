@@ -2,6 +2,7 @@ package com.neuroassist.gest.infrastructure.clients;
 
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
 import com.neuroassist.gest.shared.error.CodedException;
+import com.neuroassist.gest.shared.error.DeviceNotPairedException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.util.Map;
@@ -37,17 +38,15 @@ public class EdgePairingAdapter implements EdgePairingPort {
     public String checkPairingAndGetTenant(UUID deviceId) {
         try {
             TenantPairingResponse response = edgePairingClient.checkPairingAndGetTenant(deviceId);
-            if (!response.paired()) {
-                log.warn("Device {} exists in edge-service but is not paired", deviceId);
-                throw new CodedException("device-not-paired", "Device not paired: " + deviceId)
-                        .withContext(Map.of("deviceId", deviceId.toString()));
+            if (response == null || !response.known()) {
+                log.warn("Device {} sem empresa atribuida no edge-service", deviceId);
+                throw new DeviceNotPairedException(deviceId, "Device not paired: " + deviceId);
             }
-            log.debug("Device {} paired with tenant {}", deviceId, response.tenantId());
-            return response.tenantId();
+            log.debug("Device {} pertence ao tenant {}", deviceId, response.tenantRef());
+            return response.tenantRef();
         } catch (FeignException.NotFound e) {
             log.warn("Device {} not found in edge-service", deviceId);
-            throw new CodedException("device-not-paired", "Device not found: " + deviceId)
-                    .withContext(Map.of("deviceId", deviceId.toString()));
+            throw new DeviceNotPairedException(deviceId, "Device not found: " + deviceId);
         } catch (CodedException e) {
             // Re-throw CodedException without wrapping (handles the not-paired case above)
             throw e;
@@ -68,8 +67,7 @@ public class EdgePairingAdapter implements EdgePairingPort {
             throw ce;
         }
         if (cause instanceof FeignException.NotFound) {
-            throw new CodedException("device-not-paired", "Device not found: " + deviceId)
-                    .withContext(Map.of("deviceId", deviceId.toString()));
+            throw new DeviceNotPairedException(deviceId, "Device not found: " + deviceId);
         }
         throw new CodedException(
                 "edge-unavailable",

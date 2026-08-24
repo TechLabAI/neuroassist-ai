@@ -9,6 +9,12 @@ import org.springframework.web.bind.annotation.PathVariable;
  * Feign client for the EDGE pairing service. Disabled in poc profile — replaced by
  * EdgePairingPortStub. RULE-06: @FeignClient only in infrastructure.clients.
  *
+ * <p><b>Identidade de serviço (E2E-034).</b> Este cliente propagava o JWT do chamador, e o
+ * endpoint exige {@code edge.internal} — que nem uma coordenadora nem o token de serviço do EDGE
+ * carregam. Toda resolução de pareamento por um chamador humano dava "Access Denied", que o EDGE
+ * servia como 500, que o breaker daqui lia como "EDGE indisponível". Três camadas de disfarce
+ * sobre um erro de permissão.
+ *
  * <p><b>The default url used to be {@code http://localhost:8090}</b>, wrong twice over: 8090 is
  * dash-service, and {@code localhost} inside a container is gest-service itself. Every
  * device→tenant resolution — which {@code GET
@@ -18,7 +24,8 @@ import org.springframework.web.bind.annotation.PathVariable;
  */
 @FeignClient(
         name = "edge-pairing-client",
-        url = "${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}")
+        url = "${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}",
+        configuration = ServiceIdentityFeignConfig.class)
 public interface EdgePairingClient {
 
     /**

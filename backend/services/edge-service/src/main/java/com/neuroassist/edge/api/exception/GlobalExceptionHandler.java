@@ -13,6 +13,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -45,6 +46,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         detail.setType(URI.create("/errors/optimistic-lock"));
         detail.setTitle("Optimistic Lock Conflict");
         detail.setDetail("Resource was modified concurrently. Retry the operation.");
+        String correlationId = MDC.get("correlationId");
+        if (correlationId != null) {
+            detail.setProperty("correlationId", correlationId);
+        }
+        return detail;
+    }
+
+    /**
+     * Autorizacao negada por {@code @PreAuthorize} — HTTP 403, nao 500 (E2E-034).
+     *
+     * <p>Sem este handler a excecao caia no {@code @ExceptionHandler(Exception.class)} abaixo e
+     * TODO 403 desta API era servido como {@code internal_error.unhandled} com status 500. O
+     * chamador nao tinha como distinguir "voce nao tem essa authority" de "o EDGE quebrou" — e um
+     * 5xx ainda derruba o circuit breaker do consumidor, transformando um erro de configuracao numa
+     * queda aparente do servico. E a forma exata do defeito C-19, agora do lado do produtor.
+     *
+     * <p>Descoberto quando o GEST passou a chamar este servico e recebeu 500/"Access Denied" ao
+     * resolver o pareamento de um dispositivo.
+     */
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ProblemDetail handleAuthorizationDenied(
+            AuthorizationDeniedException ex, HttpServletRequest req) {
+        log.warn("Authorization denied on {}: {}", req.getRequestURI(), ex.getMessage());
+        ProblemDetail detail = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        detail.setType(URI.create("/errors/forbidden"));
+        detail.setTitle("Forbidden");
+        // Sem detalhar QUAL authority falta: isso enumeraria o modelo de permissoes para quem
+        // ainda nao esta autorizado. O log acima carrega o necessario para diagnosticar.
+        detail.setDetail("Access denied");
         String correlationId = MDC.get("correlationId");
         if (correlationId != null) {
             detail.setProperty("correlationId", correlationId);

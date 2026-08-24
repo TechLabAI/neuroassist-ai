@@ -47,6 +47,11 @@ resilience4j:
   circuitbreaker:
     instances:
       edgePairing:
+        # "Dispositivo nao pareado" e resposta, nao queda. Sem esta linha o breaker contava cada
+        # 404 como falha: tres dispositivos nao pareados seguidos abriam o circuito e passavam a
+        # reportar "EDGE indisponivel" ate para os dispositivos pareados (C-19).
+        ignoreExceptions:
+          - com.neuroassist.gest.shared.error.DeviceNotPairedException
         # Sliding window: evaluate over the last 10 calls (COUNT_BASED)
         slidingWindowSize: 10
         # Minimum calls before the error rate is calculated (5 consecutive failures trigger the circuit)
@@ -59,6 +64,28 @@ resilience4j:
         permittedNumberOfCallsInHalfOpenState: 3
         # Expose circuit breaker state via /actuator/health
         registerHealthIndicator: true
+      # GEST -> EDGE: resolve device->paciente para projetar o perfil (E2E-034).
+      edgeDevice:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+        # Um 4xx e resposta, nao queda. Sem isto, um 403 de authority faltando abriria o breaker e
+        # viraria "EDGE indisponivel" — um erro de permissao disfarcado de outage (C-19/C-37).
+        ignoreExceptions:
+          - feign.FeignException$FeignClientException
+      # GEST -> PAC: catalogo ativo do paciente, de onde vem comando.sensibilidade.
+      pacCatalog:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+        registerHealthIndicator: true
+        ignoreExceptions:
+          - feign.FeignException$FeignClientException
   retry:
     instances:
       edgePairing:
@@ -70,6 +97,22 @@ resilience4j:
         retryExceptions:
           - java.net.ConnectException
           - java.net.SocketTimeoutException
+
+# Identidade de servico do GEST (E2E-034). Quem chama
+# GET /detection-profile/devices/{id} e o EDGE, com um token que carrega apenas
+# gest.detection-profile.read; propaga-lo ao EDGE ou ao PAC daria 403 — e um 403 dentro de um
+# breaker vira "servico degradado", que foi o defeito C-19.
+# Ver docs/architecture/backend/standards/service-identity.md
+neuroassist:
+  acs:
+    service-token:
+      url: ${ACS_SERVICE_URL:http://localhost:8088}
+      client-id: ${GEST_CLIENT_ID:gest-service}
+      client-secret: ${GEST_CLIENT_SECRET:dev-service-secret}
+      refresh-margin-seconds: ${GEST_SERVICE_TOKEN_MARGIN_SECONDS:60}
+      timeout-ms: ${GEST_SERVICE_TOKEN_TIMEOUT_MS:3000}
+  pac:
+    url: ${PAC_SERVICE_URL:http://pac-service:8082}
 
 logging:
   pattern:

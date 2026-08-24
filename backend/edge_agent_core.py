@@ -232,3 +232,20 @@ def thresholds_for(profile, tipo_gesto_id):
     bands = bands_from_profile(profile)
     band = sensitivity_by_gesture(profile).get(tipo_gesto_id, DEFAULT_BAND)
     return bands.get(band, bands[DEFAULT_BAND]), band
+
+
+def origin_for(profile, tipo_gesto_id):
+    """
+    De onde veio a faixa deste gesto — `PACIENTE`, `PERFIL_EMPRESA` ou `INDISPONIVEL` (E2E-034).
+
+    Só a resposta por dispositivo (`/detection-profile/devices/{id}`) traz isto; a resposta da
+    empresa não. Serve para o agente registrar em log com que autoridade está detectando: "media
+    porque a cuidadora escolheu media" e "media porque o PAC não respondeu" produzem exatamente a
+    mesma detecção e significam coisas opostas.
+    """
+    if not isinstance(profile, dict):
+        return None
+    for primitive in profile.get("primitives") or []:
+        if isinstance(primitive, dict) and primitive.get("tipoGestoId") == tipo_gesto_id:
+            return primitive.get("origem")
+    return None
