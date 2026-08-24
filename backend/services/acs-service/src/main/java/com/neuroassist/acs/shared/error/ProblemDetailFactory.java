@@ -26,10 +26,117 @@ public final class ProblemDetailFactory {
     private static final String MEDIA_TYPE = "application/problem+json";
     private static final String TYPE_URI_TEMPLATE = "https://neuroassist-ai.com/errors/{code}";
 
+    /**
+     * Catálogo de erros do ACS: código → (categoria, status HTTP, título).
+     *
+     * <p>O gerador nasceu com este mapa vazio porque {@code arch/decisions/error-model.arch.json}
+     * traz {@code modules: []} — o catálogo por módulo nunca foi preenchido. A consequência não
+     * aparecia no status HTTP (cada handler do {@code GlobalExceptionHandler} chama {@code
+     * setStatus} depois de montar o ProblemDetail), e por isso passou despercebida: o corpo saía
+     * com {@code "status": 401} e, ao mesmo tempo, {@code "category": "internal_error"} e {@code
+     * "title": "Internal Server Error"} vindos do fallback.
+     *
+     * <p>Por que isso importa mais do que um rótulo feio: {@code category} é campo de decisão. O FE
+     * escolhe a ação pelo {@code fe_action_hint} da categoria, e monitoração que alerta em {@code
+     * internal_error} dispararia a cada senha errada digitada. Alerta que toca sempre ensina o time
+     * a ignorar alerta — fica pior do que não ter alerta.
+     *
+     * <p>Invariante que este mapa precisa manter: o status aqui é o MESMO que o handler devolve.
+     * Divergência entre os dois volta a produzir a incoerência original, agora sem o fallback para
+     * culpar. {@code ProblemDetailFactoryCatalogTest} trava os dois lados.
+     *
+     * <p>SEGURANÇA — opacidade do 401: todo motivo de falha de autenticação (login inexistente,
+     * senha errada, cliente de serviço não autorizado, tenant inativo no fluxo de token de serviço)
+     * chega aqui com o MESMO código {@code acs.auth.invalid-credentials} — decisão deliberada
+     * documentada em {@code ServiceTokenService}. O título é o reason-phrase genérico
+     * "Unauthorized" justamente para não reintroduzir por outro campo a distinção que o código
+     * evita. Não crie códigos separados por motivo de falha de auth.
+     */
     private static final Map<String, ErrorMetadata> CODE_METADATA =
             Map.ofEntries(
-                    // (no error-model.arch.json pinned at generation time)
-                    );
+                    // --- 401 auth — títulos deliberadamente genéricos (ver nota de segurança) ---
+                    Map.entry(
+                            "acs.auth.invalid-credentials",
+                            new ErrorMetadata("auth", 401, "Unauthorized")),
+                    Map.entry(
+                            "acs.auth.unauthenticated",
+                            new ErrorMetadata("auth", 401, "Unauthorized")),
+                    // Variante com hífen emitida pelo AuthenticationEntryPoint do SecurityConfig
+                    // (rejeição em nível de filtro). Mantida no catálogo porque é o código que
+                    // realmente vai para o cliente; a suíte BDD casa por fragmento
+                    // "unauthenticated", então as duas formas passam. Convergir para a forma com
+                    // ponto exige mudar contrato publicado — fora do escopo desta correção.
+                    Map.entry(
+                            "acs.auth-unauthenticated",
+                            new ErrorMetadata("auth", 401, "Unauthorized")),
+
+                    // --- 403 forbidden ---
+                    Map.entry(
+                            "acs.auth.insufficient-authority",
+                            new ErrorMetadata("forbidden", 403, "Forbidden")),
+                    Map.entry(
+                            "acs.tenant.mismatch",
+                            new ErrorMetadata("forbidden", 403, "Tenant Mismatch")),
+
+                    // --- 400 validation ---
+                    Map.entry(
+                            "acs.validation.invalid-request",
+                            new ErrorMetadata("validation", 400, "Validation Failed")),
+                    Map.entry(
+                            "acs.validation.invalid-value",
+                            new ErrorMetadata("validation", 400, "Validation Failed")),
+                    Map.entry(
+                            "acs.auth.invalid-token-type",
+                            new ErrorMetadata("validation", 400, "Invalid Token Type")),
+
+                    // --- 404 not_found ---
+                    Map.entry(
+                            "acs.tenant.not-found",
+                            new ErrorMetadata("not_found", 404, "Tenant Not Found")),
+                    Map.entry(
+                            "acs.cuidador.not-found",
+                            new ErrorMetadata("not_found", 404, "Caregiver Not Found")),
+
+                    // --- 409 conflict ---
+                    Map.entry(
+                            "acs.tenant-suspended",
+                            new ErrorMetadata("conflict", 409, "Tenant Suspended")),
+                    Map.entry(
+                            "acs.tenant-not-active",
+                            new ErrorMetadata("conflict", 409, "Tenant Not Active")),
+                    Map.entry(
+                            "acs.tenant.already-seeded",
+                            new ErrorMetadata("conflict", 409, "Tenant Already Seeded")),
+                    Map.entry(
+                            "acs.cuidador.login-duplicate",
+                            new ErrorMetadata("conflict", 409, "Login Already Exists")),
+                    Map.entry(
+                            "acs.link.last-caregiver-link",
+                            new ErrorMetadata("conflict", 409, "Last Caregiver Link")),
+
+                    // --- 422 business_rule (entrada válida, estado é que proíbe) ---
+                    Map.entry(
+                            "acs.link.cross-tenant-link",
+                            new ErrorMetadata("business_rule", 422, "Cross-Tenant Link")),
+                    Map.entry(
+                            "acs.link.unknown-patient",
+                            new ErrorMetadata("business_rule", 422, "Unknown Patient")),
+
+                    // --- 5xx upstream_error (falha de dependência, não bug local) ---
+                    Map.entry(
+                            "acs.upstream-unavailable",
+                            new ErrorMetadata("upstream_error", 502, "Upstream Unavailable")),
+                    Map.entry(
+                            "acs.tenant.provisioning-timeout",
+                            new ErrorMetadata("upstream_error", 504, "Provisioning Timeout")),
+
+                    // --- 500 internal_error legítimo ---
+                    // Sem chave de assinatura ativa é defeito de configuração do servidor, não
+                    // entrada inválida do cliente. Título genérico de propósito: a resposta não
+                    // deve contar ao cliente qual peça da infraestrutura faltou.
+                    Map.entry(
+                            "acs.signing-key.no-active-key",
+                            new ErrorMetadata("internal_error", 500, "Internal Server Error")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(
@@ -98,5 +205,57 @@ public final class ProblemDetailFactory {
     /** Convenience for tests / programmatic use. */
     public static String mediaType() {
         return MEDIA_TYPE;
+    }
+
+    /**
+     * Códigos presentes no catálogo. Exposto para que o teste de catálogo detecte entrada morta
+     * (código catalogado que ninguém lança) — sem isto o mapa só é observável pela resposta HTTP,
+     * que foi exatamente como o defeito original sobreviveu.
+     */
+    public static java.util.Set<String> catalogedCodes() {
+        return CODE_METADATA.keySet();
+    }
+
+    /** Categoria catalogada para o código, ou {@code null} se o código cai no fallback. */
+    public static String categoryOf(String code) {
+        ErrorMetadata meta = code == null ? null : CODE_METADATA.get(code);
+        return meta == null ? null : meta.category();
+    }
+
+    /** Status HTTP catalogado para o código, ou {@code -1} se o código cai no fallback. */
+    public static int httpStatusOf(String code) {
+        ErrorMetadata meta = code == null ? null : CODE_METADATA.get(code);
+        return meta == null ? -1 : meta.httpStatus();
+    }
+
+    /** Título catalogado para o código, ou {@code null} se o código cai no fallback. */
+    public static String titleOf(String code) {
+        ErrorMetadata meta = code == null ? null : CODE_METADATA.get(code);
+        return meta == null ? null : meta.title();
+    }
+
+    /**
+     * Statuses HTTP que a categoria admite, conforme {@code error-model.arch.json}. Usado pelo
+     * teste para provar que categoria e status não se contradizem (um 4xx marcado {@code
+     * internal_error} era justamente o defeito relatado).
+     */
+    public static java.util.Set<Integer> validStatusesForCategory(String category) {
+        return switch (category) {
+            case "validation" -> java.util.Set.of(400, 422);
+            case "auth", "session_stale" -> java.util.Set.of(401);
+            case "forbidden" -> java.util.Set.of(403);
+            case "not_found" -> java.util.Set.of(404);
+            case "conflict" -> java.util.Set.of(409);
+            case "rate_limit" -> java.util.Set.of(429);
+            case "upstream_error" -> java.util.Set.of(502, 503, 504);
+            case "internal_error" -> java.util.Set.of(500);
+            case "business_rule" -> java.util.Set.of(422);
+            default -> java.util.Set.of();
+        };
+    }
+
+    /** Categorias conhecidas (chaves de {@link #CATEGORY_METADATA}). */
+    public static java.util.Set<String> knownCategories() {
+        return CATEGORY_METADATA.keySet();
     }
 }

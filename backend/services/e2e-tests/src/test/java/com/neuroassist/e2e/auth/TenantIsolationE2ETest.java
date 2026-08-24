@@ -1,7 +1,5 @@
 package com.neuroassist.e2e.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.neuroassist.e2e.support.DevFixtures;
 import com.neuroassist.e2e.support.E2EConfig;
 import com.neuroassist.e2e.support.E2ETestBase;

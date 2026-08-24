@@ -25,6 +25,7 @@ import com.neuroassist.gest.domain.model.DetectionThresholdTable;
 import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
+import com.neuroassist.gest.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -142,7 +143,7 @@ class DetectionProfileServiceTest {
     }
 
     @Test
-    void publish_noSupportedPrimitives_throwsIllegalStateException() {
+    void publish_noSupportedPrimitives_throwsEmptyProfile() {
         when(tipoGestoRepositoryPort.findAllByTenant())
                 .thenReturn(List.of(registered("Piscar"), registered("Sorrir")));
 
@@ -150,23 +151,31 @@ class DetectionProfileServiceTest {
                         () ->
                                 detectionProfileService.publish(
                                         new DetectionProfileRequest(null, null)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("no supported primitives");
+                // `empty-profile` (422), nao IllegalStateException: a regra e de negocio e o
+                // GlobalExceptionHandler so a traduz corretamente se ela chegar codificada. Com o
+                // throw generico a coordenadora recebia 500 (E2E — gest bddTest).
+                .isInstanceOf(CodedException.class)
+                .extracting(e -> ((CodedException) e).code())
+                .isEqualTo("empty-profile");
 
         verify(detectionProfileRepositoryPort, never()).nextVersion();
         verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
-    void publish_emptyGestoList_throwsIllegalStateException() {
+    void publish_emptyGestoList_throwsEmptyProfile() {
         when(tipoGestoRepositoryPort.findAllByTenant()).thenReturn(List.of());
 
         assertThatThrownBy(
                         () ->
                                 detectionProfileService.publish(
                                         new DetectionProfileRequest(null, null)))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("no supported primitives");
+                // `empty-profile` (422), nao IllegalStateException: a regra e de negocio e o
+                // GlobalExceptionHandler so a traduz corretamente se ela chegar codificada. Com o
+                // throw generico a coordenadora recebia 500 (E2E — gest bddTest).
+                .isInstanceOf(CodedException.class)
+                .extracting(e -> ((CodedException) e).code())
+                .isEqualTo("empty-profile");
     }
 
     @Test

@@ -97,4 +97,22 @@ public final class AuthClient {
         }
         return new String(Base64.getUrlDecoder().decode(parts[1]));
     }
+
+    /**
+     * Extrai um claim de topo do payload do JWT, como string.
+     *
+     * <p>Só resolve claims escalares — é o que a suíte precisa ({@code sub}, {@code tenant_id}). Um
+     * claim ausente devolve {@code null} em vez de exceção, para que o chamador decida se aquilo é
+     * um defeito (E2E-021: {@code tenant_id} ausente é) ou apenas informação que não veio.
+     */
+    public static String claim(String jwt, String nome) {
+        String payload = decodePayload(jwt);
+        java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile(
+                                "\""
+                                        + java.util.regex.Pattern.quote(nome)
+                                        + "\"\\s*:\\s*\"([^\"]*)\"")
+                        .matcher(payload);
+        return m.find() ? m.group(1) : null;
+    }
 }

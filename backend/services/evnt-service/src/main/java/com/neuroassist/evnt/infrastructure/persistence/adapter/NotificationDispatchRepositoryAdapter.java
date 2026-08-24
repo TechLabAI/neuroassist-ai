@@ -5,6 +5,7 @@ import com.neuroassist.evnt.domain.model.DispatchStatuses;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
 import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.NotificationDispatchJpaRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,6 +16,16 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class NotificationDispatchRepositoryAdapter implements NotificationDispatchRepositoryPort {
+
+    /** Estados que já não representam um alarme pendente para a cuidadora daquela linha. */
+    private static final List<String> NAO_PENDENTES =
+            List.of(
+                    DispatchStatuses.ACKNOWLEDGED,
+                    DispatchStatuses.ESCALATED,
+                    DispatchStatuses.FAILED);
+
+    private static final List<String> RETENTAVEIS =
+            List.of(DispatchStatuses.QUEUED, DispatchStatuses.NO_SESSION);
 
     private final NotificationDispatchJpaRepository repository;
 
@@ -31,23 +42,42 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
     }
 
     @Override
-    public List<NotificationDispatch> findUndelivered(int limit) {
+    public List<NotificationDispatch> findByEventoId(UUID eventoId) {
         return repository
-                .findByStatusInOrderByLastAttemptAtAscIdAsc(
-                        List.of(DispatchStatuses.QUEUED, DispatchStatuses.NO_SESSION),
-                        PageRequest.of(0, limit))
+                .findByEventoIdOrderByEscalationRoundAscEscalationOrderAsc(eventoId)
                 .stream()
                 .map(this::toDomain)
                 .toList();
     }
 
     @Override
-    public List<NotificationDispatch> findUnacknowledgedFor(String caregiverId) {
-        return repository
-                .findByTargetCaregiverIdAndStatusNot(caregiverId, DispatchStatuses.ACKNOWLEDGED)
-                .stream()
+    public List<NotificationDispatch> findDueForRetry(Instant now, int limit) {
+        return repository.findDueForRetry(RETENTAVEIS, now, PageRequest.of(0, limit)).stream()
                 .map(this::toDomain)
                 .toList();
+    }
+
+    @Override
+    public List<NotificationDispatch> findUnacknowledgedFor(String caregiverId) {
+        return repository.findByTargetCaregiverIdAndStatusNotIn(caregiverId, NAO_PENDENTES).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    /**
+     * Um grau gravado que esta versão não conhece — porque o ACS passou a devolver um papel novo,
+     * ou porque a linha é anterior à V0502 — vira {@code DESCONHECIDO} em vez de derrubar a
+     * leitura. Um alarme não pode ficar ilegível por causa de um rótulo.
+     */
+    private com.neuroassist.evnt.domain.model.EscalationGrade gradeOf(String persisted) {
+        if (persisted == null || persisted.isBlank()) {
+            return null;
+        }
+        try {
+            return com.neuroassist.evnt.domain.model.EscalationGrade.valueOf(persisted);
+        } catch (IllegalArgumentException e) {
+            return com.neuroassist.evnt.domain.model.EscalationGrade.DESCONHECIDO;
+        }
     }
 
     private NotificationDispatchJpaEntity toEntity(NotificationDispatch d) {
@@ -59,6 +89,11 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
                 .status(d.status())
                 .attempts(d.attempts())
                 .lastAttemptAt(d.lastAttemptAt())
+                .escalationOrder(d.escalationOrder())
+                .escalationGrade(d.escalationGrade() == null ? null : d.escalationGrade().name())
+                .escalationRound(d.escalationRound())
+                .nextAttemptAt(d.nextAttemptAt())
+                .outcomeReason(d.outcomeReason())
                 .build();
     }
 
@@ -70,6 +105,11 @@ public class NotificationDispatchRepositoryAdapter implements NotificationDispat
                 e.getTargetCaregiverId(),
                 e.getStatus(),
                 e.getAttempts(),
-                e.getLastAttemptAt());
+                e.getLastAttemptAt(),
+                e.getEscalationOrder(),
+                gradeOf(e.getEscalationGrade()),
+                e.getEscalationRound(),
+                e.getNextAttemptAt(),
+                e.getOutcomeReason());
     }
 }

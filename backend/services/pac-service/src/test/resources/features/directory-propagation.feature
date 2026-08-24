@@ -108,3 +108,43 @@ Feature: Directory propagation — o vinculo cuidador-paciente chega ao ACS
       }
       """
     Then the response status is 200
+
+  # ── E2E-028 (continuação) — editar paciente não concede vincular ───────────
+  #
+  # EARS: IF the caller may edit the patient but not manage links,
+  #       THEN changing the caregiver list SHALL be refused.
+  #
+  # As duas capacidades chegam pelo mesmo PUT. Sem esta separacao, dar
+  # `pac.paciente.editar` a uma cuidadora daria junto o poder de se vincular a
+  # qualquer paciente da empresa — a permissao entraria de carona num campo do corpo.
+  Scenario: Cuidadora edita o paciente mas nao consegue trocar quem cuida dele
+    Given patient "pac-vinc" exists in "empresa-abc"
+    And patient "pac-vinc" has caregivers "44444444-4444-4444-4444-444444444444"
+    And the caller is a caregiver without link management
+    When a PUT request is made to "/api/pac/v1/pacientes/pac-vinc" with matching ETag and body:
+      """
+      {
+        "nome": "Márcio Amaral",
+        "cuidadorResponsavelIds": ["55555555-5555-5555-5555-555555555555"]
+      }
+      """
+    Then the response status is 403
+    And the response error code is "pac.paciente.vinculo-nao-autorizado"
+    And patient "pac-vinc" still has 1 active caregivers
+
+  # Contrapeso: a mesma cuidadora, sem a authority, edita o nome normalmente. Um
+  # guarda que recusasse todo PUT dela passaria no cenario acima e estaria errado.
+  Scenario: A mesma cuidadora edita o nome reenviando a mesma lista
+    Given patient "pac-vinc2" exists in "empresa-abc"
+    And patient "pac-vinc2" has caregivers "66666666-6666-6666-6666-666666666666"
+    And the caller is a caregiver without link management
+    And ACS resolves any caregiver as belonging to "empresa-abc"
+    And ACS accepts caregiver-patient links
+    When a PUT request is made to "/api/pac/v1/pacientes/pac-vinc2" with matching ETag and body:
+      """
+      {
+        "nome": "Nome novo",
+        "cuidadorResponsavelIds": ["66666666-6666-6666-6666-666666666666"]
+      }
+      """
+    Then the response status is 200

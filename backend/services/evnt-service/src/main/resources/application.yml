@@ -58,11 +58,41 @@ evnt:
   dispatch-retry:
     enabled: true
     batch-size: 50
-    max-attempts: 10        # depois disso o dispatch vai para FAILED e para de ser tentado
+    # Tentativas por DEGRAU da escada (ADR-011 §1). Esgotado o degrau, o alarme NAO vira FAILED:
+    # ele sobe para a proxima cuidadora vinculada ao paciente. Antes deste ADR, este contador era
+    # quem decidia que um pedido de ajuda tinha acabado — uma decisao clinica tomada por um int.
+    max-attempts: 10
     initial-delay-ms: 30000
     # Curto de proposito: este intervalo e quanto tempo uma cuidadora que se ausentou espera
     # por um alarme que nao encontrou sessao aberta.
     interval-ms: 30000
+
+  # Escalonamento entre cuidadoras (ADR-011 §1 e §2 — E2E-020).
+  escalation:
+    # Espera entre uma passada completa da escada e a seguinte. So a RODADA espera: a proxima
+    # cuidadora da mesma rodada e acionada imediatamente.
+    #
+    # E este intervalo que impede o "nunca desistir" de virar reentrega em loop apertado. Ele
+    # tambem e o mecanismo de justica do sweep: um alarme em backoff sai do conjunto de
+    # candidatos, entao um alarme antigo que ja deu voltas na escada nao ocupa o batch inteiro
+    # em detrimento de um recem-chegado.
+    round-backoff-ms: 120000
+
+  # Expiracao por relevancia clinica (ADR-011 §3 — E2E-020).
+  alarm-expiry:
+    # VAZIO DE PROPOSITO. O ADR-011 exige um dono explicito por tipo de necessidade antes de
+    # qualquer alarme poder envelhecer; enquanto nao houver, o default seguro e NAO EXPIRAR.
+    # Quando houver dono, e por urgencia — nunca por contagem de tentativas:
+    #
+    # ttl:
+    #   rotina: 2h
+    ttl: {}
+    # Um pedido de ajuda nao expira, tenha ou nao a urgencia dele uma janela configurada.
+    # Estes termos sao o que identifica um pedido de ajuda no comando_ref ou no rotulo congelado.
+    help-terms:
+      - ajuda
+      - socorro
+      - help
 
   # Reentrega de fatos de auditoria presos no outbox (E2E-017).
   # O AuditTrailFeignAdapter e fail-open — um alarme nao pode falhar porque o HIST caiu

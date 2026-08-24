@@ -1,6 +1,8 @@
 package com.neuroassist.gest.bdd;
 
+import com.neuroassist.gest.application.port.out.EdgeDevicePort;
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
+import com.neuroassist.gest.application.port.out.PatientCatalogPort;
 import com.neuroassist.gest.integration.BaseIntegrationTest;
 import io.cucumber.spring.CucumberContextConfiguration;
 import java.security.KeyPair;
@@ -48,8 +50,18 @@ public class CucumberSpringContext extends BaseIntegrationTest {
         }
     }
 
-    /** Replaces EdgePairingPortStub with a Mockito mock for BDD scenario control. */
+    /** Guarda de pareamento — decide 403 device-not-paired vs. seguir adiante. */
     @MockBean public EdgePairingPort edgePairingPort;
+
+    /**
+     * Vinculo dispositivo -> empresa/paciente (E2E-034). Mockado porque o adapter real fala com o
+     * edge-service por Feign; o comportamento padrao e definido em {@code SharedSteps @Before} e
+     * sobrescrito por cenario.
+     */
+    @MockBean public EdgeDevicePort edgeDevicePort;
+
+    /** Catalogo do paciente no PAC — a origem das faixas projetadas na resposta por dispositivo. */
+    @MockBean public PatientCatalogPort patientCatalogPort;
 
     /** Provides a @Primary JwtDecoder backed by the BDD RSA public key. */
     @TestConfiguration

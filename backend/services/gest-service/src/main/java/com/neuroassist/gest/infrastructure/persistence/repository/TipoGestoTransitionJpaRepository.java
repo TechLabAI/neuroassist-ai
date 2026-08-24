@@ -10,6 +10,5 @@ public interface TipoGestoTransitionJpaRepository
 
     // Multi-tenancy is via schema routing (search_path), not a tenant_id column.
 
-    // TODO P3: add query by tipoGestoId (e.g. findByTipoGestoId)
     List<TipoGestoTransitionJpaEntity> findByTipoGestoId(UUID tipoGestoId);
 }

@@ -128,6 +128,31 @@ public class PacienteController {
     }
 
     // -------------------------------------------------------------------------
+    // GET /api/pac/v1/pacientes/sem-cobertura → 200
+    // -------------------------------------------------------------------------
+
+    /**
+     * Pacientes da empresa sem nenhuma cuidadora ativa (D-204 / ADR-010).
+     *
+     * <p>Existe porque um paciente descoberto e <b>invisivel</b> ao painel: o painel lista os
+     * pacientes de uma cuidadora pelo directory do ACS, e quem nao tem vinculo nao esta na lista
+     * de ninguem. Sem este endpoint, "criar paciente sem cuidadora" seria permitido e ninguem
+     * jamais saberia — que e exatamente o que a decisao de produto quis evitar.
+     *
+     * <p><b>Declarado antes de {@code /&#123;id&#125;} de proposito.</b> O Spring casa por
+     * especificidade e nao pela ordem de declaracao, entao isto e cosmetico — mas a ordem no
+     * arquivo evita que a proxima pessoa se pergunte se {@code sem-cobertura} nao seria capturado
+     * como um id.
+     */
+    @GetMapping("/sem-cobertura")
+    @PreAuthorize("hasAuthority('pac.paciente.read')")
+    public ResponseEntity<List<PacienteResponse>> listUncovered() {
+        List<PacienteResponse> list =
+                pacienteUseCase.listUncovered().stream().map(PacienteResponse::from).toList();
+        return ResponseEntity.ok(list);
+    }
+
+    // -------------------------------------------------------------------------
     // GET /api/pac/v1/pacientes/{id} → 200 + ETag
     // -------------------------------------------------------------------------
 

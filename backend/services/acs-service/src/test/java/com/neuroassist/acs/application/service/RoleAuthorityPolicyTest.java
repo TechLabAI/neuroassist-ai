@@ -56,7 +56,6 @@ class RoleAuthorityPolicyTest {
         assertThat(authorities)
                 .contains(
                         "ROLE_CAREGIVER",
-                        "pac.paciente.criar",
                         "pac.paciente.read",
                         "pac.paciente.editar",
                         "pac.comando-authoring.criar",
@@ -64,6 +63,40 @@ class RoleAuthorityPolicyTest {
                         // PAC propagates the caller token to GEST for the eligibility decision,
                         // which is taken on the caregiver's behalf
                         "gest.eligibility.read");
+    }
+
+    /**
+     * A cuidadora edita o paciente, mas nao decide QUEM cuida dele nem cadastra paciente novo
+     * (decisao de produto, 2026-08-24).
+     *
+     * <p>Este teste afirma <b>ausencia</b>, e e por isso que ele existe: as duas capacidades
+     * chegavam pelo mesmo {@code PUT}, entao {@code pac.paciente.editar} concedia vinculo de
+     * carona — bastava mandar outra lista no corpo. Uma cuidadora podia se vincular a qualquer
+     * paciente da empresa. Sem esta assercao, devolver qualquer uma das duas ao papel passaria
+     * despercebido.
+     *
+     * <p>E `pac.paciente.criar` saiu porque a cuidadora conseguia criar um paciente que nascia
+     * descoberto e que ela propria nao conseguia assumir — nunca teve permissao de vincular.
+     */
+    @Test
+    void cuidadora_naoCriaPacienteNemGerenciaVinculo() {
+        List<String> authorities = policy.toAuthorities(CuidadorPapel.CUIDADORA);
+
+        assertThat(authorities)
+                .doesNotContain(
+                        "pac.paciente.criar",
+                        "pac.paciente.vincular",
+                        "acs.vinculo.criar",
+                        "acs.vinculo.revogar");
+    }
+
+    /** A coordenadora e quem cadastra paciente e decide quem cuida de quem. */
+    @Test
+    void coordenadora_cadastraPacienteEGerenciaVinculo() {
+        List<String> authorities = policy.toAuthorities(CuidadorPapel.COORDENADOR_CLINICA);
+
+        assertThat(authorities)
+                .contains("pac.paciente.criar", "pac.paciente.vincular", "acs.vinculo.criar");
     }
 
     /**

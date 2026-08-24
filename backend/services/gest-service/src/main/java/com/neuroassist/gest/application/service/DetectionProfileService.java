@@ -18,6 +18,7 @@ import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
 import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
+import com.neuroassist.gest.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +82,13 @@ public class DetectionProfileService implements DetectionProfileUseCase {
                         .filter(tg -> tg.detectabilityState() == DetectabilityState.SUPPORTED)
                         .toList();
         if (supported.isEmpty()) {
-            throw new IllegalStateException("no supported primitives");
+            // CodedException, nao IllegalStateException: a regra "perfil vazio nao publica" esta
+            // no catalogo de erros como `empty-profile` (422), mas o throw generico caia no
+            // handler de ultimo recurso e a coordenadora recebia 500 — indistinguivel de uma
+            // falha do servico. A regra de negocio precisa se anunciar como regra de negocio.
+            throw new CodedException(
+                    "empty-profile",
+                    "Nenhum primitivo em estado SUPPORTED — nao ha o que publicar");
         }
 
         // 2. Next monotonic version + deactivate current (atomic from service perspective)

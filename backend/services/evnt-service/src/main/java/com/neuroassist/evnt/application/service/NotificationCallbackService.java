@@ -96,13 +96,6 @@ public class NotificationCallbackService implements NotificationCallbackUseCase 
     }
 
     private NotificationDispatch withStatus(NotificationDispatch dispatch, String status) {
-        return new NotificationDispatch(
-                dispatch.id(),
-                dispatch.eventoId(),
-                dispatch.tier(),
-                dispatch.caregiverId(),
-                status,
-                dispatch.attempts(),
-                Instant.now());
+        return dispatch.withStatus(status, Instant.now());
     }
 }

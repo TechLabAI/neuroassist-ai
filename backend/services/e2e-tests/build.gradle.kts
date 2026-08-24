@@ -29,6 +29,11 @@ dependencies {
     testImplementation("io.rest-assured:rest-assured:5.5.0")
     testImplementation("io.rest-assured:json-path:5.5.0")
     testImplementation("org.assertj:assertj-core:3.26.3")
+
+    // Serializador do RestAssured. Os cenarios originais montavam o corpo como texto JSON e nao
+    // precisavam dele; a FixtureFactory monta corpos a partir de Map, e sem um provider no
+    // classpath o RestAssured falha em tempo de execucao com "no JSON serializer found".
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 

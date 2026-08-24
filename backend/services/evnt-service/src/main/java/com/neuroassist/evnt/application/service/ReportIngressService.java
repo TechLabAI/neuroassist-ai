@@ -109,10 +109,15 @@ public class ReportIngressService implements ReportIngressUseCase {
         CommandLookupPort.CommandSnapshot commandSnapshot =
                 commandLookupPort.lookup(request.pacienteId(), request.commandRef());
 
-        // 4. Resolve every caregiver responsible for the patient via the acs-service directory
+        // 4. Resolve every caregiver responsible for the patient via the acs-service directory,
+        // já na ordem determinística da escada (ADR-011 §1).
         List<CaregiverRoutingPort.ResponsibleCaregiver> caregivers =
                 caregiverRoutingPort.responsibleFor(request.pacienteId());
-        if (caregivers.isEmpty()) {
+        // Só os vínculos do paciente: o degrau 0 é sempre a cuidadora destinatária original, e
+        // resolver a coordenadora da clínica aqui seria uma chamada a mais no caminho crítico de um
+        // alarme para responder uma pergunta que só o escalonamento faz.
+        List<CaregiverLadder.Rung> ladder = CaregiverLadder.build(caregivers, null);
+        if (ladder.isEmpty()) {
             // Not an error the device can fix, but an alarm with no destination is a safety issue
             // that must be visible rather than logged and forgotten.
             log.error(
@@ -146,17 +151,29 @@ public class ReportIngressService implements ReportIngressUseCase {
         // 7. Register idempotency key
         reportIdempotencyRepositoryPort.save(request.reportId(), evento.id());
 
-        // 8. One dispatch per responsible caregiver — tier derived from urgency (EVNT-022)
+        // 8. Um dispatch para o degrau 0 da escada — a destinatária original (ADR-011 §1).
+        //
+        // Aqui já se criou um dispatch por cuidadora responsável, de uma vez. Era um leque, e o
+        // ADR-011 decidiu que é uma escada: a cuidadora seguinte só é acionada porque a anterior
+        // não recebeu. Notificar todas de imediato transformaria cada alarme de um paciente com
+        // várias cuidadoras num alerta coletivo, e apagaria a informação que a auditoria precisa —
+        // quem era a destinatária, e por que a próxima entrou.
+        //
+        // Os degraus seguintes nascem no NotificationOrchestrationService, quando a janela desta
+        // cuidadora esgota. Nenhum alarme fica sem destinatária: a E2E-028 garante ao menos uma
+        // cuidadora ativa por paciente.
         String tier = tierFor(commandSnapshot.urgencia());
         List<NotificationDispatch> dispatches = new ArrayList<>();
-        for (CaregiverRoutingPort.ResponsibleCaregiver caregiver : caregivers) {
+        if (!ladder.isEmpty()) {
+            CaregiverLadder.Rung degrauZero = ladder.get(0);
             NotificationDispatch dispatch =
-                    new NotificationDispatch(
+                    NotificationDispatch.queuedFor(
                             UUID.randomUUID(),
                             evento.id(),
                             tier,
-                            caregiver.cuidadorId(),
-                            DispatchStatuses.QUEUED,
+                            degrauZero.cuidadorId(),
+                            0,
+                            degrauZero.grade(),
                             0,
                             null);
             dispatches.add(notificationDispatchRepositoryPort.save(dispatch));
@@ -209,7 +226,7 @@ public class ReportIngressService implements ReportIngressUseCase {
                                     "comandoRef", String.valueOf(request.commandRef()),
                                     "urgencia", String.valueOf(commandSnapshot.urgencia()),
                                     "tier", tier,
-                                    "caregiverCount", caregivers.size()),
+                                    "caregiverCount", ladder.size()),
                             createdAt));
         }
 
@@ -218,7 +235,7 @@ public class ReportIngressService implements ReportIngressUseCase {
                 evento.id(),
                 "created",
                 new ReportIngressResponse.NotificationInfo(
-                        tier, caregivers.isEmpty() ? null : caregivers.get(0).cuidadorId()),
+                        tier, ladder.isEmpty() ? null : ladder.get(0).cuidadorId()),
                 createdAt);
     }
 
@@ -290,13 +307,6 @@ public class ReportIngressService implements ReportIngressUseCase {
                         // FAILED, or anything dash-service invents later, stays retryable
                     default -> DispatchStatuses.QUEUED;
                 };
-        return new NotificationDispatch(
-                dispatch.id(),
-                dispatch.eventoId(),
-                dispatch.tier(),
-                dispatch.caregiverId(),
-                status,
-                dispatch.attempts() + 1,
-                attemptedAt);
+        return dispatch.withAttempt(status, attemptedAt);
     }
 }

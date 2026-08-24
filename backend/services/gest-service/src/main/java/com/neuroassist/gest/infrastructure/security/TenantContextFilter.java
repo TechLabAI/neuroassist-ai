@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -213,13 +214,32 @@ public class TenantContextFilter extends OncePerRequestFilter {
      *
      * <p><b>Excecao deliberada:</b> {@code token_type=service} pode legitimamente nao ter tenant
      * (E2E-029 — o cliente que cria empresas nao tem empresa a que se escopar).
+     *
+     * <p><b>Nao-anonimo, e nao "nao-JWT".</b> Este guarda cobria apenas {@link
+     * JwtAuthenticationToken}, e o GEST era o unico servico do monorepo que tambem aceitava HTTP
+     * Basic: um chamador autenticado por Basic — {@code gest-manager}, senha em texto plano no
+     * {@code SecurityConfig} — passava por aqui sem tenant nenhum e morria adiante com 500 do JDBC,
+     * em vez de um erro que dissesse o que faltava. O Basic foi removido do {@code SecurityConfig},
+     * e este guarda passou a raciocinar por <i>autenticado</i> em vez de por <i>tipo de token</i>,
+     * para que reintroduzir qualquer outra mecanica de autenticacao nao reabra o buraco em
+     * silencio.
+     *
+     * <p>Requisicao sem autenticacao alguma (actuator/health) continua passando: quem decide o
+     * acesso ali e o {@code SecurityConfig}, e o {@code anyRequest().authenticated()} ja recusa o
+     * que nao for publico.
      */
     private boolean requiresTenantClaim() {
         Authentication current = SecurityContextHolder.getContext().getAuthentication();
-        if (!(current instanceof JwtAuthenticationToken jwtAuth)) {
-            return false; // sem JWT: quem decide o acesso e o SecurityConfig
+        if (current == null
+                || !current.isAuthenticated()
+                || current instanceof AnonymousAuthenticationToken) {
+            return false; // sem autenticacao: quem decide o acesso e o SecurityConfig
         }
-        return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+        if (current instanceof JwtAuthenticationToken jwtAuth) {
+            return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+        }
+        // Qualquer outra autenticacao sem tenant nao chega ao banco.
+        return true;
     }
 
     /** 403 explicito, com um codigo que diz o que faltava. */

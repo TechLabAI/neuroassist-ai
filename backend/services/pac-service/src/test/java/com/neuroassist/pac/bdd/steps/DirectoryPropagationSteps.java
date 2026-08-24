@@ -264,4 +264,17 @@ public class DirectoryPropagationSteps {
                 .isEqualTo(esperado);
     }
 
+
+    /**
+     * Troca o token do cenario pelo de uma CUIDADORA — que edita o paciente, mas nao gerencia
+     * vinculo. O token padrao do BDD representa a coordenadora.
+     */
+    @And("the caller is a caregiver without link management")
+    public void callerIsCaregiverWithoutLinkManagement() {
+        ctx.setCurrentJwt(
+                com.neuroassist.pac.bdd.TestJwtHelper.createToken(
+                        ctx.getCurrentEmpresaId(),
+                        com.neuroassist.pac.bdd.TestJwtHelper.CUIDADORA_SCOPES));
+    }
+
 }

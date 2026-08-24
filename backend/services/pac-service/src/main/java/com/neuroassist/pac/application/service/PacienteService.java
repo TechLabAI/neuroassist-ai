@@ -2,6 +2,7 @@ package com.neuroassist.pac.application.service;
 
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
 import com.neuroassist.pac.application.port.out.AcsDirectoryPort;
+import com.neuroassist.pac.application.port.out.CallerAuthoritiesPort;
 import com.neuroassist.pac.application.port.out.DirectoryOutboxPort;
 import com.neuroassist.pac.application.port.out.EdgeDevicePort;
 import com.neuroassist.pac.application.port.out.HistErasurePort;
@@ -43,6 +44,7 @@ public class PacienteService implements PacienteUseCase {
     private final EdgeDevicePort edgeDevicePort;
     private final AcsDirectoryPort acsDirectoryPort;
     private final HistErasurePort histErasurePort;
+    private final CallerAuthoritiesPort callerAuthoritiesPort;
 
     /**
      * Creates a new Paciente scoped to the current tenant.
@@ -136,6 +138,45 @@ public class PacienteService implements PacienteUseCase {
     }
 
     /**
+     * Pacientes da empresa sem nenhuma cuidadora ativa (ADR-010).
+     *
+     * <p>Le a projecao local {@code paciente_cuidador}, e nao o ACS: esta consulta responde "quem
+     * eu deixei descoberto?" sobre os dados que ESTE servico gravou.
+     *
+     * <p><b>Limitacao conhecida, e ela e real hoje.</b> Existem DUAS portas para criar um vinculo
+     * cuidadora-paciente: por aqui (o PAC grava e propaga ao ACS) e direto no ACS, que a
+     * coordenadora tambem pode chamar porque tem {@code acs.vinculo.criar}. A segunda porta nao
+     * escreve nada aqui. No ambiente de desenvolvimento isso ja produziu 17 pacientes com vinculo
+     * ATIVO no ACS e nenhuma linha nesta tabela — e o inverso nao acontece nenhuma vez, o que
+     * confirma a direcao.
+     *
+     * <p>Enquanto as duas portas existirem, <b>esta lista super-reporta</b>: mostra como descoberto
+     * quem foi vinculado pela porta do ACS. Ler do ACS em vez daqui trocaria o erro de lado, nao o
+     * resolveria — o ACS nao conhece paciente sem vinculo nenhum, entao nao consegue responder
+     * "quem esta descoberto?" sozinho. A correcao e fechar a segunda porta, nao remendar a
+     * consulta. Registrado em docs/operacao/fluxo-e-perfis.md secao 6.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Paciente> listUncovered() {
+        String tenantId = TenantContextHolder.require(); // RULE-07
+        List<Paciente> descobertos =
+                pacienteRepository.findByTenantId(tenantId).stream()
+                        .filter(p -> !p.isErased())
+                        .filter(p -> cuidadorRepository.findByPacienteId(p.id()).isEmpty())
+                        .map(p -> withCuidadores(p, List.of()))
+                        .toList();
+        if (!descobertos.isEmpty()) {
+            log.warn(
+                    "{} paciente(s) sem cuidadora ativa no tenant {} — alarme desses pacientes nao"
+                            + " tem para onde ir (D-204)",
+                    descobertos.size(),
+                    tenantId);
+        }
+        return descobertos;
+    }
+
+    /**
      * Updates a Paciente after validating the ETag (optimistic locking).
      *
      * <p>ETag = rowVersion + 1. Stale ETag (expectedEtagVersion != rowVersion + 1) throws 409
@@ -211,6 +252,12 @@ public class PacienteService implements PacienteUseCase {
 
         // EDGE/ACS validation: reject foreign devices and unknown caregivers before any DB write
         List<UUID> cuidadores = cuidadorResponsavelIds != null ? cuidadorResponsavelIds : List.of();
+
+        // Autorizacao ANTES de validar existencia, de proposito. Na ordem inversa, um chamador sem
+        // permissao de vincular descobria pela resposta se um id de cuidadora existe na empresa —
+        // 422 "nao encontrada" contra 403 "voce nao pode" sao respostas diferentes para quem sonda.
+        // Quem nao pode mexer no vinculo nao deve aprender nada sobre o vinculo.
+        recusarSeMudaVinculoSemAutorizacao(id, cuidadores);
         validateExternalRefs(tenantId, dispositivoEdgeId, cuidadores);
         recusarSeDeixaPacienteSemCobertura(id, cuidadores);
 
@@ -368,6 +415,49 @@ public class PacienteService implements PacienteUseCase {
                         Map.of(
                                 "pacienteId", pacienteId.toString(),
                                 "cuidadorasAtivas", cobertura));
+    }
+
+
+    /** Authority que permite mudar QUEM cuida do paciente — distinta de editar o paciente. */
+    static final String AUTHORITY_VINCULAR = "pac.paciente.vincular";
+
+    /**
+     * Recusa a mudanca da lista de cuidadoras por quem so tem permissao de editar o paciente.
+     *
+     * <p>Editar e vincular chegam pelo mesmo {@code PUT}, e por isso {@code @PreAuthorize} nao
+     * consegue separa-las: a anotacao decide antes de saber o que o corpo pede. A diferenca so
+     * aparece comparando a lista que chegou com a que ja estava — e e por isso que esta
+     * verificacao mora aqui, e nao no controller.
+     *
+     * <p>Decisao de produto: a cuidadora edita o paciente; <b>quem cuida de quem</b> e da
+     * coordenadora. Sem esta separacao, dar {@code pac.paciente.editar} a cuidadora daria junto o
+     * poder de se vincular a qualquer paciente da empresa — a permissao de vinculo entraria de
+     * carona num campo do corpo.
+     *
+     * <p>Um PUT que reenvia a MESMA lista nao e mudanca e passa: e o caso comum de quem edita o
+     * nome e devolve o objeto inteiro.
+     */
+    private void recusarSeMudaVinculoSemAutorizacao(UUID pacienteId, List<UUID> novosCuidadores) {
+        if (callerAuthoritiesPort.hasAuthority(AUTHORITY_VINCULAR)) {
+            return;
+        }
+        Set<UUID> atuais =
+                cuidadorRepository.findByPacienteId(pacienteId).stream()
+                        .map(PacienteCuidador::cuidadorResponsavelId)
+                        .collect(Collectors.toSet());
+        if (atuais.equals(Set.copyOf(novosCuidadores))) {
+            return; // nada mudou — nao e vinculo, e edicao
+        }
+        log.warn(
+                "Recusado: chamador sem {} tentou mudar a lista de cuidadoras do paciente {}",
+                AUTHORITY_VINCULAR,
+                pacienteId);
+        throw new CodedException(
+                        "pac.paciente.vinculo-nao-autorizado",
+                        "Changing the caregiver list requires the "
+                                + AUTHORITY_VINCULAR
+                                + " authority. Editing the patient does not grant it.")
+                .withContext(Map.of("pacienteId", pacienteId.toString()));
     }
 
 }

@@ -5,6 +5,7 @@ import com.neuroassist.acs.application.port.in.DirectoryUseCase;
 import com.neuroassist.acs.application.port.out.CaregiverPatientLinkRepositoryPort;
 import com.neuroassist.acs.application.port.out.CuidadorRepositoryPort;
 import com.neuroassist.acs.application.port.out.TenantRepositoryPort;
+import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
 import com.neuroassist.acs.domain.model.CaregiverPatientLink;
 import com.neuroassist.acs.domain.model.Cuidador;
 import com.neuroassist.acs.domain.model.TenantStatus;
@@ -131,6 +132,22 @@ public class DirectoryService implements DirectoryUseCase {
         // RULE-07: enforce tenant context
         TenantContextHolder.require();
         log.debug("Resolving patient scope for cuidadorId={}", cuidadorId);
+
+        // Cuidadora desconhecida tem de ser 404, e nao 200 com lista vazia.
+        //
+        // Sem esta checagem a resposta era indistinguivel entre "existe e nao cuida de ninguem" e
+        // "nao existe" — e o evnt-service usa exatamente este endpoint para decidir se quem
+        // confirma um alarme e alguem real, tratando apenas o 404 como desconhecido. O comentario
+        // no adapter dele dizia "acs-service does not know answers 404": era a suposicao do
+        // consumidor, e este servico nunca respondeu 404 aqui. O efeito era qualquer UUID passar
+        // pela guarda e virar ator de um fato de auditoria append-only encadeado por hash.
+        //
+        // Encontrado pela suite E2E (E2E-013). 20a ocorrencia do padrao catalogado em
+        // plan-e2e-integration.md secao 11.
+        if (cuidadorRepository.findById(cuidadorId).isEmpty()) {
+            log.warn("Patient scope pedido para cuidadora desconhecida: {}", cuidadorId);
+            throw new CaregiverNotFoundException(cuidadorId);
+        }
 
         List<CaregiverPatientLink> activeLinks = linkRepository.findActiveByCuidadorId(cuidadorId);
 

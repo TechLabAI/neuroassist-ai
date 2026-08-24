@@ -11,11 +11,13 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
 import java.util.Date;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -84,6 +86,32 @@ class SecurityIT extends BaseIntegrationTest {
     @Test
     void unauthenticated_request_returns_401() throws Exception {
         mockMvc.perform(get("/gest-service/tipo-gesto")).andExpect(status().isUnauthorized());
+    }
+
+    // ── Scenario 1b: HTTP Basic nao autentica mais ──────────────────────────
+    //
+    // O SecurityConfig tinha um httpBasic() com dois usuarios em memoria e senha em texto plano,
+    // sem @Profile — valia em producao. `gest-manager` carregava gest.detection-profile.publicar:
+    // publicar o perfil de deteccao da empresa inteira com uma credencial versionada no
+    // repositorio. Ele existia apenas para servir a suite BDD, que hoje assina JWT.
+    //
+    // 401, e nao 403 nem 500: 403 significaria que a credencial autenticou e parou na autorizacao,
+    // e 500 significaria que chegou ao JDBC sem tenant — os dois provariam que o Basic sobreviveu.
+
+    @Test
+    void http_basic_credentials_no_longer_authenticate() throws Exception {
+        mockMvc.perform(
+                        get("/gest-service/tipo-gesto")
+                                .header(
+                                        "Authorization",
+                                        "Basic "
+                                                + Base64.getEncoder()
+                                                        .encodeToString(
+                                                                "gest-manager:manager-secret"
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8))))
+                .andExpect(status().isUnauthorized());
     }
 
     // ── Scenario 2: valid JWT but wrong scope → 403 ──────────────────────────

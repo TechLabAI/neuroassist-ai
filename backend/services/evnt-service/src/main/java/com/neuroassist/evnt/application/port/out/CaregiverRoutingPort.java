@@ -27,5 +27,18 @@ public interface CaregiverRoutingPort {
      */
     boolean isKnownCaregiver(String caregiverId);
 
+    /**
+     * Coordenadoras <b>da clínica</b> — o grau 3 da escada do ADR-011.
+     *
+     * <p>A coordenadora responde pelo tenant, não por um paciente, então ela não sai de {@link
+     * #responsibleFor(String)} a menos que também esteja vinculada àquele paciente. Esta é a
+     * pergunta separada.
+     *
+     * @param tenantId o tenant do alarme (UUID em texto)
+     * @return possivelmente vazia. <b>Nunca lança</b>: um grau que não pôde ser resolvido faz o
+     *     alarme seguir para o grau seguinte, e nunca encerra a escada
+     */
+    List<ResponsibleCaregiver> clinicCoordinators(String tenantId);
+
     record ResponsibleCaregiver(String cuidadorId, String papel) {}
 }

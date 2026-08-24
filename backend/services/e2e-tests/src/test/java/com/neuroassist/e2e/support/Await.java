@@ -38,6 +38,34 @@ public final class Await {
         return ultimo;
     }
 
+    /**
+     * Repete {@code supplier} até que ele devolva um valor não nulo.
+     *
+     * <p>É o que a escrita assíncrona de fatos no hist-service exige. A regra que dá valor a este
+     * método está no <b>predicado</b>, não aqui: ele tem de identificar <i>aquele</i> fato — pelo
+     * id do evento que a resposta HTTP devolveu, pelo id do dispositivo desta rodada — e nunca "um
+     * fato recente". Um predicado do tipo "existe algum fato nos últimos N segundos" passa por
+     * acidente sob qualquer tráfego concorrente, e a suíte roda contra um dev compartilhado.
+     *
+     * @param descricao o que se está esperando, em uma linha; é o que aparece no timeout
+     */
+    public static <T> T untilPresent(String descricao, Duration prazo, Supplier<T> supplier) {
+        Instant limite = Instant.now().plus(prazo);
+        int tentativas = 0;
+        while (Instant.now().isBefore(limite)) {
+            tentativas++;
+            T valor = supplier.get();
+            if (valor != null) {
+                return valor;
+            }
+            sleep();
+        }
+        Assertions.fail(
+                "%s nao apareceu em %ds (%d tentativas)"
+                        .formatted(descricao, prazo.toSeconds(), tentativas));
+        return null;
+    }
+
     private static void sleep() {
         try {
             Thread.sleep(POLL.toMillis());

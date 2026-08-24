@@ -104,6 +104,14 @@ public final class ProblemDetailFactory {
                     // sendo o acs-service, que recusa a revogacao do ultimo vinculo com 409; este
                     // 422 recusa o caso inequivoco na porta do PAC, antes de aceitar um update que
                     // o ACS ia recusar depois — o que deixava os dois bancos discordando.
+                    // Editar paciente e vincular cuidadoras chegam pelo mesmo PUT, mas sao
+                    // capacidades diferentes: a cuidadora edita, so a coordenadora vincula.
+                    Map.entry(
+                            "pac.paciente.vinculo-nao-autorizado",
+                            new ErrorMetadata(
+                                    "forbidden",
+                                    403,
+                                    "Changing the caregiver list requires pac.paciente.vincular")),
                     Map.entry(
                             "pac.paciente.sem-cobertura",
                             new ErrorMetadata(

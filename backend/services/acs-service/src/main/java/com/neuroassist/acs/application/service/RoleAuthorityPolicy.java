@@ -39,6 +39,11 @@ public class RoleAuthorityPolicy {
                             "acs.vinculo.criar",
                             "acs.vinculo.revogar",
                             "acs.directory.read",
+                            // Mudar QUEM cuida de quem e da coordenadora. Distinta de
+                            // pac.paciente.editar de proposito: editar e vincular chegam pelo
+                            // mesmo PUT, e sem separa-las dar "editar" a cuidadora daria junto o
+                            // poder de se vincular a qualquer paciente da empresa.
+                            "pac.paciente.vincular",
                             "pac.paciente.criar",
                             "pac.paciente.read",
                             "pac.paciente.editar",
@@ -72,7 +77,11 @@ public class RoleAuthorityPolicy {
                             "ROLE_CAREGIVER",
                             "acs.cuidador.read",
                             "acs.directory.read",
-                            "pac.paciente.criar",
+                            // pac.paciente.criar saiu daqui: cadastrar paciente e da coordenadora.
+                            // A cuidadora conseguia criar um paciente que nascia DESCOBERTO e que
+                            // ela propria nao conseguia assumir, porque nunca teve permissao de
+                            // vincular. Editar ela mantem — mas editar deixou de conceder vinculo
+                            // (ver pac.paciente.vincular).
                             "pac.paciente.read",
                             "pac.paciente.editar",
                             "pac.catalogo-ativo.read",

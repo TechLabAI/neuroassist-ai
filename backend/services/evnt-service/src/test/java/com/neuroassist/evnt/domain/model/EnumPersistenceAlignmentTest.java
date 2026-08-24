@@ -98,4 +98,43 @@ class EnumPersistenceAlignmentTest {
     void dispatchStatuses_noSession_matchesPersisted() {
         assertThat(DispatchStatuses.NO_SESSION).isEqualTo("NO_SESSION");
     }
+
+    /** ADR-011 §1 — o degrau fechado da escada. A coluna é varchar(50) sem CHECK. */
+    @Test
+    void dispatchStatuses_escalated_matchesPersisted() {
+        assertThat(DispatchStatuses.ESCALATED).isEqualTo("ESCALATED");
+    }
+
+    /**
+     * ADR-011 §1 — a ordem das constantes de {@link EscalationGrade} É a ordem normativa da escada,
+     * e {@code CaregiverLadder} ordena por {@code ordinal()}. Reordenar o enum reordena a escada em
+     * produção sem que nenhum outro teste perceba; é por isso que esta asserção existe.
+     */
+    @Test
+    void escalationGrade_ordemNormativaDaEscada() {
+        assertThat(EscalationGrade.values())
+                .containsExactly(
+                        EscalationGrade.CUIDADORA_ORIGINAL,
+                        EscalationGrade.CUIDADORA_ADICIONAL,
+                        EscalationGrade.COORDENADOR_CLINICA,
+                        EscalationGrade.PACIENTE_APOIO,
+                        EscalationGrade.DESCONHECIDO);
+    }
+
+    /** Os nomes são o que a coluna {@code escalation_grade} (varchar(50), V0502) recebe. */
+    @Test
+    void escalationGrade_nomesBatemComOsPapeisDoAcs() {
+        assertThat(EscalationGrade.COORDENADOR_CLINICA.name()).isEqualTo("COORDENADOR_CLINICA");
+        assertThat(EscalationGrade.PACIENTE_APOIO.name()).isEqualTo("PACIENTE_APOIO");
+    }
+
+    @Test
+    void dispatchStatuses_apenasQueuedENoSessionSaoRetentaveis() {
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.QUEUED)).isTrue();
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.NO_SESSION)).isTrue();
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.DELIVERED)).isFalse();
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.ACKNOWLEDGED)).isFalse();
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.ESCALATED)).isFalse();
+        assertThat(DispatchStatuses.isRetryable(DispatchStatuses.FAILED)).isFalse();
+    }
 }

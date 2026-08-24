@@ -28,11 +28,37 @@ public final class DispatchStatuses {
     public static final String ACKNOWLEDGED = "ACKNOWLEDGED";
 
     /**
-     * Retried to exhaustion and never delivered. Terminal, and deliberately distinct from {@code
-     * QUEUED}: an alarm that will never arrive must not be indistinguishable from one still waiting
-     * its turn.
+     * A janela desta cuidadora esgotou e o alarme subiu para o degrau seguinte da escada (ADR-011
+     * §1). Terminal <b>para esta linha</b>, e nunca para o alarme: existe outra linha, do degrau
+     * seguinte, viva na fila.
+     *
+     * <p>Não confundir com {@link #FAILED}. Esta linha registra "tentei a cuidadora X N vezes, não
+     * consegui, passei adiante às HH:MM" — é a resposta à pergunta que se faz depois de um
+     * incidente.
+     */
+    public static final String ESCALATED = "ESCALATED";
+
+    /**
+     * <b>Expirou por relevância clínica</b> (ADR-011 §3). Terminal.
+     *
+     * <p>Isto já significou "tentamos 10 vezes e desistimos". Não significa mais: um contador de
+     * retry não é motivo para descartar um pedido de ajuda, e o ADR-011 removeu esse caminho.
+     * {@code FAILED} agora é um desfecho <i>declarado</i> — a necessidade daquele alarme perdeu o
+     * sentido pela política de urgência configurada — e vem sempre acompanhado do motivo em {@code
+     * outcome_reason}.
+     *
+     * <p>Um alarme de ajuda nunca chega aqui, e um alarme de emergência nunca chega aqui por
+     * esgotamento.
      */
     public static final String FAILED = "FAILED";
+
+    /**
+     * Estados dos quais o sweep ainda pode tirar uma entrega — {@code QUEUED} (dash-service fora do
+     * ar) e {@code NO_SESSION} (cuidadora sem painel aberto).
+     */
+    public static boolean isRetryable(String status) {
+        return QUEUED.equals(status) || NO_SESSION.equals(status);
+    }
 
     private DispatchStatuses() {}
 }

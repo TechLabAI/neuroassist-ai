@@ -141,18 +141,16 @@ resilience4j:
         failureRateThreshold: 60
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 5
-  timelimiter:
-    instances:
-      acs-service:
-        timeoutDuration: 3s
-      pac-service:
-        timeoutDuration: 3s
-      evnt-service:
-        timeoutDuration: 2s
-      hist-service:
-        timeoutDuration: 5s
-      edge-service:
-        timeoutDuration: 2s
+  # O bloco `timelimiter` foi REMOVIDO daqui (era decorativo).
+  #
+  # Declarava cinco instancias com timeoutDuration, e nao havia UM `@TimeLimiter` no src/main —
+  # o resilience4j so aplica time limiter a metodo que devolva `CompletionStage`/tipo reativo, e
+  # todos os clientes Feign do DASH sao sincronos. Quem de fato limita o tempo destas chamadas e o
+  # `spring.cloud.openfeign.client.config` acima (E2E-018), e ele nao lia estes valores.
+  #
+  # Configuracao que parece proteger e nao protege e pior que ausencia de configuracao: alguem
+  # ajusta o numero errado achando que mudou o comportamento. Se o time limiter voltar a ser
+  # necessario, ele volta junto com o `@TimeLimiter` e um retorno assincrono.
 
 logging:
   pattern:

@@ -10,6 +10,5 @@ public interface DetectionProfilePrimitiveJpaRepository
 
     // Multi-tenancy is via schema routing (search_path), not a tenant_id column.
 
-    // TODO P3: query snapshot members by profile
     List<DetectionProfilePrimitiveJpaEntity> findByDetectionProfileId(UUID detectionProfileId);
 }

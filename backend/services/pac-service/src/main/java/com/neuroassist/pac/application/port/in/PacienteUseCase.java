@@ -48,6 +48,19 @@ public interface PacienteUseCase {
     List<Paciente> listAll();
 
     /**
+     * Pacientes da empresa que estao <b>sem cuidadora ativa</b> (D-204 / ADR-010).
+     *
+     * <p>Por que precisa de endpoint proprio: o painel lista os pacientes de uma cuidadora
+     * consultando o directory do ACS. Um paciente sem vinculo nao esta na lista de ninguem — logo,
+     * um paciente descoberto e, por construcao, <b>invisivel</b> ao painel. Marca-lo como um campo
+     * na lista existente nao funcionaria: ele nunca chegaria la.
+     *
+     * <p>A E2E-028 fechou a porta da remocao; a criacao segue permitida por decisao de produto, e
+     * esta e a contrapartida: quem cria sem cuidadora tem de ficar visivel para alguem.
+     */
+    List<Paciente> listUncovered();
+
+    /**
      * Updates a Paciente if the provided ETag version matches (optimistic locking).
      *
      * @param id Paciente id

@@ -59,7 +59,10 @@ class CoberturaGuardTest {
                         new PacienteDomainService(),
                         org.mockito.Mockito.mock(EdgeDevicePort.class),
                         org.mockito.Mockito.mock(AcsDirectoryPort.class),
-                        org.mockito.Mockito.mock(HistErasurePort.class));
+                        org.mockito.Mockito.mock(HistErasurePort.class),
+                        // Coordenadora: pode vincular. O guarda de cobertura e outra
+                        // invariante e nao tem excecao por permissao.
+                        a -> true);
         TenantContextHolder.set(TENANT);
     }
 
