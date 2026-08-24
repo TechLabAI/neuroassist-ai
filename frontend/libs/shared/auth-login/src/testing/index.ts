@@ -15,5 +15,5 @@
 //   visível na revisão em vez de silencioso.
 // =============================================================================
 
-export { scriptSemearSessao, conteudoSessaoSemeada } from './e2e-session';
-export { RESPOSTA_TOKEN_COORD } from './token-fixtures';
+export { scriptSemearSessao, scriptSemearSessaoCuidadora, conteudoSessaoSemeada } from './e2e-session';
+export { RESPOSTA_TOKEN_COORD, RESPOSTA_TOKEN_CUIDADORA } from './token-fixtures';

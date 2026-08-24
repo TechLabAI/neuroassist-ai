@@ -1,4 +1,5 @@
-import { RESPOSTA_TOKEN_COORD } from './token-fixtures';
+import type { TokenResponse } from '@neuroassist/shared/auth-session';
+import { RESPOSTA_TOKEN_COORD, RESPOSTA_TOKEN_CUIDADORA } from './token-fixtures';
 
 // =============================================================================
 // Semear sessão nos testes de ponta a ponta.
@@ -30,15 +31,18 @@ const STORAGE_KEY = 'neuroassist.session';
  * assinatura é o resource server; se o e2e chamar backend real, ele tomará 401 —
  * e é esse o comportamento correto, não algo a contornar aqui.
  */
-export function conteudoSessaoSemeada(validoPorSegundos = 3600): string {
+export function conteudoSessaoSemeada(
+  validoPorSegundos = 3600,
+  resposta: TokenResponse = RESPOSTA_TOKEN_COORD,
+): string {
   return JSON.stringify({
-    token: RESPOSTA_TOKEN_COORD.accessToken,
+    token: resposta.accessToken,
     user: {
-      id: RESPOSTA_TOKEN_COORD.sub,
-      nome: RESPOSTA_TOKEN_COORD.nome,
-      papel: RESPOSTA_TOKEN_COORD.papel,
-      tenantId: RESPOSTA_TOKEN_COORD.tenant,
-      authorities: RESPOSTA_TOKEN_COORD.authorities,
+      id: resposta.sub,
+      nome: resposta.nome,
+      papel: resposta.papel,
+      tenantId: resposta.tenant,
+      authorities: resposta.authorities,
       expiraEm: new Date(Date.now() + validoPorSegundos * 1000).toISOString(),
     },
   });
@@ -56,6 +60,24 @@ export function scriptSemearSessao(validoPorSegundos = 3600): string {
   try {
     sessionStorage.setItem(${JSON.stringify(STORAGE_KEY)}, ${JSON.stringify(
       conteudoSessaoSemeada(validoPorSegundos),
+    )});
+  } catch { /* sessionStorage bloqueado: o teste falha no guard, e isso é informação */ }
+})()`;
+}
+
+/**
+ * Script que semeia uma sessão de CUIDADORA em vez de coordenadora.
+ *
+ * <p>Para os cenários cuja regra É a diferença de papel — a cuidadora não tem
+ * `edge.manage`, logo não deve ver botão de gerenciar dispositivo. Semear a
+ * coordenadora e depois "fingir" cuidadora por um flag prova nada: o produto
+ * decide pelas authorities do token, e é o token que precisa ser outro.
+ */
+export function scriptSemearSessaoCuidadora(validoPorSegundos = 3600): string {
+  return `(() => {
+  try {
+    sessionStorage.setItem(${JSON.stringify(STORAGE_KEY)}, ${JSON.stringify(
+      conteudoSessaoSemeada(validoPorSegundos, RESPOSTA_TOKEN_CUIDADORA),
     )});
   } catch { /* sessionStorage bloqueado: o teste falha no guard, e isso é informação */ }
 })()`;

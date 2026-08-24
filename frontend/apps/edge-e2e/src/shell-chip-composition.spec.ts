@@ -17,6 +17,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_PATIENT_ID,
   makeLivenessPayload,
 } from './fixtures/edge-stubs';
@@ -94,6 +95,13 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Shell chip composition + bootstrap lifecycle (HTTP mode)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('chip reflects device derivedState from liveness on non-EDGE route', async ({ page }) => {
     // Stub liveness to return fresh state.
     await page.route(`**/patients/${EDGE_PATIENT_ID}/liveness`, async (route) => {
@@ -106,8 +114,14 @@ test.describe('EDGE – Shell chip composition + bootstrap lifecycle (HTTP mode)
 
     await page.goto('/');
     // Chip should reflect 'online' derived state (fresh liveness stub).
-    await expect(page.locator('edge-connectivity-chip')).toBeVisible({ timeout: 4000 });
-    await expect(page.getByText(/Online/i)).toBeVisible({ timeout: 4000 });
+    //
+    // Escopado NO CHIP: "online" aparece também no cartão de resumo da Home e no
+    // rótulo de estado do dispositivo, e o getByText solto casava com três nós
+    // (strict mode violation). Quem este cenário interroga é o chip da topbar —
+    // é ele que tem de refletir o derivedState fora das rotas do EDGE.
+    const chip = page.locator('edge-connectivity-chip');
+    await expect(chip).toBeVisible({ timeout: 4000 });
+    await expect(chip.getByText(/^Dispositivo online/)).toBeVisible({ timeout: 4000 });
   });
 
   test('bootstrap destroy: liveness poll stops after logout simulation', async ({ page }) => {
@@ -123,7 +137,9 @@ test.describe('EDGE – Shell chip composition + bootstrap lifecycle (HTTP mode)
     });
 
     await page.goto('/edge/device');
-    await expect(page.getByText(/Online/i)).toBeVisible({ timeout: 4000 });
+    await expect(
+      page.locator('edge-connectivity-status-card').getByText('Online', { exact: true }),
+    ).toBeVisible({ timeout: 4000 });
 
     // Record call count before logout simulation.
     const countBeforeLogout = livenessCallCount;
@@ -145,8 +161,14 @@ test.describe('EDGE – Shell chip composition + bootstrap lifecycle (HTTP mode)
 
   test('authGuard: unauthenticated /edge/device redirects to login', async ({ page }) => {
     // Simulate unauthenticated state by clearing session.
+    //
+    // `page.evaluate` antes de qualquer navegação roda em about:blank, onde
+    // sessionStorage é inacessível — o cenário morria com SecurityError sem
+    // nunca chegar a exercitar o guard. Um addInitScript registrado DEPOIS do
+    // semeador da suíte roda depois dele em cada navegação, e desfaz a sessão
+    // antes de o AuthSessionStore ser construído.
     await page.context().clearCookies();
-    await page.evaluate(() => {
+    await page.addInitScript(() => {
       sessionStorage.clear();
       localStorage.removeItem('auth_token');
     });

@@ -27,6 +27,10 @@ export const RESPOSTA_TOKEN_COORD: TokenResponse = {
   // `authorities`. É `null` em token de serviço e de dispositivo: não há pessoa
   // a nomear.
   nome: 'Coord Dev',
+  // Lista COMPLETA, recopiada do serviço em 2026-08-24. A versão anterior tinha
+  // dez das trinta e duas — e a diferença não era cosmética: faltavam `edge.manage`
+  // e `edge.read`, que são justamente o que separa coordenadora de cuidadora na
+  // tela de dispositivo. Uma fixture encurtada mente sobre quem o usuário é.
   authorities: [
     'ROLE_CAREGIVER',
     'acs.cuidador.criar',
@@ -35,8 +39,76 @@ export const RESPOSTA_TOKEN_COORD: TokenResponse = {
     'acs.directory.read',
     'pac.paciente.vincular',
     'pac.paciente.criar',
+    'pac.paciente.read',
+    'pac.paciente.editar',
+    'pac.paciente.deletar',
+    'pac.catalogo-ativo.read',
+    'pac.comando-authoring.criar',
+    'pac.comando-authoring.editar',
+    'pac.comando-lifecycle.read',
+    'pac.comando-lifecycle.publicar',
+    'pac.comando-lifecycle.aposentar',
+    'pac.comando-lifecycle.recalibrar',
+    'gest.tipo-gesto.read',
+    'gest.tipo-gesto.criar',
+    'gest.tipo-gesto.editar',
+    'gest.detection-profile.read',
+    'gest.detection-profile.publicar',
+    'gest.detection-contract.read',
+    'gest.detection-contract.validar',
+    'gest.eligibility.read',
+    'edge.read',
+    'edge.manage',
+    'evnt.event-query.read',
+    'evnt.event-confirmation.confirmar',
     'dash.panel-composition.read',
     'hist:read',
     'hist:read:all',
+  ],
+
+};
+
+/**
+ * Sessão de CUIDADORA — o mesmo `POST /oauth2/token`, com outro login.
+ *
+ * <p>Existe porque cuidadora e coordenadora diferem em authorities, e há telas
+ * cuja regra é exatamente essa diferença: a cuidadora tem `edge.read` e NÃO tem
+ * `edge.manage`, então não deve ver afordância de reparear, desparear ou
+ * aposentar dispositivo. Sem uma sessão de cuidadora de verdade, o cenário que
+ * prova isso só podia fingir — e fingia com um flag em localStorage que nenhuma
+ * linha do produto lia.
+ */
+export const RESPOSTA_TOKEN_CUIDADORA: TokenResponse = {
+  accessToken: 'eyJhbGciOiJSUzI1NiJ9.fixture-access-cuidadora.assinatura',
+  refreshToken: 'eyJhbGciOiJSUzI1NiJ9.fixture-refresh-cuidadora.assinatura',
+  tokenType: 'Bearer',
+  expiresIn: 900,
+  tenant: 'e2e00000-0000-0000-0000-000000000001',
+  sub: 'e2e00000-0000-0000-0000-000000000011',
+  papel: 'CUIDADORA',
+  nome: 'Cuidadora Dev',
+  authorities: [
+    'ROLE_CAREGIVER',
+    'acs.cuidador.read',
+    'acs.directory.read',
+    'pac.paciente.read',
+    'pac.paciente.editar',
+    'pac.catalogo-ativo.read',
+    'pac.comando-authoring.criar',
+    'pac.comando-authoring.editar',
+    'pac.comando-lifecycle.read',
+    'pac.comando-lifecycle.publicar',
+    'pac.comando-lifecycle.aposentar',
+    'pac.comando-lifecycle.recalibrar',
+    'gest.tipo-gesto.read',
+    'gest.detection-profile.read',
+    'gest.detection-contract.read',
+    'gest.detection-contract.validar',
+    'gest.eligibility.read',
+    'edge.read',
+    'evnt.event-query.read',
+    'evnt.event-confirmation.confirmar',
+    'dash.panel-composition.read',
+    'hist:read',
   ],
 };

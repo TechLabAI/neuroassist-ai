@@ -36,7 +36,7 @@ export const EDGE_AUTH_SESSION = new InjectionToken<EdgeAuthSession | null>(
   { providedIn: 'root', factory: () => null },
 );
 
-/** DI token for AccessDecision — used by edgeConductorGuard to check edge.device.manage.
+/** DI token for AccessDecision — used by edgeConductorGuard to check edge.manage.
  * Wave-0: factory returns null (permissions not enforced; mock bypass active). */
 export const EDGE_ACCESS_DECISION = new InjectionToken<EdgeAccessDecision | null>(
   'EDGE_ACCESS_DECISION',

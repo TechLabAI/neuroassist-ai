@@ -21,8 +21,10 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_PATIENT_ID,
   makeLivenessPayload,
+  makeDevicePayload,
 } from './fixtures/edge-stubs';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
@@ -105,34 +107,60 @@ const OFFLINE_MS = 90_000;
 test.describe('EDGE – Freshness threshold transitions (HTTP mode, virtual clock)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('chip transitions online → stale → offline as clock advances', async ({ page }) => {
     // Install virtual clock at a fixed epoch so server-relative timestamps are deterministic.
     const BASE_EPOCH = new Date('2026-08-19T10:00:00.000Z').getTime();
     await page.clock.install({ time: BASE_EPOCH });
 
-    // Stub liveness: fresh heartbeat at BASE_EPOCH - 10s (well within staleness window).
-    const serverTime = new Date(BASE_EPOCH).toISOString();
-    const freshSync = new Date(BASE_EPOCH - 10_000).toISOString(); // 10s ago
+    // O heartbeat CONGELA em BASE_EPOCH - 10s: é o dispositivo que ficou mudo.
+    // O relógio DO SERVIDOR avança junto com o relógio virtual da página — e é
+    // essa distância crescente (`serverTime - ultimaSincronizacao`) que o
+    // `deriveState` mede.
+    //
+    // Antes, o stub devolvia serverTime FIXO em BASE_EPOCH. A idade era eterna e
+    // imutavelmente 10s, então adiantar o relógio não mudava coisa alguma e o
+    // estado jamais sairia de 'online': o cenário não conseguia falhar nem
+    // acertar pelo motivo certo. Como o handler roda no Node, ele não enxerga o
+    // relógio virtual — por isso espelhamos o avanço nesta variável.
+    const freshSync = new Date(BASE_EPOCH - 10_000).toISOString();
+    let relogioDoServidorMs = BASE_EPOCH;
+
+    const avancar = async (ms: number) => {
+      relogioDoServidorMs += ms;
+      await page.clock.fastForward(ms);
+    };
+
+    const corpoLiveness = () =>
+      JSON.stringify(makeLivenessPayload({
+        serverTime: new Date(relogioDoServidorMs).toISOString(),
+        ultimaSincronizacao: freshSync,
+      }));
 
     await page.route(`**/patients/${EDGE_PATIENT_ID}/liveness`, async (route) => {
-      // Always return the fixed epoch timestamps — clock advances virtually.
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(makeLivenessPayload({
-          serverTime,
-          ultimaSincronizacao: freshSync,
-        })),
+        body: corpoLiveness(),
       });
     });
 
     // Stub GET patient device (required for resolveForActivePatient).
+    // makeDevicePayload, não makeLivenessPayload: este endpoint devolve a visão
+    // de dispositivo (com pairingState e versões de perfil), e o payload de
+    // liveness não tem `pairingState` nenhum.
     await page.route(`${EDGE_BASE}/patients/${EDGE_PATIENT_ID}/device`, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(makeLivenessPayload({
-          serverTime,
+        body: JSON.stringify(makeDevicePayload({
+          serverTime: new Date(relogioDoServidorMs).toISOString(),
           ultimaSincronizacao: freshSync,
         })),
       });
@@ -140,23 +168,22 @@ test.describe('EDGE – Freshness threshold transitions (HTTP mode, virtual cloc
 
     await page.goto('/edge/device');
 
+    const cartao = page.locator('edge-connectivity-status-card');
+
     // Phase 1: online — age = 10s < 45s staleness
-    await expect(page.getByText(/Online|Dispositivo online/i)).toBeVisible({ timeout: 4000 });
+    await expect(cartao.getByText('Online', { exact: true })).toBeVisible({ timeout: 4000 });
 
     // Phase 2: advance clock past staleness threshold (45s + 5s buffer = 50s)
-    await page.clock.fastForward(STALENESS_MS + 5_000);
-    // After advancing, the next poll tick updates the derivedState.
-    // stale: 'Sinal fraco' or chip in warn state
-    await expect(
-      page.getByText(/Sinal fraco|stale|Dispositivo sem sinal/i),
-    ).toBeVisible({ timeout: 5000 });
+    await avancar(STALENESS_MS + 5_000);
+    // Escopado no cartão: 'Sinal fraco' também aparece no chip da topbar, e um
+    // getByText solto casaria com os dois (strict mode violation).
+    await expect(cartao.getByText('Sinal fraco', { exact: true })).toBeVisible({ timeout: 5000 });
 
     // Phase 3: advance clock past offline window (90s total, another 45s from stale)
-    await page.clock.fastForward(OFFLINE_MS - STALENESS_MS + 5_000);
-    // offline: chip shows 'Dispositivo offline'
-    await expect(page.getByText(/Dispositivo offline|offline/i)).toBeVisible({ timeout: 5000 });
+    await avancar(OFFLINE_MS - STALENESS_MS + 5_000);
+    await expect(cartao.getByText('Offline', { exact: true })).toBeVisible({ timeout: 5000 });
 
     // Invariant: chip MUST NOT show 'online' after offline window elapsed.
-    await expect(page.getByText(/Online|Dispositivo online/i)).not.toBeVisible();
+    await expect(cartao.getByText('Online', { exact: true })).not.toBeVisible();
   });
 });

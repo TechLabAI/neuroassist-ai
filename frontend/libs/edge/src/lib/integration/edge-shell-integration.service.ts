@@ -56,7 +56,9 @@ export class EdgeShellIntegrationService {
    * @param pacienteId - active patient id from empresa-context
    */
   startConnectivityForActivePatient(pacienteId: string): void {
-    this.deviceFacade.resolveForActivePatient(pacienteId);
+    // `ambiente: true` — ninguém pediu esta chamada; ela alimenta o chip. Ver
+    // DeviceFacade.resolveForActivePatient.
+    this.deviceFacade.resolveForActivePatient(pacienteId, true);
     this.deviceFacade.startPolling();
   }
 

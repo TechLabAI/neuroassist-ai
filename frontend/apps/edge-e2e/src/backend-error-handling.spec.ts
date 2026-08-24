@@ -20,6 +20,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_DEVICE_ID,
   EDGE_PATIENT_ID,
   makeDevicePayload,
@@ -91,6 +92,13 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('400 /errors/validation → inline/banner on register', async ({ page }) => {
     await page.route(`${EDGE_BASE}/devices`, async (route, req) => {
       if (req.method() !== 'POST') { await route.continue(); return; }
@@ -103,7 +111,7 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     // Banner: "Verifique os dados..." must appear inline.
     await expect(
@@ -137,7 +145,7 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     // Trigger pair-to-patient (requires navigating through the wizard steps)
     // Surface assertion: toast appears (not banner or modal)
@@ -219,7 +227,7 @@ test.describe('EDGE – Backend error handling (HTTP mode, route intercepts)', (
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     await page.waitForTimeout(2000);
     const errorContent = await page.content();

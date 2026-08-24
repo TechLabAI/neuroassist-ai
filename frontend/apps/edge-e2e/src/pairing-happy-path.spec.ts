@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_DEVICE_ID,
   EDGE_PATIENT_ID,
   createFlippableLivenessStub,
@@ -110,6 +111,13 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Pairing happy path (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('shows enrollment token and advances to paired on heartbeat flip', async ({ page }) => {
     // Step 1: Stub register endpoint
     await page.route(`${EDGE_BASE}/devices`, async (route, req) => {
@@ -163,10 +171,18 @@ test.describe('EDGE – Pairing happy path (HTTP mode, route intercepts)', () =>
     });
 
     // Step 5: After poll tick — "Dispositivo pareado!" + "versão X" should appear
-    await expect(page.getByText(/Dispositivo pareado!/i)).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText(/1\.4\.2/i)).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('edge-pairing-result').getByText('Dispositivo pareado!')).toBeVisible({ timeout: 10_000 });
+    // Escopado no cartão de desfecho: a versão também aparece no chip da topbar
+    // ("Dispositivo online · 1.4.2"), e o locator solto casava com dois nós.
+    // O chip só passou a exibi-la quando os stubs de base do modo HTTP
+    // começaram a responder — antes, a conectividade do shell nunca resolvia.
+    await expect(
+      page.locator('edge-pairing-result').getByText(/versão 1\.4\.2/i),
+    ).toBeVisible({ timeout: 3000 });
 
     // Step 6: derivedState='online' chip now visible
-    await expect(page.getByText(/Online/i)).toBeVisible({ timeout: 3000 });
+    await expect(
+      page.locator('edge-connectivity-chip').getByText(/^Dispositivo online/),
+    ).toBeVisible({ timeout: 3000 });
   });
 });

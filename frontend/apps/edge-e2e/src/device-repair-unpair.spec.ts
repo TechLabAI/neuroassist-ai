@@ -16,12 +16,13 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_DEVICE_ID,
   makeDevicePayload,
   fulfillError,
 } from './fixtures/edge-stubs';
 
-import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemearSessao, scriptSemearSessaoCuidadora } from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
 // Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
@@ -85,14 +86,26 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Device management (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('caregiver session: zero management action buttons in DOM', async ({ page }) => {
-    // Simulate a caregiver session by injecting a no-manage flag via localStorage.
-    // The DeviceFacade._canManage signal is set based on session entitlement.
-    // In HTTP mode, the session token determines permissions.
-    // For e2e, we inject a flag that the app reads to mock a caregiver session.
-    await page.addInitScript(() => {
-      window.localStorage.setItem('__EDGE_E2E_CAREGIVER__', '1');
-    });
+    // Sessão de CUIDADORA de verdade, e não um flag fingindo uma.
+    //
+    // A versão anterior escrevia `__EDGE_E2E_CAREGIVER__` no localStorage, e
+    // NENHUMA linha do produto lia essa chave: o cenário rodava com a sessão de
+    // coordenadora e afirmava, sobre ela, o que só vale para a cuidadora. Passou
+    // durante um tempo pelo motivo errado — a página estava quebrada e não
+    // renderizava botão nenhum, então "zero botões" era verdade por avaria.
+    //
+    // O produto decide por authorities: o ACS dá `edge.manage` à coordenadora e
+    // só `edge.read` à cuidadora. Para provar a regra, o TOKEN é que tem de ser
+    // outro.
+    await page.addInitScript(scriptSemearSessaoCuidadora());
 
     await page.goto(`/edge/device/${EDGE_DEVICE_ID}`);
     await expect(page.getByText(/Dispositivo/i).first()).toBeVisible({ timeout: 4000 });
@@ -124,13 +137,13 @@ test.describe('EDGE – Device management (HTTP mode, route intercepts)', () => 
       await route.continue();
     });
 
-    const countBefore = getDeviceCallCount; // 0
-
     // Stub DELETE → 409 pairing-conflict
+    let deleteCallCount = 0;
     await page.route(
       `${EDGE_BASE}/devices/${EDGE_DEVICE_ID}/pairings/current`,
       async (route, req) => {
         if (req.method() === 'DELETE') {
+          deleteCallCount++;
           await fulfillError(
             route,
             '/errors/pairing-conflict',
@@ -144,24 +157,38 @@ test.describe('EDGE – Device management (HTTP mode, route intercepts)', () => 
     );
 
     await page.goto(`/edge/device/${EDGE_DEVICE_ID}`);
-    await expect(page.getByText(/Despareador/i)).toBeVisible({ timeout: 4000 });
+    await expect(
+      page.getByRole('button', { name: 'Despareador', exact: true }),
+    ).toBeVisible({ timeout: 4000 });
 
-    // Handle confirm dialog
-    page.on('dialog', (dialog) => dialog.accept());
+    // Contar A PARTIR DAQUI, não a partir de zero: `countBefore` era capturado
+    // antes do goto, então o próprio carregamento da página já fazia a asserção
+    // "foi rebuscado" passar sozinha, tivesse havido refresh ou não.
+    const getsAntesDoDespareamento = getDeviceCallCount;
 
-    // Click unpair → 409 returned → device must be re-fetched
-    await page.getByText(/Despareador/i).first().click();
-    await page.waitForTimeout(1000);
+    // Despareamento é confirmado por um diálogo DA APP (não um dialog nativo):
+    // o botão de ação abre o modal, e é o botão do modal que dispara o DELETE.
+    await page.getByRole('button', { name: 'Despareador', exact: true }).click();
+    await page.getByTestId('confirm-unpair-btn').click();
+
+    // Banner do conflito — a mensagem do SPEC-07 para /errors/pairing-conflict.
+    await expect(
+      page.getByText(/Este paciente já tem um dispositivo ativo/i),
+    ).toBeVisible({ timeout: 4000 });
 
     // After 409 conflict: GET /devices/{id} must have been called again (refresh).
-    expect(getDeviceCallCount).toBeGreaterThan(countBefore);
+    await expect
+      .poll(() => getDeviceCallCount, { timeout: 4000 })
+      .toBeGreaterThan(getsAntesDoDespareamento);
 
     // DELETE must NOT be retried automatically (409 is not a retryable conflict).
-    const deleteCallCount = await page.evaluate(() =>
-      (window as Record<string, unknown>)['__edgeDeleteCount__'] as number ?? 0,
-    );
-    // The delete was called exactly once (no automatic retry after 409).
-    expect(deleteCallCount).toBeLessThanOrEqual(1);
+    //
+    // Contado AQUI, no handler da rota. A versão anterior lia
+    // `window.__edgeDeleteCount__`, que nenhuma linha do produto ou da suíte
+    // jamais escreve: o valor era sempre 0 e o `toBeLessThanOrEqual(1)` passava
+    // por vacuidade — inclusive quando o produto repetia o DELETE três vezes,
+    // que era exatamente o que ele fazia.
+    expect(deleteCallCount).toBe(1);
   });
 
   test('409 optimistic-lock on unpair: device read-model refreshed', async ({ page }) => {
@@ -197,13 +224,19 @@ test.describe('EDGE – Device management (HTTP mode, route intercepts)', () => 
     );
 
     await page.goto(`/edge/device/${EDGE_DEVICE_ID}`);
-    const countBefore = getDeviceCallCount;
+    await expect(
+      page.getByRole('button', { name: 'Despareador', exact: true }),
+    ).toBeVisible({ timeout: 4000 });
+    // Depois de a tela estar montada: antes, `countBefore` competia com o
+    // carregamento e a asserção podia passar pelo GET inicial.
+    const getsAntesDoDespareamento = getDeviceCallCount;
 
-    page.on('dialog', (dialog) => dialog.accept());
-    await page.getByText(/Despareador/i).first().click();
-    await page.waitForTimeout(1000);
+    await page.getByRole('button', { name: 'Despareador', exact: true }).click();
+    await page.getByTestId('confirm-unpair-btn').click();
 
     // GET /devices/{id} must have been called again after optimistic-lock 409.
-    expect(getDeviceCallCount).toBeGreaterThan(countBefore);
+    await expect
+      .poll(() => getDeviceCallCount, { timeout: 4000 })
+      .toBeGreaterThan(getsAntesDoDespareamento);
   });
 });

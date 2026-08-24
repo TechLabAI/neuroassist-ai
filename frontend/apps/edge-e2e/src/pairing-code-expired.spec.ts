@@ -18,7 +18,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { EDGE_BASE, fulfillRegister, EDGE_DEVICE_ID, makeDevicePayload } from './fixtures/edge-stubs';
+import { EDGE_BASE, fulfillRegister, EDGE_DEVICE_ID, makeDevicePayload, aplicarModoHttp } from './fixtures/edge-stubs';
 
 import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
@@ -112,16 +112,35 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Pairing code expired (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('shows expired state after short-TTL token elapses', async ({ page }) => {
     // Install virtual clock so we can fast-forward time without real waits.
-    await page.clock.install({ time: new Date('2026-08-19T10:00:00.000Z') });
+    //
+    // O prazo do token TEM de ser calculado a partir DESTA base, não de
+    // `Date.now()`: o handler da rota roda no Node (hora real), a página roda no
+    // relógio virtual, e as duas estavam a dias de distância. O resultado era um
+    // "TTL de 1 segundo" que a página lia como "expira em 468556s" — o token
+    // nunca expirava e o cenário media o oposto do que pretendia.
+    const BASE_EPOCH = new Date('2026-08-19T10:00:00.000Z').getTime();
+    await page.clock.install({ time: BASE_EPOCH });
 
     // Stub register: token expires in 1 second (very short TTL).
     await page.route(`${EDGE_BASE}/devices`, async (route, req) => {
       if (req.method() !== 'POST') { await route.continue(); return; }
       await fulfillRegister(route, {
         enrollmentToken: 'SHORT-TTL-TOKEN',
-        enrollmentExpiresAt: new Date(Date.now() + 1_000).toISOString(), // 1s TTL
+        // TTL de 30s, não de 1s: `clock.install` deixa o tempo correr junto com o
+        // relógio real, então um TTL de 1 segundo expirava DURANTE o ida-e-volta
+        // do registro — o cartão do código nunca chegava a ser visto e o cenário
+        // morria antes de exercitar a expiração. 30s dá folga para o token
+        // aparecer, e o `fastForward` abaixo é quem faz o prazo vencer.
+        enrollmentExpiresAt: new Date(BASE_EPOCH + 30_000).toISOString(),
       });
     });
 
@@ -139,31 +158,43 @@ test.describe('EDGE – Pairing code expired (HTTP mode, route intercepts)', () 
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     // Token appears
     await expect(page.getByText(/SHORT-TTL-TOKEN/i)).toBeVisible({ timeout: 3000 });
 
-    // Advance clock by 2 seconds (past the 1s TTL)
-    await page.clock.fastForward(2_000);
+    // Advance clock past the 30s TTL
+    await page.clock.fastForward(31_000);
 
     // Assertions (SPEC-08 §2):
     // 1. "Código expirado" visible
-    await expect(page.getByText(/Código expirado|expirou/i)).toBeVisible({ timeout: 3000 });
+    //
+    // Escopado no cartão de desfecho, como no bloco de mock: a alternância solta
+    // casava com três nós (o título do cartão, a frase explicativa e a linha
+    // "Estado: Código expirado" do rodapé). Exigir os dois nós certos do cartão
+    // aperta a asserção — antes bastava um qualquer dos três.
+    await expect(
+      cartaoResultado(page).getByText('Código expirado'),
+    ).toBeVisible({ timeout: 3000 });
     // 2. Copy button gone (no point copying an expired token)
-    await expect(page.getByText(/Copiar código/i)).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Copiar código/i })).not.toBeVisible();
     // 3. Re-register CTA present
-    await expect(page.getByText(/Novo código|Solicitar novo/i)).toBeVisible({ timeout: 2000 });
+    await expect(
+      cartaoResultado(page).getByRole('button', { name: 'Novo código' }),
+    ).toBeVisible({ timeout: 2000 });
 
     // 4. Click re-register → new POST /devices called
+    //
+    // `page.on` é síncrono (não devolve Promise) — o `await` original não
+    // esperava nada e só disfarçava isso.
     const registerCalls: string[] = [];
-    await page.on('request', req => {
+    page.on('request', (req) => {
       if (req.method() === 'POST' && req.url().includes('/devices')) {
         registerCalls.push(req.url());
       }
     });
-    await page.getByText(/Novo código|Solicitar novo/i).click();
+    await page.getByRole('button', { name: 'Novo código' }).click();
     // register() must be called again for a fresh token
-    await expect.poll(() => registerCalls.length).toBeGreaterThan(0);
+    await expect.poll(() => registerCalls.length, { timeout: 5000 }).toBeGreaterThan(0);
   });
 });

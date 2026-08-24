@@ -30,9 +30,9 @@ describe('EDGE Module Contract — FE-EDGE-001', () => {
     expect(MODULE_PERMISSION_MAP['edge.device.read'].length).toBeGreaterThan(0);
   });
 
-  it('MODULE_PERMISSION_MAP defines edge.device.manage (conductor-only)', () => {
-    expect(MODULE_PERMISSION_MAP['edge.device.manage']).toBeDefined();
-    expect(MODULE_PERMISSION_MAP['edge.device.manage']).toContain('CONDUCTOR');
+  it('MODULE_PERMISSION_MAP defines edge.manage (conductor-only)', () => {
+    expect(MODULE_PERMISSION_MAP['edge.manage']).toBeDefined();
+    expect(MODULE_PERMISSION_MAP['edge.manage']).toContain('CONDUCTOR');
   });
 });
 

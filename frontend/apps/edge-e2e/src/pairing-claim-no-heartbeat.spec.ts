@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_DEVICE_ID,
   EDGE_PATIENT_ID,
   fulfillRegister,
@@ -96,6 +97,13 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('phase stays awaiting-first-heartbeat when liveness always returns null ultimaSincronizacao', async ({ page }) => {
     // Stub register
     await page.route(`${EDGE_BASE}/devices`, async (route, req) => {
@@ -146,7 +154,7 @@ test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     // Token displayed (awaiting-claim)
     await expect(page.getByText(/NO-HB-TOKEN/i)).toBeVisible({ timeout: 3000 });
@@ -157,7 +165,7 @@ test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)
     await page.waitForTimeout(2000); // wait through 1 claim poll cycle
 
     // Assertion: phase is NOT 'paired' — chip MUST NOT be green
-    await expect(page.getByText(/Dispositivo pareado!/i)).not.toBeVisible();
+    await expect(page.locator('edge-pairing-result').getByText('Dispositivo pareado!')).not.toBeVisible();
 
     // Assertion: connectivity chip MUST NOT show Online (no heartbeat → not online)
     await expect(page.locator('[data-derived-state="online"]')).not.toBeVisible();

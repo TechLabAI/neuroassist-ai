@@ -14,7 +14,7 @@ import { providePac } from '@neuroassist/pac';
 import { provideAcs, acsHttpInterceptorFn, ACS_AUTH_SESSION } from '@neuroassist/acs';
 import { provideAuth, authBearerInterceptorFn } from '@neuroassist/shared/auth-login';
 import { AuthSessionStore } from '@neuroassist/shared/auth-session';
-import { provideEdge } from '@neuroassist/edge';
+import { provideEdge, EDGE_ACCESS_DECISION } from '@neuroassist/edge';
 import { provideHist } from '@neuroassist/hist';
 import {
   provideDash,
@@ -99,6 +99,26 @@ export const appConfig: ApplicationConfig = {
             return sessao.token();
           },
         };
+      },
+    },
+    // FIM DO "Wave-0 bypass" do EDGE. O `edgeConductorGuard` e o `_canManage` da
+    // DeviceFacade tratavam `EDGE_ACCESS_DECISION === null` como "pode tudo", e
+    // null era o padrão: TODA sessão via os botões de reparear, desparear e
+    // aposentar dispositivo — inclusive a cuidadora, que não responde por isso.
+    //
+    // Ao contrário do ACS, aqui a ligação é segura de fazer AGORA, porque o nome
+    // confere com o produtor: o acs-service emite `edge.manage` para
+    // COORDENADOR_CLINICA e só `edge.read` para CUIDADORA (verificado no
+    // RoleAuthorityPolicy e numa resposta real do serviço). O frontend comparava
+    // com `edge.device.manage`, que o backend nunca emitiu — o literal foi
+    // acertado junto com esta ligação. Sem isso, ligar o token teria trancado
+    // também a coordenadora, que é exatamente por que ACS_ACCESS_DECISION segue
+    // desligado acima.
+    {
+      provide: EDGE_ACCESS_DECISION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return { can: (permissao: string) => sessao.pode(permissao) };
       },
     },
     // ADR-007: o motor de detecção é o browser (MediaPipe), não mais a ponte com

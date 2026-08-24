@@ -57,13 +57,30 @@ import { DeviceActionsComponent } from './device-actions.component';
             <div class="h-3 w-3/4 animate-pulse rounded bg-surface-2"></div>
           </div>
         </div>
-      } @else if (facade.error()) {
-        <div
-          class="rounded-xl border border-danger bg-danger-bg px-4 py-3 text-sm text-danger-ink"
-          data-testid="error-message">
-          {{ facade.error() }}
-        </div>
-      } @else if (facade.detail(); as detail) {
+      } @else {
+
+        <!--
+          O banner de erro é ADITIVO, não substitutivo.
+
+          Antes ele era um ramo do @else if e vinha ANTES de detail(): qualquer
+          erro registrado na facade apagava a página inteira — inclusive um erro
+          que nem era desta tela. O DeviceFacade é providedIn:'root' e portanto
+          compartilhado com o chip da topbar; a resolução de dispositivo que o
+          shell dispara para o paciente ativo falhando bastava para a página de
+          dispositivo ficar reduzida a uma linha de texto. Quem abriu a tela para
+          saber se o agente está vivo ficava sem nenhuma das duas informações: a
+          que falhou e a que estava ali.
+        -->
+        @if (facade.error(); as mensagemDeErro) {
+          <div
+            class="mb-4 rounded-xl border border-danger bg-danger-bg px-4 py-3 text-sm text-danger-ink"
+            role="alert"
+            data-testid="error-message">
+            {{ mensagemDeErro }}
+          </div>
+        }
+
+      @if (facade.detail(); as detail) {
 
         <!-- Connectivity status card (FE-EDGE-012) -->
         <div class="mb-4">
@@ -129,6 +146,7 @@ import { DeviceActionsComponent } from './device-actions.component';
             </p>
           }
         </div>
+      }
       }
 
       <!-- Unpair confirmation dialog -->

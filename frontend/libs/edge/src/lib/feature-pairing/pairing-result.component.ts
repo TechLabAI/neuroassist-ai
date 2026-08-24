@@ -59,7 +59,13 @@ import { PairingPhase } from '@neuroassist/shared/contracts';
     }
 
     @if (isError()) {
-      <div class="flex flex-col items-center gap-4 py-4 text-center">
+      <!--
+        role="alert": o desfecho de erro do pareamento é uma região viva. Sem
+        isto o leitor de tela não anuncia nada quando o cartão troca de "aguardando
+        o agente" para "erro no pareamento" — quem não está olhando para a tela
+        fica esperando um código que nunca vem.
+      -->
+      <div role="alert" class="flex flex-col items-center gap-4 py-4 text-center">
         <span aria-hidden="true" class="material-symbols-outlined text-[40px] text-danger">error</span>
         <div>
           <p class="text-sm font-medium text-ink">Erro no pareamento</p>

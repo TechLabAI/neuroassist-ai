@@ -16,6 +16,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_PATIENT_ID,
   makeLivenessPayload,
 } from './fixtures/edge-stubs';
@@ -75,7 +76,21 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 test.describe('EDGE – Poll failure → unknown (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
 
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
+
   test('chip transitions to unknown when poll fails, recovers when poll succeeds', async ({ page }) => {
+    // Relógio virtual: o poll de vitalidade roda a cada 15 s
+    // (MODULE_FEATURE_FLAGS.pollIntervalMs). O cenário esperava 2 s de tempo real
+    // entre as fases e concluía "não virou unknown" antes de o próximo tique
+    // sequer existir — media o intervalo do timer, não o comportamento. Adiantar
+    // o relógio força o tique de verdade, e mantém o teste dentro dos 30 s.
+    await page.clock.install({ time: new Date('2026-08-19T10:00:00.000Z') });
+
     let pollShouldFail = false;
 
     // Stub liveness: dynamically fail or succeed based on `pollShouldFail` flag.
@@ -95,16 +110,24 @@ test.describe('EDGE – Poll failure → unknown (HTTP mode, route intercepts)',
     await page.goto('/edge/device');
 
     // Phase 1: poll succeeds → online state
-    await expect(page.getByText(/Online|Dispositivo online/i)).toBeVisible({ timeout: 4000 });
+    await expect(page.locator('edge-connectivity-status-card').getByText('Online', { exact: true })).toBeVisible({ timeout: 4000 });
 
     // Phase 2: force poll failure → unknown state (never online)
     pollShouldFail = true;
-    // Wait for the next poll tick to fire.
-    await page.waitForTimeout(2000);
-    await expect(page.getByText(/Desconhecido|Sem confirmação|unknown/i)).toBeVisible({ timeout: 5000 });
+    // Wait for the next poll tick to fire (intervalo de 15 s).
+    await page.clock.fastForward(16_000);
+    await expect(
+      page.locator('edge-connectivity-status-card').getByText('Desconhecido', { exact: true }),
+    ).toBeVisible({ timeout: 5000 });
 
-    // Invariant: must NOT show online while poll is failing
-    await expect(page.getByText(/^Online$|Dispositivo online/i)).not.toBeVisible();
+    // Invariant: must NOT show online while poll is failing — nem no cartão,
+    // nem no chip da topbar, que lê o MESMO read-model derivado.
+    await expect(
+      page.locator('edge-connectivity-status-card').getByText('Online', { exact: true }),
+    ).not.toBeVisible();
+    await expect(
+      page.locator('edge-connectivity-chip').getByText(/^Dispositivo online/),
+    ).not.toBeVisible();
 
     // Invariant: no toast on poll failure (SPEC-07 §3)
     await expect(page.locator('[role="alert"]')).not.toBeVisible();
@@ -112,8 +135,8 @@ test.describe('EDGE – Poll failure → unknown (HTTP mode, route intercepts)',
 
     // Phase 3: restore poll success → chip recovers to online
     pollShouldFail = false;
-    await page.waitForTimeout(2000);
-    await expect(page.getByText(/Online|Dispositivo online/i)).toBeVisible({ timeout: 5000 });
+    await page.clock.fastForward(16_000);
+    await expect(page.locator('edge-connectivity-status-card').getByText('Online', { exact: true })).toBeVisible({ timeout: 5000 });
   });
 
   test('poll failure: device metadata still visible (no data wipe)', async ({ page }) => {
@@ -138,6 +161,10 @@ test.describe('EDGE – Poll failure → unknown (HTTP mode, route intercepts)',
     // After poll fails: device info still rendered (just chip degrades to unknown).
     await page.waitForTimeout(2000);
     await expect(page.getByText(/Dispositivo/i).first()).toBeVisible();
+    // A asserção acima passaria com a página vazia (o <h1> "Dispositivo" é do
+    // cabeçalho). O que o cenário promete é que os DADOS do dispositivo
+    // sobrevivem à falha de poll — só o estado derivado degrada.
+    await expect(page.locator('edge-device-meta-list')).toBeVisible();
   });
 
   test('no toast shown on poll failure (SPEC-07 §3 — silent poll)', async ({ page }) => {

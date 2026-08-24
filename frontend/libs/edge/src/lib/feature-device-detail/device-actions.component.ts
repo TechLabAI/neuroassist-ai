@@ -10,7 +10,7 @@ import { RouterLink } from '@angular/router';
 // ---------------------------------------------------------------------------
 // DeviceActionsComponent — FE-EDGE-013
 // Presentational: conductor-gated device management actions.
-// Hidden (not disabled) when the session lacks `edge.device.manage` (DoD P3).
+// Hidden (not disabled) when the session lacks `edge.manage` (DoD P3).
 // The smart container (DeviceDetailPageComponent) owns confirmation dialogs.
 //
 // NOTE: @Input() is used instead of the input() signal API (ts-jest limitation).
@@ -66,7 +66,7 @@ export class DeviceActionsComponent {
   /**
    * When false, the entire action block is hidden (not disabled).
    * Derived from DeviceDetailVM.canManage, which reflects the session's
-   * `edge.device.manage` entitlement.
+   * `edge.manage` entitlement.
    */
   @Input({ required: true }) set canManage(value: boolean) {
     this._canManage.set(value);
