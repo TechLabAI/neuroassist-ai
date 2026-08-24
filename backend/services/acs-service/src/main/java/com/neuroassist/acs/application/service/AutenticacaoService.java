@@ -46,6 +46,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AutenticacaoService implements AutenticacaoUseCase {
 
+    /**
+     * Vocabulário controlado do hist-service ({@code hist.fact-types.allowed}). Valor fora da lista
+     * é 422 — foi o que aconteceu com {@code evento.criado} na Sessão 4.
+     *
+     * <p>Substitui {@code "LOGIN_SUCCESS"}, que não pertencia a vocabulário nenhum e que nunca
+     * chegou a ser rejeitado porque o adapter era um no-op.
+     */
+    private static final String FACT_LOGIN_OK = "autenticacao.realizada";
+
+    private static final String FACT_LOGIN_FAIL = "autenticacao.falhou";
+
     private static final String METRIC_AUTH_ATTEMPTS = "acs.auth.attempts";
     private static final String OBS_AUTHENTICATE = "acs.auth.authenticate";
     private static final String OBS_REFRESH = "acs.auth.refresh";
@@ -144,12 +155,17 @@ public class AutenticacaoService implements AutenticacaoUseCase {
         } catch (InvalidCredentialsException e) {
             log.debug("Login not found: {} (returning 401 generic)", request.login());
             meterRegistry.counter(METRIC_AUTH_ATTEMPTS, "status", "failure").increment();
+            // Sem fato de auditoria de propósito: um login inexistente não pertence a empresa
+            // nenhuma, e não há schema a que atribuir o fato. Atribuir a um tenant arbitrário
+            // deixaria um desconhecido escrever na trilha de uma empresa qualquer só chutando
+            // logins. Registrado como limitação em E2E-019.
             throw e;
         }
 
         if (!passwordEncoder.matches(request.senha(), cuidador.credentialHash())) {
             log.debug("Invalid senha for login: {} (returning 401 generic)", request.login());
             meterRegistry.counter(METRIC_AUTH_ATTEMPTS, "status", "failure").increment();
+            recordLoginFailure(cuidador, "credencial-invalida");
             throw new InvalidCredentialsException();
         }
 
@@ -159,6 +175,7 @@ public class AutenticacaoService implements AutenticacaoUseCase {
                     request.login(),
                     cuidador.status());
             meterRegistry.counter(METRIC_AUTH_ATTEMPTS, "status", "failure").increment();
+            recordLoginFailure(cuidador, "cuidador-inativo");
             throw new InvalidCredentialsException();
         }
 
@@ -173,13 +190,18 @@ public class AutenticacaoService implements AutenticacaoUseCase {
                             meterRegistry
                                     .counter(METRIC_AUTH_ATTEMPTS, "status", "failure")
                                     .increment();
+                            // Sem fato aqui, e não por esquecimento: `POST /oauth2/token/service`
+                            // recusa emitir token para tenant que não está ACTIVE, então a
+                            // gravação falharia sempre. Um erro que se repete a cada tentativa e
+                            // sobre o qual ninguém pode agir é ruído, não trilha. A tentativa fica
+                            // no log da aplicação; registrado como limitação em E2E-019.
                             return new InvalidCredentialsException();
                         });
 
         AutenticacaoResponse response = tokenIssuer.issue(cuidador);
 
         // Fire-and-forget audit — never blocks main transaction
-        recordLoginAudit(cuidador, "LOGIN_SUCCESS");
+        recordLoginAudit(cuidador, FACT_LOGIN_OK);
 
         meterRegistry.counter(METRIC_AUTH_ATTEMPTS, "status", "success").increment();
         log.info(
@@ -189,6 +211,35 @@ public class AutenticacaoService implements AutenticacaoUseCase {
                 cuidador.papel());
 
         return response;
+    }
+
+    /**
+     * Registra a tentativa que falhou (E2E-019 / AUD-02).
+     *
+     * <p>Só é chamado quando o cuidador foi <b>resolvido</b> — senha errada, conta inativa, empresa
+     * inativa. Aí existe tenant a que atribuir o fato. Um login inexistente não gera fato: ver o
+     * comentário no ponto correspondente.
+     *
+     * <p><b>A resposta ao cliente continua sendo um 401 genérico</b> nos quatro casos. O motivo
+     * detalhado vive na trilha de auditoria, que é interna — dizer ao chamador <i>por que</i>
+     * falhou entregaria a ele um oráculo de enumeração de logins.
+     */
+    private void recordLoginFailure(Cuidador cuidador, String motivo) {
+        try {
+            histAuditPort.recordFact(
+                    new AuditFact(
+                            FACT_LOGIN_FAIL,
+                            cuidador.tenantId(),
+                            cuidador.id(),
+                            MDC.get("correlationId"),
+                            Instant.now(),
+                            // NUNCA a senha, nem o hash, nem parte deles. O payload do hist-service
+                            // é gravado cifrado, mas isso não é licença para colocar credencial
+                            // dentro dele.
+                            Map.of("login", cuidador.login(), "motivo", motivo)));
+        } catch (Exception e) {
+            log.warn("Failed to record audit fact {}: {}", FACT_LOGIN_FAIL, e.getMessage());
+        }
     }
 
     private void recordLoginAudit(Cuidador cuidador, String fact) {

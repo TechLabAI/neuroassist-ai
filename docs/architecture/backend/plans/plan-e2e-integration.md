@@ -371,7 +371,7 @@ O módulo de integração E2E está DONE quando:
 | E2E-002 | ✅ DONE (parcial — EVNT stub security; GEST corrigido) | 2026-08-21 |
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
 | E2E-003 | ✅ DONE — DIR-01..05 | 2026-08-22 |
-| E2E-004 | 🟡 PARCIAL — AUD-03..10 DONE; AUD-01/02 feature ausente (ACS não produz facts) | 2026-08-22 |
+| E2E-004 | ✅ DONE — AUD-03..10 em 2026-08-22; AUD-01/02 fechados por E2E-019 em 2026-08-23 | 2026-08-23 |
 | E2E-005 | ✅ DONE — HB-01..05 DONE (P11 removeu o `ProfilePointerController` — a superfície nunca esteve no api-contract; a lógica virou colaborador do heartbeat. P13 removeu o dry-run: 37 cenários Cucumber executam de fato) | 2026-08-23 |
 | E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
 | E2E-007 | ✅ DONE — NTF-01..05 | 2026-08-22 |
@@ -397,7 +397,7 @@ dívida que ninguém prioriza.
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
 | E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
-| E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
+| E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
 | E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
@@ -970,8 +970,13 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   (`edge.manage`, `edge.read`, `edge.device`, `edge.internal`). O ArchUnit não detecta porque
   o `CrossAspectArchTest` do EDGE tem o catálogo **pinado inline contendo as duas famílias** —
   ou seja, o teste que deveria guardar a sincronia aceita ambos os lados da divergência.
-- **ACS não produz audit facts.** Não há produtor de `AutenticacaoRealizada` /
-  `AutenticacaoFalhou` — **AUD-01 e AUD-02 são features ausentes**, não falhas de integração.
+- ~~**ACS não produz audit facts.**~~ — resolvido em 2026-08-23 (E2E-019). `autenticacao.realizada`
+  e `autenticacao.falhou` entraram no vocabulário do HIST, o `HistAuditClient`/`HistAuditAdapter`
+  deixaram de ser stub, e o ACS ganhou `hist:write` com token **escopado por tenant** (ao contrário
+  dos seus outros dois destinos de identidade de serviço, que são tenant-less). Um login com
+  usuário inexistente segue sem gerar fato de propósito: não pertence a empresa nenhuma, e
+  atribuí-lo a uma deixaria um desconhecido escrever na trilha alheia só chutando logins.
+  **Em aberto:** o ACS não tem outbox — um fato produzido com o HIST fora do ar é perdido.
 - ~~**C-17 — EVNT em modo PoC**~~ — resolvido na Sessão 4 (§11.5). Texto original:
   **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
   `infrastructure/security/TenantContextFilter` faz `TenantContextHolder.set("poc")` em

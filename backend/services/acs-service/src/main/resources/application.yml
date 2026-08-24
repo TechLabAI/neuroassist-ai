@@ -154,6 +154,10 @@ acs:
         # ACS→EDGE: verificação de credencial de dispositivo em POST /oauth2/token/device.
         # Até aqui edge.internal era exigida por endpoints do EDGE e emitida por ninguém (C-18).
         - edge.internal
+        # ACS→HIST: fatos de autenticacao (E2E-019). O hist-service aplica o prefixo SCOPE_.
+        # Token ESCOPADO POR TENANT, diferente do de provisionamento: o HIST roteia o schema pelo
+        # claim de tenant, e um fato de login pertence a empresa de quem logou.
+        - hist:write
         # ACS→MIG: provisionamento do schema do tenant no onboarding (E2E-016, ADR-005).
         # O token é emitido SEM claim de tenant — o tenant provisionado ainda não tem schema
         # para onde rotear, e é justamente isso que a chamada vai criar.

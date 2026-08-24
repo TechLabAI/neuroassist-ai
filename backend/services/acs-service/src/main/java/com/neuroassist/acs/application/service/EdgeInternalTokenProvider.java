@@ -99,6 +99,23 @@ public class EdgeInternalTokenProvider {
         return cached(NO_TENANT_KEY);
     }
 
+    /**
+     * Returns a valid token <b>scoped to {@code tenantId}</b> (E2E-019).
+     *
+     * <p>Necessário porque nem todo destino trata o tenant do mesmo jeito. O edge-service resolve o
+     * tenant sozinho pelo índice global de dispositivos, então aceita um token sem claim; o
+     * hist-service roteia o {@code search_path} <i>pelo claim</i> — um fato de login gravado com
+     * token sem tenant não chegaria a schema nenhum.
+     *
+     * <p>O cache já era chaveado por tenant justamente para isto.
+     */
+    public String tokenForTenant(java.util.UUID tenantId) {
+        if (tenantId == null) {
+            throw new IllegalArgumentException("tenantId is required for a tenant-scoped token");
+        }
+        return cached(tenantId.toString());
+    }
+
     /** Drops every cached token — test/ops hook, e.g. after a secret rotation. */
     public void evictAll() {
         cache.clear();
@@ -115,7 +132,7 @@ public class EdgeInternalTokenProvider {
             if (isUsable(recheck)) {
                 return recheck.accessToken();
             }
-            CachedToken fresh = mint();
+            CachedToken fresh = mint(key);
             cache.put(key, fresh);
             return fresh.accessToken();
         }
@@ -125,9 +142,13 @@ public class EdgeInternalTokenProvider {
         return token != null && token.isValidAt(clock.instant(), refreshMargin);
     }
 
-    private CachedToken mint() {
+    private CachedToken mint(String key) {
         AutenticacaoResponse response =
-                serviceTokenService.issueTenantlessToken(clientId, clientSecret);
+                NO_TENANT_KEY.equals(key)
+                        ? serviceTokenService.issueTenantlessToken(clientId, clientSecret)
+                        : serviceTokenService.issueToken(
+                                new com.neuroassist.acs.api.dto.ServiceTokenRequest(
+                                        clientId, clientSecret, java.util.UUID.fromString(key)));
         Instant expiresAt = clock.instant().plusSeconds(Math.max(response.expiresIn(), 0L));
         log.debug(
                 "Internal service token minted clientId={} expiresIn={}s",
