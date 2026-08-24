@@ -34,19 +34,25 @@ public class CaregiverPatientLinkageSteps {
         Mockito.reset(pacPatientResolvePort);
     }
 
+    /**
+     * Quem chama este endpoint e o <b>pac-service</b>, nao uma pessoa.
+     *
+     * <p>Ate 2026-08-24 o cenario autenticava como COORDENADOR_CLINICA, porque a coordenadora
+     * tinha {@code acs.vinculo.criar}. Isso era a segunda porta do vinculo: criar o link aqui nao
+     * escrevia nada na projecao do PAC, e os dois lados divergiam em silencio — 17 pacientes no
+     * ambiente de desenvolvimento, com o inverso em zero.
+     *
+     * <p>A porta foi fechada: nenhum papel humano tem mais essa authority. Ela sobrevive apenas no
+     * cliente de servico {@code pac-service}, que a usa para propagar o vinculo que o PAC acabou
+     * de gravar. O cenario continua valido — o endpoint existe e e exercitado —, mas agora com a
+     * credencial de quem realmente o chama.
+     */
     @And(
-            "I am authenticated as a coordinator for tenant \"t_0f8a\" with authority \"acs.vinculo.criar\"")
-    public void andIAmAuthenticatedAsACoordinatorForTenant() {
+            "the pac-service is authenticated for tenant \"t_0f8a\" with authority \"acs.vinculo.criar\"")
+    public void andPacServiceIsAuthenticatedForTenant() {
         shared.ensureTenant(
                 ctx.testTenantId, "Test Tenant t0f8a", "CLINICA", "ACTIVE", "neuroassist_global");
-        shared.ensureCaregiver(
-                ctx.conductorId,
-                ctx.testTenantId,
-                "Coordinator",
-                "coord.link@t0f8a.com",
-                ctx.lastRawPassword,
-                "COORDENADOR_CLINICA");
-        shared.issueToken("coord.link@t0f8a.com", ctx.lastRawPassword);
+        shared.issueServiceToken("pac-service", "dev-service-secret", ctx.testTenantId.toString());
     }
 
     @Given("active caregiver \"5c1a\" in tenant \"t_0f8a\"")
@@ -102,6 +108,20 @@ public class CaregiverPatientLinkageSteps {
     @And(
             "caregiver \"5c1a\" appears in GET \\/api\\/v1\\/acs\\/directory\\/patients\\/p_9a3f\\/caregivers")
     public void andCaregiver5c1aAppearsInGetApiv1acsdirectorypatientsp9a3fcaregivers() {
+        // Quem CRIA o vinculo e o pac-service; quem LE o directory e uma pessoa. Sao capacidades
+        // de donos diferentes, e o cenario exercita as duas em sequencia — como acontece de
+        // verdade: o servico propaga, a coordenadora confere na tela. Dar acs.directory.read ao
+        // cliente de servico so para o teste passar concederia em producao uma capacidade que ele
+        // nao precisa.
+        shared.ensureCaregiver(
+                ctx.conductorId,
+                ctx.testTenantId,
+                "Coordinator",
+                "coord.verify@t0f8a.com",
+                ctx.lastRawPassword,
+                "COORDENADOR_CLINICA");
+        shared.issueToken("coord.verify@t0f8a.com", ctx.lastRawPassword);
+
         ResponseEntity<String> resp =
                 restTemplate.exchange(
                         "/api/v1/acs/directory/patients/" + ctx.testPatientId + "/caregivers",
@@ -255,16 +275,10 @@ public class CaregiverPatientLinkageSteps {
         shared.ensureLink(ctx.testCaregiverId, ctx.testPatientId, ctx.testTenantId);
     }
 
-    @And("I am authenticated with authority \"acs.vinculo.revogar\"")
-    public void andIAmAuthenticatedWithAuthorityAcsvinculorevogar() {
-        shared.ensureCaregiver(
-                ctx.conductorId,
-                ctx.testTenantId,
-                "Coordinator",
-                "coord.revoke@t0f8a.com",
-                ctx.lastRawPassword,
-                "COORDENADOR_CLINICA");
-        shared.issueToken("coord.revoke@t0f8a.com", ctx.lastRawPassword);
+    /** Revogar tem o mesmo dono que criar: o pac-service, propagando. Ver o passo acima. */
+    @And("the pac-service is authenticated with authority \"acs.vinculo.revogar\"")
+    public void andPacServiceIsAuthenticatedWithAuthorityRevogar() {
+        shared.issueServiceToken("pac-service", "dev-service-secret", ctx.testTenantId.toString());
     }
 
     @When("I DELETE the link for caregiver \"5c1a\" and patient \"p_9a3f\"")
@@ -303,6 +317,16 @@ public class CaregiverPatientLinkageSteps {
     @And(
             "caregiver \"5c1a\" does not appear in GET \\/api\\/v1\\/acs\\/directory\\/patients\\/p_9a3f\\/caregivers")
     public void andCaregiver5c1aDoesNotAppearInGetApiv1acsdirectorypatientsp9a3fcaregivers() {
+        // Mesma razao do passo espelho: ler o directory e capacidade de pessoa, nao do servico.
+        shared.ensureCaregiver(
+                ctx.conductorId,
+                ctx.testTenantId,
+                "Coordinator",
+                "coord.verify@t0f8a.com",
+                ctx.lastRawPassword,
+                "COORDENADOR_CLINICA");
+        shared.issueToken("coord.verify@t0f8a.com", ctx.lastRawPassword);
+
         ResponseEntity<String> resp =
                 restTemplate.exchange(
                         "/api/v1/acs/directory/patients/" + ctx.testPatientId + "/caregivers",

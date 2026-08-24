@@ -162,20 +162,33 @@ quem recebe o pedido quando mais ninguém recebeu.
 
 ---
 
-## 6. Um defeito que este documento revelou
+## 6. As duas portas do vínculo — fechado em 2026-08-24
 
-**Há duas portas para vincular cuidadora a paciente, e só uma mantém os dois lados em sincronia.**
+**Havia duas portas para vincular cuidadora a paciente, e só uma mantinha os dois lados em
+sincronia.**
 
 - Pela edição do paciente: o PAC grava o vínculo e propaga ao ACS.
-- Direto no ACS: a coordenadora tem a permissão `acs.vinculo.criar` e pode criar o vínculo lá,
-  **sem o PAC saber**.
+- Direto no ACS: a coordenadora tinha `acs.vinculo.criar` e criava o vínculo lá, **sem o PAC
+  saber**.
 
-No ambiente de desenvolvimento isso já produziu **17 pacientes** com vínculo ativo no ACS e nenhuma
-linha correspondente no PAC (o inverso: zero). O efeito prático é que a lista de "pacientes sem
-cuidadora" super-reporta — ela lê o registro do PAC.
+No dev isso produziu **17 pacientes** com vínculo ativo no ACS e nenhuma linha correspondente no
+PAC — e **zero** no sentido inverso, o que fixou a direção do vazamento. O efeito prático: a lista
+de "pacientes sem cuidadora" mostrava como descoberto quem entrou pela porta 2.
 
-Não é resíduo de teste: é uma permissão que a coordenadora tem de verdade. Precisa de decisão —
-fechar a segunda porta, ou fazer as duas convergirem.
+**A porta 2 foi fechada.** Nenhum papel humano tem mais `acs.vinculo.criar`/`.revogar` — as duas
+sobrevivem apenas no cliente de serviço `pac-service`, que as usa para propagar. Uma entrada só, e
+o PAC continua sendo quem inicia. Um teste percorre **todos** os papéis afirmando a ausência, para
+que devolvê-las a alguém não passe despercebido.
+
+**O passado foi reconciliado** (migration `V0211`): a projeção do PAC foi reparada a partir do ACS,
+que é a autoridade sobre vínculos (ADR-010). Resultado no dev — divergência de 17 → 7, descobertos
+de 25 → 15.
+
+Os **7 restantes** são deliberados: pacientes **apagados por LGPD** cujo link segue `ACTIVE` no
+ACS. Recriar o vínculo local de um paciente apagado seria reconstruir associação de um dado que se
+pediu para remover. Mas isso expõe uma pergunta em aberto: **o apagamento LGPD não revoga o vínculo
+no ACS.** Manter o registro local é decisão registrada (é o registro de que houve cuidado); o link
+do ACS é *acesso*, e acesso a um paciente apagado não tem a mesma justificativa.
 
 ---
 
@@ -187,13 +200,12 @@ fechar a segunda porta, ou fazer as duas convergirem.
 | Cuidadora mantém "editar paciente"? | **Sim** — mas editar deixou de conceder vínculo | ✅ aplicado |
 | Criar clínica precisa de tela? | **Sim**, para o admin de plataforma | 🔲 a construir |
 | O que o apoio ao paciente vê? | Histórico, principalmente; e é o **último degrau** do escalonamento | ✅ no ADR-011 |
-| Qual porta do vínculo fecha? | *(§6 — pendente)* | 🔲 |
+| Qual porta do vínculo fecha? | **A do ACS.** Nenhum humano vincula direto; só o serviço PAC propaga | ✅ aplicado + reconciliado (V0211) |
 
 ## 8. Ainda em aberto
 
-1. **As duas portas do vínculo** (§6). Recomendação: tirar `acs.vinculo.criar` da coordenadora e
-   deixá-la apenas com o serviço PAC, que já a usa para propagar. O vínculo passa a ter uma entrada
-   só, e o PAC continua sendo quem inicia.
+1. **O apagamento LGPD não revoga o vínculo no ACS** (§6). 7 pacientes apagados seguem com link
+   `ACTIVE`.
 2. **Permissão de confirmar alarme para o apoio ao paciente** — sem ela, o último degrau da escada
    é um beco sem saída.
 3. **Tela do admin de plataforma** — criar clínica + primeira coordenadora.

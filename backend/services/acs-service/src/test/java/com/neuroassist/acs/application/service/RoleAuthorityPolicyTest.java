@@ -31,13 +31,13 @@ class RoleAuthorityPolicyTest {
                 .doesNotContain(
                         "acs.tenant.provisionar", "acs.tenant.read", "acs.tenant.reprocessar");
 
+        // acs.vinculo.criar/.revogar saíram deste conjunto (2026-08-24): havia duas portas para
+        // o mesmo vinculo e a do ACS nao escrevia nada no PAC. A coordenadora vincula pelo PAC.
         assertThat(authorities)
                 .contains(
                         "acs.cuidador.criar",
                         "acs.cuidador.read",
                         "acs.cuidador.desativar",
-                        "acs.vinculo.criar",
-                        "acs.vinculo.revogar",
                         "acs.directory.read");
     }
 
@@ -90,13 +90,32 @@ class RoleAuthorityPolicyTest {
                         "acs.vinculo.revogar");
     }
 
-    /** A coordenadora e quem cadastra paciente e decide quem cuida de quem. */
+    /**
+     * A coordenadora cadastra paciente e decide quem cuida de quem — <b>pelo PAC</b>.
+     *
+     * <p>Ela NAO tem acs.vinculo.criar/.revogar. Havia duas portas para o mesmo vinculo, e a do
+     * ACS nao escrevia nada no PAC: os dois lados divergiam em silencio (17 pacientes no dev, com
+     * o inverso em zero). As duas authorities continuam existindo, mas so no cliente de servico
+     * `pac-service`, que as usa para propagar. Uma entrada so, e o PAC continua sendo quem inicia.
+     */
     @Test
-    void coordenadora_cadastraPacienteEGerenciaVinculo() {
+    void coordenadora_vinculaPeloPacENaoDiretoNoAcs() {
         List<String> authorities = policy.toAuthorities(CuidadorPapel.COORDENADOR_CLINICA);
 
+        assertThat(authorities).contains("pac.paciente.criar", "pac.paciente.vincular");
         assertThat(authorities)
-                .contains("pac.paciente.criar", "pac.paciente.vincular", "acs.vinculo.criar");
+                .as("nenhuma pessoa deve vincular direto no ACS — so o cliente de servico do PAC")
+                .doesNotContain("acs.vinculo.criar", "acs.vinculo.revogar");
+    }
+
+    /** Nenhum papel HUMANO pode escrever vinculo direto no ACS. */
+    @Test
+    void nenhumPapelHumanoVinculaDiretoNoAcs() {
+        for (CuidadorPapel papel : CuidadorPapel.values()) {
+            assertThat(policy.toAuthorities(papel))
+                    .as("papel %s nao pode ter authority de vinculo direto", papel)
+                    .doesNotContain("acs.vinculo.criar", "acs.vinculo.revogar");
+        }
     }
 
     /**

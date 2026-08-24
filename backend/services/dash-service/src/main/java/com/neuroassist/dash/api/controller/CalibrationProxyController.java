@@ -36,7 +36,11 @@ public class CalibrationProxyController {
         String tenantId = extractTenantId(auth);
 
         CalibrationParams params =
-                new CalibrationParams(request.sensitivity(), request.threshold(), request.extra());
+                new CalibrationParams(
+                        request.urgencia(),
+                        request.sensibilidade(),
+                        request.tempoMinGestoMs(),
+                        request.tempoMaxGestoMs());
 
         CalibrationResult result =
                 calibrationProxyUseCase.calibrate(
@@ -44,7 +48,12 @@ public class CalibrationProxyController {
 
         CalibrationProxyResponse response =
                 new CalibrationProxyResponse(
-                        result.commandId(), result.newCalibrationState(), result.success());
+                        result.comandoId(),
+                        result.sensibilidade(),
+                        result.urgencia(),
+                        result.estado(),
+                        result.calibracaoVersao(),
+                        result.warnings());
 
         return ResponseEntity.ok(response);
     }

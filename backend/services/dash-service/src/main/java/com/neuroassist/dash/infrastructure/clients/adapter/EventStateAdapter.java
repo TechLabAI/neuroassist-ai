@@ -6,7 +6,9 @@ import com.neuroassist.dash.infrastructure.clients.EvntClient;
 import com.neuroassist.dash.infrastructure.clients.dto.NotificationPayloadResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -62,6 +64,26 @@ public class EventStateAdapter implements EventStatePort {
                 caregiverId,
                 cause.getMessage());
         return List.of();
+    }
+
+    /**
+     * Sem {@code fallbackMethod} — e isso é a decisão, não um esquecimento.
+     *
+     * <p>Um fallback que devolvesse conjunto vazio faria "o EVNT não respondeu" ficar
+     * indistinguível de "ninguém está pedindo ajuda". A falha sobe intacta; o breaker a contabiliza
+     * (é por isso que ela não pode ser capturada aqui dentro) e o {@code PanelCompositionService}
+     * traduz o silêncio em {@code hasActiveEvent = null}, que o painel sabe desenhar como "não sei"
+     * em vez de "está tudo bem".
+     */
+    @Override
+    @CircuitBreaker(name = "evnt-service")
+    public Set<String> findPatientsWithActiveEvent(Collection<String> patientIds) {
+        if (patientIds == null || patientIds.isEmpty()) {
+            return Set.of();
+        }
+        log.debug("Consultando EVNT: alarme ativo para {} paciente(s)", patientIds.size());
+        EvntClient.ActiveEventsByPatientView view = evntClient.getActiveEventsByPatient(patientIds);
+        return view.comAlarmeAtivo() == null ? Set.of() : Set.copyOf(view.comAlarmeAtivo());
     }
 
     @Override

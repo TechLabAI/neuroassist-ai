@@ -33,6 +33,15 @@ import org.springframework.http.MediaType;
 @RequiredArgsConstructor
 public class PanelCompositionSteps {
 
+    /**
+     * O nome real do paciente, deliberadamente DIFERENTE do seu id ("Marcio").
+     *
+     * <p>Enquanto o defeito estava vivo, o painel devolvia o proprio id no campo {@code name} — e
+     * uma assercao do tipo {@code contains("Marcio")} passava exatamente por causa disso. Com um
+     * nome distinto do id, so a correcao satisfaz a assercao.
+     */
+    static final String MARCIO_NOME = "Marcio Amaral";
+
     final DashBddContext ctx;
 
     @Autowired TestRestTemplate restTemplate;
@@ -61,16 +70,34 @@ public class PanelCompositionSteps {
 
     @Given("PAC, EVNT and EDGE are all available")
     public void givenPacEvntAndEdgeAreAllAvailable() {
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
         stubEdgeLiveness("Marcio", "online", false);
-        // EVNT soft: nao necessario para summary, mas stub para evitar erros
-        BaseIntegrationTest.evntWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/notifications/unacknowledged"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "application/json")
-                                        .withBody("[]")));
+        stubEvntActiveByPatient(/* comAlarme= */ false);
+    }
+
+    /**
+     * O cenario que este painel existe para atender: ha um pedido de ajuda em aberto.
+     *
+     * <p><b>Controle negativo.</b> Antes desta issue o {@code hasActiveEvent} era {@code false}
+     * literal no codigo — entao qualquer cenario que assertasse {@code false} passava com o defeito
+     * vivo. Este cenario e o unico formato de asserçao que o defeito nao consegue satisfazer.
+     */
+    @Given("Marcio has an unanswered help request in EVNT")
+    public void givenMarcioHasAnUnansweredHelpRequest() {
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEdgeLiveness("Marcio", "online", false);
+        stubEvntActiveByPatient(/* comAlarme= */ true);
+    }
+
+    @Given("PAC does not answer the patient name lookup")
+    public void givenPacDoesNotAnswerTheNameLookup() {
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes"))
+                        .willReturn(aResponse().withStatus(503)));
+        stubEdgeLiveness("Marcio", "online", false);
+        stubEvntActiveByPatient(/* comAlarme= */ true);
     }
 
     @Given("EDGE is unreachable")
@@ -82,7 +109,9 @@ public class PanelCompositionSteps {
         // `catch (Exception)` do adapter transformava esse 404 em degradado — o cenario passava
         // sem nunca ter testado um EDGE fora do ar. So apareceu quando o adapter passou a
         // distinguir "nao ha dispositivo" (404) de "nao consegui perguntar" (503).
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEvntActiveByPatient(/* comAlarme= */ false);
         BaseIntegrationTest.edgeWireMock.stubFor(
                 get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
                         .willReturn(aResponse().withStatus(503)));
@@ -90,7 +119,9 @@ public class PanelCompositionSteps {
 
     @Given("EDGE reports that the patient has no paired device")
     public void givenEdgeReportsNoDevice() {
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEvntActiveByPatient(/* comAlarme= */ false);
         BaseIntegrationTest.edgeWireMock.stubFor(
                 get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
                         .willReturn(aResponse().withStatus(404)));
@@ -99,21 +130,22 @@ public class PanelCompositionSteps {
     @Given("EVNT is unreachable")
     public void givenEvntIsUnreachable() {
         // PAC e EDGE disponiveis; EVNT retorna 503 — soft degrade
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
         stubEdgeLiveness("Marcio", "online", false);
         BaseIntegrationTest.evntWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/notifications/unacknowledged"))
+                get(urlPathEqualTo("/api/v1/events/active/by-patient"))
                         .willReturn(aResponse().withStatus(503)));
     }
 
     @Given("PAC is unreachable")
     public void givenPacIsUnreachable() {
-        // PAC retorna 503 em todos os endpoints — hard dependency (propaga 503)
+        // PAC retorna 503 nos caminhos REAIS — hard dependency do overview (propaga 503)
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/Marcio/commands"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes/Marcio"))
                         .willReturn(aResponse().withStatus(503)));
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/Marcio/calibration"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes/Marcio/catalogo-ativo"))
                         .willReturn(aResponse().withStatus(503)));
     }
 
@@ -157,7 +189,37 @@ public class PanelCompositionSteps {
     public void andMarcioHasADeviceStatusAndALatest() {
         // PatientSummaryEntry{patientId, name, hasActiveEvent, deviceStatus}
         assertThat(ctx.lastResponse.getBody()).contains("deviceStatus");
-        assertThat(ctx.lastResponse.getBody()).contains("Marcio");
+        assertThat(ctx.lastResponse.getBody()).contains("\"patientId\":\"Marcio\"");
+        // "perguntei ao EVNT e nao ha alarme" — false, e nunca null.
+        assertThat(ctx.lastResponse.getBody()).contains("\"hasActiveEvent\":false");
+    }
+
+    @And("the summary shows the real name {string} for {string}")
+    public void andTheSummaryShowsTheRealName(String nome, String patientId) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("o painel mostra o nome vindo do PAC, e nao o id")
+                .contains("\"name\":\"" + nome + "\"");
+    }
+
+    @And("the summary marks {string} as having an active help request")
+    public void andTheSummaryMarksAsHavingActiveEvent(String patientId) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("indicador de pedido de ajuda em aberto para %s", patientId)
+                .contains("\"hasActiveEvent\":true");
+    }
+
+    @And("the event indicator for {string} is unknown")
+    public void andTheEventIndicatorIsUnknown(String patientId) {
+        // null == "nao consegui perguntar ao EVNT". Jamais false, que significaria "nao ha".
+        assertThat(ctx.lastResponse.getBody()).contains("\"hasActiveEvent\":null");
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"hasActiveEvent\":false");
+    }
+
+    @And("the name for {string} is unknown")
+    public void andTheNameIsUnknown(String patientId) {
+        // null, e nunca o id disfarcado de nome.
+        assertThat(ctx.lastResponse.getBody()).contains("\"name\":null");
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"name\":\"Marcio\"");
     }
 
     @And("degradedSections is empty")
@@ -257,22 +319,74 @@ public class PanelCompositionSteps {
                                         .withBody(patientsJson)));
     }
 
-    private void stubPacCommandCatalog(String patientId) {
+    /**
+     * Stub do pac-service. Caminho e corpo espelham {@code PacienteController} / {@code
+     * PacienteResponse}: {@code GET /api/pac/v1/pacientes} (lista do tenant) e {@code GET
+     * /api/pac/v1/pacientes/&#123;id&#125;}.
+     *
+     * <p>O stub anterior inventava {@code /api/v1/patients/&#123;id&#125;/commands} e {@code
+     * .../calibration}, que o PAC responde <b>404 "No static resource"</b> — conferido com curl
+     * contra o servico rodando. Era por isso que o gate ficava verde enquanto o overview nunca
+     * funcionou uma unica vez.
+     */
+    private void stubPacPaciente(String patientId, String nome) {
+        String corpo =
+                ("{\"id\":\"%s\",\"nome\":\"%s\",\"dispositivoEdgeId\":null,"
+                                + "\"cuidadorResponsavelIds\":[],\"rowVersion\":0}")
+                        .formatted(patientId, nome);
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/commands"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody("[" + corpo + "]")));
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes/" + patientId))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody(corpo)));
+    }
+
+    /** Espelha {@code CatalogoAtivoController} / {@code CatalogoAtivoResponse}. */
+    private void stubPacCatalogoAtivo(String patientId) {
+        String corpo =
+                ("{\"pacienteId\":\"%s\",\"empresaId\":null,\"catalogoVersao\":3,"
+                                + "\"comandos\":[{\"id\":\"cmd-water\",\"rotulo\":\"Agua\","
+                                + "\"necessidade\":\"hidratacao\",\"primitivoPrincipalId\":null,"
+                                + "\"primitivoSecundarioId\":null,\"sensibilidade\":\"media\","
+                                + "\"tempoMinGestoMs\":300,\"tempoMaxGestoMs\":1200,"
+                                + "\"urgencia\":\"rotina\",\"calibracaoVersao\":2,"
+                                + "\"updatedAt\":\"2026-08-01T00:00:00Z\"}]}")
+                        .formatted(patientId);
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes/" + patientId + "/catalogo-ativo"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withHeader("ETag", "\"3\"")
+                                        .withBody(corpo)));
+    }
+
+    /**
+     * Espelha {@code EventQueryController#listActiveByPatient} e {@code
+     * EventQueryUseCase.ActiveEventsByPatientResponse} do evnt-service.
+     */
+    private void stubEvntActiveByPatient(boolean comAlarme) {
+        String alarme = comAlarme ? "[\"Marcio\"]" : "[]";
+        BaseIntegrationTest.evntWireMock.stubFor(
+                get(urlPathEqualTo("/api/v1/events/active/by-patient"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
                                         .withBody(
-                                                "{\"commands\":[\"cmd-water\"],\"calibrationState\":\"calibrated\"}")));
-        BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/calibration"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"state\":\"calibrated\"}")));
+                                                "{\"consultados\":[\"Marcio\"],\"comAlarmeAtivo\":"
+                                                        + alarme
+                                                        + "}")));
     }
 
     /**

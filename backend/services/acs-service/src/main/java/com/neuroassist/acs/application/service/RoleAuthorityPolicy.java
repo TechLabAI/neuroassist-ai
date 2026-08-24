@@ -36,8 +36,23 @@ public class RoleAuthorityPolicy {
                             "acs.cuidador.criar",
                             "acs.cuidador.read",
                             "acs.cuidador.desativar",
-                            "acs.vinculo.criar",
-                            "acs.vinculo.revogar",
+                            // acs.vinculo.criar / .revogar SAIRAM daqui.
+                            //
+                            // Havia DUAS portas para criar um vinculo cuidadora-paciente: pelo PAC
+                            // (que grava a projecao local e propaga ao ACS) e direto neste
+                            // endpoint. A segunda nao escreve nada no PAC, entao os dois lados
+                            // divergiam em silencio — no ambiente de desenvolvimento isso produziu
+                            // 17 pacientes com vinculo ATIVO no ACS e nenhuma linha no PAC, com o
+                            // inverso em zero, o que fixa a direcao do vazamento.
+                            //
+                            // O sintoma pratico: a lista de pacientes sem cuidadora le a projecao
+                            // do PAC e mostrava como descoberto quem entrou pela porta do ACS.
+                            //
+                            // Agora a unica pessoa que vincula e a coordenadora, e ela vincula
+                            // PELO PAC (pac.paciente.vincular). Estas duas authorities continuam
+                            // existindo, mas so no cliente de servico `pac-service`, que as usa
+                            // para propagar — ver acs.service-clients em application.yml. Uma
+                            // entrada so, e o PAC continua sendo quem inicia.
                             "acs.directory.read",
                             // Mudar QUEM cuida de quem e da coordenadora. Distinta de
                             // pac.paciente.editar de proposito: editar e vincular chegam pelo

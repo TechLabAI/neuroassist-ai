@@ -298,8 +298,21 @@ public class SharedSteps {
      * name was already right; the credential was not.
      */
     void issueServiceToken(String clientId, String clientSecret) {
+        issueServiceToken(clientId, clientSecret, null);
+    }
+
+    /**
+     * Token de servico <b>escopado a um tenant</b>.
+     *
+     * <p>O overload sem tenant serve ao {@code platform-ops}, que e tenant-less porque criar
+     * empresa acontece antes de a empresa existir. Todo outro cliente de servico roteia por schema
+     * e portanto precisa informar o tenant — o ACS recusa as duas combinacoes invertidas.
+     */
+    void issueServiceToken(String clientId, String clientSecret, String tenantId) {
         String body =
-                "{\"clientId\":\"" + clientId + "\",\"clientSecret\":\"" + clientSecret + "\"}";
+                "{\"clientId\":\"" + clientId + "\",\"clientSecret\":\"" + clientSecret + "\""
+                        + (tenantId == null ? "" : ",\"tenantId\":\"" + tenantId + "\"")
+                        + "}";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<String> resp =

@@ -25,7 +25,9 @@ public interface IdempotencyKeyJpaRepository
      * @param cutoff delete rows strictly older than this instant (e.g. {@code now() - 24h})
      * @return number of deleted rows
      */
-    @Modifying
+    // Consistencia com as outras consultas em massa deste servico: o contexto nao pode seguir
+    // achando que as chaves apagadas existem.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM IdempotencyKeyJpaEntity e WHERE e.createdAt < :cutoff")
     int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
 }

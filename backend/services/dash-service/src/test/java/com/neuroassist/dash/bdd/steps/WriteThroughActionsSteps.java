@@ -1,7 +1,9 @@
 package com.neuroassist.dash.bdd.steps;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
@@ -40,19 +42,14 @@ public class WriteThroughActionsSteps {
 
     @And("command \"cmd-water\" belongs to \"Marcio\"")
     public void andCommandCmdwaterBelongsToMarcio() {
-        // PAC retorna cmd-water no catalogo de Marcio
-        stubPacCalibrate(
-                "Marcio",
-                "cmd-water",
-                200,
-                "{\"commandId\":\"cmd-water\",\"newCalibrationState\":\"media\",\"success\":true}");
+        stubPacRecalibrate("Marcio", "cmd-water", 200, comandoLifecycleJson("cmd-water", "media"));
     }
 
     @Given("PAC rejects the calibration edit with status 409")
     public void givenPacRejectsTheCalibrationEditWithStatus409() {
         // PAC retorna 409 — DASH deve relay
         BaseIntegrationTest.pacWireMock.stubFor(
-                post(urlPathEqualTo("/api/v1/patients/Marcio/commands/cmd-water/calibrate"))
+                post(urlPathEqualTo(recalibratePath("Marcio", "cmd-water")))
                         .willReturn(
                                 aResponse()
                                         .withStatus(409)
@@ -83,7 +80,7 @@ public class WriteThroughActionsSteps {
     public void givenCommandCmdotherDoesNotBelongToMarcio() {
         // PAC retorna 404 para cmd-other de Marcio
         BaseIntegrationTest.pacWireMock.stubFor(
-                post(urlPathEqualTo("/api/v1/patients/Marcio/commands/cmd-other/calibrate"))
+                post(urlPathEqualTo(recalibratePath("Marcio", "cmd-other")))
                         .willReturn(
                                 aResponse()
                                         .withStatus(404)
@@ -128,15 +125,22 @@ public class WriteThroughActionsSteps {
 
     @Then("DASH forwards the calibration edit to PAC")
     public void thenDashForwardsTheCalibrationEditToPac() {
+        // O caminho verificado e o que o PAC serve de verdade — ComandoLifecycleController.
+        // O anterior (`/api/v1/patients/.../calibrate`) nao existe no produtor.
         BaseIntegrationTest.pacWireMock.verify(
-                postRequestedFor(
-                        urlPathEqualTo("/api/v1/patients/Marcio/commands/cmd-water/calibrate")));
+                postRequestedFor(urlPathEqualTo(recalibratePath("Marcio", "cmd-water")))
+                        // e o corpo fala a lingua do PAC: `sensibilidade`, nao `sensitivity`
+                        .withRequestBody(matchingJsonPath("$.sensibilidade", equalTo("media"))));
     }
 
     @And("the response body is PAC's authoritative result")
     public void andTheResponseBodyIsPacsAuthoritativeResult() {
         assertThat(ctx.lastResponse.getStatusCode().value()).isEqualTo(200);
-        assertThat(ctx.lastResponse.getBody()).contains("cmd-water");
+        // Campos do PAC, ecoados sem traducao: o DASH nao e dono deste dado.
+        assertThat(ctx.lastResponse.getBody())
+                .contains("\"comandoId\":\"cmd-water\"")
+                .contains("\"calibracaoVersao\":3")
+                .contains("\"estado\":\"PUBLICADO\"");
     }
 
     @And("DASH persists no calibration value locally")
@@ -214,9 +218,11 @@ public class WriteThroughActionsSteps {
 
     private org.springframework.http.ResponseEntity<String> postCalibration(
             String patientId, String commandId, String sensitivity) {
+        // Campos do PAC (RecalibrateRequest). `threshold` e `extra` nao existiam do lado
+        // do produtor e sairam do contrato do painel junto com o caminho inventado.
         String body =
                 """
-                {"sensitivity":"%s","threshold":"0.8","extra":{}}
+                {"sensibilidade":"%s","urgencia":null,"tempoMinGestoMs":null,"tempoMaxGestoMs":null}
                 """
                         .formatted(sensitivity);
         HttpHeaders headers = new HttpHeaders();
@@ -241,15 +247,29 @@ public class WriteThroughActionsSteps {
                 String.class);
     }
 
-    private void stubPacCalibrate(
+    /**
+     * {@code POST /api/pac/v1/pacientes/&#123;id&#125;/comandos/&#123;cmd&#125;:recalibrate} — o
+     * unico endpoint de calibracao que o PAC serve ({@code ComandoLifecycleController}). Nao existe
+     * no PAC nem {@code .../calibrate} nem endpoint de "estado de calibracao".
+     */
+    private static String recalibratePath(String patientId, String commandId) {
+        return "/api/pac/v1/pacientes/" + patientId + "/comandos/" + commandId + ":recalibrate";
+    }
+
+    /** Espelha {@code ComandoLifecycleResponse}. */
+    private static String comandoLifecycleJson(String comandoId, String sensibilidade) {
+        return ("{\"id\":\"%s\",\"pacienteId\":\"Marcio\",\"rotulo\":\"Agua\","
+                        + "\"necessidade\":\"hidratacao\",\"sensibilidade\":\"%s\","
+                        + "\"urgencia\":\"rotina\",\"estado\":\"PUBLICADO\","
+                        + "\"calibracaoVersao\":3,\"rowVersion\":1,"
+                        + "\"updatedAt\":\"2026-08-01T00:00:00Z\",\"warnings\":[]}")
+                .formatted(comandoId, sensibilidade);
+    }
+
+    private void stubPacRecalibrate(
             String patientId, String commandId, int status, String responseBody) {
         BaseIntegrationTest.pacWireMock.stubFor(
-                post(urlPathEqualTo(
-                                "/api/v1/patients/"
-                                        + patientId
-                                        + "/commands/"
-                                        + commandId
-                                        + "/calibrate"))
+                post(urlPathEqualTo(recalibratePath(patientId, commandId)))
                         .willReturn(
                                 aResponse()
                                         .withStatus(status)

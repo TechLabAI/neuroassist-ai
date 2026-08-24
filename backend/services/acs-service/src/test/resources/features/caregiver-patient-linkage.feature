@@ -3,7 +3,7 @@ Feature: Caregiver-Patient Linkage
 
   Background:
     Given an active tenant "t_0f8a" exists
-    And I am authenticated as a coordinator for tenant "t_0f8a" with authority "acs.vinculo.criar"
+    And the pac-service is authenticated for tenant "t_0f8a" with authority "acs.vinculo.criar"
 
   Scenario: Successfully link a caregiver to a patient
     Given active caregiver "5c1a" in tenant "t_0f8a"
@@ -42,14 +42,14 @@ Feature: Caregiver-Patient Linkage
   Scenario: Revoke the last caregiver link is blocked by coverage invariant
     Given caregiver "5c1a" is the only active link for patient "p_9a3f"
     And no coordinator exists in tenant "t_0f8a"
-    And I am authenticated with authority "acs.vinculo.revogar"
+    And the pac-service is authenticated with authority "acs.vinculo.revogar"
     When I DELETE the link for caregiver "5c1a" and patient "p_9a3f"
     Then the response status is 409
     And the error type is "/errors/last-caregiver-link"
 
   Scenario: Revoke a link when another caregiver still covers the patient
     Given caregiver "5c1a" and caregiver "6d2b" are both linked to patient "p_9a3f"
-    And I am authenticated with authority "acs.vinculo.revogar"
+    And the pac-service is authenticated with authority "acs.vinculo.revogar"
     When I DELETE the link for caregiver "5c1a" and patient "p_9a3f"
     Then the response status is 200
     And the link status is "revoked"
@@ -58,7 +58,7 @@ Feature: Caregiver-Patient Linkage
 
   Scenario: Revoke already-revoked link is idempotent
     Given a revoked link between caregiver "5c1a" and patient "p_9a3f"
-    And I am authenticated with authority "acs.vinculo.revogar"
+    And the pac-service is authenticated with authority "acs.vinculo.revogar"
     When I DELETE the link
     Then the response status is 200
     And no additional HIST fact is recorded
