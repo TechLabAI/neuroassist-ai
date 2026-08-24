@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.neuroassist.pac.application.port.in.DirectoryOutboxDrainUseCase;
 import com.neuroassist.pac.bdd.ScenarioContext;
 import com.neuroassist.pac.infrastructure.persistence.entity.DirectoryOutboxJpaEntity;
+import com.neuroassist.pac.infrastructure.persistence.entity.PacienteCuidadorId;
+import com.neuroassist.pac.infrastructure.persistence.entity.PacienteCuidadorJpaEntity;
+import com.neuroassist.pac.infrastructure.persistence.repository.PacienteCuidadorJpaRepository;
 import com.neuroassist.pac.infrastructure.persistence.repository.DirectoryOutboxJpaRepository;
 import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.integration.ExternalServicesWireMock;
@@ -37,6 +40,7 @@ public class DirectoryPropagationSteps {
 
     private final ScenarioContext ctx;
     private final DirectoryOutboxJpaRepository outboxRepository;
+    private final PacienteCuidadorJpaRepository cuidadorRepository;
     private final DirectoryOutboxDrainUseCase drainUseCase;
     private final TransactionTemplate transactionTemplate;
 
@@ -200,4 +204,64 @@ public class DirectoryPropagationSteps {
             TenantContextHolder.clear();
         }
     }
+
+    // ── E2E-028 / ADR-010 — guarda de cobertura no PAC ──────────────────────
+
+    /**
+     * Vincula cuidadoras ao paciente com UUIDs <b>explicitos</b>, separados por virgula.
+     *
+     * <p>Explicitos de proposito: o cenario que prova "remover UMA de duas continua permitido"
+     * precisa nomear no corpo do PUT qual das duas fica, e um UUID sorteado aqui nao teria como
+     * aparecer la.
+     */
+    @And("patient {string} has caregivers {string}")
+    public void patientHasCaregivers(String alias, String uuidsSeparadosPorVirgula) {
+        UUID pacienteId = ctx.getAlias(alias);
+        assertThat(pacienteId).as("o paciente %s precisa existir antes", alias).isNotNull();
+        TenantContextHolder.set(ctx.getCurrentEmpresaId());
+        try {
+            transactionTemplate.executeWithoutResult(
+                    status -> {
+                        for (String raw : uuidsSeparadosPorVirgula.split(",")) {
+                            cuidadorRepository.save(
+                                    PacienteCuidadorJpaEntity.builder()
+                                            .id(
+                                                    new PacienteCuidadorId(
+                                                            pacienteId, UUID.fromString(raw.trim())))
+                                            .createdAt(java.time.Instant.now())
+                                            .build());
+                        }
+                    });
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @And("patient {string} still has {int} active caregivers")
+    public void patientStillHasActiveCaregivers(String alias, int esperado) {
+        UUID pacienteId = ctx.getAlias(alias);
+        TenantContextHolder.set(ctx.getCurrentEmpresaId());
+        try {
+            long atuais =
+                    transactionTemplate.execute(
+                            status -> (long) cuidadorRepository.findByIdPacienteId(pacienteId).size());
+            // O ponto do cenario: a recusa acontece ANTES de qualquer escrita. Antes deste guarda o
+            // PAC gravava a lista vazia e so depois o ACS discordava.
+            assertThat(atuais)
+                    .as("a recusa nao pode ter escrito nada")
+                    .isEqualTo(esperado);
+        } finally {
+            TenantContextHolder.clear();
+        }
+    }
+
+    @And("the response error code is {string}")
+    public void responseErrorCodeIs(String esperado) {
+        String body = ctx.getLastResponse().getBody();
+        assertThat(body).as("corpo da resposta").isNotNull();
+        assertThat(com.jayway.jsonpath.JsonPath.parse(body).read("$.error.code", String.class))
+                .as("codigo de erro do ProblemDetail")
+                .isEqualTo(esperado);
+    }
+
 }

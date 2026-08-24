@@ -10,9 +10,9 @@ import java.util.UUID;
  * patient, liveness, or credential data", GEST FROZEN §4.2). Aquele contrato fica intacto.
  *
  * <p>Esta porta existe porque projetar o catálogo do paciente sobre o perfil da empresa (E2E-034)
- * exige saber de qual paciente se trata, e usa {@code GET /devices/&#123;id&#125;} — que já
- * devolve os dois. Manter as duas separadas é o que impede o guarda de pareamento de passar a
- * carregar dado de paciente sem ninguém decidir isso.
+ * exige saber de qual paciente se trata, e usa {@code GET /devices/&#123;id&#125;} — que já devolve
+ * os dois. Manter as duas separadas é o que impede o guarda de pareamento de passar a carregar dado
+ * de paciente sem ninguém decidir isso.
  */
 public interface EdgeDevicePort {
 

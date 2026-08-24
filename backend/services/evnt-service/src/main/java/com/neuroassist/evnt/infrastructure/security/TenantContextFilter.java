@@ -51,6 +51,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
      */
     private static final List<String> TENANT_CLAIMS = List.of("tenant_id");
 
+    private static final String HEADER_TENANT_ID = "X-Tenant-Id";
     private static final String MDC_ACTOR = "userId";
 
     @Override
@@ -63,6 +64,24 @@ public class TenantContextFilter extends OncePerRequestFilter {
         String actor = jwt == null ? null : asString(jwt.getClaim("sub"));
 
         if (tenantId != null) {
+            // Confere o header contra o claim, como os outros seis servicos (E2E-021). O EVNT era
+            // o unico que nao conferia: um X-Tenant-Id divergente do JWT era simplesmente ignorado,
+            // e a requisicao respondia igual. Nao havia vazamento — o tenant sempre veio do claim
+            // assinado, nunca do header —, mas a politica precisa ser a mesma nos sete: um header
+            // divergente e um chamador confuso ou uma tentativa, e as duas merecem resposta, nao
+            // silencio.
+            String headerTenant = request.getHeader(HEADER_TENANT_ID);
+            if (headerTenant != null && !headerTenant.isBlank() && !headerTenant.equals(tenantId)) {
+                log.warn(
+                        "Tenant mismatch: jwt.tenant_id={} header.X-Tenant-Id={} path={}",
+                        tenantId,
+                        headerTenant,
+                        request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"tenant_mismatch\"}");
+                return;
+            }
             TenantContextHolder.set(tenantId);
         } else if (jwt != null && requiresTenantClaim()) {
             // Era um log.debug. Um debug e exatamente o que ninguem le quando a requisicao morre

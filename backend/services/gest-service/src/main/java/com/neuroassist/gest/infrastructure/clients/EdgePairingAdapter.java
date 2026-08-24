@@ -5,7 +5,6 @@ import com.neuroassist.gest.shared.error.CodedException;
 import com.neuroassist.gest.shared.error.DeviceNotPairedException;
 import feign.FeignException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

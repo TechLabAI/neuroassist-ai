@@ -51,7 +51,11 @@ public record DetectionThresholds(
     private static void require(boolean condition, String rule, Number offending) {
         if (!condition) {
             throw new IllegalArgumentException(
-                    "Limiares de detecção incoerentes: " + rule + " (valor recebido: " + offending + ")");
+                    "Limiares de detecção incoerentes: "
+                            + rule
+                            + " (valor recebido: "
+                            + offending
+                            + ")");
         }
     }
 }

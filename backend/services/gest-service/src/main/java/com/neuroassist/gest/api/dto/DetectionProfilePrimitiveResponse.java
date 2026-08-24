@@ -12,8 +12,8 @@ import java.util.UUID;
  *
  * <p>{@code origem} diz DE ONDE a faixa veio. Sem ela, "este paciente usa media porque a cuidadora
  * escolheu media" e "este paciente usa media porque ninguém calibrou este gesto" seriam
- * indistinguíveis — a mesma confusão que a {@code ProfilePointer} de três estados resolveu no
- * EDGE, e a razão pela qual HB-04 não passava.
+ * indistinguíveis — a mesma confusão que a {@code ProfilePointer} de três estados resolveu no EDGE,
+ * e a razão pela qual HB-04 não passava.
  */
 public record DetectionProfilePrimitiveResponse(
         UUID tipoGestoId,

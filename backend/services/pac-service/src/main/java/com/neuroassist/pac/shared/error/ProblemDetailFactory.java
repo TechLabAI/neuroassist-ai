@@ -100,6 +100,16 @@ public final class ProblemDetailFactory {
                                     "validation",
                                     422,
                                     "Device not found or belongs to a different empresa")),
+                    // E2E-028 / ADR-010 — guarda de cobertura (D-204). A autoridade continua
+                    // sendo o acs-service, que recusa a revogacao do ultimo vinculo com 409; este
+                    // 422 recusa o caso inequivoco na porta do PAC, antes de aceitar um update que
+                    // o ACS ia recusar depois — o que deixava os dois bancos discordando.
+                    Map.entry(
+                            "pac.paciente.sem-cobertura",
+                            new ErrorMetadata(
+                                    "business_rule",
+                                    422,
+                                    "Patient would be left with no active caregiver (D-204)")),
                     Map.entry(
                             "acs.unavailable",
                             new ErrorMetadata("upstream_error", 503, "ACS service unavailable")),

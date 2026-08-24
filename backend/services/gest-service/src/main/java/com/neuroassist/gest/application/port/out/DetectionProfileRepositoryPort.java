@@ -15,6 +15,20 @@ public interface DetectionProfileRepositoryPort {
     Optional<DetectionProfile> findActive();
 
     /**
+     * Devolve o perfil de uma versão específica desta empresa — ativo ou já desativado.
+     *
+     * <p>Existe para auditoria: um relatório de gesto carrega a {@code profileVersion} com que foi
+     * detectado, e sem esta consulta não há como recuperar quais limiares estavam valendo naquele
+     * momento. Enquanto ela faltou, o serviço devolvia {@code Optional.empty()} de dentro de si
+     * mesmo e {@code GET /detection-profile/&#123;version&#125;} era 404 eterno — um endpoint que
+     * existia e não respondia.
+     *
+     * <p>A versão é única por schema de empresa (o roteamento por {@code search_path} já isola o
+     * tenant), então não há parâmetro de empresa aqui.
+     */
+    Optional<DetectionProfile> findByVersion(long version);
+
+    /**
      * Returns the next monotonic version number for this tenant's profile sequence. The first
      * version is 1 ({@code COALESCE(MAX(version), 0) + 1}). Must be called inside an active
      * transaction (RULE-03 — @Transactional only in application.service).

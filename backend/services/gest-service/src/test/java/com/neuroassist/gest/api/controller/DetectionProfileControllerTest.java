@@ -1,9 +1,9 @@
 package com.neuroassist.gest.api.controller;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -12,19 +12,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
-import com.neuroassist.gest.domain.model.DetectionThresholdTable;
-import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.EdgePairingPort;
+import com.neuroassist.gest.domain.model.DetectionThresholdTable;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.infrastructure.security.CorrelationIdInterceptor;
 import com.neuroassist.gest.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import javax.sql.DataSource;
-import org.springframework.http.MediaType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +31,7 @@ import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfi
 import org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -95,10 +94,7 @@ class DetectionProfileControllerTest {
                  "alta":{"earClose":0.19,"earOpen":0.24,"earOtherMax":0.27,"blinkMinFrames":2,"doubleBlinkWindowMs":2500,"briRaiseOn":0.26,"briRaiseOff":0.18,"briOtherMax":0.21,"browMinFrames":3}}}
                 """;
 
-        mockMvc.perform(
-                        post(BASE_PATH)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(invertida))
+        mockMvc.perform(post(BASE_PATH).contentType(MediaType.APPLICATION_JSON).content(invertida))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value(containsString("earClose")))
                 .andExpect(jsonPath("$.detail").value(containsString("crescer")));

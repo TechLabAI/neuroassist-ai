@@ -68,3 +68,43 @@ Feature: Directory propagation — o vinculo cuidador-paciente chega ao ACS
     When the directory outbox is drained
     Then the directory outbox has 0 pending entries
     And the directory outbox has 1 "failed" entry with a recorded reason
+
+  # ── E2E-028 / ADR-010 — o guarda de cobertura no PAC ──────────────────────
+  #
+  # EARS: IF an update would leave the patient with no active caregiver,
+  #       THEN the PAC SHALL refuse it before writing anything.
+  #
+  # Antes deste guarda o PAC aceitava com 200 e o ACS recusava com 409 depois —
+  # `paciente_cuidador` vazio de um lado, `caregiver_patient_link` ativo do outro, e
+  # uma entrada de outbox em `failed`. O ACS continua sendo o dono da invariante
+  # (D-204); este cenario cobre o guarda que evita a divergencia na porta.
+  Scenario: Remover a ultima cuidadora e recusado antes de escrever
+    Given patient "pac-cob" exists in "empresa-abc"
+    And patient "pac-cob" has caregivers "11111111-1111-1111-1111-111111111111"
+    When a PUT request is made to "/api/pac/v1/pacientes/pac-cob" with matching ETag and body:
+      """
+      {
+        "nome": "Márcio Amaral",
+        "cuidadorResponsavelIds": []
+      }
+      """
+    Then the response status is 422
+    And the response error code is "pac.paciente.sem-cobertura"
+    And patient "pac-cob" still has 1 active caregivers
+    And the directory outbox is empty
+
+  # Contrapeso: um guarda que recusasse tudo passaria no cenario acima. A invariante
+  # e sobre chegar a ZERO, nao sobre reduzir.
+  Scenario: Remover uma de duas cuidadoras continua permitido
+    Given patient "pac-cob2" exists in "empresa-abc"
+    And patient "pac-cob2" has caregivers "22222222-2222-2222-2222-222222222222, 33333333-3333-3333-3333-333333333333"
+    And ACS resolves any caregiver as belonging to "empresa-abc"
+    And ACS accepts caregiver-patient links
+    When a PUT request is made to "/api/pac/v1/pacientes/pac-cob2" with matching ETag and body:
+      """
+      {
+        "nome": "Márcio Amaral",
+        "cuidadorResponsavelIds": ["22222222-2222-2222-2222-222222222222"]
+      }
+      """
+    Then the response status is 200

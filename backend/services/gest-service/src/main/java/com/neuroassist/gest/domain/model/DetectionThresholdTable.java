@@ -40,13 +40,16 @@ public record DetectionThresholdTable(
                 media.blinkMinFrames(),
                 alta.blinkMinFrames());
         descending(
-                "browMinFrames", baixa.browMinFrames(), media.browMinFrames(), alta.browMinFrames());
+                "browMinFrames",
+                baixa.browMinFrames(),
+                media.browMinFrames(),
+                alta.browMinFrames());
     }
 
     /**
      * Os valores históricos. {@code media} é, valor por valor, o que os agentes de borda vinham
-     * usando como constante de código — de propósito: adotar o perfil não muda comportamento
-     * nenhum até alguém escolher outra faixa.
+     * usando como constante de código — de propósito: adotar o perfil não muda comportamento nenhum
+     * até alguém escolher outra faixa.
      *
      * <p>Estes números têm um espelho em {@code backend/edge_agent_core.py} e são vigiados por
      * {@code backend/scripts/check_edge_agent_drift.py} (E2E-032/E2E-033). Mudar um lado sem o
@@ -74,7 +77,11 @@ public record DetectionThresholdTable(
                     "Tabela de limiares incoerente: "
                             + field
                             + " deveria crescer de baixa para alta (recebido "
-                            + low + " / " + mid + " / " + high
+                            + low
+                            + " / "
+                            + mid
+                            + " / "
+                            + high
                             + ") — nessa métrica, valor maior detecta mais fácil");
         }
     }
@@ -85,7 +92,11 @@ public record DetectionThresholdTable(
                     "Tabela de limiares incoerente: "
                             + field
                             + " deveria decrescer de baixa para alta (recebido "
-                            + low + " / " + mid + " / " + high
+                            + low
+                            + " / "
+                            + mid
+                            + " / "
+                            + high
                             + ") — nessa métrica, valor menor detecta mais fácil");
         }
     }

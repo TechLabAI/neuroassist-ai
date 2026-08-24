@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
 import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
@@ -118,7 +119,8 @@ class DetectionProfileServiceTest {
         doNothing().when(detectionProfileRepositoryPort).deactivateCurrent();
         when(detectionProfileRepositoryPort.save(any(DetectionProfile.class)))
                 .thenReturn(savedProfile);
-        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class), nullable(Map.class)))
+        when(detectionProfileDomainService.createSnapshot(
+                        anyList(), any(UUID.class), nullable(Map.class)))
                 .thenReturn(List.of(primitive));
         when(detectionProfilePrimitiveRepositoryPort.saveAll(anyList()))
                 .thenReturn(List.of(primitive));
@@ -186,7 +188,8 @@ class DetectionProfileServiceTest {
         when(detectionProfileRepositoryPort.nextVersion()).thenReturn(5L);
         doNothing().when(detectionProfileRepositoryPort).deactivateCurrent();
         when(detectionProfileRepositoryPort.save(any())).thenReturn(savedProfile);
-        when(detectionProfileDomainService.createSnapshot(anyList(), any(UUID.class), nullable(Map.class)))
+        when(detectionProfileDomainService.createSnapshot(
+                        anyList(), any(UUID.class), nullable(Map.class)))
                 .thenReturn(List.of());
         when(detectionProfilePrimitiveRepositoryPort.saveAll(anyList())).thenReturn(List.of());
 
@@ -228,5 +231,70 @@ class DetectionProfileServiceTest {
         Optional<DetectionProfileResponse> response = detectionProfileService.findActive();
 
         assertThat(response).isEmpty();
+    }
+
+    // ── findByVersion ───────────────────────────────────────────────────────
+    //
+    // O método devolvia Optional.empty() incondicionalmente, então GET
+    // /detection-profile/{version} era 404 para toda versão. Estes testes existem para que a
+    // consulta à porta seja obrigatória: um retorno fixo volta a reprovar.
+
+    @Test
+    void findByVersion_profileExists_returnsResponseWithPrimitives() {
+        UUID profileId = UUID.randomUUID();
+        UUID tipoGestoId = UUID.randomUUID();
+        DetectionProfile profile =
+                new DetectionProfile(
+                        profileId,
+                        7L,
+                        false, // uma versão já desativada continua auditável
+                        "v1.1.0",
+                        DetectionThresholdTable.defaults(),
+                        Instant.now(),
+                        null,
+                        "t1");
+        DetectionProfilePrimitive primitive =
+                new DetectionProfilePrimitive(
+                        UUID.randomUUID(),
+                        profileId,
+                        tipoGestoId,
+                        "Piscar",
+                        "ref-Piscar",
+                        Sensibilidade.alta);
+        when(detectionProfileRepositoryPort.findByVersion(7L)).thenReturn(Optional.of(profile));
+        when(detectionProfilePrimitiveRepositoryPort.findByProfileId(profileId))
+                .thenReturn(List.of(primitive));
+
+        Optional<DetectionProfileResponse> response = detectionProfileService.findByVersion(7L);
+
+        assertThat(response).isPresent();
+        assertThat(response.get().version()).isEqualTo(7L);
+        assertThat(response.get().active()).isFalse();
+        assertThat(response.get().thresholds()).isEqualTo(DetectionThresholdTable.defaults());
+        // Os primitivos daquela versão, como publicados — sem projeção de paciente.
+        assertThat(response.get().primitives()).hasSize(1);
+        assertThat(response.get().primitives().get(0).tipoGestoId()).isEqualTo(tipoGestoId);
+        assertThat(response.get().primitives().get(0).nome()).isEqualTo("Piscar");
+        assertThat(response.get().primitives().get(0).engineFeatureRef()).isEqualTo("ref-Piscar");
+        assertThat(response.get().primitives().get(0).sensibilidade())
+                .isEqualTo(Sensibilidade.alta);
+        assertThat(response.get().primitives().get(0).origem())
+                .isEqualTo(DetectionProfilePrimitiveResponse.Origem.PERFIL_EMPRESA);
+        // Rota da empresa: não há paciente nem catálogo nesta resposta.
+        assertThat(response.get().pacienteId()).isNull();
+        assertThat(response.get().catalogoVersao()).isNull();
+        assertThat(response.get().catalogoDegradado()).isFalse();
+        // ETag só da versão — uma versão publicada é imutável (o composto é do /devices/{id}).
+        assertThat(response.get().etag()).isEqualTo("\"7\"");
+    }
+
+    @Test
+    void findByVersion_unknownVersion_returnsEmpty() {
+        when(detectionProfileRepositoryPort.findByVersion(99L)).thenReturn(Optional.empty());
+
+        Optional<DetectionProfileResponse> response = detectionProfileService.findByVersion(99L);
+
+        assertThat(response).isEmpty();
+        verify(detectionProfilePrimitiveRepositoryPort, never()).findByProfileId(any());
     }
 }

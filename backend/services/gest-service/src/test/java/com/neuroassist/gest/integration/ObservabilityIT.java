@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +30,18 @@ import org.springframework.http.ResponseEntity;
  * while prometheus is protected only by network/ops-level controls in production (MVP). If
  * SecurityConfig changes to restrict prometheus, update the request here to include a valid JWT or
  * use {@code @WithMockUser}.
+ *
+ * <p><b>Por que {@code @AutoConfigureObservability}.</b> O Spring Boot desliga <i>todos</i> os
+ * exportadores de métrica dentro de {@code @SpringBootTest}: o {@code
+ * MetricsExportContextCustomizer} injeta {@code management.defaults.metrics.export.enabled=false} e
+ * deixa só o registry simples de pé. Com isso a {@code PrometheusMetricsExportAutoConfiguration}
+ * não sobe, o endpoint {@code /actuator/prometheus} nunca é registrado e a chamada volta <b>404</b>
+ * — não 401, não corpo vazio. A configuração de exposição em {@code application-test.yml} ({@code
+ * include: "*"}) não muda nada, porque só se expõe endpoint que existe. Esta anotação é a única
+ * forma de reativá-los, e sem ela o teste media a ausência do endpoint em vez da presença da
+ * métrica.
  */
+@AutoConfigureObservability
 class ObservabilityIT extends BaseIntegrationTest {
 
     @Autowired private TestRestTemplate restTemplate;

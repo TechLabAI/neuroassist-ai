@@ -21,7 +21,10 @@ class DetectionThresholdTableTest {
 
         @Test
         void aceita_os_valores_historicos() {
-            assertThatCode(() -> new DetectionThresholds(0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.25, 5))
+            assertThatCode(
+                            () ->
+                                    new DetectionThresholds(
+                                            0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.25, 5))
                     .doesNotThrowAnyException();
         }
 
@@ -30,7 +33,9 @@ class DetectionThresholdTableTest {
             // earOpen abaixo de earClose: o olho estaria "aberto" e "fechado" ao mesmo tempo na
             // faixa entre os dois, e o detector oscilaria a cada frame.
             assertThatThrownBy(
-                            () -> new DetectionThresholds(0.27, 0.22, 0.30, 2, 2000, 0.30, 0.22, 0.25, 5))
+                            () ->
+                                    new DetectionThresholds(
+                                            0.27, 0.22, 0.30, 2, 2000, 0.30, 0.22, 0.25, 5))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("earClose")
                     .hasMessageContaining("0.27");
@@ -41,7 +46,9 @@ class DetectionThresholdTableTest {
             // briOtherMax >= briRaiseOn: o lado que deveria estar relaxado já contaria como
             // levantado, e o levantamento individual nunca se distinguiria do duplo.
             assertThatThrownBy(
-                            () -> new DetectionThresholds(0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.31, 5))
+                            () ->
+                                    new DetectionThresholds(
+                                            0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.31, 5))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("briOtherMax");
         }
@@ -50,7 +57,9 @@ class DetectionThresholdTableTest {
         void recusa_zero_frames_de_sustentacao() {
             // Sem sustentação mínima, um único frame de ruído do MediaPipe vira um pedido de ajuda.
             assertThatThrownBy(
-                            () -> new DetectionThresholds(0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.25, 0))
+                            () ->
+                                    new DetectionThresholds(
+                                            0.22, 0.27, 0.30, 2, 2000, 0.30, 0.22, 0.25, 0))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("browMinFrames");
         }

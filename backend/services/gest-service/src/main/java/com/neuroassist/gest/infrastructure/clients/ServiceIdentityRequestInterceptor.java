@@ -11,10 +11,10 @@ import org.springframework.core.Ordered;
  * Troca o JWT propagado do chamador pelo token de <b>identidade de serviço</b> do GEST, nos
  * clientes Feign que o carregam (service-identity.md §5).
  *
- * <p>Por que trocar: quem chama {@code GET /detection-profile/devices/&#123;id&#125;} é o EDGE,
- * com um token de serviço que carrega apenas {@code gest.detection-profile.read}. Propagá-lo ao
- * PAC dá 403 — e um 403 dentro de um circuit breaker vira "serviço degradado", que foi exatamente
- * o defeito C-19.
+ * <p>Por que trocar: quem chama {@code GET /detection-profile/devices/&#123;id&#125;} é o EDGE, com
+ * um token de serviço que carrega apenas {@code gest.detection-profile.read}. Propagá-lo ao PAC dá
+ * 403 — e um 403 dentro de um circuit breaker vira "serviço degradado", que foi exatamente o
+ * defeito C-19.
  *
  * <p>Duas armadilhas, as mesmas que o EDGE documenta:
  *

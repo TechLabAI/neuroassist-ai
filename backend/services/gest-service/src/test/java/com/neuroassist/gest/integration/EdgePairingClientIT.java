@@ -79,7 +79,7 @@ class EdgePairingClientIT extends BaseIntegrationTest {
                                         .withHeader("Content-Type", "application/json")
                                         .withBody(
                                                 "{\"accessToken\":\"service-token-de-teste\","
-                                                    + "\"tokenType\":\"Bearer\",\"expiresIn\":900}")));
+                                                        + "\"tokenType\":\"Bearer\",\"expiresIn\":900}")));
         // RULE-07: o token e escopado por tenant, e o provider recusa inventar um default.
         TenantContextHolder.set("t_emp_test");
     }

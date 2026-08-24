@@ -108,10 +108,12 @@ public class BddTestConfiguration {
             ScenarioContext ctx,
             com.neuroassist.pac.infrastructure.persistence.repository.DirectoryOutboxJpaRepository
                     outboxRepository,
+            com.neuroassist.pac.infrastructure.persistence.repository.PacienteCuidadorJpaRepository
+                    cuidadorRepository,
             com.neuroassist.pac.application.port.in.DirectoryOutboxDrainUseCase drainUseCase,
             TransactionTemplate transactionTemplate) {
         return new com.neuroassist.pac.bdd.steps.DirectoryPropagationSteps(
-                ctx, outboxRepository, drainUseCase, transactionTemplate);
+                ctx, outboxRepository, cuidadorRepository, drainUseCase, transactionTemplate);
     }
 
     @Bean

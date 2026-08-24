@@ -38,7 +38,10 @@ public final class TestJwtFactory {
                             .subject("bdd-user")
                             .issueTime(new Date())
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
-                            .claim("tenant", tenant)
+                            // "tenant_id" e o claim canonico e unico desde E2E-021; o alias
+                            // "tenant" que estava aqui nao era lido pelo TenantContextFilter, que
+                            // caia no "sub" e devolvia 503 procurando o schema "t_bdd-user".
+                            .claim("tenant_id", tenant)
                             .claim("scope", String.join(" ", scopes))
                             .build();
 

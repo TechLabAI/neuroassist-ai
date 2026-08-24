@@ -9,11 +9,11 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -129,9 +129,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * request". A coordenadora recebia 400 sem a menor ideia do que estava errado, enquanto a
      * mensagem útil ("earClose deveria crescer de baixa para alta") ficava enterrada na causa.
      *
-     * <p>Só a causa {@link IllegalArgumentException} é exposta: ela vem do nosso próprio código e
-     * é escrita para ser lida. JSON malformado continua com a mensagem genérica — o texto do
-     * parser não ajuda quem chamou e pode vazar estrutura interna.
+     * <p>Só a causa {@link IllegalArgumentException} é exposta: ela vem do nosso próprio código e é
+     * escrita para ser lida. JSON malformado continua com a mensagem genérica — o texto do parser
+     * não ajuda quem chamou e pode vazar estrutura interna.
      */
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(

@@ -16,9 +16,9 @@ import org.springframework.stereotype.Component;
  * Adapter de {@link PatientCatalogPort} — lê o catálogo ativo do paciente no PAC.
  *
  * <p>Nunca lança para fora, pela mesma razão do {@link EdgeDeviceAdapter} — e, como lá, a falha de
- * transporte sobe até o breaker antes de virar estado. O dispositivo está na casa do
- * paciente. Sem o catálogo ele detecta com a faixa padrão e a resposta diz que está degradado;
- * parar de detectar porque o PAC caiu seria trocar uma detecção imprecisa por nenhuma.
+ * transporte sobe até o breaker antes de virar estado. O dispositivo está na casa do paciente. Sem
+ * o catálogo ele detecta com a faixa padrão e a resposta diz que está degradado; parar de detectar
+ * porque o PAC caiu seria trocar uma detecção imprecisa por nenhuma.
  */
 @Slf4j
 @Component
@@ -34,7 +34,9 @@ public class PatientCatalogAdapter implements PatientCatalogPort {
             // RULE-07: o tenant vem do contexto da requisicao, nunca de um default inventado.
             String empresaId = TenantContextHolder.getTenantIdOrNull();
             if (empresaId == null || empresaId.isBlank()) {
-                log.warn("Sem tenant em contexto — nao da para ler o catalogo do paciente {}", pacienteId);
+                log.warn(
+                        "Sem tenant em contexto — nao da para ler o catalogo do paciente {}",
+                        pacienteId);
                 return PatientBands.unavailable();
             }
             PacCatalogClient.CatalogoAtivoView view =
@@ -53,7 +55,10 @@ public class PatientCatalogAdapter implements PatientCatalogPort {
                     // Dois comandos do mesmo paciente podem apontar para o mesmo primitivo. Vence a
                     // faixa mais sensivel: entre alarmes falsos e um pedido de ajuda que nao sai,
                     // um pedido que nao sai e o pior dos dois.
-                    bands.merge(comando.primitivoPrincipalId(), band, PatientCatalogAdapter::maisSensivel);
+                    bands.merge(
+                            comando.primitivoPrincipalId(),
+                            band,
+                            PatientCatalogAdapter::maisSensivel);
                 }
             }
             log.debug(
@@ -83,7 +88,10 @@ public class PatientCatalogAdapter implements PatientCatalogPort {
         try {
             return Sensibilidade.valueOf(raw);
         } catch (IllegalArgumentException e) {
-            log.warn("Comando {} traz sensibilidade desconhecida '{}' — usando a padrao", comandoId, raw);
+            log.warn(
+                    "Comando {} traz sensibilidade desconhecida '{}' — usando a padrao",
+                    comandoId,
+                    raw);
             return null;
         }
     }

@@ -38,7 +38,9 @@ public class AcsServiceTokenClient implements ServiceTokenClient {
         requestFactory.setReadTimeout(Duration.ofMillis(timeoutMs));
         this.restClient = builder.baseUrl(acsBaseUrl).requestFactory(requestFactory).build();
         log.info(
-                "ACS service-identity client configured (GEST): url={} clientId={}", acsBaseUrl, clientId);
+                "ACS service-identity client configured (GEST): url={} clientId={}",
+                acsBaseUrl,
+                clientId);
     }
 
     @Override

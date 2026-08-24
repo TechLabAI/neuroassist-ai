@@ -13,8 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * JPA adapter for {@link DetectionProfileRepositoryPort}. Converte a coluna JSONB
- * {@code classification_params} de e para {@link DetectionThresholdTable} via Jackson. Schema routing is
+ * JPA adapter for {@link DetectionProfileRepositoryPort}. Converte a coluna JSONB {@code
+ * classification_params} de e para {@link DetectionThresholdTable} via Jackson. Schema routing is
  * transparent via {@link
  * com.neuroassist.gest.infrastructure.security.MultiTenantConnectionProvider}. Implemented in P3
  * (GEST-012).
@@ -36,6 +36,15 @@ public class DetectionProfileRepositoryAdapter implements DetectionProfileReposi
     @Override
     public Optional<DetectionProfile> findActive() {
         return repository.findByActiveTrue().map(this::toDomain);
+    }
+
+    /**
+     * A consulta derivada já existia em {@link DetectionProfileJpaRepository} desde o P3 e nunca
+     * foi ligada a porta nenhuma — o método existia, era testável e estava morto.
+     */
+    @Override
+    public Optional<DetectionProfile> findByVersion(long version) {
+        return repository.findByVersion(version).map(this::toDomain);
     }
 
     @Override

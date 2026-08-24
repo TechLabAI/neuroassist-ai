@@ -36,8 +36,15 @@ public interface DetectionProfileJpaRepository
      * new active profile so only one profile is active at a time.
      *
      * <p>Must be called within an active transaction (provided by the caller — RULE-03).
+     *
+     * <p>{@code clearAutomatically} porque um UPDATE em massa do JPQL passa ao lado do contexto de
+     * persistencia: a linha vira {@code active=false} no banco e a entidade em cache continua
+     * dizendo {@code active=true}. Qualquer leitura do mesmo perfil, na mesma transacao, recebia a
+     * copia velha — e uma versao ja desativada se apresentava como ativa. {@code
+     * flushAutomatically} garante que alteracoes pendentes chegem ao banco antes do UPDATE, e nao
+     * depois dele.
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE DetectionProfileJpaEntity d SET d.active = false WHERE d.active = true")
     void deactivateCurrent();
 }

@@ -9,10 +9,10 @@ import java.util.UUID;
  * Perfil de detecção como o agente de borda o recebe.
  *
  * <p>{@code thresholds} é o vocabulário da empresa — o que "alta" significa numericamente nesta
- * clínica. {@code primitives} diz quais gestos detectar e, quando a resposta é por dispositivo,
- * com que faixa <b>deste paciente</b> (E2E-034). A sensibilidade não é copiada para dentro do
- * perfil publicado: ela vive no {@code comando} do paciente, no PAC, e é projetada na leitura —
- * copiá-la criaria um valor que envelhece no instante em que alguém recalibra.
+ * clínica. {@code primitives} diz quais gestos detectar e, quando a resposta é por dispositivo, com
+ * que faixa <b>deste paciente</b> (E2E-034). A sensibilidade não é copiada para dentro do perfil
+ * publicado: ela vive no {@code comando} do paciente, no PAC, e é projetada na leitura — copiá-la
+ * criaria um valor que envelhece no instante em que alguém recalibra.
  *
  * @param pacienteId preenchido só na resposta por dispositivo; {@code null} na resposta da empresa
  * @param catalogoVersao versão do catálogo do paciente que produziu esta projeção; {@code null}

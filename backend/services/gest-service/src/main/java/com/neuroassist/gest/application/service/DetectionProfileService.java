@@ -1,10 +1,10 @@
 package com.neuroassist.gest.application.service;
 
-import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse.Origem;
+import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
-import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse.Origem;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
 import com.neuroassist.gest.application.port.out.EdgeDevicePort;
@@ -47,9 +47,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class DetectionProfileService implements DetectionProfileUseCase {
 
     /**
-     * Subiu de v1.0.0 quando o perfil passou a carregar limiares tipados e a devolver os
-     * primitivos (E2E-033). Menor, nao maior: o que existia continua no lugar e com o mesmo
-     * significado — o agente antigo ignora os campos novos e segue funcionando.
+     * Subiu de v1.0.0 quando o perfil passou a carregar limiares tipados e a devolver os primitivos
+     * (E2E-033). Menor, nao maior: o que existia continua no lugar e com o mesmo significado — o
+     * agente antigo ignora os campos novos e segue funcionando.
      */
     private static final String CONTRACT_VERSION = "v1.1.0";
 
@@ -126,14 +126,29 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     }
 
     /**
-     * Returns the profile for a specific version. Port query deferred to P3 (requires
-     * DetectionProfileRepositoryPort.findByVersion() added when persistence is connected).
+     * O perfil de uma versão específica — inclusive uma já desativada.
+     *
+     * <p>Devolvia {@code Optional.empty()} sempre, então {@code GET
+     * /detection-profile/&#123;version&#125;} era 404 para toda versão, inclusive as que existiam.
+     * Isso tirava a única forma de auditar um relatório de gesto: o relatório cita a {@code
+     * profileVersion} com que foi detectado, e sem esta leitura ninguém consegue dizer que limiares
+     * estavam valendo naquele instante.
+     *
+     * <p>Os primitivos vêm junto pelo mesmo motivo do {@code /active} (E2E-033): um perfil sem
+     * gesto nenhum não diz o que o agente estava detectando. Aqui eles saem como o perfil os
+     * publicou — sem projeção de paciente, porque esta rota é da empresa e não conhece dispositivo.
+     *
+     * <p>O ETag é só {@code "<version>"}: uma versão publicada é imutável, então nada além dela
+     * pode invalidar esta resposta. O ETag combinado com a versão do catálogo é exclusivo da
+     * resposta por dispositivo, onde a recalibração do paciente muda o corpo sem mudar a versão do
+     * perfil.
      */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findByVersion(long version) {
-        // P3: add DetectionProfileRepositoryPort.findByVersion(long) and implement here
-        return Optional.empty();
+        return detectionProfileRepositoryPort
+                .findByVersion(version)
+                .map(this::toResponseWithPrimitives);
     }
 
     /**
@@ -150,8 +165,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
      * clinica — e nenhuma copia envelhece.
      *
      * <p>Nenhum dos dois lados externos derruba a resposta. Sem EDGE ou sem PAC, o dispositivo
-     * recebe o perfil da empresa com a faixa padrao e a resposta diz que esta degradada: o
-     * aparelho esta na casa do paciente, e detectar impreciso e melhor que nao detectar.
+     * recebe o perfil da empresa com a faixa padrao e a resposta diz que esta degradada: o aparelho
+     * esta na casa do paciente, e detectar impreciso e melhor que nao detectar.
      */
     @Override
     @Transactional(readOnly = true)
@@ -182,9 +197,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
     /**
      * Carrega os primitivos do perfil antes de responder.
      *
-     * <p>Sem isto o agente de borda recebe um perfil sem gesto nenhum — os primitivos eram
-     * gravados no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida
-     * (E2E-033).
+     * <p>Sem isto o agente de borda recebe um perfil sem gesto nenhum — os primitivos eram gravados
+     * no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida (E2E-033).
      */
     private DetectionProfileResponse toResponseWithPrimitives(DetectionProfile profile) {
         return toResponse(

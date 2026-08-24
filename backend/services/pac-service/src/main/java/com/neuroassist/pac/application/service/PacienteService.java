@@ -14,6 +14,7 @@ import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -211,6 +212,7 @@ public class PacienteService implements PacienteUseCase {
         // EDGE/ACS validation: reject foreign devices and unknown caregivers before any DB write
         List<UUID> cuidadores = cuidadorResponsavelIds != null ? cuidadorResponsavelIds : List.of();
         validateExternalRefs(tenantId, dispositivoEdgeId, cuidadores);
+        recusarSeDeixaPacienteSemCobertura(id, cuidadores);
 
         Paciente existing =
                 pacienteRepository
@@ -320,4 +322,52 @@ public class PacienteService implements PacienteUseCase {
                 p.updatedAt(),
                 p.erasedAt());
     }
+
+    /**
+     * Guarda de cobertura (D-204) — ADR-010.
+     *
+     * <p>O dono da invariante e o acs-service, que recusa a revogacao do ultimo vinculo ativo com
+     * 409 e marca isso SAFETY-CRITICAL. Ate a E2E-015 os dois lados nunca se falavam, entao o
+     * conflito era invisivel; com a propagacao no ar, um {@code PUT} esvaziando a lista era aceito
+     * aqui com 200 e recusado la com 409 — {@code paciente_cuidador} vazio de um lado, {@code
+     * caregiver_patient_link} ativo do outro, e uma entrada de outbox em {@code failed}.
+     *
+     * <p>Este guarda recusa o caso <b>inequivoco</b> na porta. Lista vazia significa zero
+     * cobertura, exatamente, sem depender de a projecao local estar sincronizada com o ACS — nao
+     * ha drift possivel no caso coberto. A autoridade continua la: se algo passar por divergencia
+     * de projecao, o ACS ainda recusa e o outbox registra, que e o comportamento de hoje.
+     *
+     * <p>Um paciente que ja estava sem cuidadora continua podendo ser editado — recusar seria
+     * prende-lo num estado do qual ele nao consegue sair pela unica porta que tem.
+     */
+    private void recusarSeDeixaPacienteSemCobertura(UUID pacienteId, List<UUID> novosCuidadores) {
+        if (!novosCuidadores.isEmpty()) {
+            return;
+        }
+        long cobertura = cuidadorRepository.findByPacienteId(pacienteId).size();
+        if (cobertura == 0) {
+            // Ja estava descoberto. Bloquear aqui nao restauraria cobertura nenhuma; so tornaria o
+            // paciente ineditavel.
+            log.warn(
+                    "Paciente {} ja estava sem cuidadora — update sem cobertura aceito (D-204)",
+                    pacienteId);
+            return;
+        }
+        log.warn(
+                "Recusado: update deixaria o paciente {} sem cuidadora ativa"
+                        + " (tinha {}) — D-204/ADR-010",
+                pacienteId,
+                cobertura);
+        throw new CodedException(
+                        "pac.paciente.sem-cobertura",
+                        "Cannot leave patient "
+                                + pacienteId
+                                + " without an active caregiver (D-204). Add another caregiver"
+                                + " before removing the last one.")
+                .withContext(
+                        Map.of(
+                                "pacienteId", pacienteId.toString(),
+                                "cuidadorasAtivas", cobertura));
+    }
+
 }

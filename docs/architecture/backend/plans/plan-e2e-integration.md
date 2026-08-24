@@ -380,7 +380,7 @@ O módulo de integração E2E está DONE quando:
 | E2E-010 | ✅ DONE — Flow-02 11/11 | 2026-08-22 |
 | E2E-011 | ✅ DONE — Flow-03 25/25 | 2026-08-22 |
 | E2E-012 | ✅ DONE — Flow-04, erasure ponta a ponta | 2026-08-22 |
-| E2E-013 | OPEN | — |
+| E2E-013 | Suíte E2E automatizada (REST Assured) | P2 | 🟡 PARCIAL — 37 cenários verdes contra o stack (2026-08-24) |
 
 ### Issues abertas em 2026-08-23 — as dívidas de §11.2/§11.3 viram backlog rastreado
 
@@ -394,7 +394,7 @@ dívida que ninguém prioriza.
 | E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | ✅ DONE — validado com EDGE fora (2026-08-23) |
 | E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | 🟡 EM REVISÃO — workflows escritos, não validados no GitHub (2026-08-23) |
-| E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
+| E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | ✅ DONE — guarda no PAC, ACS segue dono (ADR-010, 2026-08-24) |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
 | E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | ✅ DONE — validado no stack (2026-08-23) |
@@ -1204,6 +1204,65 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   controllers já tinham sido corrigidos em C-35 e este ficou para trás.
 
   `X-Empresa-Id` segue aceito no PAC por uma versão, com log de depreciação.
+
+- ~~**O PAC aceitava remover a última cuidadora e o ACS recusava (C-47).**~~ — resolvido em
+  2026-08-24 (E2E-028), decisão em [ADR-010](../adr/ADR-010-coverage-invariant-ownership.md):
+  **guarda no PAC, ACS segue dono.** O PAC recusa 422 na porta; o ACS mantém o 409. A alternativa
+  "PAC consulta o ACS antes" seria uma regra só, num lugar só, mas acoplaria a edição de paciente à
+  disponibilidade do ACS — inclusive edições que nada têm a ver com cobertura. O risco da regra
+  duplicada é assumido e mitigado pelo fato de o guarda decidir sobre o dado que vai escrever, não
+  sobre uma projeção: lista vazia é zero cobertura, exatamente, sem drift possível.
+
+  A entrada `failed` do outbox de dev foi triada: **os dois lados já concordam** (`PAC` e `ACS`
+  apontam a mesma cuidadora, `ACTIVE`). Reprocessar seria tentar o `UNLINK` de novo e levar 409 por
+  desenho. A linha fica como registro histórico.
+
+- ~~**Não existe suíte E2E automatizada (E2E-013).**~~ — parcialmente resolvido em 2026-08-24.
+  `backend/services/e2e-tests/` (REST Assured, Opção A), **37 cenários verdes** contra o stack,
+  segregados por `@Tag("e2e")` para não quebrarem `./gradlew build` de quem não tem Docker, com
+  preflight que pula com mensagem clara em vez de falhar com "conexão recusada". Cobre auth,
+  isolamento de tenant nos 7 serviços, a projeção de perfil por dispositivo e o ETag combinado da
+  recalibragem. **Fora**: fluxos que exigem uma fixture factory que ainda não existe (HB, NTF/DSH),
+  o fato de auditoria do HIST (assíncrono, sem correlação exposta na resposta) e o apagamento LGPD
+  (destrutivo num dev compartilhado).
+
+  **Foi essa suíte que encontrou o buraco abaixo** — o primeiro achado dela, no primeiro dia.
+
+- ~~**O `evnt-service` era o único que não conferia `X-Tenant-Id` contra o claim.**~~ — resolvido
+  em 2026-08-24. Header divergente era ignorado e a requisição respondia normalmente, enquanto os
+  outros seis respondem 403 `tenant_mismatch`. Não havia vazamento — o tenant sempre veio do claim
+  assinado —, mas a política divergia, e **passou pela minha auditoria da E2E-021**: verifiquei o
+  cruzamento em seis filtros e no EVNT olhei apenas a lista de claims.
+
+- **9 falhas de `integrationTest` no gest-service, resolvidas** (2026-08-24) — eram 9, não as 4 que
+  eu havia contado ao rodar só um subconjunto das classes. E **nenhuma era schema ausente**, que era
+  o meu palpite; foram três causas distintas: (1) `@Transactional` no teste abre a transação em
+  `beforeTestMethod`, antes do `@BeforeEach`, e o Hibernate fixa o tenant da Session ao nascer — a
+  armadilha do CLAUDE.md ("nunca resolva o tenant dentro de `@Transactional`") vista do lado do
+  teste; (2) o Spring Boot desliga todos os exportadores de métrica dentro de `@SpringBootTest`,
+  então `/actuator/prometheus` dava 404 e não 401; (3) um teste autenticava com HTTP Basic, que não
+  carrega claim de tenant, e auditava o corpo de um erro de infraestrutura achando que auditava um
+  not-found de domínio.
+
+  Junto saiu um defeito real: `deactivateCurrent()` é um UPDATE em massa JPQL que passa ao lado do
+  contexto de persistência — a linha virava `active=false` no banco e a entidade em cache seguia
+  dizendo `active=true`. Corrigido com `@Modifying(clearAutomatically, flushAutomatically)`.
+
+- **`findByVersion()` deixou de ser stub vivo** (2026-08-24). `GET /detection-profile/{version}`
+  respondia 404 eterno. A query derivada `findByVersion(Long)` **já existia** no repositório Spring
+  Data desde o P3 e nunca fora ligada a porta nenhuma — um método vivo, testável e morto.
+
+- **Dívida encontrada e NÃO corrigida no gest-service:** o `bddTest` está **54/54 vermelho**, antes
+  e depois deste trabalho — passos de setup rodam fora do caminho HTTP, sem tenant ligado. E há
+  **100 step definitions com corpo vazio** (`DetectionProfileSteps` 47, `ReportValidationSteps` 28,
+  `EligibilityCheckSteps` 25), gerados e nunca preenchidos: quando o problema do tenant for
+  resolvido, essas features ficarão **verdes sem testar nada**. O CLAUDE.md diz GEST "P1-P9 done";
+  a suíte BDD não sustenta isso.
+
+- **`requiresTenantClaim()` só cobre `JwtAuthenticationToken`.** Um chamador autenticado por HTTP
+  Basic segue sem tenant e recebe 500 do JDBC em vez de um erro que diga o que faltou — o mesmo
+  buraco que a E2E-021 fechou para JWT, ainda aberto para o caminho não-JWT. Fechá-lo viraria 403
+  em todo cenário BDD que usa Basic; é decisão de escopo próprio.
 
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
   `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho

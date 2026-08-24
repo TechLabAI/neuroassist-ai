@@ -174,7 +174,12 @@ class SecurityIT extends BaseIntegrationTest {
                         .subject(subject)
                         .issueTime(new Date())
                         .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
-                        .claim("tenant", tenant)
+                        // E2E-021 tornou "tenant_id" o claim canonico e unico; este teste
+                        // continuou emitindo o alias "tenant". O TenantContextFilter nao o
+                        // encontrava, caia no "sub" ("user-001"), procurava o schema "t_user-001",
+                        // nao achava e devolvia 503 — inclusive nos cenarios que so queriam provar
+                        // 401/403.
+                        .claim("tenant_id", tenant)
                         .claim("scope", String.join(" ", scopes))
                         .build();
 

@@ -25,8 +25,8 @@ public interface PatientCatalogPort {
      *     desconhecida
      * @param porPrimitivo faixa por {@code tipoGestoId} ({@code comando.primitivo_principal_id});
      *     gesto ausente do mapa não tem comando calibrado e usa a faixa padrão
-     * @param degraded {@code true} SÓ quando o PAC não respondeu — nunca quando ele respondeu
-     *     "este paciente não tem catálogo"
+     * @param degraded {@code true} SÓ quando o PAC não respondeu — nunca quando ele respondeu "este
+     *     paciente não tem catálogo"
      */
     record PatientBands(
             Integer catalogoVersao, Map<UUID, Sensibilidade> porPrimitivo, boolean degraded) {

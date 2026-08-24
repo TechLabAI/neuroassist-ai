@@ -15,7 +15,6 @@ import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfi
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfilePrimitiveJpaRepository;
 import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestConstructor;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -49,6 +49,27 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     private final DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
 
+    /**
+     * O tenant precisa estar ligado ANTES de a transação começar.
+     *
+     * <p>{@code @BeforeEach} do JUnit roda <b>depois</b> de o Spring abrir a transação do teste, e
+     * o Hibernate fixa o identificador de tenant da Session no instante em que ela é criada — no
+     * começo da transação. Nos testes sem {@code @Transactional} isso não aparece, porque cada
+     * chamada de porta abre a própria Session já com o contexto ligado. No teste transacional a
+     * Session nascia com o fallback {@code neuroassist_global}, onde as tabelas do GEST não
+     * existem, e a falha vinha como {@code relation "tipo_gesto" does not exist} — ausência de
+     * roteamento disfarçada de schema quebrado.
+     *
+     * <p>É a mesma armadilha registrada no CLAUDE.md ("nunca resolva o tenant dentro de um método
+     * {@code @Transactional}"), do lado do teste. {@code @BeforeTransaction} é o único gancho que
+     * roda antes do início da transação.
+     */
+    @BeforeTransaction
+    void setTenantContextBeforeTransaction() {
+        TenantContextHolder.set(TEST_TENANT);
+    }
+
+    /** Para os testes não transacionais, onde {@code @BeforeTransaction} não é invocado. */
     @BeforeEach
     void setTenantContext() {
         TenantContextHolder.set(TEST_TENANT);
@@ -119,6 +140,46 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
         assertThat(active.get().version()).isEqualTo(11L);
     }
 
+    /**
+     * A leitura por versão tem de achar o perfil <b>desativado</b> — é para isso que ela existe. Um
+     * relatório de gesto cita a versão com que foi detectado, e a essa altura ela quase sempre já
+     * não é a ativa.
+     */
+    @Test
+    @Transactional
+    void findByVersion_findsDeactivatedProfile() {
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
+        TipoGesto supported = createSupportedPrimitive("Piscar Duplo IT", "ref/piscar-duplo-v1");
+
+        DetectionProfile antigo =
+                DetectionProfile.publish(
+                        30L, "v1.1.0", params, List.of(supported), TEST_TENANT, "actor");
+        profilePort.save(antigo);
+        profilePort.deactivateCurrent();
+
+        DetectionProfile atual =
+                DetectionProfile.publish(
+                        31L, "v1.1.0", params, List.of(supported), TEST_TENANT, "actor");
+        profilePort.save(atual);
+
+        Optional<DetectionProfile> found = profilePort.findByVersion(30L);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().version()).isEqualTo(30L);
+        assertThat(found.get().active()).isFalse();
+        assertThat(found.get().thresholds()).isEqualTo(DetectionThresholdTable.defaults());
+        // E a versão ativa continua sendo a outra — a consulta não confunde as duas.
+        assertThat(profilePort.findByVersion(31L))
+                .get()
+                .extracting(DetectionProfile::active)
+                .isEqualTo(true);
+    }
+
+    @Test
+    void findByVersion_unknownVersion_returnsEmpty() {
+        assertThat(profilePort.findByVersion(9_999L)).isEmpty();
+    }
+
     @Test
     void saveAll_primitives_thenFindByProfileId() {
         TipoGesto supported = createSupportedPrimitive("Sorrir IT", "ref/sorrir-v1");
@@ -130,7 +191,8 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
         DetectionProfile savedProfile = profilePort.save(profile);
 
         DetectionProfilePrimitive primitive =
-                DetectionProfilePrimitive.fromSupported(savedProfile.id(), supported, Sensibilidade.alta);
+                DetectionProfilePrimitive.fromSupported(
+                        savedProfile.id(), supported, Sensibilidade.alta);
         List<DetectionProfilePrimitive> savedPrimitives = primitivePort.saveAll(List.of(primitive));
 
         List<DetectionProfilePrimitive> found = primitivePort.findByProfileId(savedProfile.id());

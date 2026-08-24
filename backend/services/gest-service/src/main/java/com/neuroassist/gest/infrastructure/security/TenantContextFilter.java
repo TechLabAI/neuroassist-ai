@@ -45,6 +45,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
      * ao GEST resolver o tenant como nulo.
      */
     private static final String JWT_CLAIM_TENANT_ID = "tenant_id";
+
     private static final String HEADER_TENANT_ID = "X-Tenant-Id";
     private static final String HEADER_CORRELATION_ID = "X-Correlation-Id";
     private static final String MDC_CORRELATION_KEY = "correlationId";
@@ -227,5 +228,4 @@ public class TenantContextFilter extends OncePerRequestFilter {
         response.setContentType("application/json");
         response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
     }
-
 }
