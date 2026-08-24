@@ -2,6 +2,7 @@ package com.neuroassist.pac.application.service;
 
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
 import com.neuroassist.pac.application.port.out.AcsDirectoryPort;
+import com.neuroassist.pac.application.port.out.AcsLinkPort;
 import com.neuroassist.pac.application.port.out.CallerAuthoritiesPort;
 import com.neuroassist.pac.application.port.out.DirectoryOutboxPort;
 import com.neuroassist.pac.application.port.out.EdgeDevicePort;
@@ -45,6 +46,7 @@ public class PacienteService implements PacienteUseCase {
     private final AcsDirectoryPort acsDirectoryPort;
     private final HistErasurePort histErasurePort;
     private final CallerAuthoritiesPort callerAuthoritiesPort;
+    private final AcsLinkPort acsLinkPort;
 
     /**
      * Creates a new Paciente scoped to the current tenant.
@@ -219,6 +221,38 @@ public class PacienteService implements PacienteUseCase {
         }
 
         histErasurePort.erasePatientData(id, tenantId);
+
+        // Revogar o acesso vem DEPOIS do HIST e ANTES de anonimizar aqui, pela mesma logica que ja
+        // ordenava o HIST primeiro: os sistemas externos sao pedidos enquanto o dado local ainda
+        // existe, porque e ele que uma retentativa precisaria. Falhar aqui deixa a requisicao
+        // retentavel como um todo — nada foi anonimizado ainda.
+        //
+        // POR QUE ISTO PRECISOU EXISTIR: o apagamento removia o dado pessoal e deixava o vinculo
+        // ATIVO no ACS. A associacao "esta cuidadora cuida desta pessoa" sobrevivia ao apagamento
+        // da pessoa — e associacao e dado. No dev havia 7 casos assim.
+        //
+        // Nao passa pelo outbox de propósito: o outbox existe para a propagacao de alto volume das
+        // edicoes, onde falhar em silencio e aceitavel porque ha reentrega. Apagamento e raro,
+        // deliberado e irreversivel; aqui falhar alto e o comportamento certo.
+        AcsLinkPort.Outcome desvinculo = acsLinkPort.revokeAllForErasedPatient(id);
+        if (desvinculo != AcsLinkPort.Outcome.ACCEPTED) {
+            log.error(
+                    "Apagamento do paciente {} abortado: o ACS nao revogou os vinculos ({}). O dado"
+                            + " local NAO foi anonimizado — a operacao segue retentavel.",
+                    id,
+                    desvinculo);
+            throw new CodedException(
+                            "pac.paciente.erasure-vinculo-falhou",
+                            "Could not revoke caregiver links for patient "
+                                    + id
+                                    + " — erasure aborted so the request stays retryable")
+                    .withContext(Map.of("pacienteId", id.toString(), "outcome", desvinculo.name()));
+        }
+
+        // A projecao local acompanha: o vinculo aqui espelha acesso, e o acesso acabou de ser
+        // revogado. O registro de que houve cuidado vive no HIST, que e append-only — nao nesta
+        // tabela.
+        cuidadorRepository.deleteByPacienteId(id);
 
         Instant now = Instant.now();
         Paciente erased =

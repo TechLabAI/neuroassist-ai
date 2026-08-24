@@ -63,4 +63,16 @@ public interface AcsLinkClient {
     void revokeLink(
             @PathVariable("cuidadorId") UUID cuidadorId,
             @PathVariable("pacienteId") UUID pacienteId);
+
+    /**
+     * Revoga TODOS os vinculos de um paciente cujos dados foram apagados (LGPD).
+     *
+     * <p>Endpoint separado do {@code revokeLink} porque e a unica operacao que atravessa a
+     * invariante D-204 — revogar o ultimo vinculo pelo caminho normal responde 409, e para um
+     * paciente apagado essa recusa nao faz sentido: nao ha alarme a proteger. Exige a authority
+     * {@code acs.vinculo.revogar-apagamento}, que nenhum papel humano possui.
+     */
+    @DeleteMapping("/api/v1/acs/patients/{pacienteId}/links")
+    void revokeAllForErasedPatient(@PathVariable("pacienteId") UUID pacienteId);
+
 }

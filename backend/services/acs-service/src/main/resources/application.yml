@@ -142,6 +142,15 @@ acs:
         # O dreno roda num @Scheduled — não há chamador de quem herdar token.
         - acs.vinculo.criar
         - acs.vinculo.revogar
+        # PAC->ACS: revogar TODOS os vinculos de um paciente apagado (LGPD).
+        #
+        # Separada de acs.vinculo.revogar de proposito: esta e a unica authority do sistema que
+        # atravessa a invariante D-204 (nao deixar paciente sem cuidadora). A invariante protege o
+        # caminho do alarme de um paciente vivo; um paciente apagado nao produz alarme, e manter o
+        # vinculo apenas preservaria a associacao que o apagamento se propos a remover.
+        #
+        # NENHUM papel humano a tem, e ha teste percorrendo todos os papeis para garantir isso.
+        - acs.vinculo.revogar-apagamento
         # PAC→ACS→PAC: `createLink` resolve o paciente chamando de volta o pac-service
         # (PacPatientResolveClient), propagando o token de quem chamou o ACS — que neste
         # caminho é o próprio pac-service. Sem esta authority a chamada volta 403, o ACS

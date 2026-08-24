@@ -40,6 +40,12 @@ public class CrossAspectArchTest {
                     "acs.autenticacao.autenticar",
                     "acs.vinculo.criar",
                     "acs.vinculo.revogar",
+                    // Revoga TODOS os vinculos de um paciente apagado (LGPD), atravessando a
+                    // invariante D-204 — a unica authority do sistema que faz isso. Separada de
+                    // acs.vinculo.revogar de proposito, e concedida apenas ao cliente de servico
+                    // do pac-service: RoleAuthorityPolicyTest percorre todos os papeis humanos
+                    // afirmando a ausencia dela.
+                    "acs.vinculo.revogar-apagamento",
                     "acs.cuidador.criar",
                     "acs.cuidador.desativar",
                     "acs.cuidador.read",

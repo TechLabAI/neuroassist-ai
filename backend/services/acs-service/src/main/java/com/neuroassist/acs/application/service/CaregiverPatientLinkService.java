@@ -15,6 +15,7 @@ import com.neuroassist.acs.shared.error.TenantMismatchException;
 import com.neuroassist.acs.shared.error.UnknownPatientException;
 import com.neuroassist.acs.shared.error.UpstreamUnavailableException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -182,6 +183,54 @@ public class CaregiverPatientLinkService implements CaregiverPatientLinkUseCase 
                 cuidadorId,
                 pacienteId);
         return toResponse(saved);
+    }
+
+    /**
+     * Revoga todos os vinculos ativos de um paciente apagado (LGPD).
+     *
+     * <p><b>Nao chama {@code countActiveByPacienteId}, e essa ausencia e o ponto.</b> A invariante
+     * D-204 garante que um paciente sempre tenha alguem para quem seu alarme va; um paciente cujos
+     * dados foram apagados nao produz mais alarme. Aplicar a invariante aqui protegeria um caminho
+     * que nao existe mais, ao preco de manter viva a associacao "esta cuidadora cuida desta
+     * pessoa" — justamente o que o apagamento se propos a remover.
+     *
+     * <p>Que isto seja um metodo separado, com authority separada, e deliberado: e a unica porta
+     * do sistema que atravessa uma invariante SAFETY-CRITICAL, e ela tem de ser visivel como tal.
+     *
+     * <p>Idempotente: sem vinculos ativos, devolve zero.
+     */
+    @Override
+    @Transactional
+    public int revokeAllForErasedPatient(UUID pacienteId) {
+        TenantContextHolder.require(); // RULE-07
+
+        List<CaregiverPatientLink> ativos = linkRepository.findActiveByPacienteId(pacienteId);
+        if (ativos.isEmpty()) {
+            log.info("Paciente {} apagado nao tinha vinculos ativos — nada a revogar", pacienteId);
+            return 0;
+        }
+
+        Instant agora = Instant.now();
+        for (CaregiverPatientLink link : ativos) {
+            linkRepository.save(
+                    new CaregiverPatientLink(
+                            link.id(),
+                            link.tenantId(),
+                            link.cuidadorId(),
+                            link.pacienteId(),
+                            LinkStatus.REVOKED,
+                            link.criadoEm(),
+                            agora));
+        }
+
+        // ERROR e nao INFO: atravessar D-204 e raro e irreversivel, e quem investigar um incidente
+        // depois precisa achar esta linha sem procurar.
+        log.error(
+                "LGPD: {} vinculo(s) revogado(s) para o paciente apagado {} — invariante D-204"
+                        + " deliberadamente atravessada (paciente apagado nao produz alarme)",
+                ativos.size(),
+                pacienteId);
+        return ativos.size();
     }
 
     @Override

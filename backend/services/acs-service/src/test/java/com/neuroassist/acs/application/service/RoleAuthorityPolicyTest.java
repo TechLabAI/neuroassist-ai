@@ -119,6 +119,27 @@ class RoleAuthorityPolicyTest {
     }
 
     /**
+     * A authority que ATRAVESSA a invariante D-204 nao pode pertencer a pessoa nenhuma.
+     *
+     * <p>{@code acs.vinculo.revogar-apagamento} revoga todos os vinculos de um paciente sem
+     * verificar cobertura — legitimo apenas para um paciente apagado, que nao produz alarme. E a
+     * unica porta do sistema que passa por cima de uma invariante marcada SAFETY-CRITICAL, e existe
+     * so no cliente de servico do pac-service.
+     *
+     * <p>Este teste afirma ausencia justamente porque conceder a alguem seria facil e silencioso.
+     */
+    @Test
+    void authorityDeApagamentoNaoPertenceANenhumPapelHumano() {
+        for (CuidadorPapel papel : CuidadorPapel.values()) {
+            assertThat(policy.toAuthorities(papel))
+                    .as(
+                            "papel %s nao pode atravessar a invariante de cobertura (D-204)",
+                            papel)
+                    .doesNotContain("acs.vinculo.revogar-apagamento");
+        }
+    }
+
+    /**
      * No caregiver role may write audit facts.
      *
      * <p>Audit facts are written by services, not humans: pac-service authenticates to hist-service

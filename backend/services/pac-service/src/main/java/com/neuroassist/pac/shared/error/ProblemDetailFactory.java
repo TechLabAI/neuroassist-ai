@@ -106,6 +106,14 @@ public final class ProblemDetailFactory {
                     // o ACS ia recusar depois — o que deixava os dois bancos discordando.
                     // Editar paciente e vincular cuidadoras chegam pelo mesmo PUT, mas sao
                     // capacidades diferentes: a cuidadora edita, so a coordenadora vincula.
+                    // Apagamento abortado porque o ACS nao revogou os vinculos. 503 e nao 500:
+                    // o estado local segue intacto e a operacao e retentavel.
+                    Map.entry(
+                            "pac.paciente.erasure-vinculo-falhou",
+                            new ErrorMetadata(
+                                    "upstream_error",
+                                    503,
+                                    "Could not revoke caregiver links — erasure aborted")),
                     Map.entry(
                             "pac.paciente.vinculo-nao-autorizado",
                             new ErrorMetadata(

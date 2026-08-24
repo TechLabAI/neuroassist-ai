@@ -23,6 +23,18 @@ public interface AcsLinkPort {
     Outcome unlink(UUID pacienteId, UUID cuidadorId);
 
     /**
+     * Revoga TODOS os vinculos de um paciente apagado (LGPD).
+     *
+     * <p>Atravessa a invariante D-204 no ACS, de proposito e por uma porta propria: a invariante
+     * protege o caminho do alarme de um paciente vivo, e um paciente apagado nao produz alarme.
+     * Manter o vinculo preservaria a associacao "esta cuidadora cuida desta pessoa", que e
+     * exatamente o que o apagamento se propos a remover.
+     *
+     * @return {@link Outcome#ACCEPTED} quando o ACS confirmou (inclusive com zero vinculos)
+     */
+    Outcome revokeAllForErasedPatient(UUID pacienteId);
+
+    /**
      * Three states, deliberately, instead of a boolean.
      *
      * <p>The EDGE paid for the two-state version: a 403 from a downstream service was

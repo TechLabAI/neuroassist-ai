@@ -62,7 +62,9 @@ class CoberturaGuardTest {
                         org.mockito.Mockito.mock(HistErasurePort.class),
                         // Coordenadora: pode vincular. O guarda de cobertura e outra
                         // invariante e nao tem excecao por permissao.
-                        a -> true);
+                        a -> true,
+                        org.mockito.Mockito.mock(
+                                com.neuroassist.pac.application.port.out.AcsLinkPort.class));
         TenantContextHolder.set(TENANT);
     }
 

@@ -66,4 +66,6 @@ public class CaregiverPatientLinkController {
                 caregiverPatientLinkUseCase.revokeLink(cuidadorId, pacienteId);
         return ResponseEntity.ok(response);
     }
+
+
 }

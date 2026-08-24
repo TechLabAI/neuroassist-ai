@@ -51,6 +51,17 @@ public class AcsLinkAdapter implements AcsLinkPort {
         }
     }
 
+    @Override
+    public Outcome revokeAllForErasedPatient(UUID pacienteId) {
+        try {
+            acsLinkClient.revokeAllForErasedPatient(pacienteId);
+            return Outcome.ACCEPTED;
+        } catch (Exception e) {
+            // cuidadorId nulo: a operacao e sobre o paciente inteiro, nao sobre um vinculo.
+            return classify(e, "revoke-all-erased", pacienteId, null);
+        }
+    }
+
     private Outcome classify(Exception e, String operation, UUID pacienteId, UUID cuidadorId) {
         if (e instanceof feign.FeignException fe && fe.status() >= 400 && fe.status() < 500) {
             log.error(

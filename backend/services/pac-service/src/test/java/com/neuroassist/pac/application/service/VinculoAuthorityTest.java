@@ -64,7 +64,8 @@ class VinculoAuthorityTest {
                         mock(EdgeDevicePort.class),
                         mock(AcsDirectoryPort.class),
                         mock(HistErasurePort.class),
-                        callerAuthorities);
+                        callerAuthorities,
+                        mock(com.neuroassist.pac.application.port.out.AcsLinkPort.class));
         TenantContextHolder.set(TENANT);
 
         Paciente p =
