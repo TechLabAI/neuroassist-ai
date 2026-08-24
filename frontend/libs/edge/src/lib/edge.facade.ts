@@ -23,6 +23,7 @@ import {
   edgeErrorMessage,
   isEdgeConflict,
   isEdgeTransient,
+  deveAvisarPorToast,
 } from './edge-error-messages';
 import {
   DispositivoEdgeView,
@@ -418,10 +419,17 @@ export class DeviceFacade {
       return; // conflito não é falha de conexão: não oferecer "tentar novamente"
     }
 
-    this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-      label: 'Tentar novamente',
-      callback: reexecutar,
-    });
+    // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+    // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+    // Tente novamente." com botão de repetir — inclusive um 403, que não é
+    // temporário e não melhora com insistência. O aviso mentia sobre a
+    // causa e oferecia uma saída que não existe; quem perdeu permissão
+    // ficava clicando.
+    if (isEdgeTransient(err)) {
+      this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, { label: 'Tentar novamente', callback: reexecutar });
+    } else if (deveAvisarPorToast(err)) {
+      this.toast?.show(edgeErrorMessage(err));
+    }
   }
 
   /** Re-busca o dispositivo preservando a mensagem de conflito já exibida. */

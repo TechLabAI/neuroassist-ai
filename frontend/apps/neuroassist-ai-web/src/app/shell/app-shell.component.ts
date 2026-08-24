@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
+import { ToastOutletComponent } from '@neuroassist/shared/ui-feedback';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './sidebar.component';
 import { TopbarComponent } from './topbar.component';
@@ -30,11 +31,19 @@ import { EdgeShellIntegrationService } from '@neuroassist/edge';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, TopbarComponent, AlarmOverlayComponent],
+  imports: [ToastOutletComponent, RouterOutlet, SidebarComponent, TopbarComponent, AlarmOverlayComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Overlay global de alarme (camada de interrupção ADR-005) — acima de sidebar, topbar e outlet -->
     <evnt-alarm-overlay />
+
+    <!--
+      Avisos passageiros. Montado UMA vez, aqui, e não por tela: o contêiner com
+      aria-live precisa já existir no DOM quando o texto entra, senão o leitor
+      de tela não anuncia. Fica ABAIXO do alarme na ordem de importância — o
+      alarme interrompe, o aviso informa.
+    -->
+    <ui-toast-outlet />
 
     <div class="grid h-screen grid-cols-[auto_1fr] overflow-hidden">
       <app-sidebar />

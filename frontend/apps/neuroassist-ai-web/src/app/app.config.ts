@@ -14,7 +14,8 @@ import { providePac } from '@neuroassist/pac';
 import { provideAcs, acsHttpInterceptorFn, ACS_AUTH_SESSION } from '@neuroassist/acs';
 import { provideAuth, authBearerInterceptorFn } from '@neuroassist/shared/auth-login';
 import { AuthSessionStore } from '@neuroassist/shared/auth-session';
-import { provideEdge, EDGE_ACCESS_DECISION } from '@neuroassist/edge';
+import { provideEdge, EDGE_ACCESS_DECISION, EDGE_TOAST_TOKEN } from '@neuroassist/edge';
+import { ToastService } from '@neuroassist/shared/ui-feedback';
 import { provideHist } from '@neuroassist/hist';
 import {
   provideDash,
@@ -119,6 +120,27 @@ export const appConfig: ApplicationConfig = {
       useFactory: () => {
         const sessao = inject(AuthSessionStore);
         return { can: (permissao: string) => sessao.pode(permissao) };
+      },
+    },
+    // A superfície de aviso do SPEC-07 passa a EXISTIR.
+    //
+    // As facades do EDGE fazem `this.toast?.show(...)` com `inject(..., {optional:true})`,
+    // e ninguém providenciava o token: `undefined?.show()` — silêncio. Uma
+    // cuidadora sem permissão de gerenciar dispositivo clicava, tomava 403 e a
+    // tela não dizia nada. O `?.` fazia isso passar por tratamento de erro.
+    //
+    // A adaptação de assinatura fica aqui, e não no ToastService: o contrato do
+    // EDGE é `show(mensagem, acao?)` com ação `{label, callback}`, e é ele quem
+    // deve se acomodar ao serviço compartilhado — não o contrário.
+    {
+      provide: EDGE_TOAST_TOKEN,
+      useFactory: () => {
+        const toasts = inject(ToastService);
+        return {
+          show: (mensagem: string, acao?: { label: string; callback: () => void }) => {
+            toasts.show(mensagem, acao);
+          },
+        };
       },
     },
     // ADR-007: o motor de detecção é o browser (MediaPipe), não mais a ponte com

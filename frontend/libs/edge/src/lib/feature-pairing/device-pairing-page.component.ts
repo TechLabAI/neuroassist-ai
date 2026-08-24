@@ -10,6 +10,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PairingFacade } from '../edge-pairing.facade';
+import { EdgeActivePatientService } from '../integration/edge-active-patient.service';
 import { PairedDeviceOutcome } from '@neuroassist/shared/contracts';
 import { PairingCodeCardComponent } from './pairing-code-card.component';
 import { PairingProgressComponent } from './pairing-progress.component';
@@ -144,6 +145,7 @@ import { PairingResultComponent } from './pairing-result.component';
 })
 export class DevicePairingPageComponent implements OnDestroy {
   protected readonly facade = inject(PairingFacade);
+  private readonly pacienteAtivoStore = inject(EdgeActivePatientService);
 
   /**
    * Optional paciente hint from onboarding step-3 host (SPEC-01 §4).
@@ -181,10 +183,14 @@ export class DevicePairingPageComponent implements OnDestroy {
   });
 
   protected onRegister(): void {
-    const hint = this._pacienteHint();
+    // Quem compõe manda; fora do assistente, vale o paciente que o shell está
+    // exibindo. Sem esta segunda fonte, a página avulsa pedia o código e o fluxo
+    // morria depois dele: `pairToPatient` só roda com um paciente, e nenhum
+    // chegava aqui. Um dispositivo sem paciente não significa nada.
+    const paciente = this._pacienteHint() ?? this.pacienteAtivoStore.pacienteAtivo();
     this.facade.register(
       'Dispositivo NeuroAssist',
-      hint ?? undefined,
+      paciente ?? undefined,
     );
   }
 

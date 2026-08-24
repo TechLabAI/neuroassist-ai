@@ -308,3 +308,19 @@ export function isEdgeTransient(err: unknown): boolean {
   const status = (err as ErroHttpParcial | null)?.status ?? 0;
   return status === 0 || status === 408 || status === 429 || status >= 500;
 }
+
+/**
+ * Este erro deve aparecer como AVISO passageiro?
+ *
+ * <p>Quem decide é a tabela do SPEC-07, que já declara a `surface` de cada erro
+ * — e não o ponto de chamada. Sem esta pergunta, as facades mostravam aviso para
+ * TUDO, e um 400 de validação aparecia duas vezes: no banner ao lado do campo,
+ * que é o lugar dele, e num aviso no canto da tela. Repetir a mesma frase em
+ * dois lugares faz a pessoa procurar dois problemas.
+ *
+ * <p>Erro transiente é caso à parte: a superfície dele é aviso E ele merece
+ * "Tentar novamente", porque repetir pode de fato adiantar.
+ */
+export function deveAvisarPorToast(err: unknown): boolean {
+  return edgeErrorConfigFromHttp(err)?.surface === 'toast';
+}

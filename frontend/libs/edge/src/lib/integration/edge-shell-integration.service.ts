@@ -1,5 +1,6 @@
 import { Injectable, inject, Signal, Type } from '@angular/core';
 import { DeviceFacade } from '../edge.facade';
+import { EdgeActivePatientService } from './edge-active-patient.service';
 import { PairingFacade } from '../edge-pairing.facade';
 import { DeviceConnectivityVM, PairingPhase } from '@neuroassist/shared/contracts';
 import { DevicePairingPageComponent } from '../feature-pairing/device-pairing-page.component';
@@ -20,6 +21,8 @@ export class EdgeShellIntegrationService {
   private readonly deviceFacade = inject(DeviceFacade);
   private readonly pairingFacade = inject(PairingFacade);
   private registered = false;
+
+  private readonly pacienteAtivoStore = inject(EdgeActivePatientService);
 
   /** Register the EDGE module descriptor with the shell registry.
    * Called from edgeBootstrap.init() (SPEC-06 §4). Idempotent. */
@@ -58,6 +61,7 @@ export class EdgeShellIntegrationService {
   startConnectivityForActivePatient(pacienteId: string): void {
     // `ambiente: true` — ninguém pediu esta chamada; ela alimenta o chip. Ver
     // DeviceFacade.resolveForActivePatient.
+    this.pacienteAtivoStore.definir(pacienteId);
     this.deviceFacade.resolveForActivePatient(pacienteId, true);
     this.deviceFacade.startPolling();
   }

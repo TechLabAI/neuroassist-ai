@@ -28,7 +28,7 @@ import {
   DispositivoEdgeView,
 } from '@neuroassist/shared/contracts';
 import { MODULE_FEATURE_FLAGS } from './edge.facade';
-import { edgeErrorMessage, isEdgeTransient } from './edge-error-messages';
+import { edgeErrorMessage, isEdgeTransient, deveAvisarPorToast } from './edge-error-messages';
 import { ObservabilityService } from '@neuroassist/shared/observability';
 
 // ---------------------------------------------------------------------------
@@ -152,10 +152,20 @@ export class PairingFacade {
               'Não foi possível registrar o dispositivo. Tente novamente.',
             ),
           }));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.register(label, pacienteHint),
-          });
+          // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+          // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+          // Tente novamente." com botão de repetir — inclusive um 403, que não é
+          // temporário e não melhora com insistência. O aviso mentia sobre a
+          // causa e oferecia uma saída que não existe; quem perdeu permissão
+          // ficava clicando.
+          if (isEdgeTransient(err)) {
+            this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+              label: 'Tentar novamente',
+              callback: () => this.register(label, pacienteHint),
+            });
+          } else if (deveAvisarPorToast(err)) {
+            this.toast?.show(edgeErrorMessage(err));
+          }
         },
       });
   }
@@ -191,10 +201,20 @@ export class PairingFacade {
               'Falha ao parear com o paciente. Tente novamente.',
             ),
           }));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.pairToPatient(pacienteId),
-          });
+          // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+          // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+          // Tente novamente." com botão de repetir — inclusive um 403, que não é
+          // temporário e não melhora com insistência. O aviso mentia sobre a
+          // causa e oferecia uma saída que não existe; quem perdeu permissão
+          // ficava clicando.
+          if (isEdgeTransient(err)) {
+            this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+              label: 'Tentar novamente',
+              callback: () => this.pairToPatient(pacienteId),
+            });
+          } else if (deveAvisarPorToast(err)) {
+            this.toast?.show(edgeErrorMessage(err));
+          }
         },
       });
   }
