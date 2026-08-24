@@ -8,7 +8,6 @@ import org.hibernate.cfg.AvailableSettings;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 
 /**
  * Wires Hibernate multi-tenancy beans into Spring's JPA auto-config (D-071). Strategy comes from
@@ -16,7 +15,6 @@ import org.springframework.context.annotation.Profile;
  * Disabled in poc profile — single fixed schema via hibernate.default_schema.
  */
 @Configuration
-@Profile("!poc")
 @RequiredArgsConstructor
 public class HibernateMultiTenancyConfig {
 

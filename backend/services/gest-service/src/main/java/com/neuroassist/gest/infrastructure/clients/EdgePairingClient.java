@@ -2,7 +2,6 @@ package com.neuroassist.gest.infrastructure.clients;
 
 import java.util.UUID;
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.PathVariable;
  * heartbeat — therefore went nowhere. Registered as debt in plan-e2e-integration.md §11.2 since
  * Sessão 2.
  */
-@Profile("!poc")
 @FeignClient(
         name = "edge-pairing-client",
         url = "${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}")
