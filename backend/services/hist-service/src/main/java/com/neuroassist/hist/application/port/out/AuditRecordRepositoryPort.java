@@ -15,12 +15,6 @@ import java.util.UUID;
 public interface AuditRecordRepositoryPort {
 
     /**
-     * Persists a new audit record (write-once semantics). Prefer {@link AuditLedgerPort#insert} for
-     * the primary ingestion path.
-     */
-    AuditRecord save(AuditRecord entity);
-
-    /**
      * Fetches a single record by HIST-owned id within the given tenant. Cross-tenant leakage is
      * prevented by always requiring {@code tenantId}.
      */

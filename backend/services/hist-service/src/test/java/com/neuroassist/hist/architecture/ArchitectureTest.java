@@ -91,4 +91,25 @@ public class ArchitectureTest {
                     .dependOnClassesThat()
                     .haveFullyQualifiedName(
                             "org.springframework.web.reactive.function.client.WebClient");
+
+    // RULE-E2E-024: no adapter in infrastructure.persistence.adapter may throw
+    // UnsupportedOperationException.  An adapter whose only body is "throw new
+    // UnsupportedOperationException(...)" lies about runtime capability and makes every
+    // module gate green while the feature is actually missing (E2E-024).
+    //
+    // Detection: at bytecode level, "throw new UnsupportedOperationException(...)" compiles
+    // to a constructor call on that class.  Checking that no adapter class has a bytecode
+    // dependency on UnsupportedOperationException catches all such stubs.
+    @ArchTest
+    static final ArchRule ruleNoUnimplementedAdapters =
+            ArchRuleDefinition.noClasses()
+                    .that()
+                    .resideInAPackage("..infrastructure.persistence.adapter..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveFullyQualifiedName("java.lang.UnsupportedOperationException")
+                    .because(
+                            "adapters must be fully implemented — a stub that throws"
+                                    + " UnsupportedOperationException lies about capability"
+                                    + " (E2E-024). Implement the adapter or remove it.");
 }

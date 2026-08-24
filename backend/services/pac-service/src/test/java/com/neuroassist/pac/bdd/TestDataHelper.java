@@ -172,9 +172,25 @@ public class TestDataHelper {
     }
 
     /** Convenience: creates a Comando with default primitives (gst-001), rotina urgency. */
+    /**
+     * Comando com primitiva <b>derivada do estado</b>, e não fixa em {@code gst-001} (E2E-022).
+     *
+     * <p>A versão anterior usava sempre a mesma primitiva e a mesma necessidade. Um cenário que
+     * cria quatro comandos do mesmo paciente em estados diferentes produzia então quatro
+     * mapeamentos idênticos — e o schema real proíbe: {@code ux_comando_active_mapping} é um índice
+     * único parcial sobre (paciente, primitiva principal, primitiva secundária, necessidade) para
+     * todo estado {@code <> 'retired'} (ADR-006).
+     *
+     * <p>Com {@code ddl-auto=create-drop} o Hibernate nunca criava esse índice, então a fixture
+     * descrevia um estado que produção rejeita e ninguém notava. Foi o primeiro achado de E2E-022.
+     *
+     * <p>Os cenários que usam esta sobrecarga são sobre <i>ciclo de vida</i>, não sobre unicidade
+     * de mapeamento — qual primitiva é irrelevante para eles, desde que sejam distintas. Quem
+     * precisa de uma primitiva específica usa a sobrecarga completa.
+     */
     public UUID createComando(UUID pacienteId, String empresaId, String estado) {
-        UUID gst001 = UUID.nameUUIDFromBytes("gst-001".getBytes());
-        return createComando(pacienteId, empresaId, estado, "rotina", 0, gst001, null);
+        UUID primitiva = UUID.nameUUIDFromBytes(("gst-" + estado).getBytes());
+        return createComando(pacienteId, empresaId, estado, "rotina", 0, primitiva, null);
     }
 
     /** Convenience: creates a Comando with specific urgency and default primitives. */

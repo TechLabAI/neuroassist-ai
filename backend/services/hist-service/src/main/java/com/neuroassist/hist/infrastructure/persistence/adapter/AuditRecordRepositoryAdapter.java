@@ -31,13 +31,6 @@ public class AuditRecordRepositoryAdapter implements AuditRecordRepositoryPort {
     private final AuditLedgerAdapter auditLedgerAdapter;
 
     @Override
-    public AuditRecord save(AuditRecord entity) {
-        // Not used by the primary ingestion path (AuditLedgerAdapter handles inserts).
-        throw new UnsupportedOperationException(
-                "AuditRecordRepositoryAdapter.save — use AuditLedgerPort.insert for ingestion");
-    }
-
-    @Override
     public Optional<AuditRecord> findById(UUID id, String tenantId) {
         // Queries with both id AND tenantId to enforce row-level isolation in addition to
         // schema-level search_path routing (MultiTenantConnectionProvider sets search_path).
