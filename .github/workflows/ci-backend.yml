@@ -9,6 +9,9 @@
 #      whose integrationTest task uses Testcontainers/PostgreSQL, not a delegate).
 #   4. An explicit canary verifies that a new file placed in application/port/out/
 #      would NOT be gitignored — catching any future regression of the out/ pattern.
+#   5. The two webcam edge agents still agree on the EAR/BRI thresholds and math.
+#      The frozen paper artifact keeps its own self-contained copy on purpose, so a
+#      guard — not an import — is what keeps it from drifting (E2E-032).
 #
 # Services and tasks verified (as of E2E-027):
 #
@@ -35,11 +38,13 @@ on:
     branches: [dev, dev/backend, release, prod]
     paths:
       - 'backend/**'
+      - 'docs/paper/artifacts/poc-edge-agent-webcam.py'   # vigiado por edge-agent-drift (E2E-032)
       - '.github/workflows/ci-backend.yml'
   pull_request:
     branches: [dev, release, prod]
     paths:
       - 'backend/**'
+      - 'docs/paper/artifacts/poc-edge-agent-webcam.py'
       - '.github/workflows/ci-backend.yml'
 
 defaults:
@@ -213,3 +218,33 @@ jobs:
 
           COUNT=$(git ls-files 'backend/services/*/src/main/java/**/application/port/out/*.java' 2>/dev/null | wc -l)
           echo "OK: $COUNT committed application/port/out/*.java file(s) — none are gitignored."
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 4 — Edge agent drift (E2E-032)
+  # backend/edge_agent_core.py is the single source of the EAR/BRI thresholds and
+  # math. edge-agent-ws.py imports it, so it cannot drift. The frozen paper artifact
+  # keeps a self-contained copy — a reproduction artifact that depended on a backend
+  # module would stop being reproducible on its own — and that copy is what this job
+  # watches. Comparison is by normalized AST: comments and formatting are free, a
+  # changed threshold or a changed operation is not.
+  # ─────────────────────────────────────────────────────────────────────────────
+  edge-agent-drift:
+    name: Edge agent drift — EAR/BRI single source
+    runs-on: ubuntu-latest
+    # Pure AST parsing — no mediapipe, no opencv, no numpy, no build output.
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Thresholds and math agree across both edge agents
+        shell: bash
+        run: python backend/scripts/check_edge_agent_drift.py

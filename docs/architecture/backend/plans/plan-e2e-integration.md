@@ -406,6 +406,7 @@ dívida que ninguém prioriza.
 | E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | ✅ DONE — drops aplicados no dev (2026-08-23) |
 | E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
+| E2E-032 | Limiares EAR/BRI duplicados em dois agentes de borda (C-53) | P2 | ✅ DONE — fonte única + guarda de drift no CI (2026-08-24) |
 
 ---
 
@@ -1095,6 +1096,22 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
   (exige retorno reativo) e deveria sair ou ganhar dono. Texto original: A configuração `resilience4j` do serviço —
   breakers e time limiters — é inteiramente decorativa: `grep @CircuitBreaker` no `src/main` do
   dash-service não retorna nada. As chamadas a ACS/PAC/EVNT/HIST/EDGE não têm proteção alguma.
+- ~~**Os limiares EAR/BRI viviam em dois arquivos que ninguém sincronizava (C-53).**~~ — resolvido
+  em 2026-08-24 (E2E-032). `edge-agent-ws.py` (ponte do laço de calibração) e
+  `poc-edge-agent-webcam.py` (detecção sempre-ligada, hoje aparato congelado) tinham cada um sua
+  cópia de 17 limiares/índices e das três funções de EAR/BRI. Não haviam divergido ainda — `_dist`
+  e `compute_ear` eram idênticas byte a byte, `compute_bri` diferia só em docstring — mas nada
+  impedia, e a divergência seria silenciosa: a cuidadora calibraria um gesto com limiares que o
+  caminho do alarme não usa. `backend/edge_agent_core.py` passou a ser a fonte; a ponte importa;
+  o artefato segue autocontido de propósito (reprodução do experimento) e é vigiado por
+  `check_edge_agent_drift.py`, que compara por AST normalizado e roda no `ci-backend.yml`.
+  `COOLDOWN_SECONDS` fica fora da fonte por decisão — 1,5 s na calibração contra 3,0 s no agente
+  sempre-ligado é divergência intencional. **Fica aberto o achado adjacente:** o perfil publicado
+  pelo GEST (`DetectionProfilePrimitive`) não carrega sensibilidade alguma — diz *quais* gestos
+  estão ativos, não *com que sensibilidade* detectá-los —, enquanto o PAC tem `sensibilidade` por
+  comando. Há um conceito de sensibilidade no sistema que nunca chega ao agente de borda, e ALS
+  afeta cada pessoa de forma diferente.
+
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
   `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho
   (ADR-004). O ganho pertence a quem tem onde cachear — o navegador ou um proxy à frente do EDGE.

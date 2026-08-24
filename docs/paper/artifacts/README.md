@@ -49,8 +49,19 @@ Nenhum desses é citado pelo paper nem carregado pelos scripts de medição.
 
 ## Relação com `backend/edge-agent-ws.py`
 
-O `edge-agent-ws.py` **continua no backend** e não é PoC: é a ponte WebSocket do laço de calibração
-interativa (GEST-FE-007 / GEST-INT-004). Ele duplica os limiares EAR/BRI deste agente em vez de
-importá-los — o hífen no nome do arquivo impede `import` direto. É duplicação conhecida, registrada
-no cabeçalho dele; mudá-la exigiria renomear este arquivo, que é justamente o que a citação do
-paper impede por ora.
+O `edge-agent-ws.py` **continua no backend** e não é PoC: é a ponte WebSocket do laço de
+calibração interativa (GEST-FE-007 / GEST-INT-004).
+
+Ele duplicava os limiares EAR/BRI deste agente. Não duplica mais (E2E-032): a fonte é
+`backend/edge_agent_core.py`, e a ponte importa dali.
+
+**Este arquivo continua com a cópia própria, de propósito.** Um artefato de reprodução que
+dependesse de um módulo do backend deixaria de ser autocontido — e é exatamente essa propriedade
+que o torna útil aqui. O preço da escolha é um guarda: `backend/scripts/check_edge_agent_drift.py`
+compara os 17 limiares/índices e as três funções de EAR/BRI entre a fonte e esta cópia, por AST
+normalizado (comentário e formatação são livres; qualquer mudança de valor ou de operação
+reprova). Roda no `ci-backend.yml`, que passou a observar também o caminho deste arquivo.
+
+Se você alterar a matemática ou um limiar aqui, o CI fica vermelho até que os dois lados
+concordem — ou até que a divergência seja registrada como intencional no script, como já é o caso
+de `COOLDOWN_SECONDS` (3,0 s aqui, 1,5 s na calibração de tiro único).
