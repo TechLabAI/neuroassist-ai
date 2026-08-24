@@ -69,6 +69,34 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Breaker aberto para um upstream <b>hard</b> (E2E-018).
+     *
+     * <p>Sem este handler um breaker aberto viraria 500: {@code CallNotPermittedException} não é
+     * {@code FeignException}, então não cai no handler acima. O painel diria "erro interno" quando
+     * o que houve foi um upstream fora do ar — e um 500 manda o cliente investigar o DASH, que é o
+     * único serviço que está bem.
+     *
+     * <p>503 com {@code Retry-After}: a resposta diz que a indisponibilidade é do upstream, e diz
+     * em quantos segundos vale a pena tentar de novo — que é justamente o que o breaker sabe e a
+     * chamada individual não.
+     */
+    @ExceptionHandler(io.github.resilience4j.circuitbreaker.CallNotPermittedException.class)
+    public ResponseEntity<ProblemDetail> handleCircuitOpen(
+            io.github.resilience4j.circuitbreaker.CallNotPermittedException ex,
+            HttpServletRequest req) {
+        log.error("Circuit breaker ABERTO — chamada nao permitida: {}", ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        pd.setDetail("upstream-unavailable (circuit open): " + ex.getMessage());
+        pd.setProperty("code", "dash.upstream.circuit-open");
+        pd.setProperty(
+                "correlationId",
+                java.util.Objects.requireNonNullElse(org.slf4j.MDC.get("correlationId"), ""));
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header("Retry-After", "10")
+                .body(pd);
+    }
+
+    /**
      * Coded exceptions thrown by application/domain services. Resolved against the
      * error-model.arch.json catalogue via ProblemDetailFactory (D-069).
      */

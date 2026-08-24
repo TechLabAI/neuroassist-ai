@@ -101,16 +101,12 @@
     {
       "prefix": "edge",
       "name": "IntegraÃ§Ã£o de Dispositivo Edge",
-      "description": "Registro, pareamento e monitoramento de heartbeat do agente local (edge) que roda a detecção de gesto. D-533.",
+      "description": "Registro, pareamento e monitoramento de heartbeat do agente local (edge) que roda a detecção de gesto. D-533. E2E-023: catálogo alinhado ao código (coarse). Granular exigiria alterar RoleAuthorityPolicy (ACS) e todos @PreAuthorize do EDGE — coordenação multi-serviço adiada.",
       "permissions": [
-        "edge.device-registration.criar",
-        "edge.device-registration.aposentar",
-        "edge.pairing.criar",
-        "edge.pairing.excluir",
-        "edge.heartbeat.criar",
-        "edge.liveness.read",
-        "edge.liveness.resolver",
-        "edge.profile-pointer.read"
+        "edge.manage",
+        "edge.device",
+        "edge.read",
+        "edge.internal"
       ]
     }
   ],

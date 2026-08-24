@@ -78,6 +78,17 @@ dependencies {
 
 }
 
+// E2E-023: place the global permission-catalogue.arch.json on the test classpath so
+// CrossAspectArchTest can read it without keeping an inline copy.
+// rootProject.projectDir == backend/; arch/decisions is one level up at repo root.
+sourceSets {
+    test {
+        resources {
+            srcDir(rootProject.projectDir.resolve("../arch/decisions"))
+        }
+    }
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
 }

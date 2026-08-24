@@ -6,6 +6,7 @@ import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
 import com.neuroassist.evnt.application.port.out.EventoRepositoryPort;
 import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.domain.model.Evento;
+import com.neuroassist.evnt.domain.model.Feedback;
 import com.neuroassist.evnt.shared.error.CodedException;
 import java.time.Instant;
 import java.util.Map;
@@ -66,8 +67,11 @@ public class EventConfirmationService implements EventConfirmationUseCase {
         String existingFeedback = evento.feedback();
 
         // 3. Terminal-lock: different verdict on already-confirmed evento → 409 (EVNT-023)
-        if (!"NAO_AVALIADO".equals(existingFeedback)) {
-            String requestedFeedback = "real".equalsIgnoreCase(verdict) ? "REAL" : "FALSO_POSITIVO";
+        if (!Feedback.NAO_AVALIADO.name().equals(existingFeedback)) {
+            String requestedFeedback =
+                    "real".equalsIgnoreCase(verdict)
+                            ? Feedback.REAL.name()
+                            : Feedback.FALSO_POSITIVO.name();
             if (existingFeedback.equals(requestedFeedback)) {
                 // Same verdict re-submitted — idempotent, return silently
                 log.info(
@@ -80,7 +84,10 @@ public class EventConfirmationService implements EventConfirmationUseCase {
         }
 
         // 4. Apply verdict
-        String feedback = "real".equalsIgnoreCase(verdict) ? "REAL" : "FALSO_POSITIVO";
+        String feedback =
+                "real".equalsIgnoreCase(verdict)
+                        ? Feedback.REAL.name()
+                        : Feedback.FALSO_POSITIVO.name();
         Instant confirmedAt = Instant.now();
         Evento updated =
                 new Evento(
@@ -104,7 +111,9 @@ public class EventConfirmationService implements EventConfirmationUseCase {
         // The caregiver is the actor of the fact even though the call itself is authenticated as
         // evnt-service or dash-service: authority and attribution are different things.
         String factType =
-                "FALSO_POSITIVO".equals(feedback) ? FACT_EVENTO_DESCARTADO : FACT_EVENTO_CONFIRMADO;
+                Feedback.FALSO_POSITIVO.name().equals(feedback)
+                        ? FACT_EVENTO_DESCARTADO
+                        : FACT_EVENTO_CONFIRMADO;
         UUID subjectId = asUuid(evento.pacienteId());
         if (subjectId == null) {
             log.warn(

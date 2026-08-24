@@ -58,30 +58,85 @@ neuroassist:
     connect-timeout-ms: 2000
     read-timeout-ms: 3000
 
+spring.cloud.openfeign:
+  # E2E-018 — o DASH nao tinha timeout de Feign NENHUM: valia o default (10s connect / 60s read).
+  #
+  # Com o EDGE fora do ar, a primeira chamada ao painel levou 24s — cada paciente esperando o
+  # connect timeout inteiro ate o breaker abrir. A partir da segunda o breaker responde em 30ms,
+  # mas a primeira e justamente a que a cuidadora faz quando o alarme chega.
+  #
+  # O breaker limita o REGIME; o timeout limita a PRIMEIRA chamada. Sao coisas diferentes e
+  # precisam das duas. Os valores espelham o timelimiter ja declarado abaixo por instancia.
+  #
+  # NUNCA usar o prefixo legado `feign.client.config`: desde o Spring Cloud 2025.0.1 ele e
+  # silenciosamente ignorado, deixando timeout infinito (CLAUDE.md).
+  client:
+    config:
+      default:
+        connect-timeout: 2000
+        read-timeout: 3000
+      acs-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      pac-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      evnt-service:
+        connect-timeout: 2000
+        read-timeout: 2000
+      hist-service:
+        connect-timeout: 2000
+        read-timeout: 5000
+      edge-service:
+        connect-timeout: 1000
+        read-timeout: 2000
+
 resilience4j:
   circuitbreaker:
+    # E2E-018 — ate aqui esta configuracao era DECORATIVA: `grep @CircuitBreaker` no src/main
+    # nao retornava nada. O DASH e um BFF que agrega ACS, PAC, EVNT, HIST e EDGE numa requisicao
+    # de painel; sem breaker, um upstream lento segurava uma thread pelo timeout inteiro a cada
+    # chamada — e o painel e o que a cuidadora tem aberto quando o alarme chega.
+    configs:
+      default:
+        # 4xx NAO conta como falha e NAO abre o breaker.
+        #
+        # `FeignClientException` e a familia 4xx do Feign (`FeignServerException` e a 5xx). Um 403
+        # e erro de autorizacao, um 404 e ausencia de dado, um 422 e recusa de regra — nenhum
+        # deles e indisponibilidade, e tratar assim faz um bug de permissao virar "servico
+        # degradado". Foi exatamente o que aconteceu no heartbeat do EDGE (C-19), onde um 403
+        # ficou indistinguivel de "GEST fora do ar" por uma sessao inteira.
+        #
+        # Ignorada, a excecao propaga intacta e o GlobalExceptionHandler a repassa fielmente.
+        ignoreExceptions:
+          - feign.FeignException$FeignClientException
     instances:
       acs-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       pac-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       evnt-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       hist-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       edge-service:
+        baseConfig: default
         slidingWindowSize: 20
         failureRateThreshold: 60
         waitDurationInOpenState: 5s

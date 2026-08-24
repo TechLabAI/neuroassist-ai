@@ -12,7 +12,9 @@ import com.neuroassist.evnt.application.port.out.ReportIdempotencyRepositoryPort
 import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.domain.model.DispatchStatuses;
 import com.neuroassist.evnt.domain.model.Evento;
+import com.neuroassist.evnt.domain.model.Feedback;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
+import com.neuroassist.evnt.domain.model.Tier;
 import com.neuroassist.evnt.shared.error.CodedException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -127,7 +129,7 @@ public class ReportIngressService implements ReportIngressUseCase {
                         request.commandRef(),
                         commandSnapshot.label(),
                         commandSnapshot.urgencia(),
-                        "NAO_AVALIADO",
+                        Feedback.NAO_AVALIADO.name(),
                         null,
                         null,
                         request.recognizedAt(),
@@ -270,7 +272,9 @@ public class ReportIngressService implements ReportIngressUseCase {
     }
 
     private String tierFor(String urgencia) {
-        return "emergencia".equalsIgnoreCase(urgencia) ? "full_screen_alarm" : "discreet";
+        return "emergencia".equalsIgnoreCase(urgencia)
+                ? Tier.full_screen_alarm.name()
+                : Tier.discreet.name();
     }
 
     private NotificationDispatch withDeliveryOutcome(

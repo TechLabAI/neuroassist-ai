@@ -21,6 +21,16 @@ Scenario: EDGE unavailable soft-degrades the device indicator
   And the device status for "Marcio" is "unknown"
   And the device indicator is marked degraded
 
+# E2E-018 — "nao ha dispositivo" e "nao consegui perguntar" sao respostas diferentes.
+# Antes as duas viravam degraded=true/unknown, e a cuidadora nao tinha como saber se estava
+# vendo ausencia de equipamento ou ausencia de informacao.
+Scenario: Patient without a paired device is not reported as degraded
+  Given EDGE reports that the patient has no paired device
+  When Jamilly requests GET /panel/summary
+  Then the response status is 200
+  And the device status for "Marcio" is "no-device"
+  And the device indicator is not marked degraded
+
 Scenario: EVNT unavailable omits the event section but still returns 200
   Given EVNT is unreachable
   When Jamilly requests GET /panel/summary

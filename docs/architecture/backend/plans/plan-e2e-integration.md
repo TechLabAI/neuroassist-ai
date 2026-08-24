@@ -392,18 +392,18 @@ dívida que ninguém prioriza.
 | E2E-015 | Vínculo cuidador↔paciente não chega ao directory do ACS (C-30/C-42/C-43) | P1 | ✅ DONE — critério de aceite fechado no stack real (2026-08-23); C-42 segue aberto |
 | E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | ✅ DONE — validado no stack (2026-08-23) |
-| E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | OPEN |
-| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | OPEN |
+| E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | ✅ DONE — validado com EDGE fora (2026-08-23) |
+| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | 🟡 EM REVISÃO — workflows escritos, não validados no GitHub (2026-08-23) |
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | OPEN — revelado ao validar E2E-015 |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
 | E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
 | E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | OPEN |
 | E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
 | E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | OPEN |
-| E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | OPEN |
+| E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
 | E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | OPEN |
 | E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | OPEN |
-| E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | OPEN |
+| E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
 | E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | OPEN |
 
 ---
@@ -1073,7 +1073,18 @@ paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
 - **Os dois endpoints do directory leem fontes diferentes das que o PAC escreve (C-43).** Ver
   também C-30: criar um paciente pelo PAC não popula o directory do ACS, e o vínculo precisa ser
   criado por uma chamada explícita.
-- **O DASH não tem circuit breaker nenhum (C-37).** A configuração `resilience4j` do serviço —
+- **C-51 — o dash-service nunca conseguiu falar com o acs-service.** Descoberto ao validar
+  E2E-018: `AcsClient` pedia `GET /api/v1/caregivers/{id}/patients` devolvendo `List<String>`; o
+  ACS expõe `GET /api/v1/acs/directory/caregivers/{id}/patient-scope` devolvendo
+  `PatientScopeResponse`. `GET /panel/summary` respondia 404 e nunca funcionou contra um ACS real.
+  17ª ocorrência do padrão de §11 — os stubs do BDD stubavam o path inventado, então o gate do
+  DASH ficou verde o tempo todo. Corrigido junto com E2E-018.
+
+- ~~**O DASH não tem circuit breaker nenhum (C-37).**~~ — resolvido em 2026-08-23 (E2E-018).
+  Além dos breakers, o DASH não tinha **timeout de Feign nenhum**: valia o default (10s/60s). Com
+  o EDGE fora, a primeira chamada ao painel levava 24s. Breaker limita o regime, timeout limita a
+  primeira chamada — 24,2s → 8,3s → 0,03s. O `timelimiter` do resilience4j segue decorativo
+  (exige retorno reativo) e deveria sair ou ganhar dono. Texto original: A configuração `resilience4j` do serviço —
   breakers e time limiters — é inteiramente decorativa: `grep @CircuitBreaker` no `src/main` do
   dash-service não retorna nada. As chamadas a ACS/PAC/EVNT/HIST/EDGE não têm proteção alguma.
 - **O DASH não usa requisições condicionais no liveness.** O edge-service implementa

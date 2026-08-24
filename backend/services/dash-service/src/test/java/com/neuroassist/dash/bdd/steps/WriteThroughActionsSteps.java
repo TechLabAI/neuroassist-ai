@@ -70,12 +70,13 @@ public class WriteThroughActionsSteps {
     public void givenPatientOutroIsNotInJamillysScope() {
         // ACS retorna lista de pacientes de Jamilly que nao inclui "Outro"
         BaseIntegrationTest.acsWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/caregivers/jamilly/patients"))
+                get(urlPathEqualTo("/api/v1/acs/directory/caregivers/jamilly/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("[\"Marcio\"]")));
+                                        .withBody(
+                                                "{\"cuidadorId\":\"jamilly\",\"pacienteIds\":[\"Marcio\"]}")));
     }
 
     @Given("command \"cmd-other\" does not belong to \"Marcio\"")
@@ -256,12 +257,13 @@ public class WriteThroughActionsSteps {
                                         .withBody(responseBody)));
         // Stub ACS para validacao de escopo
         BaseIntegrationTest.acsWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/caregivers/jamilly/patients"))
+                get(urlPathEqualTo("/api/v1/acs/directory/caregivers/jamilly/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("[\"Marcio\"]")));
+                                        .withBody(
+                                                "{\"cuidadorId\":\"jamilly\",\"pacienteIds\":[\"Marcio\"]}")));
     }
 
     private void stubEvntConfirmEvent(String eventId, String caregiverId) {

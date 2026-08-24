@@ -14,6 +14,7 @@ import com.neuroassist.evnt.application.port.out.CommandLookupPort;
 import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
 import com.neuroassist.evnt.bdd.TestJwtDecoderConfig;
+import com.neuroassist.evnt.domain.model.Feedback;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import com.neuroassist.evnt.infrastructure.sse.SseEmitterAdapter;
@@ -145,7 +146,7 @@ public class LiveEventDeliverySteps {
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
-                        .feedback("NAO_AVALIADO")
+                        .feedback(Feedback.NAO_AVALIADO.name())
                         .recognizedAt(Instant.now())
                         .createdAt(Instant.now())
                         .build();
@@ -209,7 +210,7 @@ public class LiveEventDeliverySteps {
                             .comandoRef("cmd-emergency")
                             .commandLabelSnapshot("Emergency Command")
                             .urgenciaSnapshot("emergencia")
-                            .feedback("NAO_AVALIADO")
+                            .feedback(Feedback.NAO_AVALIADO.name())
                             .recognizedAt(Instant.now())
                             .createdAt(Instant.now())
                             .build();
@@ -255,7 +256,7 @@ public class LiveEventDeliverySteps {
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
-                        .feedback("NAO_AVALIADO")
+                        .feedback(Feedback.NAO_AVALIADO.name())
                         .recognizedAt(Instant.parse("2026-07-28T14:03:12Z"))
                         .createdAt(Instant.parse("2026-07-28T14:03:12Z"))
                         .build();

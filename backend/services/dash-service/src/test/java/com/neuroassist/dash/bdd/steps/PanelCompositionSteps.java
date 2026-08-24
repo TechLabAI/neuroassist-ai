@@ -54,7 +54,7 @@ public class PanelCompositionSteps {
     @And("Jamilly's ACS scope contains patient \"Marcio\"")
     public void andJamillysAcsScopeContainsPatientMarcio() {
         ctx.currentPatientId = "Marcio";
-        stubAcsScope("jamilly", "[\"Marcio\"]");
+        stubAcsScope("jamilly", "{\"cuidadorId\":\"jamilly\",\"pacienteIds\":[\"Marcio\"]}");
     }
 
     // ==================== Given ====================
@@ -75,11 +75,25 @@ public class PanelCompositionSteps {
 
     @Given("EDGE is unreachable")
     public void givenEdgeIsUnreachable() {
-        // PAC disponivel; EDGE retorna 503 — soft degrade
+        // PAC disponivel; EDGE retorna 503 — soft degrade.
+        //
+        // O path estava ERRADO ate E2E-018: `/api/v1/devices/patient/{id}/liveness`, que e a
+        // forma antiga corrigida em C-33. O stub nunca casava, o WireMock respondia 404, e o
+        // `catch (Exception)` do adapter transformava esse 404 em degradado — o cenario passava
+        // sem nunca ter testado um EDGE fora do ar. So apareceu quando o adapter passou a
+        // distinguir "nao ha dispositivo" (404) de "nao consegui perguntar" (503).
         stubPacCommandCatalog("Marcio");
         BaseIntegrationTest.edgeWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/devices/patient/Marcio/liveness"))
+                get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
                         .willReturn(aResponse().withStatus(503)));
+    }
+
+    @Given("EDGE reports that the patient has no paired device")
+    public void givenEdgeReportsNoDevice() {
+        stubPacCommandCatalog("Marcio");
+        BaseIntegrationTest.edgeWireMock.stubFor(
+                get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
+                        .willReturn(aResponse().withStatus(404)));
     }
 
     @Given("EVNT is unreachable")
@@ -152,16 +166,30 @@ public class PanelCompositionSteps {
         assertThat(ctx.lastResponse.getBody()).doesNotContain("\"deviceStatus\":\"unknown\"");
     }
 
-    @And("the device status for \"Marcio\" is \"unknown\"")
-    public void andTheDeviceStatusForMarcioIsUnknown() {
-        // EDGE soft-degrade: buildSummaryEntry retorna DeviceStatus("unknown","unknown",true)
-        assertThat(ctx.lastResponse.getBody()).contains("unknown");
+    /**
+     * Asserção exata sobre o par JSON, e não {@code contains("unknown")} (E2E-018).
+     *
+     * <p>A forma anterior passava com a palavra "unknown" em qualquer lugar do corpo — inclusive
+     * vinda de outro campo. Com três estados possíveis para {@code deviceStatus}, uma asserção
+     * frouxa deixaria de distinguir exatamente o que esta issue passou a distinguir.
+     */
+    @And("the device status for {string} is {string}")
+    public void andTheDeviceStatusIs(String patient, String expected) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("deviceStatus de %s", patient)
+                .contains("\"deviceStatus\":\"" + expected + "\"");
     }
 
     @And("the device indicator is marked degraded")
     public void andTheDeviceIndicatorIsMarkedDegraded() {
-        // PatientSummaryEntry.deviceStatus = "unknown" indica degradacao
-        assertThat(ctx.lastResponse.getBody()).contains("unknown");
+        // `unknown` é o único estado que significa "não consegui perguntar ao EDGE".
+        assertThat(ctx.lastResponse.getBody()).contains("\"deviceStatus\":\"unknown\"");
+    }
+
+    @And("the device indicator is not marked degraded")
+    public void andTheDeviceIndicatorIsNotMarkedDegraded() {
+        // O painel sabe o estado do dispositivo — mesmo que o estado seja "não há dispositivo".
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"deviceStatus\":\"unknown\"");
     }
 
     @And("the summary omits the latest event section")
@@ -217,7 +245,10 @@ public class PanelCompositionSteps {
 
     private void stubAcsScope(String caregiverId, String patientsJson) {
         BaseIntegrationTest.acsWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/caregivers/" + caregiverId + "/patients"))
+                get(urlPathEqualTo(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)

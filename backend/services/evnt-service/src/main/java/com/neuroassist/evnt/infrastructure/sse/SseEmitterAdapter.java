@@ -3,6 +3,7 @@ package com.neuroassist.evnt.infrastructure.sse;
 import com.neuroassist.evnt.application.port.out.SseEventBroadcastPort;
 import com.neuroassist.evnt.application.port.out.SseRegistrationPort;
 import com.neuroassist.evnt.domain.model.Evento;
+import com.neuroassist.evnt.domain.model.Tier;
 import com.neuroassist.evnt.infrastructure.security.TenantContextHolder;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -204,7 +205,9 @@ public class SseEmitterAdapter implements SseEventBroadcastPort, SseRegistration
     }
 
     private String deriveTier(String urgencia) {
-        return "emergencia".equalsIgnoreCase(urgencia) ? "full_screen_alarm" : "discreet";
+        return "emergencia".equalsIgnoreCase(urgencia)
+                ? Tier.full_screen_alarm.name()
+                : Tier.discreet.name();
     }
 
     /** Package-private accessor for unit tests (verifies registry state). */

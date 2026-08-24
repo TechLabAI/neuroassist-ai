@@ -1,0 +1,72 @@
+# ci-frontend.yml — NeuroAssist AI Frontend CI
+#
+# What this workflow guarantees:
+#   1. All Angular/Nx tests affected by the diff pass (Jest via `nx affected:test`).
+#   2. All affected libs and apps pass linting (`nx affected:lint`).
+#
+# Uses `nx affected` rather than running all tests unconditionally, which keeps
+# CI time proportional to the size of the change. On PRs the base is the PR base
+# branch; on direct pushes to dev/release/prod the base is HEAD~1.
+#
+# Nx workspace root: /frontend
+
+name: CI — Frontend
+
+on:
+  push:
+    branches: [dev, dev/backend, release, prod]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+  pull_request:
+    branches: [dev, release, prod]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/ci-frontend.yml'
+
+defaults:
+  run:
+    working-directory: frontend
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB — nx affected:test + affected:lint
+  # ─────────────────────────────────────────────────────────────────────────────
+  test-and-lint:
+    name: nx affected:test + affected:lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for nx affected base detection)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Derive nx affected base
+        id: nx-base
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            # Push to a permanent branch — compare against parent commit
+            BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "Nx affected base: $BASE"
+
+      - name: nx affected:test
+        run: npx nx affected:test --base=${{ steps.nx-base.outputs.base }} --head=HEAD --ci --passWithNoProjects
+
+      - name: nx affected:lint
+        run: npx nx affected:lint --base=${{ steps.nx-base.outputs.base }} --head=HEAD --passWithNoProjects

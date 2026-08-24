@@ -1,5 +1,6 @@
 package com.neuroassist.evnt.infrastructure.persistence.entity;
 
+import com.neuroassist.evnt.domain.model.DispatchStatuses;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
@@ -29,7 +30,7 @@ public class NotificationDispatchJpaEntity {
 
     @Column(name = "status", nullable = false, length = 50)
     @Builder.Default
-    private String status = "QUEUED";
+    private String status = DispatchStatuses.QUEUED;
 
     @Column(name = "attempts", nullable = false)
     @Builder.Default

@@ -1,5 +1,6 @@
 package com.neuroassist.evnt.infrastructure.persistence.entity;
 
+import com.neuroassist.evnt.domain.model.Feedback;
 import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
@@ -32,7 +33,7 @@ public class EventoJpaEntity {
 
     @Column(name = "feedback", nullable = false, length = 50)
     @Builder.Default
-    private String feedback = "NAO_AVALIADO";
+    private String feedback = Feedback.NAO_AVALIADO.name();
 
     @Column(name = "confirmado_por", length = 255)
     private String confirmadoPor;

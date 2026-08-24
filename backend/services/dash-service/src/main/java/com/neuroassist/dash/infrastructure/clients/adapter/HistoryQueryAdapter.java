@@ -6,6 +6,7 @@ import com.neuroassist.dash.domain.model.HistoryPage;
 import com.neuroassist.dash.infrastructure.clients.HistClient;
 import com.neuroassist.dash.infrastructure.clients.dto.HistoryEntryResponse;
 import com.neuroassist.dash.infrastructure.clients.dto.HistoryPageResponse;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class HistoryQueryAdapter implements HistoryQueryPort {
     private final HistClient histClient;
 
     @Override
+    @CircuitBreaker(name = "hist-service")
     public HistoryPage getHistory(String patientId, int page, int size) {
         log.debug(
                 "Consultando HIST: historico do paciente [{}] pagina={} size={}",

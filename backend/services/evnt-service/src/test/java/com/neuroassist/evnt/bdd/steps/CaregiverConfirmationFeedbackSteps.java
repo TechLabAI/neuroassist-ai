@@ -11,6 +11,7 @@ import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
 import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
 import com.neuroassist.evnt.bdd.TestJwtDecoderConfig;
+import com.neuroassist.evnt.domain.model.Feedback;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import io.cucumber.java.en.And;
@@ -67,7 +68,7 @@ public class CaregiverConfirmationFeedbackSteps {
                         .comandoRef("cmd-emergency")
                         .commandLabelSnapshot("Emergency Command")
                         .urgenciaSnapshot("emergencia")
-                        .feedback("NAO_AVALIADO")
+                        .feedback(Feedback.NAO_AVALIADO.name())
                         .recognizedAt(Instant.now())
                         .createdAt(Instant.now())
                         .tenantId("empresa_demo")
@@ -115,7 +116,7 @@ public class CaregiverConfirmationFeedbackSteps {
     public void andTheEventoEvt1HasFeedbackReal() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        assertThat(entity.getFeedback()).isEqualToIgnoringCase("REAL");
+        assertThat(entity.getFeedback()).isEqualTo(Feedback.REAL.name());
     }
 
     @And("the Evento \"evt-1\" records confirmadoPor \"cg-1\" and a confirmadoAt timestamp")
@@ -137,7 +138,7 @@ public class CaregiverConfirmationFeedbackSteps {
     public void andTheEventoEvt1HasFeedbackFalsopositivo() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        assertThat(entity.getFeedback()).isEqualToIgnoringCase("FALSO_POSITIVO");
+        assertThat(entity.getFeedback()).isEqualTo(Feedback.FALSO_POSITIVO.name());
     }
 
     @And("an audit fact \"FalsoPositivoMarcado\" was appended to HIST")
@@ -158,7 +159,7 @@ public class CaregiverConfirmationFeedbackSteps {
     public void givenTheEventoEvt1AlreadyHasFeedbackReal() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        entity.setFeedback("REAL");
+        entity.setFeedback(Feedback.REAL.name());
         entity.setConfirmadoPor(BddIds.CUIDADOR);
         entity.setConfirmadoAt(Instant.now());
         eventoJpaRepository.save(entity);
@@ -168,7 +169,7 @@ public class CaregiverConfirmationFeedbackSteps {
     public void andTheEventoEvt1StillHasFeedbackReal() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        assertThat(entity.getFeedback()).isEqualToIgnoringCase("REAL");
+        assertThat(entity.getFeedback()).isEqualTo(Feedback.REAL.name());
     }
 
     // -------------------------------------------------------------------------
@@ -185,7 +186,7 @@ public class CaregiverConfirmationFeedbackSteps {
     public void andTheEventoEvt1StillHasFeedbackNaoavaliado() {
         UUID eventoId = ctx.getEventoId("evt-1");
         EventoJpaEntity entity = eventoJpaRepository.findById(eventoId).orElseThrow();
-        assertThat(entity.getFeedback()).isEqualToIgnoringCase("NAO_AVALIADO");
+        assertThat(entity.getFeedback()).isEqualTo(Feedback.NAO_AVALIADO.name());
     }
 
     // -------------------------------------------------------------------------
