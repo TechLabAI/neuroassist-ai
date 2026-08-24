@@ -105,7 +105,7 @@ class EdgeInternalTokenProviderTest {
 
     private static AutenticacaoResponse response(String token, long expiresIn) {
         return new AutenticacaoResponse(
-                token, null, "Bearer", expiresIn, null, null, null, List.of("edge.internal"));
+                token, null, "Bearer", expiresIn, null, null, null, null, List.of("edge.internal"));
     }
 
     /** Minimal mutable clock — avoids a sleep in the expiry tests. */

@@ -9,6 +9,7 @@
  * in place when Angular bootstraps and the facade calls getUserMedia.
  */
 import { Page } from '@playwright/test';
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
 
 // ---------------------------------------------------------------------------
 // Camera mocks
@@ -58,6 +59,10 @@ export async function mockCameraError(page: Page): Promise<void> {
  * component to mount. Uses a 10s timeout to account for lazy loading.
  */
 export async function gotoGest(page: Page): Promise<void> {
+  // /gest fica dentro do shell, que passou a exigir sessão. Semear aqui, e não em
+  // cada spec, porque este é o único ponto por onde a suíte entra na página — e
+  // tem de ser antes do goto: o AuthSessionStore lê o sessionStorage no construtor.
+  await page.addInitScript(scriptSemearSessao());
   await page.goto('/gest');
   await page.waitForSelector('gest-gesture-live-test', { timeout: 10_000 });
 }

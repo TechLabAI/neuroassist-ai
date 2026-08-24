@@ -74,6 +74,9 @@
     "serve": {
       "continuous": true,
       "executor": "@nx/angular:dev-server",
+      "options": {
+        "proxyConfig": "apps/neuroassist-ai-web/proxy.conf.json"
+      },
       "configurations": {
         "production": {
           "buildTarget": "neuroassist-ai-web:build:production"
@@ -83,6 +86,16 @@
         }
       },
       "defaultConfiguration": "development"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": [
+        "{workspaceRoot}/coverage/apps/neuroassist-ai-web"
+      ],
+      "options": {
+        "jestConfig": "apps/neuroassist-ai-web/jest.config.js",
+        "passWithNoTests": true
+      }
     }
   }
 }

@@ -132,7 +132,12 @@ public class RoleAuthorityPolicy {
                             // Note o que ele NAO ganhou: continua sem qualquer autoridade de
                             // escrita sobre paciente, comando, cuidadora ou dispositivo. Poder
                             // dizer "eu vi e vou atender" nao e poder configurar nada.
-                            "evnt.event-confirmation.confirmar"));
+                            "evnt.event-confirmation.confirmar",
+                            // Receber o alarme e nao conseguir LISTA-LO e o mesmo beco sem saida
+                            // de outra forma: confirmar exige ver. Verificado ao vivo — sem esta
+                            // authority o apoio levava erro em GET /api/v1/events/active enquanto
+                            // a cuidadora recebia 200.
+                            "evnt.event-query.read"));
 
     /**
      * Returns the list of fine-grained authorities for the given role.

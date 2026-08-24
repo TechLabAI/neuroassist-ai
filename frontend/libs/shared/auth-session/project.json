@@ -5,5 +5,29 @@
   "tags": [
     "type:data-access",
     "scope:shared"
-  ]
+  ],
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": [
+        "{workspaceRoot}/coverage/libs/shared/auth-session"
+      ],
+      "options": {
+        "jestConfig": "libs/shared/auth-session/jest.config.js",
+        "passWithNoTests": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": [
+        "{options.outputFile}"
+      ],
+      "options": {
+        "lintFilePatterns": [
+          "libs/shared/auth-session/**/*.ts"
+        ]
+      }
+    }
+  }
 }

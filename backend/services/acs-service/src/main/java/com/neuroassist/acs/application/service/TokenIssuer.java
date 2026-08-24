@@ -103,6 +103,7 @@ public class TokenIssuer {
                 cuidador.tenantId(),
                 cuidador.id(),
                 cuidador.papel().name(),
+                cuidador.nome(),
                 authorities);
     }
 
@@ -168,7 +169,8 @@ public class TokenIssuer {
                 activeKey.kid());
 
         return new AutenticacaoResponse(
-                token, null, "Bearer", expirySeconds, tenantId, null, null, authorities);
+                // sem pessoa a nomear: token de servico/dispositivo
+                token, null, "Bearer", expirySeconds, tenantId, null, null, null, authorities);
     }
 
     /**
@@ -223,7 +225,8 @@ public class TokenIssuer {
                 activeKey.kid());
 
         return new AutenticacaoResponse(
-                token, null, "Bearer", expirySeconds, tenantId, null, null, authorities);
+                // sem pessoa a nomear: token de servico/dispositivo
+                token, null, "Bearer", expirySeconds, tenantId, null, null, null, authorities);
     }
 
     /**

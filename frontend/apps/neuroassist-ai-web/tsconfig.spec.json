@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../dist/out-tsc",
+    "module": "preserve",
+    "isolatedModules": true,
+    "emitDecoratorMetadata": false,
+    "types": ["jest", "node"]
+  },
+  "include": ["src/**/*.spec.ts", "src/**/*.test.ts", "src/**/*.d.ts"],
+  "files": ["src/test-setup.ts"]
+}

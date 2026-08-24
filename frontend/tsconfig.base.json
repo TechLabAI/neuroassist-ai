@@ -42,6 +42,12 @@
       "@neuroassist/shared/auth-session": [
         "libs/shared/auth-session/src/index.ts"
       ],
+      "@neuroassist/shared/auth-login": [
+        "libs/shared/auth-login/src/index.ts"
+      ],
+      "@neuroassist/shared/auth-login/testing": [
+        "libs/shared/auth-login/src/testing/index.ts"
+      ],
       "@neuroassist/shared/empresa-context": [
         "libs/shared/empresa-context/src/index.ts"
       ],

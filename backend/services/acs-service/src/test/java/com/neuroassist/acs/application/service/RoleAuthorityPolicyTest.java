@@ -193,9 +193,10 @@ class RoleAuthorityPolicyTest {
                         "dash.panel-composition.read",
                         "hist:read",
                         // Ultimo degrau da escada (ADR-011): recebe o alarme, entao precisa poder
-                        // confirma-lo. ACKNOWLEDGED e o unico caminho de saida de um alarme de
-                        // ajuda, que nunca expira.
-                        "evnt.event-confirmation.confirmar");
+                        // VER e CONFIRMAR. ACKNOWLEDGED e o unico caminho de saida de um alarme de
+                        // ajuda, que nunca expira — e confirmar exige listar.
+                        "evnt.event-confirmation.confirmar",
+                        "evnt.event-query.read");
         assertThat(authorities)
                 .as("confirmar alarme nao pode arrastar junto poder de escrita sobre nada")
                 .doesNotContain(

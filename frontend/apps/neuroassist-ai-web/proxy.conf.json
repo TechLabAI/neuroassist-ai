@@ -1,0 +1,9 @@
+{
+  "/acs-api": {
+    "target": "http://localhost:8088",
+    "secure": false,
+    "changeOrigin": false,
+    "pathRewrite": { "^/acs-api": "" },
+    "logLevel": "warn"
+  }
+}

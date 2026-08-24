@@ -260,6 +260,7 @@ class AutenticacaoServiceTest {
                 TENANT_ID,
                 CUIDADOR_ID,
                 CuidadorPapel.CUIDADORA.name(),
+                "Cuidadora de Teste",
                 List.of("acs.cuidador.read", "acs.directory.read"));
     }
 

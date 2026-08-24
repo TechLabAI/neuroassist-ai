@@ -11,7 +11,9 @@ import { provideRouter } from '@angular/router';
 import { provideGest } from '@neuroassist/gest';
 import { provideEvnt, EventDeliveryFacade } from '@neuroassist/evnt';
 import { providePac } from '@neuroassist/pac';
-import { provideAcs, acsHttpInterceptorFn } from '@neuroassist/acs';
+import { provideAcs, acsHttpInterceptorFn, ACS_AUTH_SESSION } from '@neuroassist/acs';
+import { provideAuth, authBearerInterceptorFn } from '@neuroassist/shared/auth-login';
+import { AuthSessionStore } from '@neuroassist/shared/auth-session';
 import { provideEdge } from '@neuroassist/edge';
 import { provideHist } from '@neuroassist/hist';
 import {
@@ -44,8 +46,61 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(appRoutes),
-    provideHttpClient(withInterceptors([acsHttpInterceptorFn])),
+    // ORDEM dos interceptors = ordem de execução na ida.
+    //
+    // `authBearerInterceptorFn` vem primeiro porque identidade é anterior a
+    // contexto de empresa: o `X-Empresa-Id` só faz sentido depois de existir
+    // alguém autenticado. A corretude, porém, não depende disso — `HttpRequest`
+    // é imutável e cada interceptor clona o que recebeu, então o segundo clone
+    // preserva o header do primeiro. (No Feign do backend é o contrário: o
+    // `RequestTemplate` é mutável e compartilhado, e ali a ordem morde.)
+    provideHttpClient(withInterceptors([authBearerInterceptorFn, acsHttpInterceptorFn])),
     provideAnimations(),
+
+    // ------------------------------------------------------------------
+    // Autenticação.
+    //
+    // Repare que NÃO há `adapter: 'mock' | 'http'` aqui, ao contrário de todos
+    // os módulos abaixo: um login em mock aceitaria qualquer senha, que é
+    // exatamente a única coisa que a tela existe para não fazer. E o login
+    // também não passa pelo `provideAcs()`: autenticar é anterior a qualquer
+    // módulo — não há empresa nem paciente antes de alguém entrar —, e flipar o
+    // `provideAcs` para 'http' por causa do login arrastaria junto tenant,
+    // cuidador e vínculo, que o onboarding consome em mock.
+    //
+    // `/acs-api` é caminho relativo de propósito: o acs-service recusa CORS
+    // (`403 Invalid CORS request` para Origin http://localhost:4200), então a
+    // chamada tem de ser de mesma origem. O dev-server faz o proxy
+    // (apps/neuroassist-ai-web/proxy.conf.json); em produção é o reverse proxy.
+    // ------------------------------------------------------------------
+    provideAuth({ apiBase: '/acs-api' }),
+
+    // FIM DO "Wave-0 bypass" do ACS (libs/acs/.../acs.guard.ts):
+    // enquanto ACS_AUTH_SESSION resolvia para null — o padrão —, o
+    // `acsCoordinatorGuard` devolvia `true` e /acs inteiro ficava aberto.
+    // Providenciar o store real faz o guard passar a guardar.
+    //
+    // O getter existe porque o contrato do token é `readonly token: string|null`
+    // (um valor), e a sessão é um signal (uma função). O getter liga os dois sem
+    // congelar o valor no momento da injeção — o que faria o guard decidir para
+    // sempre com o estado do bootstrap.
+    //
+    // ACS_ACCESS_DECISION segue NÃO providenciado, deliberadamente: os guards de
+    // escrita do ACS pedem `acs.cuidador.write`/`acs.vinculo.write`, e o
+    // acs-service não emite nenhuma das duas (emite `acs.cuidador.criar`,
+    // `.read`, `.desativar`). Ligar o token hoje trancaria a coordenadora para
+    // fora das telas que ela pode usar. Divergência a resolver no ACS.
+    {
+      provide: ACS_AUTH_SESSION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          get token(): string | null {
+            return sessao.token();
+          },
+        };
+      },
+    },
     // ADR-007: o motor de detecção é o browser (MediaPipe), não mais a ponte com
     // o agente Python. Elegibilidade segue em mock até a P2 do plan-FE-E2E.
     provideGest({ detection: 'browser', eligibility: 'mock' }),

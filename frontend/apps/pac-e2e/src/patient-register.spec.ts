@@ -42,6 +42,16 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+
+// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
+// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
+// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
+// depois do goto seria tarde demais.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+});
+
 // ── Navigation helper ─────────────────────────────────────────────────────────
 
 /** Navigate to /onboarding and wait for the wizard to render. */

@@ -45,6 +45,23 @@ criar a primeira pessoa.
 
 Você recebe: o nome da clínica cadastrado e o login da primeira coordenadora.
 
+### Entrando no sistema
+
+Cada pessoa entra com o próprio e-mail e senha. Não há cadastro público: a conta é criada por quem
+está acima — a clínica e a primeira coordenadora pela equipe técnica, as cuidadoras e o apoio pela
+coordenadora.
+
+Duas coisas que valem saber:
+
+- **O sistema mostra a cada perfil apenas o que aquele perfil pode fazer.** Se você não encontra no
+  menu algo que uma colega tem, não é defeito: é o seu perfil. Fale com a coordenadora.
+- **Fechar o navegador é sair.** É de propósito, porque o mesmo computador costuma ser usado por
+  mais de uma pessoa: ninguém herda a sessão de quem sentou ali antes. O preço é entrar de novo ao
+  reabrir.
+
+Ao terminar, use **Sair** — não basta fechar a aba se outra pessoa vai usar o computador em
+seguida.
+
 ### Passo 1 — A coordenadora cadastra a equipe
 
 Cada cuidadora recebe o próprio acesso. **Não compartilhe login.** Não é burocracia: o sistema
@@ -181,10 +198,8 @@ no sistema; a tela ainda não foi construída.)*
 
 Honestidade sobre o estado atual, para ninguém contar com o que não está pronto:
 
-- **Não há tela de login.** O sistema de acesso funciona por trás; a tela ainda não foi construída.
 - **Não há tela para criar clínica.** É feito pela equipe técnica.
 - **Não há tela dos pacientes sem cuidadora.** A informação existe, a tela não.
-- **O menu ainda é o mesmo para todos os perfis** e usa nomes técnicos.
 - **Não há aviso por celular, SMS ou e-mail.** O alarme só aparece no painel — e só chega a quem
   estiver com o painel aberto.
 
