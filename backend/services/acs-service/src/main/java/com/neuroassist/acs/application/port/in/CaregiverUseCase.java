@@ -53,14 +53,14 @@ public interface CaregiverUseCase {
      * Corrige nome e login de uma cuidadora.
      *
      * <p>Existe porque erro de digitação em nome e e-mail é inevitável, e até aqui a única saída
-     * era desativar a pessoa e criar outra — o que quebra o histórico de quem atendeu o quê, já
-     * que a confirmação de alarme guarda o id da cuidadora.
+     * era desativar a pessoa e criar outra — o que quebra o histórico de quem atendeu o quê, já que
+     * a confirmação de alarme guarda o id da cuidadora.
      *
      * <p>NÃO altera senha, papel nem status: cada um tem razão própria para ficar de fora, e a
      * lista está no {@link com.neuroassist.acs.api.dto.CaregiverEditRequest}.
      *
-     * @throws com.neuroassist.acs.shared.error.LoginDuplicateException se o login novo já
-     *     pertencer a outra pessoa da mesma empresa
+     * @throws com.neuroassist.acs.shared.error.LoginDuplicateException se o login novo já pertencer
+     *     a outra pessoa da mesma empresa
      */
     CaregiverResponse edit(UUID cuidadorId, String nome, String login);
 }

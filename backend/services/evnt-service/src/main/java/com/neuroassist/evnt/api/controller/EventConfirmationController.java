@@ -1,14 +1,14 @@
 package com.neuroassist.evnt.api.controller;
 
 import com.neuroassist.evnt.application.port.in.EventConfirmationUseCase;
+import com.neuroassist.evnt.shared.error.CodedException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import com.neuroassist.evnt.shared.error.CodedException;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -42,8 +42,8 @@ public class EventConfirmationController {
      * <p>Ate aqui {@code confirmedBy} era lido do corpo da requisicao e usado como esta. Um
      * chamador autenticado podia declarar ser outra pessoa, e o fato {@code evento.confirmado} —
      * append-only e encadeado por hash — gravava o ator declarado. Verificado ao vivo: autenticado
-     * como {@code PACIENTE_APOIO}, declarando o id da coordenadora, a resposta foi 200 e o
-     * {@code actor.caregiverId} do fato ficou sendo o da coordenadora.
+     * como {@code PACIENTE_APOIO}, declarando o id da coordenadora, a resposta foi 200 e o {@code
+     * actor.caregiverId} do fato ficou sendo o da coordenadora.
      *
      * <p>Esse registro e o que responde "quem atendeu?" depois de um incidente. Um ator
      * autodeclarado torna a pergunta irrespondivel, e o encadeamento por hash — que existe para
@@ -95,7 +95,7 @@ public class EventConfirmationController {
      * /panel/events/{id}/confirm?feedback=} surface, which maps onto the endpoint above.
      */
     /**
-     * <p><b>Aqui o {@code caregiverId} continua vindo de fora, e e correto.</b> Quem chama e o
+     * <b>Aqui o {@code caregiverId} continua vindo de fora, e e correto.</b> Quem chama e o
      * dash-service com sua identidade de servico, agindo <i>em nome</i> da cuidadora que apertou o
      * botao — o {@code sub} deste token e {@code dash-service}, nao uma pessoa. E a mesma forma da
      * excecao do token de servico sem tenant: um servico agindo por alguem e legitimo, desde que

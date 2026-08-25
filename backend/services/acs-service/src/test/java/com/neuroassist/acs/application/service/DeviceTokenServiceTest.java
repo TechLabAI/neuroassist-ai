@@ -54,7 +54,15 @@ class DeviceTokenServiceTest {
                 .thenReturn(Optional.of(new VerifiedDevice(DEVICE_ID, TENANT_ID)));
         AutenticacaoResponse expected =
                 new AutenticacaoResponse(
-                        "jwt", null, "Bearer", 900, TENANT_ID, null, null, null, List.of("edge.device"));
+                        "jwt",
+                        null,
+                        "Bearer",
+                        900,
+                        TENANT_ID,
+                        null,
+                        null,
+                        null,
+                        List.of("edge.device"));
         when(tokenIssuer.issueDeviceToken(CLIENT_ID, TENANT_ID, List.of("edge.device")))
                 .thenReturn(expected);
 
@@ -81,7 +89,8 @@ class DeviceTokenServiceTest {
                                 900,
                                 TENANT_ID,
                                 null,
-                                null, null,
+                                null,
+                                null,
                                 List.of("edge.device")));
 
         service.issueToken(new DeviceTokenRequest(CLIENT_ID, CLIENT_SECRET));
@@ -141,7 +150,8 @@ class DeviceTokenServiceTest {
                                 900,
                                 TENANT_ID,
                                 null,
-                                null, null,
+                                null,
+                                null,
                                 List.of("edge.device")));
 
         AutenticacaoResponse response =

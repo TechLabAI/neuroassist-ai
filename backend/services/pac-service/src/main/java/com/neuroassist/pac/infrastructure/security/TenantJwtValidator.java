@@ -38,8 +38,8 @@ public class TenantJwtValidator {
      * Header legado, aceito por uma versao (E2E-021, item 3 do escopo).
      *
      * <p>O PAC era o unico servico a exigir este nome, e a exigi-lo em vez do canonico: um
-     * consumidor que mandasse {@code X-Tenant-Id} — como todos os outros seis fazem — levava
-     * {@code 400 missing-tenant}. Foi assim que o gest-service esbarrou nisto na E2E-034.
+     * consumidor que mandasse {@code X-Tenant-Id} — como todos os outros seis fazem — levava {@code
+     * 400 missing-tenant}. Foi assim que o gest-service esbarrou nisto na E2E-034.
      */
     public static final String HEADER_EMPRESA_ID = "X-Empresa-Id";
 

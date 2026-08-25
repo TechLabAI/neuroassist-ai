@@ -71,8 +71,16 @@ class ErasureRevokesLinksTest {
 
         Paciente vivo =
                 new Paciente(
-                        PACIENTE, TENANT, "Márcio Amaral", null, List.of(), 0, 0,
-                        Instant.now(), Instant.now(), null);
+                        PACIENTE,
+                        TENANT,
+                        "Márcio Amaral",
+                        null,
+                        List.of(),
+                        0,
+                        0,
+                        Instant.now(),
+                        Instant.now(),
+                        null);
         when(pacienteRepository.findByIdAndTenantId(PACIENTE, TENANT))
                 .thenReturn(Optional.of(vivo));
         when(pacienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -114,8 +122,7 @@ class ErasureRevokesLinksTest {
     @Test
     @DisplayName("ACS indisponível aborta o apagamento — nada local é anonimizado")
     void acsIndisponivel_abortaSemAnonimizar() {
-        when(acsLinkPort.revokeAllForErasedPatient(PACIENTE))
-                .thenReturn(AcsLinkPort.Outcome.RETRY);
+        when(acsLinkPort.revokeAllForErasedPatient(PACIENTE)).thenReturn(AcsLinkPort.Outcome.RETRY);
 
         assertThatThrownBy(() -> service.erasePersonalData(PACIENTE))
                 .isInstanceOf(CodedException.class)
@@ -147,8 +154,16 @@ class ErasureRevokesLinksTest {
     void apagarDuasVezes_naoRepeteOEfeito() {
         Paciente jaApagado =
                 new Paciente(
-                        PACIENTE, TENANT, Paciente.ERASED_NOME, null, List.of(), 1, 0,
-                        Instant.now(), Instant.now(), Instant.now());
+                        PACIENTE,
+                        TENANT,
+                        Paciente.ERASED_NOME,
+                        null,
+                        List.of(),
+                        1,
+                        0,
+                        Instant.now(),
+                        Instant.now(),
+                        Instant.now());
         when(pacienteRepository.findByIdAndTenantId(PACIENTE, TENANT))
                 .thenReturn(Optional.of(jaApagado));
 

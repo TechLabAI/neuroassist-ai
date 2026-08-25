@@ -29,9 +29,9 @@ public interface PacienteCuidadorJpaRepository
      * nao nulo significa {@code merge()}, nao {@code persist()}. O merge encontra a instancia
      * obsoleta ainda gerenciada, considera que nada mudou e <b>nao emite INSERT nenhum</b>.
      *
-     * <p>Resultado observado no stack: um PUT com uma cuidadora na lista respondia 200 ecoando
-     * essa cuidadora, e deixava {@code paciente_cuidador} VAZIO. O paciente ficava sem cobertura
-     * (D-204) sem que o guarda disparasse — porque a lista PEDIDA nao era vazia, so o resultado.
+     * <p>Resultado observado no stack: um PUT com uma cuidadora na lista respondia 200 ecoando essa
+     * cuidadora, e deixava {@code paciente_cuidador} VAZIO. O paciente ficava sem cobertura (D-204)
+     * sem que o guarda disparasse — porque a lista PEDIDA nao era vazia, so o resultado.
      *
      * <p>E a mesma armadilha que CLAUDE.md descreve duas vezes: consulta em massa que ignora o
      * contexto, e {@code save()} virando {@code merge()} quando o id e atribuido pela aplicacao.

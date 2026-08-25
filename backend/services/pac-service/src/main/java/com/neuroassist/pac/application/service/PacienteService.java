@@ -414,9 +414,9 @@ public class PacienteService implements PacienteUseCase {
      * caregiver_patient_link} ativo do outro, e uma entrada de outbox em {@code failed}.
      *
      * <p>Este guarda recusa o caso <b>inequivoco</b> na porta. Lista vazia significa zero
-     * cobertura, exatamente, sem depender de a projecao local estar sincronizada com o ACS — nao
-     * ha drift possivel no caso coberto. A autoridade continua la: se algo passar por divergencia
-     * de projecao, o ACS ainda recusa e o outbox registra, que e o comportamento de hoje.
+     * cobertura, exatamente, sem depender de a projecao local estar sincronizada com o ACS — nao ha
+     * drift possivel no caso coberto. A autoridade continua la: se algo passar por divergencia de
+     * projecao, o ACS ainda recusa e o outbox registra, que e o comportamento de hoje.
      *
      * <p>Um paciente que ja estava sem cuidadora continua podendo ser editado — recusar seria
      * prende-lo num estado do qual ele nao consegue sair pela unica porta que tem.
@@ -446,11 +446,8 @@ public class PacienteService implements PacienteUseCase {
                                 + " without an active caregiver (D-204). Add another caregiver"
                                 + " before removing the last one.")
                 .withContext(
-                        Map.of(
-                                "pacienteId", pacienteId.toString(),
-                                "cuidadorasAtivas", cobertura));
+                        Map.of("pacienteId", pacienteId.toString(), "cuidadorasAtivas", cobertura));
     }
-
 
     /** Authority que permite mudar QUEM cuida do paciente — distinta de editar o paciente. */
     static final String AUTHORITY_VINCULAR = "pac.paciente.vincular";
@@ -460,8 +457,8 @@ public class PacienteService implements PacienteUseCase {
      *
      * <p>Editar e vincular chegam pelo mesmo {@code PUT}, e por isso {@code @PreAuthorize} nao
      * consegue separa-las: a anotacao decide antes de saber o que o corpo pede. A diferenca so
-     * aparece comparando a lista que chegou com a que ja estava — e e por isso que esta
-     * verificacao mora aqui, e nao no controller.
+     * aparece comparando a lista que chegou com a que ja estava — e e por isso que esta verificacao
+     * mora aqui, e nao no controller.
      *
      * <p>Decisao de produto: a cuidadora edita o paciente; <b>quem cuida de quem</b> e da
      * coordenadora. Sem esta separacao, dar {@code pac.paciente.editar} a cuidadora daria junto o
@@ -493,5 +490,4 @@ public class PacienteService implements PacienteUseCase {
                                 + " authority. Editing the patient does not grant it.")
                 .withContext(Map.of("pacienteId", pacienteId.toString()));
     }
-
 }

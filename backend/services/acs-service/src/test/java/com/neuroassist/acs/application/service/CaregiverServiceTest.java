@@ -20,6 +20,7 @@ import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
 import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
+import com.neuroassist.acs.shared.error.LoginDuplicateException;
 import com.neuroassist.acs.shared.error.TenantAlreadySeededException;
 import java.time.Instant;
 import java.util.List;
@@ -30,12 +31,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import com.neuroassist.acs.shared.error.LoginDuplicateException;
-import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for CaregiverService (ACS-009, P3). Validates CRUD use-cases: create (with BCrypt),
@@ -412,7 +412,8 @@ class CaregiverServiceTest {
         when(cuidadorRepository.findByLogin("maria.souza")).thenReturn(Optional.empty());
         when(cuidadorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        CaregiverResponse resposta = caregiverService.edit(cuidadorId, "Maria Souza", "maria.souza");
+        CaregiverResponse resposta =
+                caregiverService.edit(cuidadorId, "Maria Souza", "maria.souza");
 
         assertThat(resposta.nome()).isEqualTo("Maria Souza");
         assertThat(resposta.login()).isEqualTo("maria.souza");

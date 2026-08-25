@@ -16,12 +16,12 @@ import org.springframework.web.bind.annotation.RestController;
  * Vínculos de um paciente cujos dados pessoais foram apagados (LGPD).
  *
  * <p><b>Controller próprio, e não mais um método em {@code CaregiverPatientLinkController}.</b>
- * Aquele está mapeado em {@code /api/v1/acs/caregivers}, e esta operação é sobre um <i>paciente</i>:
- * pendurá-la lá produziria {@code /acs/caregivers/patients/&#123;id&#125;/links}, uma URL que mente
- * sobre o recurso. Escrevi o cliente do PAC pedindo {@code /acs/patients/…} — a URL que a operação
- * merece — e só descobri a divergência quando a chamada real devolveu 404. É a 21ª ocorrência do
- * padrão de plan-e2e-integration.md §11, desta vez cometida por mim: o caminho foi escrito a partir
- * da intenção, não do mapeamento.
+ * Aquele está mapeado em {@code /api/v1/acs/caregivers}, e esta operação é sobre um
+ * <i>paciente</i>: pendurá-la lá produziria {@code /acs/caregivers/patients/&#123;id&#125;/links},
+ * uma URL que mente sobre o recurso. Escrevi o cliente do PAC pedindo {@code /acs/patients/…} — a
+ * URL que a operação merece — e só descobri a divergência quando a chamada real devolveu 404. É a
+ * 21ª ocorrência do padrão de plan-e2e-integration.md §11, desta vez cometida por mim: o caminho
+ * foi escrito a partir da intenção, não do mapeamento.
  */
 @Slf4j
 @RestController

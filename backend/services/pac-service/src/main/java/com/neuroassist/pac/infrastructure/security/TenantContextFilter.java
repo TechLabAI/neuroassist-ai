@@ -13,10 +13,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.Authentication;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -213,19 +213,28 @@ public class TenantContextFilter extends OncePerRequestFilter {
         response.setHeader("X-Correlation-Id", correlationId);
         Map<String, Object> body =
                 Map.of(
-                        "type", "/errors/tenant-claim-missing",
-                        "title", "Missing tenant claim",
-                        "status", HttpStatus.FORBIDDEN.value(),
-                        "detail", "Authenticated token carries no tenant_id claim",
-                        "instance", request.getRequestURI(),
+                        "type",
+                        "/errors/tenant-claim-missing",
+                        "title",
+                        "Missing tenant claim",
+                        "status",
+                        HttpStatus.FORBIDDEN.value(),
+                        "detail",
+                        "Authenticated token carries no tenant_id claim",
+                        "instance",
+                        request.getRequestURI(),
                         "error",
-                                Map.of(
-                                        "code", "tenant-claim-missing",
-                                        "category", "forbidden",
-                                        "correlationId", correlationId,
-                                        "timestamp", OffsetDateTime.now().toString(),
-                                        "context", Map.of()));
+                        Map.of(
+                                "code",
+                                "tenant-claim-missing",
+                                "category",
+                                "forbidden",
+                                "correlationId",
+                                correlationId,
+                                "timestamp",
+                                OffsetDateTime.now().toString(),
+                                "context",
+                                Map.of()));
         response.getWriter().write(objectMapper.writeValueAsString(body));
     }
-
 }

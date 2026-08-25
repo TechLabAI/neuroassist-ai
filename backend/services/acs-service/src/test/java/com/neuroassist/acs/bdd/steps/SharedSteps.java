@@ -310,7 +310,11 @@ public class SharedSteps {
      */
     void issueServiceToken(String clientId, String clientSecret, String tenantId) {
         String body =
-                "{\"clientId\":\"" + clientId + "\",\"clientSecret\":\"" + clientSecret + "\""
+                "{\"clientId\":\""
+                        + clientId
+                        + "\",\"clientSecret\":\""
+                        + clientSecret
+                        + "\""
                         + (tenantId == null ? "" : ",\"tenantId\":\"" + tenantId + "\"")
                         + "}";
         HttpHeaders headers = new HttpHeaders();

@@ -3,10 +3,10 @@ package com.neuroassist.evnt.api.exception;
 import com.neuroassist.evnt.shared.error.CodedException;
 import com.neuroassist.evnt.shared.error.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ProblemDetail;
 import java.net.URI;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -40,8 +40,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * erro de configuracao virando queda aparente do servico. E a forma do defeito C-19, aqui do
      * lado do produtor; o mesmo ja foi corrigido no edge-service (E2E-034).
      *
-     * <p>Encontrado pela suite E2E e confirmado ao vivo: o papel PACIENTE_APOIO, sem
-     * {@code evnt.event-query.read}, recebia 500 ao listar alarmes.
+     * <p>Encontrado pela suite E2E e confirmado ao vivo: o papel PACIENTE_APOIO, sem {@code
+     * evnt.event-query.read}, recebia 500 ao listar alarmes.
      */
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ProblemDetail handleAuthorizationDenied(

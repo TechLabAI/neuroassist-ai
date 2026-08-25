@@ -191,11 +191,11 @@ public class CaregiverPatientLinkService implements CaregiverPatientLinkUseCase 
      * <p><b>Nao chama {@code countActiveByPacienteId}, e essa ausencia e o ponto.</b> A invariante
      * D-204 garante que um paciente sempre tenha alguem para quem seu alarme va; um paciente cujos
      * dados foram apagados nao produz mais alarme. Aplicar a invariante aqui protegeria um caminho
-     * que nao existe mais, ao preco de manter viva a associacao "esta cuidadora cuida desta
-     * pessoa" — justamente o que o apagamento se propos a remover.
+     * que nao existe mais, ao preco de manter viva a associacao "esta cuidadora cuida desta pessoa"
+     * — justamente o que o apagamento se propos a remover.
      *
-     * <p>Que isto seja um metodo separado, com authority separada, e deliberado: e a unica porta
-     * do sistema que atravessa uma invariante SAFETY-CRITICAL, e ela tem de ser visivel como tal.
+     * <p>Que isto seja um metodo separado, com authority separada, e deliberado: e a unica porta do
+     * sistema que atravessa uma invariante SAFETY-CRITICAL, e ela tem de ser visivel como tal.
      *
      * <p>Idempotente: sem vinculos ativos, devolve zero.
      */

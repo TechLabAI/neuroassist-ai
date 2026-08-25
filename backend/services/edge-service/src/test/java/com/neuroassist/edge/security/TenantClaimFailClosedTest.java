@@ -22,8 +22,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
  * <p>Antes ele seguia em frente sem ligar tenant nenhum, e a requisição morria adiante com {@code
  * relation ... does not exist} — porque o resolver cai em {@code neuroassist_global}, onde as
  * tabelas de negócio não existem. Não vazava dado, mas a segurança dependia dessa coincidência, e
- * era o que tornava perigoso o ACS parar de emitir os aliases de claim: quatro serviços liam
- * apenas um alias.
+ * era o que tornava perigoso o ACS parar de emitir os aliases de claim: quatro serviços liam apenas
+ * um alias.
  */
 class TenantClaimFailClosedTest {
 

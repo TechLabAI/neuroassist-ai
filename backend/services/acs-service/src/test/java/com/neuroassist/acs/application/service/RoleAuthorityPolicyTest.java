@@ -70,10 +70,9 @@ class RoleAuthorityPolicyTest {
      * (decisao de produto, 2026-08-24).
      *
      * <p>Este teste afirma <b>ausencia</b>, e e por isso que ele existe: as duas capacidades
-     * chegavam pelo mesmo {@code PUT}, entao {@code pac.paciente.editar} concedia vinculo de
-     * carona — bastava mandar outra lista no corpo. Uma cuidadora podia se vincular a qualquer
-     * paciente da empresa. Sem esta assercao, devolver qualquer uma das duas ao papel passaria
-     * despercebido.
+     * chegavam pelo mesmo {@code PUT}, entao {@code pac.paciente.editar} concedia vinculo de carona
+     * — bastava mandar outra lista no corpo. Uma cuidadora podia se vincular a qualquer paciente da
+     * empresa. Sem esta assercao, devolver qualquer uma das duas ao papel passaria despercebido.
      *
      * <p>E `pac.paciente.criar` saiu porque a cuidadora conseguia criar um paciente que nascia
      * descoberto e que ela propria nao conseguia assumir — nunca teve permissao de vincular.
@@ -93,9 +92,9 @@ class RoleAuthorityPolicyTest {
     /**
      * A coordenadora cadastra paciente e decide quem cuida de quem — <b>pelo PAC</b>.
      *
-     * <p>Ela NAO tem acs.vinculo.criar/.revogar. Havia duas portas para o mesmo vinculo, e a do
-     * ACS nao escrevia nada no PAC: os dois lados divergiam em silencio (17 pacientes no dev, com
-     * o inverso em zero). As duas authorities continuam existindo, mas so no cliente de servico
+     * <p>Ela NAO tem acs.vinculo.criar/.revogar. Havia duas portas para o mesmo vinculo, e a do ACS
+     * nao escrevia nada no PAC: os dois lados divergiam em silencio (17 pacientes no dev, com o
+     * inverso em zero). As duas authorities continuam existindo, mas so no cliente de servico
      * `pac-service`, que as usa para propagar. Uma entrada so, e o PAC continua sendo quem inicia.
      */
     @Test
@@ -132,9 +131,7 @@ class RoleAuthorityPolicyTest {
     void authorityDeApagamentoNaoPertenceANenhumPapelHumano() {
         for (CuidadorPapel papel : CuidadorPapel.values()) {
             assertThat(policy.toAuthorities(papel))
-                    .as(
-                            "papel %s nao pode atravessar a invariante de cobertura (D-204)",
-                            papel)
+                    .as("papel %s nao pode atravessar a invariante de cobertura (D-204)", papel)
                     .doesNotContain("acs.vinculo.revogar-apagamento");
         }
     }

@@ -37,14 +37,14 @@ public class CaregiverPatientLinkageSteps {
     /**
      * Quem chama este endpoint e o <b>pac-service</b>, nao uma pessoa.
      *
-     * <p>Ate 2026-08-24 o cenario autenticava como COORDENADOR_CLINICA, porque a coordenadora
-     * tinha {@code acs.vinculo.criar}. Isso era a segunda porta do vinculo: criar o link aqui nao
+     * <p>Ate 2026-08-24 o cenario autenticava como COORDENADOR_CLINICA, porque a coordenadora tinha
+     * {@code acs.vinculo.criar}. Isso era a segunda porta do vinculo: criar o link aqui nao
      * escrevia nada na projecao do PAC, e os dois lados divergiam em silencio — 17 pacientes no
      * ambiente de desenvolvimento, com o inverso em zero.
      *
      * <p>A porta foi fechada: nenhum papel humano tem mais essa authority. Ela sobrevive apenas no
-     * cliente de servico {@code pac-service}, que a usa para propagar o vinculo que o PAC acabou
-     * de gravar. O cenario continua valido — o endpoint existe e e exercitado —, mas agora com a
+     * cliente de servico {@code pac-service}, que a usa para propagar o vinculo que o PAC acabou de
+     * gravar. O cenario continua valido — o endpoint existe e e exercitado —, mas agora com a
      * credencial de quem realmente o chama.
      */
     @And(

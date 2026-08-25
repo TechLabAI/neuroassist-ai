@@ -33,8 +33,8 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Antes da E2E-015 este conflito era invisível porque os dois lados nunca se falavam: o PAC
  * aceitava esvaziar a lista com 200 e o ACS recusava com 409 depois, deixando os dois bancos
- * discordando e uma entrada de outbox em {@code failed}. Estes testes existem para que o guarda
- * não volte a sumir.
+ * discordando e uma entrada de outbox em {@code failed}. Estes testes existem para que o guarda não
+ * volte a sumir.
  */
 class CoberturaGuardTest {
 
@@ -79,14 +79,25 @@ class CoberturaGuardTest {
 
     private void pacienteComCuidadoras(UUID... cuidadoras) {
         when(cuidadorRepository.findByPacienteId(PACIENTE))
-                .thenReturn(java.util.Arrays.stream(cuidadoras).map(CoberturaGuardTest::vinculo).toList());
+                .thenReturn(
+                        java.util.Arrays.stream(cuidadoras)
+                                .map(CoberturaGuardTest::vinculo)
+                                .toList());
     }
 
     private void pacienteExiste() {
         Paciente p =
                 new Paciente(
-                        PACIENTE, TENANT, "Paciente", null, List.of(), 0, 0,
-                        Instant.now(), Instant.now(), null);
+                        PACIENTE,
+                        TENANT,
+                        "Paciente",
+                        null,
+                        List.of(),
+                        0,
+                        0,
+                        Instant.now(),
+                        Instant.now(),
+                        null);
         when(pacienteRepository.findByIdAndTenantId(PACIENTE, TENANT)).thenReturn(Optional.of(p));
         when(pacienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }

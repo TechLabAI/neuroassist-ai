@@ -21,10 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
  * transação** — e era exatamente aí que quebrava.
  *
  * <p>O `DELETE` em massa via {@code @Modifying} ia ao banco na hora, mas passava ao lado do
- * contexto de persistência. As entidades carregadas seguiam gerenciadas, o {@code saveAll}
- * seguinte virava {@code merge()} (a entidade usa {@code @EmbeddedId} e não implementa {@code
- * Persistable}, então o Spring Data decide pelo id), o merge encontrava a instância obsoleta ainda
- * gerenciada e **não emitia INSERT nenhum**.
+ * contexto de persistência. As entidades carregadas seguiam gerenciadas, o {@code saveAll} seguinte
+ * virava {@code merge()} (a entidade usa {@code @EmbeddedId} e não implementa {@code Persistable},
+ * então o Spring Data decide pelo id), o merge encontrava a instância obsoleta ainda gerenciada e
+ * **não emitia INSERT nenhum**.
  *
  * <p>Efeito observado no stack real: um `PUT` com uma cuidadora na lista respondia 200 ecoando essa
  * cuidadora, e deixava a tabela **vazia**. O paciente ficava sem cobertura (D-204) sem que o guarda
@@ -38,7 +38,9 @@ class PacienteCuidadorReplaceIT extends BaseIntegrationTest {
     private static final String TENANT = "t_emp_test";
 
     @Autowired private PacienteCuidadorRepositoryPort cuidadorRepository;
-    @Autowired private com.neuroassist.pac.application.port.out.PacienteRepositoryPort pacienteRepository;
+
+    @Autowired
+    private com.neuroassist.pac.application.port.out.PacienteRepositoryPort pacienteRepository;
 
     private UUID paciente;
     private final UUID cuidadoraA = UUID.randomUUID();
@@ -51,8 +53,16 @@ class PacienteCuidadorReplaceIT extends BaseIntegrationTest {
                 pacienteRepository
                         .save(
                                 new com.neuroassist.pac.domain.model.Paciente(
-                                        null, TENANT, "Paciente do IT", null, List.of(), 0, 0,
-                                        agora, agora, null))
+                                        null,
+                                        TENANT,
+                                        "Paciente do IT",
+                                        null,
+                                        List.of(),
+                                        0,
+                                        0,
+                                        agora,
+                                        agora,
+                                        null))
                         .id();
     }
 
@@ -108,8 +118,8 @@ class PacienteCuidadorReplaceIT extends BaseIntegrationTest {
         assertThat(depois)
                 .as(
                         "o vinculo remanescente tem de existir — sem clearAutomatically no DELETE em"
-                            + " massa, o saveAll virava merge de uma entidade obsoleta ainda"
-                            + " gerenciada e NENHUM insert era emitido")
+                                + " massa, o saveAll virava merge de uma entidade obsoleta ainda"
+                                + " gerenciada e NENHUM insert era emitido")
                 .hasSize(1);
         assertThat(depois.get(0).cuidadorResponsavelId()).isEqualTo(cuidadoraA);
     }

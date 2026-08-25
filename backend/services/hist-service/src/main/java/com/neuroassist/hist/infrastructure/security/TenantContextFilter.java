@@ -98,5 +98,4 @@ public class TenantContextFilter extends OncePerRequestFilter {
         response.setContentType("application/json");
         response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
     }
-
 }

@@ -2,10 +2,10 @@ package com.neuroassist.hist.api.controller;
 
 import com.neuroassist.hist.api.dto.ActorRefDto;
 import com.neuroassist.hist.api.dto.AuditRecordQueryResponse;
-import com.neuroassist.hist.domain.model.MissingTenantClaimException;
 import com.neuroassist.hist.api.dto.SubjectRefDto;
 import com.neuroassist.hist.application.port.in.AuditRecordQueryUseCase;
 import com.neuroassist.hist.domain.model.AuditRecord;
+import com.neuroassist.hist.domain.model.MissingTenantClaimException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

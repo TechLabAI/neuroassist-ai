@@ -74,5 +74,4 @@ public interface AcsLinkClient {
      */
     @DeleteMapping("/api/v1/acs/patients/{pacienteId}/links")
     void revokeAllForErasedPatient(@PathVariable("pacienteId") UUID pacienteId);
-
 }

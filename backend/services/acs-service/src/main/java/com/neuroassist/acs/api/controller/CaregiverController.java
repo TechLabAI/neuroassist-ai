@@ -74,9 +74,9 @@ public class CaregiverController {
      * <p>Requer {@code acs.cuidador.editar}.
      *
      * <p><b>Por que este endpoint passou a existir.</b> Não havia caminho de edição, e a tela do
-     * frontend tinha rota, formulário preenchido e um botão "Salvar" que NÃO FAZIA NADA — o
-     * {@code if} cobria só a criação e não havia {@code else}. Quem corrigia um nome clicava,
-     * nada acontecia, e a tela não dizia nem sucesso nem erro.
+     * frontend tinha rota, formulário preenchido e um botão "Salvar" que NÃO FAZIA NADA — o {@code
+     * if} cobria só a criação e não havia {@code else}. Quem corrigia um nome clicava, nada
+     * acontecia, e a tela não dizia nem sucesso nem erro.
      *
      * <p>A alternativa que existia na prática — desativar a pessoa e criar outra — quebra o
      * histórico: a confirmação de alarme guarda o id da cuidadora, e "quem atendeu?" passaria a

@@ -7,8 +7,8 @@ import com.neuroassist.pac.bdd.ScenarioContext;
 import com.neuroassist.pac.infrastructure.persistence.entity.DirectoryOutboxJpaEntity;
 import com.neuroassist.pac.infrastructure.persistence.entity.PacienteCuidadorId;
 import com.neuroassist.pac.infrastructure.persistence.entity.PacienteCuidadorJpaEntity;
-import com.neuroassist.pac.infrastructure.persistence.repository.PacienteCuidadorJpaRepository;
 import com.neuroassist.pac.infrastructure.persistence.repository.DirectoryOutboxJpaRepository;
+import com.neuroassist.pac.infrastructure.persistence.repository.PacienteCuidadorJpaRepository;
 import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.integration.ExternalServicesWireMock;
 import com.neuroassist.pac.integration.PacWireMockStubs;
@@ -227,7 +227,8 @@ public class DirectoryPropagationSteps {
                                     PacienteCuidadorJpaEntity.builder()
                                             .id(
                                                     new PacienteCuidadorId(
-                                                            pacienteId, UUID.fromString(raw.trim())))
+                                                            pacienteId,
+                                                            UUID.fromString(raw.trim())))
                                             .createdAt(java.time.Instant.now())
                                             .build());
                         }
@@ -244,12 +245,14 @@ public class DirectoryPropagationSteps {
         try {
             long atuais =
                     transactionTemplate.execute(
-                            status -> (long) cuidadorRepository.findByIdPacienteId(pacienteId).size());
+                            status ->
+                                    (long)
+                                            cuidadorRepository
+                                                    .findByIdPacienteId(pacienteId)
+                                                    .size());
             // O ponto do cenario: a recusa acontece ANTES de qualquer escrita. Antes deste guarda o
             // PAC gravava a lista vazia e so depois o ACS discordava.
-            assertThat(atuais)
-                    .as("a recusa nao pode ter escrito nada")
-                    .isEqualTo(esperado);
+            assertThat(atuais).as("a recusa nao pode ter escrito nada").isEqualTo(esperado);
         } finally {
             TenantContextHolder.clear();
         }
@@ -264,7 +267,6 @@ public class DirectoryPropagationSteps {
                 .isEqualTo(esperado);
     }
 
-
     /**
      * Troca o token do cenario pelo de uma CUIDADORA — que edita o paciente, mas nao gerencia
      * vinculo. O token padrao do BDD representa a coordenadora.
@@ -276,5 +278,4 @@ public class DirectoryPropagationSteps {
                         ctx.getCurrentEmpresaId(),
                         com.neuroassist.pac.bdd.TestJwtHelper.CUIDADORA_SCOPES));
     }
-
 }

@@ -60,8 +60,8 @@ class SecurityConfigTest {
     /**
      * E2E-021 — as fixtures forjavam {@code jwt()} sem claim nenhum, um token que o acs-service
      * nunca emitiu. Com o filtro passando a recusar token autenticado sem tenant, elas passaram a
-     * dar 403 — corretamente. Representar o token real e a correcao; afrouxar o filtro seria
-     * fazer o teste mandar na producao.
+     * dar 403 — corretamente. Representar o token real e a correcao; afrouxar o filtro seria fazer
+     * o teste mandar na producao.
      */
     private static final String TEST_TENANT = "e2e00000-0000-0000-0000-000000000001";
 
@@ -164,7 +164,10 @@ class SecurityConfigTest {
                         post("/api/v1/edge/devices")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"label\":\"device-1\"}")
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.device"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.device"))))
                 .andExpect(status().isForbidden());
     }
 
@@ -175,7 +178,10 @@ class SecurityConfigTest {
                         post("/api/v1/edge/heartbeat")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"agentVersion\":\"1.0\",\"runningProfileVersion\":1}")
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.manage"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.manage"))))
                 .andExpect(status().isForbidden());
     }
 
@@ -184,7 +190,10 @@ class SecurityConfigTest {
     void liveness_scopeErrado_retorna403() throws Exception {
         mvc.perform(
                         get("/api/v1/edge/devices/" + UUID.randomUUID() + "/liveness")
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.manage"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.manage"))))
                 .andExpect(status().isForbidden());
     }
 
@@ -209,7 +218,10 @@ class SecurityConfigTest {
                         post("/api/v1/edge/devices")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"label\":\"device-1\"}")
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.manage"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.manage"))))
                 .andExpect(status().isCreated());
     }
 
@@ -231,7 +243,10 @@ class SecurityConfigTest {
 
         mvc.perform(
                         get("/api/v1/edge/devices/" + deviceId + "/liveness")
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.read"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.read"))))
                 .andExpect(status().isOk());
     }
 
@@ -308,7 +323,10 @@ class SecurityConfigTest {
                         post(VERIFY_PATH)
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(VERIFY_BODY)
-                                .with(jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT)).authorities(new SimpleGrantedAuthority("edge.device"))))
+                                .with(
+                                        jwt().jwt(b -> b.claim("tenant_id", TEST_TENANT))
+                                                .authorities(
+                                                        new SimpleGrantedAuthority("edge.device"))))
                 .andExpect(status().isForbidden());
     }
 

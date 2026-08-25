@@ -70,8 +70,16 @@ class VinculoAuthorityTest {
 
         Paciente p =
                 new Paciente(
-                        PACIENTE, TENANT, "Paciente", null, List.of(), 0, 0,
-                        Instant.now(), Instant.now(), null);
+                        PACIENTE,
+                        TENANT,
+                        "Paciente",
+                        null,
+                        List.of(),
+                        0,
+                        0,
+                        Instant.now(),
+                        Instant.now(),
+                        null);
         when(pacienteRepository.findByIdAndTenantId(PACIENTE, TENANT)).thenReturn(Optional.of(p));
         when(pacienteRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(cuidadorRepository.findByPacienteId(PACIENTE))
@@ -130,10 +138,7 @@ class VinculoAuthorityTest {
         // authority de edicao inutil na pratica.
         chamadorPodeVincular(false);
 
-        assertThatCode(
-                        () ->
-                                service.update(
-                                        PACIENTE, 1, "Nome novo", null, List.of(CUIDADORA_A)))
+        assertThatCode(() -> service.update(PACIENTE, 1, "Nome novo", null, List.of(CUIDADORA_A)))
                 .doesNotThrowAnyException();
     }
 
@@ -144,8 +149,7 @@ class VinculoAuthorityTest {
     void comAuthority_trocarVinculo_passa() {
         chamadorPodeVincular(true);
 
-        assertThatCode(
-                        () -> service.update(PACIENTE, 1, "Paciente", null, List.of(CUIDADORA_B)))
+        assertThatCode(() -> service.update(PACIENTE, 1, "Paciente", null, List.of(CUIDADORA_B)))
                 .doesNotThrowAnyException();
     }
 

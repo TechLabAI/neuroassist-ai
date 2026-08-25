@@ -83,9 +83,8 @@ public class ScenarioContext {
      * Todos os aliases registrados neste cenario.
      *
      * <p>Existe para que {@code resolvePath} nao precise de uma lista fixa de nomes. Com a lista
-     * fixa, um alias novo simplesmente nao era substituido na URL, e o teste falhava com
-     * {@code 400 Failed to convert 'id' with value: 'pac-cob'} — uma mensagem que nao aponta para
-     * a causa.
+     * fixa, um alias novo simplesmente nao era substituido na URL, e o teste falhava com {@code 400
+     * Failed to convert 'id' with value: 'pac-cob'} — uma mensagem que nao aponta para a causa.
      */
     public java.util.Map<String, UUID> registeredAliases() {
         return java.util.Map.copyOf(entityAliases);
