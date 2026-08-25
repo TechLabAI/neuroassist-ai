@@ -40,7 +40,20 @@ request   { "clientId": string, "clientSecret": string }     // ambos @NotBlank
 
 O token traz `tenant_id` e a authority `edge.device`. O `sub` é o `deviceId`.
 
-### 2.2 O que detectar — `GET /gest-service/detection-profile/devices/{deviceId}`
+### 2.2 O que detectar — `GET /api/v1/edge/profile` (edge-service, `edge.device`) — **EDGE-022**
+
+> **Correção de 2026-08-25.** Esta seção descrevia a estação chamando
+> `GET /gest-service/detection-profile/devices/{deviceId}` diretamente. **Ela não consegue**: aquele
+> endpoint exige `gest.detection-profile.read` e o token de dispositivo carrega só `edge.device` —
+> o defeito **C-19**, já registrado no Javadoc do `DetectionProfileClient` do edge-service.
+>
+> O edge-service passa a servir o perfil ao dispositivo (**EDGE-022**), reusando aquele cliente com
+> identidade de serviço. O **formato do corpo abaixo não muda** — é o mesmo
+> `DetectionProfileResponse` repassado —, então o store e o adapter do FE seguem válidos. Muda a
+> URL, a guarda, e o fato de que a estação passa a receber `pacienteId` por este caminho, que é o
+> que faltava para montar o relato.
+
+O contrato de corpo, que vale nos dois casos:
 
 Suporta **GET condicional**: enviar `If-None-Match` e tratar `304`. Resposta traz
 `Cache-Control: max-age=60`.

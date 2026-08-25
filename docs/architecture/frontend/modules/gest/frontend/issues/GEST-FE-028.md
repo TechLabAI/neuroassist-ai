@@ -1,9 +1,15 @@
 # GEST-FE-028 -- Perfil de detecção do dispositivo — GET condicional com ETag/304
 
-**Status:** ABERTA
+**Status:** BLOQUEADA — depende de EDGE-022
 **Maturidade:** 0 -- Inicial
 **Done/Total:** 0/5 itens
 **GitHub:** [#TBD]
+
+> **BLOQUEIO (2026-08-25).** O store e o adapter estão implementados e testados, mas a estação não
+> alcança o endpoint: token `edge.device` recebe **403** em
+> `GET /gest-service/detection-profile/devices/{id}`, que exige `gest.detection-profile.read`
+> (defeito **C-19**). O transporte passa a ser `GET /api/v1/edge/profile` — ver **EDGE-022**.
+> O corpo da resposta não muda, então o trabalho já feito segue válido.
 
 ## Outcome
 A estação sabe **o que** deve detectar. `DetectionProfileStore` busca

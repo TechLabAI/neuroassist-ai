@@ -42,7 +42,24 @@ Nada disto precisa ser inventado. Já existe, implementado e guardado:
 | `POST /oauth2/token/device` (acs) | público; valida `clientId`+`clientSecret` do enroll | emite token de dispositivo |
 | `POST /api/v1/reports` (evnt) | `hasAuthority('edge.device')` | recebe o relato de detecção |
 | `POST /api/v1/edge/heartbeat` (edge) | `hasAuthority('edge.device')` | frescor → estado de conectividade |
-| `GET /gest-service/detection-profile/devices/{deviceId}` | `gest.detection-profile.read` | o que este dispositivo deve detectar |
+| `GET /api/v1/edge/profile` (edge) | `edge.device` | o que detectar + de quem — **a criar, EDGE-022** |
+
+> **Correção de 2026-08-25.** A primeira versão desta tabela listava
+> `GET /gest-service/detection-profile/devices/{deviceId}` como se a estação pudesse chamá-lo. Não
+> pode: ele exige `gest.detection-profile.read`, e o token de dispositivo carrega **apenas**
+> `edge.device`. Varrendo os controllers dos 7 serviços, esse token alcança exatamente os dois
+> `POST` acima — nada mais.
+>
+> Eu havia conferido corpos, regras de tenant e invariantes de privacidade nos `@RestController`, e
+> **não cruzei a autoridade exigida com a que o token carrega**. O backend já registrara o problema
+> como **defeito C-19**, escrito no Javadoc do `DetectionProfileClient`: *"GEST requires the
+> authority `gest.detection-profile.read`, which a device token never has"*. Foi por isso que aquele
+> cliente usa identidade de serviço.
+>
+> **Correção arquitetural:** o edge-service serve o perfil ao dispositivo, reusando o
+> `DetectionProfileClient` que já existe — o dispositivo nunca fala com o gest-service. Isso resolve
+> junto a identidade do paciente, porque o perfil já traz `pacienteId`. Rastreado em **EDGE-022**,
+> que **bloqueia** `GEST-FE-028`, `030`, `031` e `032`.
 
 E as invariantes certas já estão escritas no código do backend:
 
@@ -197,6 +214,8 @@ fila recupera um pedido de ajuda que ninguém observou.
 | P2 | Guarda de drift dos limiares apontando para o **browser**, não para `edge_agent_core.py` | confiança no CI |
 | P3 | `check_edge_agent_drift.py` continua no CI guardando runtime aposentado — decidir: reapontar ou aposentar | ruído de gate |
 | P4 | Classificador ONNX (`ADR-003` do PEA): `onnxruntime-web` ou ficar nos blendshapes | precisão futura |
+| P5 | **EDGE-022** — `GET /api/v1/edge/profile` guardado por `edge.device` (defeito C-19 para a estação) | **toda a onda W10** |
+| P6 | Faixa de limiares calibrada para BLENDSHAPES. O backend publica valores de BRI — razão geométrica —, e este motor lê blendshapes do MediaPipe. Escalas diferentes; hoje a divergência é afirmada pelo guarda de drift (`CAMPOS_ESCALA_BLENDSHAPE`) em vez de silenciada | sensibilidade de sobrancelha significar o que promete |
 
 ---
 
