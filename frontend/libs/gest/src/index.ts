@@ -30,6 +30,13 @@ export type { EdgeDetectionPort } from './lib/api/edge-detection.port';
 export { ELIGIBILITY_PORT } from './lib/api/eligibility.port';
 export type { EligibilityPort } from './lib/api/eligibility.port';
 
+// Detection contract (GEST-FE-009)
+export { DetectionContractService } from './lib/api/detection-contract.service';
+export type { DetectionContractDescriptor } from './lib/api/detection-contract.service';
+
+// Multi-empresa wiring token (P1 — GEST-FE-009 / GEST-INT-002)
+export { EMPRESA_CONTEXT_TOKEN } from './lib/api/eligibility-http.adapter';
+
 // ADR-007 — motor de detecção no browser
 export { EdgeDetectionBrowserAdapter } from './lib/api/edge-detection-browser.adapter';
 export { GestureDetector, ENGINE_FEATURE, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';
