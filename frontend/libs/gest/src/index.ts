@@ -37,6 +37,14 @@ export type { DetectionContractDescriptor } from './lib/api/detection-contract.s
 // Multi-empresa wiring token (P1 — GEST-FE-009 / GEST-INT-002)
 export { EMPRESA_CONTEXT_TOKEN } from './lib/api/eligibility-http.adapter';
 
+// Estação do paciente — P2 / GEST-FE-027 / ADR-008
+// Store de identidade de dispositivo (scope:web e scope:gest estacao only)
+export { DeviceSessionStore, AVISO_CREDENCIAL_DISPOSITIVO } from './lib/estacao/device-session.store';
+export type { EstadoSessao } from './lib/estacao/device-session.store';
+export { DeviceAuthHttpAdapter, DeviceAuthErro } from './lib/estacao/device-auth-http.adapter';
+export { DEVICE_AUTH_PORT } from './lib/estacao/device-auth.port';
+export type { DeviceTokenRequest, DeviceAuthResult } from './lib/estacao/device-auth.port';
+
 // ADR-007 — motor de detecção no browser
 export { EdgeDetectionBrowserAdapter } from './lib/api/edge-detection-browser.adapter';
 export { GestureDetector, ENGINE_FEATURE, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';

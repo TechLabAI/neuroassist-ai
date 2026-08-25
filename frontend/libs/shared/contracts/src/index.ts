@@ -50,3 +50,7 @@ export type {
   DetectabilityState,
   GestureGuidance,
 } from './lib/gesture-vocabulary';
+
+// Token de contexto HTTP compartilhado — ver o cabeçalho de http-context.ts
+// para por que ele vive aqui e não em auth-login.
+export { SKIP_AUTH_HEADER } from './lib/http-context';

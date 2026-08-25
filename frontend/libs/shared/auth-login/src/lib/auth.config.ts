@@ -55,8 +55,19 @@ export const AUTH_BEARER_URL_PREFIXES = new InjectionToken<readonly string[]>(
  * <p>Usado no próprio login: pedir um token novo carregando o token velho é, na
  * melhor das hipóteses, ruído; na pior, faz o servidor decidir por uma
  * credencial que a pessoa está justamente tentando substituir.
+ *
+ * <p><b>REEXPORTADO, não declarado.</b> A definição mudou para
+ * `@neuroassist/shared/contracts` quando a estação do paciente (GEST) passou a
+ * precisar da mesma marca: `libs/gest` só pode importar `contracts`, e
+ * `auth-login` é `type:feature` como o GEST — feature importando feature viola a
+ * fronteira do Nx.
+ *
+ * <p>Reexportar, e não redeclarar, é o ponto: `HttpContextToken` é comparado por
+ * **referência**. Duas declarações idênticas seriam dois tokens diferentes, e o
+ * interceptor não veria a marca posta pelo outro lado — falharia em silêncio,
+ * anexando a credencial exatamente onde não devia.
  */
-export const SKIP_AUTH_HEADER = new HttpContextToken<boolean>(() => false);
+export { SKIP_AUTH_HEADER } from '@neuroassist/shared/contracts';
 
 /** Rota da tela de login. Um lugar só, para guard e interceptor concordarem. */
 export const ROTA_LOGIN = '/login';
