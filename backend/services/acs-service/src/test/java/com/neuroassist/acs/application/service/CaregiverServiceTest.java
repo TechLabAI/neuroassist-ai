@@ -34,6 +34,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.neuroassist.acs.shared.error.LoginDuplicateException;
+import org.mockito.ArgumentCaptor;
 
 /**
  * Unit tests for CaregiverService (ACS-009, P3). Validates CRUD use-cases: create (with BCrypt),
@@ -380,5 +382,116 @@ class CaregiverServiceTest {
                 .isInstanceOf(TenantAlreadySeededException.class);
 
         verify(cuidadorRepository, never()).save(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // edit — corrigir nome e login
+    //
+    // Existe porque erro de digitacao e inevitavel, e ate aqui a unica saida era
+    // desativar a pessoa e criar outra. Isso quebra o historico: a confirmacao de
+    // alarme guarda o id da cuidadora, e "quem atendeu?" passaria a apontar para
+    // uma conta desativada.
+    // -----------------------------------------------------------------------
+
+    private Cuidador cuidadoraExistente() {
+        return new Cuidador(
+                cuidadorId,
+                tenantId,
+                "Maria Silva",
+                "maria.silva",
+                "$2a$04$hashedpwd",
+                CuidadorPapel.CUIDADORA,
+                CuidadorStatus.ACTIVE,
+                Instant.now(),
+                null);
+    }
+
+    @Test
+    void edit_corrigeNomeELogin() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("maria.souza")).thenReturn(Optional.empty());
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CaregiverResponse resposta = caregiverService.edit(cuidadorId, "Maria Souza", "maria.souza");
+
+        assertThat(resposta.nome()).isEqualTo("Maria Souza");
+        assertThat(resposta.login()).isEqualTo("maria.souza");
+    }
+
+    @Test
+    void edit_naoTocaEmCredencialPapelNemStatus() {
+        // Trocar senha por este caminho daria a quem administra o poder de assumir a
+        // conta de outra pessoa; papel muda o que ela pode fazer no sistema inteiro;
+        // e status tem endpoint proprio, que carrega a invariante D-204. Um segundo
+        // caminho para a mesma escrita seria um caminho SEM a guarda.
+        Cuidador existente = cuidadoraExistente();
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(existente));
+        when(cuidadorRepository.findByLogin(any())).thenReturn(Optional.empty());
+        ArgumentCaptor<Cuidador> capturado = ArgumentCaptor.forClass(Cuidador.class);
+        when(cuidadorRepository.save(capturado.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        caregiverService.edit(cuidadorId, "Nome Novo", "login.novo");
+
+        Cuidador salvo = capturado.getValue();
+        assertThat(salvo.credentialHash()).isEqualTo(existente.credentialHash());
+        assertThat(salvo.papel()).isEqualTo(existente.papel());
+        assertThat(salvo.status()).isEqualTo(existente.status());
+    }
+
+    @Test
+    void edit_normalizaOLoginParaMinusculas() {
+        // Login e identidade de acesso: "Ana@X" e "ana@x" nao podem ser duas pessoas.
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("maria.souza")).thenReturn(Optional.empty());
+        ArgumentCaptor<Cuidador> capturado = ArgumentCaptor.forClass(Cuidador.class);
+        when(cuidadorRepository.save(capturado.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        caregiverService.edit(cuidadorId, "Maria", "Maria.Souza");
+
+        assertThat(capturado.getValue().login()).isEqualTo("maria.souza");
+    }
+
+    @Test
+    void edit_recusaLoginJaUsadoPorOutraPessoa() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("ja.existe"))
+                .thenReturn(
+                        Optional.of(
+                                new Cuidador(
+                                        UUID.randomUUID(),
+                                        tenantId,
+                                        "Outra Pessoa",
+                                        "ja.existe",
+                                        "$2a$04$x",
+                                        CuidadorPapel.CUIDADORA,
+                                        CuidadorStatus.ACTIVE,
+                                        Instant.now(),
+                                        null)));
+
+        assertThatThrownBy(() -> caregiverService.edit(cuidadorId, "Maria", "ja.existe"))
+                .isInstanceOf(LoginDuplicateException.class);
+
+        verify(cuidadorRepository, never()).save(any());
+    }
+
+    @Test
+    void edit_reenviarOMesmoLoginNaoEConflitoConsigoMesma() {
+        // O caso comum de quem corrige APENAS o nome e devolve o objeto inteiro.
+        // Recusar aqui tornaria a edicao de nome impossivel na pratica.
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CaregiverResponse resposta = caregiverService.edit(cuidadorId, "Maria S.", "maria.silva");
+
+        assertThat(resposta.nome()).isEqualTo("Maria S.");
+        verify(cuidadorRepository, never()).findByLogin(any());
+    }
+
+    @Test
+    void edit_cuidadoraInexistenteEstoura() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> caregiverService.edit(cuidadorId, "X", "x"))
+                .isInstanceOf(CaregiverNotFoundException.class);
     }
 }

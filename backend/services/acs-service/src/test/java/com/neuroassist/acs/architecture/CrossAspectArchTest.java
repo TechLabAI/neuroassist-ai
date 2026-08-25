@@ -48,6 +48,11 @@ public class CrossAspectArchTest {
                     "acs.vinculo.revogar-apagamento",
                     "acs.cuidador.criar",
                     "acs.cuidador.desativar",
+                    // Corrigir nome e login. Separada de criar e de desativar: erro de
+                    // digitacao e inevitavel, e a alternativa (desativar e recriar)
+                    // quebra o historico, porque a confirmacao de alarme guarda o id
+                    // da cuidadora.
+                    "acs.cuidador.editar",
                     "acs.cuidador.read",
                     "acs.directory.read",
                     "acs.jwk-set.read",

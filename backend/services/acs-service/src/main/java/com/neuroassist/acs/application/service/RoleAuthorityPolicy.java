@@ -35,6 +35,7 @@ public class RoleAuthorityPolicy {
                             // que obtém um token sem tenant (não há tenant antes de criá-lo).
                             "acs.cuidador.criar",
                             "acs.cuidador.read",
+                            "acs.cuidador.editar",
                             "acs.cuidador.desativar",
                             // acs.vinculo.criar / .revogar SAIRAM daqui.
                             //

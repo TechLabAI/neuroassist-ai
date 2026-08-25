@@ -64,6 +64,7 @@
         "acs.caregiver.criar",
         "acs.caregiver.read",
         "acs.caregiver.desativar",
+        "acs.caregiver.editar",
         "acs.caregiver-patient-link.vincular",
         "acs.caregiver-patient-link.read",
         "acs.caregiver-patient-link.cancelar",

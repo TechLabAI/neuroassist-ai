@@ -210,6 +210,58 @@ public class CaregiverService implements CaregiverUseCase {
         return toResponse(saved);
     }
 
+    @Override
+    public CaregiverResponse edit(UUID cuidadorId, String nome, String login) {
+        // RULE-07: o tenant tem de estar resolvido antes de qualquer leitura — a multi-tenancy do
+        // Hibernate fixa o schema quando a conexão é adquirida.
+        TenantContextHolder.require();
+
+        Cuidador existing =
+                cuidadorRepository
+                        .findById(cuidadorId)
+                        .orElseThrow(() -> new CaregiverNotFoundException(cuidadorId));
+
+        // Mesma normalização do cadastro: login é identidade de acesso, e "Ana@X" e "ana@x" não
+        // podem ser duas pessoas. Sem isto, a checagem de duplicidade abaixo deixaria passar um
+        // duplicado só por diferença de caixa.
+        String normalizedLogin = login.toLowerCase();
+
+        // Duplicidade só importa se o login MUDOU: reenviar o mesmo login (o caso comum de quem
+        // corrige apenas o nome e devolve o objeto inteiro) não é conflito consigo mesmo.
+        if (!normalizedLogin.equals(existing.login())) {
+            cuidadorRepository
+                    .findByLogin(normalizedLogin)
+                    .ifPresent(
+                            outro -> {
+                                throw new LoginDuplicateException(
+                                        normalizedLogin, existing.tenantId());
+                            });
+        }
+
+        log.info(
+                "Editing caregiver: id={} loginChanged={}",
+                cuidadorId,
+                !normalizedLogin.equals(existing.login()));
+
+        Cuidador updated =
+                new Cuidador(
+                        existing.id(),
+                        existing.tenantId(),
+                        nome,
+                        normalizedLogin,
+                        // Credencial, papel e status NÃO são tocados: preservados do existente de
+                        // propósito. Trocar senha por este caminho daria a quem administra o poder
+                        // de assumir a conta de outra pessoa; e status tem endpoint próprio, que
+                        // carrega a invariante D-204.
+                        existing.credentialHash(),
+                        existing.papel(),
+                        existing.status(),
+                        existing.criadoEm(),
+                        Instant.now());
+
+        return toResponse(cuidadorRepository.save(updated));
+    }
+
     // -----------------------------------------------------------------------
     // Private mapping — SECURITY: credentialHash never included in response
     // -----------------------------------------------------------------------

@@ -212,4 +212,25 @@ class RoleAuthorityPolicyTest {
                         "pac.comando-lifecycle.recalibrar",
                         "edge.manage");
     }
+
+    // -----------------------------------------------------------------------
+    // acs.cuidador.editar — capacidade nova (PUT /caregivers/{id})
+    // -----------------------------------------------------------------------
+
+    @Test
+    void coordenadoraPodeEditarCuidadora() {
+        assertThat(policy.toAuthorities(CuidadorPapel.COORDENADOR_CLINICA))
+                .contains("acs.cuidador.editar");
+    }
+
+    @Test
+    void cuidadoraEApoioNaoEditamCuidadora() {
+        // Corrigir o cadastro da equipe e de quem responde pela clinica. O par
+        // existe para que ligar a authority ao papel errado nao passe despercebido:
+        // sem ele, conceder a todos deixaria o teste acima verde do mesmo jeito.
+        assertThat(policy.toAuthorities(CuidadorPapel.CUIDADORA))
+                .doesNotContain("acs.cuidador.editar");
+        assertThat(policy.toAuthorities(CuidadorPapel.PACIENTE_APOIO))
+                .doesNotContain("acs.cuidador.editar");
+    }
 }
