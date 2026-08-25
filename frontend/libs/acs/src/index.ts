@@ -62,7 +62,6 @@ export type { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto } from './lib/api/
 export type { AcsLinkPort, CaregiverLinkDto } from './lib/api/acs-link.port';
 
 // Composed step components (scope:web onboarding wizard mounts these)
-export { TenantSetupComponent } from './lib/feature-tenant-setup/tenant-setup.component';
 export { CaregiverEditorComponent } from './lib/feature-caregiver-editor/caregiver-editor.component';
 
 // Guards de acesso — exportados para que rotas FORA do módulo ACS possam usar a

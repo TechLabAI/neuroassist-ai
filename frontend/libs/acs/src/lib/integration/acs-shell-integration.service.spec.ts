@@ -1,7 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { AcsShellIntegrationService } from './acs-shell-integration.service';
 import { PatientLinkageComponent } from '../feature-patient-linkage/patient-linkage.component';
-import { TenantSetupComponent } from '../feature-tenant-setup/tenant-setup.component';
 import { ACS_TENANT_PORT } from '../api/acs-tenant.port';
 import { ACS_CUIDADOR_PORT } from '../api/acs-cuidador.port';
 import { ACS_LINK_PORT } from '../api/acs-link.port';
@@ -42,22 +41,27 @@ describe('AcsShellIntegrationService — composição do assistente', () => {
     await expect(service.resolveCaregiverLinkSlot()).resolves.toBe(PatientLinkageComponent);
   });
 
-  // CONTROLE NEGATIVO: é exatamente o valor que o placeholder devolvia. Sem esta
-  // afirmação, remontar o TenantSetupComponent no lugar do vínculo volta a
-  // passar despercebido — o passo continuaria "existindo".
-  it('o passo de vínculo NÃO é o TenantSetupComponent remontado', async () => {
+  // O controle negativo continua, com outra âncora.
+  //
+  // Ele afirmava que o passo de vínculo não era o `TenantSetupComponent`
+  // remontado — que era o valor que o placeholder devolvia. O componente foi
+  // REMOVIDO (era órfão: completo, testado, montado em lugar nenhum), então a
+  // afirmação passou a ser sobre o que o passo É, e não sobre o que ele não é.
+  // Afirmar a identidade é mais forte: pega qualquer substituição, não só a
+  // antiga.
+  it('o passo de vínculo é a superfície de vínculo real', async () => {
     const passos = service.onboardingWizardComposition();
     const vinculo = passos.find((p) => p.key === 'acs-caregiver-link');
     expect(vinculo).toBeDefined();
-    const comp = await vinculo!.component;
-    expect(comp).not.toBe(TenantSetupComponent);
-    expect(comp).toBe(PatientLinkageComponent);
+    await expect(vinculo!.component).resolves.toBe(PatientLinkageComponent);
   });
 
-  it('o passo de empresa continua sendo o TenantSetupComponent, na ordem 1', async () => {
-    const passo = service.onboardingWizardComposition().find((p) => p.key === 'acs-tenant-setup');
-    expect(passo?.order).toBe(1);
-    await expect(passo!.component).resolves.toBe(TenantSetupComponent);
+  it('o passo da empresa saiu da composição — quem o desenha é o assistente', () => {
+    // Ele entregava o componente órfão. O assistente aprendeu os três estados de
+    // provisionamento e é a única tela da empresa; duas telas para a mesma coisa,
+    // uma delas invisível, garantem que a invisível apodreça.
+    const passos = service.onboardingWizardComposition();
+    expect(passos.find((p) => p.key === 'acs-tenant-setup')).toBeUndefined();
   });
 
   it('o vínculo vem DEPOIS do convite da cuidadora — não há a quem vincular antes', () => {

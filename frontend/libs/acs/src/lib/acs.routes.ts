@@ -8,7 +8,7 @@ import { acsCoordinatorGuard, acsCaregiverWriteGuard, acsLinkWriteGuard } from '
 // Route: /acs/cuidadores/:id/editar → CaregiverEditorComponent (edit)
 // Route: /acs/pacientes/:pacienteId/vinculos → PatientLinkageComponent
 //
-// NOTE: ACS also contributes TenantSetupComponent and CaregiverLinkStepComponent
+// NOTE: ACS also contributes PatientLinkageComponent as a composed wizard step
 // as composed features in the scope:web onboarding wizard (not shell-routed here).
 // =============================================================================
 

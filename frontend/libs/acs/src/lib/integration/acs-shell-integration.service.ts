@@ -3,7 +3,6 @@ import { AcsTenantFacade } from '../acs-tenant.facade';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 import { ACS_MODULE_DESCRIPTOR } from '../acs.descriptor';
 import { ACS_NAV_CONFIG } from '../acs-nav-config';
-import { TenantSetupComponent } from '../feature-tenant-setup/tenant-setup.component';
 import { PatientLinkageComponent } from '../feature-patient-linkage/patient-linkage.component';
 import { AcsEmpresaContextService } from '../api/acs-empresa-context.service';
 
@@ -137,9 +136,20 @@ export class AcsShellIntegrationService {
   /**
    * Returns the ACS-owned onboarding wizard steps for the shell wizard host.
    *
-   * ACS contributes two steps:
-   *   Step 1: TenantSetupComponent    — provision the empresa (mandatory first step)
-   *   Step 6: PatientLinkageComponent — link at least one caregiver to the paciente
+   * ACS contribui UM passo: o 6, `PatientLinkageComponent` — vincular ao menos
+   * uma cuidadora ao paciente.
+   *
+   * <p><b>O passo 1 saiu.</b> Ele entregava o `TenantSetupComponent`, que foi
+   * REMOVIDO: era um componente completo, com teste próprio, montado em lugar
+   * nenhum — e quem realmente desenha o passo da empresa é o próprio assistente,
+   * que aprendeu os três estados de provisionamento. Manter duas telas para a
+   * mesma coisa, uma delas invisível, garante que a invisível apodreça sem que
+   * ninguém perceba.
+   *
+   * <p><b>Nota:</b> este método continua SEM CHAMADOR. O assistente monta o passo
+   * de vínculo direto por {@link resolveCaregiverLinkSlot}. Fica porque é o
+   * contrato de composição declarado (INT-FE-ACS-002) e porque o passo que ele
+   * descreve é real; se seguir sem uso, é candidato à mesma remoção.
    *
    * O passo 6 DEIXOU DE SER PLACEHOLDER. Ele devolvia `TenantSetupComponent` de
    * novo, sob `TODO[FE-ACS-021]: replace step 5 placeholder with real
@@ -154,12 +164,6 @@ export class AcsShellIntegrationService {
    */
   onboardingWizardComposition(): OnboardingWizardStep[] {
     return [
-      {
-        key: 'acs-tenant-setup',
-        title: 'Configurar unidade de cuidado',
-        component: Promise.resolve(TenantSetupComponent as unknown as Type<unknown>),
-        order: 1,
-      },
       {
         key: 'acs-caregiver-link',
         title: 'Vincular cuidadora ao paciente',
