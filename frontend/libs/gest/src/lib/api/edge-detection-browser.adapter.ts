@@ -30,6 +30,11 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
   private detector: GestureDetector | null = null;
   private video: HTMLVideoElement | null = null;
 
+  /** Guardado no adaptador, e não no detector, porque o canvas costuma chegar
+   * ANTES da sessão existir: a view do componente inicializa primeiro. Sem isto
+   * o overlay só valeria a partir da segunda execução do teste. */
+  private overlay: HTMLCanvasElement | null = null;
+
   private readonly _detectorType = signal<DetectorType | null>(null);
   /** ADR-007: 'browser_mediapipe' assim que o modelo carrega; null antes disso e após close(). */
   readonly detectorType = this._detectorType.asReadonly();
@@ -38,6 +43,14 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
     if (!source) {
       // O facade só chega aqui depois de adquirir a câmera; sem stream é bug ou
       // permissão negada. Degradar é honesto — inventar "recognized" não seria.
+      return this.mockStream(draft);
+    }
+
+    if (draft.engineFeatureRefPrincipal === null) {
+      // O comando aponta para um tipo de gesto que o motor não detecta. Sem esta
+      // guarda o teste ficava girando para sempre: nenhuma emissão do detector
+      // casaria, e a tela mostraria "testando…" indefinidamente — a espera
+      // eterna é pior que o veredito ruim, porque não informa nada.
       return this.mockStream(draft);
     }
 
@@ -71,20 +84,29 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
             subscriber.next(buildSignal(draft, 'preview_frame_ack', startedAt, []));
           }
         },
-        onGesture: (tipoGestoId, confidence) => {
+        onGesture: (engineFeatureRef, confidence) => {
+          // Compara REFERÊNCIA DE MOTOR com referência de motor.
+          //
+          // Antes era `tipoGestoId === draft.primitivoPrincipal`: o id que o
+          // motor emite contra o id do CATÁLOGO. Vocabulários diferentes — a
+          // igualdade era falsa por construção, e o teste ao vivo jamais
+          // reconheceria um gesto em produção. Passava despercebido porque os
+          // testes do adaptador montavam o draft com os ids do próprio motor.
           const esperado =
-            tipoGestoId === draft.primitivoPrincipal || tipoGestoId === draft.primitivoSecundario;
+            engineFeatureRef === draft.engineFeatureRefPrincipal ||
+            engineFeatureRef === draft.engineFeatureRefSecundario;
           subscriber.next(
             buildSignal(
               draft,
               esperado ? 'recognized' : 'not_recognized',
               startedAt,
-              [{ engineFeatureRef: tipoGestoId, confidence }],
+              [{ engineFeatureRef, confidence }],
             ),
           );
         },
       });
       this.detector = detector;
+      detector.attachOverlay(this.overlay);
 
       void (async () => {
         try {
@@ -122,6 +144,13 @@ export class EdgeDetectionBrowserAdapter implements EdgeDetectionPort {
   close(): void {
     this.encerrarSessao(this.detector, this.video);
     this._detectorType.set(null);
+  }
+
+  attachOverlay(canvas: HTMLCanvasElement | null): void {
+    this.overlay = canvas;
+    // Repassa também à sessão em curso: se a view inicializar depois do start
+    // (retry, troca de câmera), sem isto a malha só apareceria na próxima sessão.
+    this.detector?.attachOverlay(canvas);
   }
 
   /**

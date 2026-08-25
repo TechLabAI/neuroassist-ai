@@ -137,4 +137,11 @@ export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
   close(): void {
     // Stateless — subscriptions are torn down by the facade's unsubscribe.
   }
+
+  /** Sem malha: este adaptador não tem landmarks — quem detecta é outro processo
+   * (ou ninguém, no caso do mock). Ignorar em silêncio é o comportamento certo;
+   * o componente não precisa saber qual motor está ligado para montar o canvas. */
+  attachOverlay(): void {
+    // no-op
+  }
 }

@@ -32,7 +32,7 @@ export type { EligibilityPort } from './lib/api/eligibility.port';
 
 // ADR-007 — motor de detecção no browser
 export { EdgeDetectionBrowserAdapter } from './lib/api/edge-detection-browser.adapter';
-export { GestureDetector, TIPO_GESTO, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';
+export { GestureDetector, ENGINE_FEATURE, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';
 export type { GestureFrame, DetectorAssetPaths, GestureDetectorCallbacks } from './lib/detection/gesture-detector';
 export { CameraPreferenceService } from './lib/detection/camera-preference.service';
 export type { CameraOption } from './lib/detection/camera-preference.service';

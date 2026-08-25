@@ -4,6 +4,8 @@
 // Contract version: 1.0.0 (frozen — do NOT modify without updating BE event-contracts.md)
 // =============================================================================
 
+import type { EngineFeatureRef } from './gesture-vocabulary';
+
 // ---------------------------------------------------------------------------
 // EdgeRecognitionSignal (frozen v1.0.0 — SPEC-04 §1)
 // ---------------------------------------------------------------------------
@@ -43,6 +45,23 @@ export interface ComandoDraft {
   readonly rotulo: string;                 // family label, e.g. "água"
   readonly primitivoPrincipal: string;     // TipoGesto id
   readonly primitivoSecundario: string | null;
+
+  // --- o que o MOTOR entende -------------------------------------------------
+  //
+  // `primitivoPrincipal` é id de CATÁLOGO (uuid no backend); o detector emite
+  // `engine_feature_ref`. São vocabulários diferentes, e o adaptador comparava um
+  // com o outro — a igualdade era falsa por construção, e nada acusava porque
+  // cada lado se testava com os próprios ids.
+  //
+  // Quem resolve catálogo → motor é o HOSPEDEIRO (o editor de comando do PAC),
+  // que é quem tem o catálogo em mãos: "GEST does not own or fetch the catalog"
+  // (§ acima). O GEST recebe a resolução pronta.
+  //
+  // `null` é um estado legítimo e precisa aparecer na tela: significa que o
+  // comando aponta para um tipo de gesto que o motor não detecta. Antes isso
+  // produzia um teste que rodava para sempre sem veredito.
+  readonly engineFeatureRefPrincipal: EngineFeatureRef | null;
+  readonly engineFeatureRefSecundario: EngineFeatureRef | null;
   readonly sensibilidade: Sensibilidade;
   readonly urgencia: Urgencia;
   readonly tempoMinimoGestoMs: number;

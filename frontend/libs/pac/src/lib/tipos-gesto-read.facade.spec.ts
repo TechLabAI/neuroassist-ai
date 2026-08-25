@@ -2,6 +2,7 @@ import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { TiposGestoReadFacade } from './tipos-gesto-read.facade';
 import { TIPOS_GESTO_READ_PORT } from './api/tipos-gesto-read.port';
+import { ENGINE_FEATURE } from '@neuroassist/shared/contracts';
 
 // =============================================================================
 // TiposGestoReadFacade — unit tests (P6 / PAC-FE-012)
@@ -65,17 +66,107 @@ describe('TiposGestoReadFacade', () => {
   describe('load()', () => {
     it('deve popular tipos() com a lista retornada pelo port', fakeAsync(() => {
       const tipos = [
-        { id: 'g1', nome: 'Piscar' },
-        { id: 'g2', nome: 'Inclinação' },
+        {
+          id: 'g1',
+          nome: 'Piscar duas vezes',
+          detectabilityState: 'supported' as const,
+          engineFeatureRef: ENGINE_FEATURE.blinkDouble,
+        },
+        {
+          id: 'g2',
+          nome: 'Inclinação',
+          detectabilityState: 'registered' as const,
+          engineFeatureRef: null,
+        },
       ];
       mockPort.list.mockReturnValue(of(tipos));
 
       facade.load();
       tick();
 
-      expect(facade.tipos()).toEqual(tipos);
+      expect(facade.tipos()).toEqual([
+        {
+          id: 'g1',
+          nome: 'Piscar duas vezes',
+          detectabilityState: 'supported',
+          engineFeatureRef: ENGINE_FEATURE.blinkDouble,
+          detectavel: true,
+          motivoIndisponivel: null,
+          comoFazer: expect.stringContaining('duas vezes'),
+        },
+        {
+          id: 'g2',
+          nome: 'Inclinação',
+          detectabilityState: 'registered',
+          engineFeatureRef: null,
+          detectavel: false,
+          motivoIndisponivel: expect.stringContaining('não há detecção'),
+          comoFazer: null,
+        },
+      ]);
       expect(facade.loading()).toBe(false);
       expect(facade.error()).toBeNull();
+    }));
+
+    // -------------------------------------------------------------------------
+    // A regra que protege o canal: na dúvida, NÃO oferece.
+    // -------------------------------------------------------------------------
+
+    it('trata tipo sem detectabilityState como NÃO detectável', fakeAsync(() => {
+      // Backend antigo, campo ainda não propagado, resposta truncada. O tipo
+      // chega sem estado — e a tela precisa recusá-lo, não assumir que serve.
+      // O oposto produz um comando que nunca dispara, descoberto pelo paciente
+      // no momento em que ele precisa pedir ajuda.
+      mockPort.list.mockReturnValue(
+        of([{ id: 'g9', nome: 'Coisa nova' } as unknown as never]),
+      );
+
+      facade.load();
+      tick();
+
+      expect(facade.tipos()[0].detectavel).toBe(false);
+      expect(facade.tipos()[0].motivoIndisponivel).not.toBeNull();
+    }));
+
+    it('recusa engineFeatureRef que não existe no vocabulário do motor', fakeAsync(() => {
+      // `supported` apontando para um motor inexistente é contradição: alguém
+      // marcou como detectável algo que o detector não emite. A referência é
+      // descartada — instrução inventada seria pior que instrução nenhuma.
+      mockPort.list.mockReturnValue(
+        of([
+          {
+            id: 'g8',
+            nome: 'Fantasma',
+            detectabilityState: 'supported' as const,
+            engineFeatureRef: 'punho_fechado_v1' as unknown as never,
+          },
+        ]),
+      );
+
+      facade.load();
+      tick();
+
+      expect(facade.tipos()[0].engineFeatureRef).toBeNull();
+      expect(facade.tipos()[0].comoFazer).toBeNull();
+      // E o resolvedor não entrega ao motor uma referência que ele não conhece.
+      expect(facade.engineFeatureRefDe('g8')).toBeNull();
+    }));
+
+    it('firstTipoId escolhe o primeiro DETECTÁVEL, não o primeiro da lista', fakeAsync(() => {
+      // Bastava o catálogo devolver um pedido sem motor na primeira posição para
+      // o formulário de comando novo nascer apontando para algo indetectável.
+      mockPort.list.mockReturnValue(
+        of([
+          { id: 'sem-motor', nome: 'Leitura labial', detectabilityState: 'registered' as const, engineFeatureRef: null },
+          { id: 'com-motor', nome: 'Piscar duas vezes', detectabilityState: 'supported' as const, engineFeatureRef: ENGINE_FEATURE.blinkDouble },
+        ]),
+      );
+
+      facade.load();
+      tick();
+
+      expect(facade.firstTipoId()).toBe('com-motor');
+      expect(facade.detectaveis().map((t) => t.id)).toEqual(['com-motor']);
     }));
 
     it('firstTipoId computed retorna "" quando lista está vazia', fakeAsync(() => {

@@ -1,5 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
+import type { DetectabilityState, EngineFeatureRef } from '@neuroassist/shared/contracts';
 
 // ---------------------------------------------------------------------------
 // TipoGesto — GEST-owned, PAC reads via GWY (api-contract note §4)
@@ -11,6 +12,19 @@ import { Observable } from 'rxjs';
 export interface TipoGesto {
   readonly id: string;
   readonly nome: string;
+
+  // --- detectabilidade — espelha `tipo_gesto` no banco -----------------------
+  //
+  // Estes dois campos existiam no banco desde a V0400 e o frontend os ignorava.
+  // A consequência estava na tela: o seletor oferecia "Leitura labial" e "Mover
+  // o nariz" ao lado de "Piscar duas vezes", sem distinção nenhuma — nomes sem
+  // motor atrás, apresentados como se funcionassem. A cuidadora só descobriria
+  // ao testar, e o teste ficava girando sem veredito.
+  //
+  // A constraint `ck_tipo_gesto_supported_needs_ref` garante o par: `supported`
+  // sempre traz `engineFeatureRef`; qualquer outro estado pode não trazer.
+  readonly detectabilityState: DetectabilityState;
+  readonly engineFeatureRef: EngineFeatureRef | null;
 }
 
 // ---------------------------------------------------------------------------

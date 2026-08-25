@@ -159,6 +159,13 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
     this._detectorType.set(null); // ADR-006: reset on close so the banner clears next session
   }
 
+  /** Sem malha: este adaptador não tem landmarks — quem detecta é outro processo
+   * (ou ninguém, no caso do mock). Ignorar em silêncio é o comportamento certo;
+   * o componente não precisa saber qual motor está ligado para montar o canvas. */
+  attachOverlay(): void {
+    // no-op
+  }
+
   /** Honest fallback: emit a single degraded signal and complete — never a
    * fake "recognized" (ADR-005). Mirrors mockStream's shape via the mock
    * adapter so both paths stay in sync. */

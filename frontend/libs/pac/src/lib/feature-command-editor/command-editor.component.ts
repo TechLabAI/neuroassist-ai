@@ -157,8 +157,16 @@ type NovoTipoAlvo = 'principal' | 'secundario' | null;
                     [ngModel]="editor().primitivoPrincipal"
                     (ngModelChange)="patchPrimitivoPrincipal($event)"
                     class="h-9 w-full rounded-md border-[1.5px] border-field-line bg-field px-3 font-body text-sm text-ink outline-none focus:border-brand">
+                    <!--
+                      Movimento sem motor entra DESABILITADO, dizendo por que.
+                      Antes vinha na lista indistinguível dos detectáveis, e
+                      escolhê-lo produzia um comando que nunca dispara — coisa
+                      que a pessoa só descobriria no teste, ou pior, no uso.
+                    -->
                     @for (t of tipos(); track t.id) {
-                      <option [value]="t.id">{{ t.nome }}</option>
+                      <option [value]="t.id" [disabled]="!t.detectavel">
+                        {{ t.nome }}@if (!t.detectavel) { — {{ t.motivoIndisponivel }} }
+                      </option>
                     }
                   </select>
                   <button
@@ -202,8 +210,16 @@ type NovoTipoAlvo = 'principal' | 'secundario' | null;
                     [ngModel]="editor().primitivoSecundario"
                     (ngModelChange)="patchPrimitivoSecundario($event)"
                     class="h-9 w-full rounded-md border-[1.5px] border-field-line bg-field px-3 font-body text-sm text-ink outline-none focus:border-brand">
+                    <!--
+                      Movimento sem motor entra DESABILITADO, dizendo por que.
+                      Antes vinha na lista indistinguível dos detectáveis, e
+                      escolhê-lo produzia um comando que nunca dispara — coisa
+                      que a pessoa só descobriria no teste, ou pior, no uso.
+                    -->
                     @for (t of tipos(); track t.id) {
-                      <option [value]="t.id">{{ t.nome }}</option>
+                      <option [value]="t.id" [disabled]="!t.detectavel">
+                        {{ t.nome }}@if (!t.detectavel) { — {{ t.motivoIndisponivel }} }
+                      </option>
                     }
                   </select>
                   <button

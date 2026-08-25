@@ -8,8 +8,10 @@ import {
   viewChild,
   ElementRef,
   OnDestroy,
+  computed,
 } from '@angular/core';
-import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts';
+import { ComandoDraft, GestureTestOutcome, guidanceDe } from '@neuroassist/shared/contracts';
+import { EDGE_DETECTION_PORT } from '../api/edge-detection.port';
 import { GestureTestFacade } from '../gest.facade';
 import { CameraPreferenceService } from '../detection/camera-preference.service';
 
@@ -143,15 +145,54 @@ import { CameraPreferenceService } from '../detection/camera-preference.service'
         </div>
       }
 
-      <!-- Preview frame (cosmetic only — real detection runs on the edge agent) -->
+      <!--
+        A INSTRUÇÃO — o que fazer diante da câmera.
+
+        Vinha do protótipo e não foi portada junto com o detector: a tela abria a
+        webcam e não dizia nada. Sem ela "não detectou" é indistinguível de "não
+        sei o que devo fazer", e a pessoa conclui que o produto não funciona.
+
+        Fica ACIMA do vídeo, e não abaixo, porque é lida ANTES de agir.
+      -->
+      @if (comoFazer(); as instrucao) {
+        <p class="mb-2 text-xs leading-relaxed text-ink-soft" data-testid="gest-como-fazer">
+          {{ instrucao }}
+        </p>
+      } @else if (facade.testState() === 'testing') {
+        <p class="mb-2 text-xs leading-relaxed text-warning-ink" data-testid="gest-sem-motor">
+          Este movimento ainda não é reconhecido pela câmera — o teste não pode
+          confirmar o gesto. Escolha outro movimento para este comando.
+        </p>
+      }
+
+      <!--
+        Preview + malha facial.
+
+        O vídeo já não é "cosmetic only": desde a ADR-007 é DELE que saem os
+        frames que o motor analisa. O canvas por cima desenha a malha, que é o
+        único jeito de a cuidadora distinguir "o motor não viu meu rosto" de "o
+        motor viu e não reconheceu o gesto" — dois problemas com soluções opostas
+        (ajustar luz/enquadramento × repetir o movimento).
+
+        O aria-hidden no canvas: é informação visual redundante para quem usa
+        leitor de tela, e o veredito já é anunciado pelo badge de estado.
+      -->
       @if (facade.testState() === 'testing' || facade.testState() === 'recognized') {
-        <video
-          #previewVideo
-          class="mb-3 w-full max-w-sm rounded-md bg-black"
-          autoplay
-          muted
-          playsinline
-        ></video>
+        <div class="relative mb-3 w-full max-w-sm">
+          <video
+            #previewVideo
+            class="w-full rounded-md bg-black"
+            autoplay
+            muted
+            playsinline
+          ></video>
+          <canvas
+            #meshOverlay
+            class="pointer-events-none absolute inset-0 h-full w-full"
+            aria-hidden="true"
+            data-testid="gest-mesh-overlay"
+          ></canvas>
+        </div>
       }
 
       <!-- State badge (hidden for camera-error — the gest-error block above handles that state) -->
@@ -196,6 +237,24 @@ export class GestureLiveTestComponent implements OnDestroy {
   readonly outcome = output<GestureTestOutcome>();
 
   private readonly previewVideo = viewChild<ElementRef<HTMLVideoElement>>('previewVideo');
+  private readonly meshOverlay = viewChild<ElementRef<HTMLCanvasElement>>('meshOverlay');
+  private readonly deteccao = inject(EDGE_DETECTION_PORT);
+
+  /**
+   * Instrução do gesto em teste — a do passo ATUAL num comando composto.
+   *
+   * <p>Mostrar a instrução do gesto principal enquanto a pessoa executa o
+   * secundário mandaria ela fazer a coisa errada, e o teste reprovaria por culpa
+   * do texto.
+   */
+  protected readonly comoFazer = computed<string | null>(() => {
+    const d = this.draft();
+    const ref =
+      this.facade.step() === 'secundario'
+        ? d.engineFeatureRefSecundario
+        : d.engineFeatureRefPrincipal;
+    return guidanceDe(ref)?.comoFazer ?? null;
+  });
 
   constructor() {
     // Popula a lista de câmeras já na montagem. Antes da primeira permissão os
@@ -211,6 +270,14 @@ export class GestureLiveTestComponent implements OnDestroy {
       if (video && stream && video.srcObject !== stream) {
         video.srcObject = stream;
       }
+    });
+
+    // Liga/desliga a malha conforme o canvas entra e sai da view — ele só existe
+    // enquanto o estado é testing/recognized. Passar `null` na saída importa: sem
+    // isso o adaptador guardaria a referência de um canvas já destacado do DOM e
+    // desenharia em memória a cada frame, para ninguém.
+    effect(() => {
+      this.deteccao.attachOverlay(this.meshOverlay()?.nativeElement ?? null);
     });
 
     // Forward completed outcomes to the host page (PAC command editor).

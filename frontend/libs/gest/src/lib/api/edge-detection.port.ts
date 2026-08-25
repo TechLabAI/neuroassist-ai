@@ -26,6 +26,17 @@ export interface EdgeDetectionPort {
   /** Close the active bridge session, if any. Idempotent. */
   close(): void;
 
+  /**
+   * Liga o desenho da malha facial num canvas do hospedeiro. `null` desliga.
+   *
+   * <p>Só o motor do browser tem landmarks para desenhar — os adaptadores mock e
+   * de ponte ignoram. Deliberadamente **não** é um parâmetro de `openStream()`:
+   * o canvas é do componente e nasce/morre com a view, enquanto a sessão de
+   * detecção tem outro ciclo de vida. Amarrar os dois faria o overlay depender
+   * da ordem em que view e sessão se inicializam.
+   */
+  attachOverlay(canvas: HTMLCanvasElement | null): void;
+
   /** Detector algorithm in use.
    * 'browser_mediapipe' = motor do produto desde a ADR-007 (MediaPipe no browser);
    * 'ear_bri' / 'onnx'  = agente Python legado, reportado no handshake WS (ADR-006);

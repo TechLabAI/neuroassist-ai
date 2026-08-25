@@ -1,4 +1,5 @@
 import type { FaceLandmarker as FaceLandmarkerType } from '@mediapipe/tasks-vision';
+import { ENGINE_FEATURE, type EngineFeatureRef } from '@neuroassist/shared/contracts';
 
 // =============================================================================
 // GestureDetector — motor de detecção do produto (ADR-007)
@@ -55,15 +56,19 @@ const COOLDOWN_MS = 4000;
 const LEFT_EYE_IDX = [33, 160, 158, 133, 153, 144];
 const RIGHT_EYE_IDX = [362, 385, 387, 263, 373, 380];
 
-/** Ids de TipoGesto reconhecidos — devem casar com o catálogo do PAC. */
-export const TIPO_GESTO = {
-  piscarDuplo: 'tg-piscar-duplo-001',
-  piscarEsquerdo: 'tg-piscar-esquerdo',
-  piscarDireito: 'tg-piscar-direito',
-  sobrancelhaDupla: 'tg-sobrancelha-dupla',
-  sobrancelhaEsquerda: 'tg-sobrancelha-esquerda',
-  sobrancelhaDireita: 'tg-sobrancelha-direita',
-} as const;
+/**
+ * O que este motor emite — em `engine_feature_ref`, o vocabulário canônico.
+ *
+ * <p>Era uma lista própria (`tg-piscar-duplo-001`, `tg-sobrancelha-dupla`, …)
+ * que dizia "devem casar com o catálogo do PAC" e não casava com nada: o
+ * catálogo oferecia `tg-piscar-duplo` e `tg-sobrancelha`. O comentário afirmava
+ * a invariante; nenhum código a verificava.
+ *
+ * <p>Agora não há lista local a divergir — os nomes vêm de
+ * `@neuroassist/shared/contracts`, os mesmos que o banco grava em
+ * `tipo_gesto.engine_feature_ref`.
+ */
+export { ENGINE_FEATURE };
 
 type BlinkState =
   | 'WAITING_BLINK1'
@@ -115,8 +120,22 @@ class OnsetDetector {
 export interface GestureDetectorCallbacks {
   /** Chamado a cada frame processado (com ou sem rosto). */
   readonly onFrame: (frame: GestureFrame) => void;
-  /** Chamado quando um gesto completa. */
-  readonly onGesture: (tipoGestoId: string, confidence: number) => void;
+  /** Chamado quando um gesto completa. Emite o nome CANÔNICO do motor. */
+  readonly onGesture: (engineFeatureRef: EngineFeatureRef, confidence: number) => void;
+}
+
+/** Conexão entre dois landmarks, no formato que o MediaPipe publica. */
+interface Conexao {
+  readonly start: number;
+  readonly end: number;
+}
+
+/** As listas de conexões são estáticas na classe FaceLandmarker, e só existem
+ * depois do import dinâmico — por isso são capturadas no `init()`. */
+interface ConexoesDaMalha {
+  readonly tesselacao: readonly Conexao[];
+  readonly contorno: readonly Conexao[];
+  readonly destaques: readonly Conexao[];
 }
 
 export class GestureDetector {
@@ -124,6 +143,10 @@ export class GestureDetector {
   private rafId: number | null = null;
   private active = false;
   private video: HTMLVideoElement | null = null;
+
+  /** Canvas onde a malha é desenhada. `null` = não desenhar (o motor roda igual). */
+  private overlay: HTMLCanvasElement | null = null;
+  private conexoes: ConexoesDaMalha | null = null;
 
   private blinkState: BlinkState = 'WAITING_BLINK1';
   private blinkFrameCount = 0;
@@ -155,6 +178,38 @@ export class GestureDetector {
       numFaces: 1,
       outputFaceBlendshapes: true,
     });
+
+    this.conexoes = {
+      tesselacao: FaceLandmarker.FACE_LANDMARKS_TESSELATION,
+      contorno: FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,
+      // Olhos e sobrancelhas juntos e em destaque: são exatamente as regiões de
+      // onde saem os seis gestos. Ver a pessoa "acender" a região que ela está
+      // movendo é o que transforma a malha em resposta, e não em enfeite.
+      destaques: [
+        ...FaceLandmarker.FACE_LANDMARKS_LEFT_EYE,
+        ...FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,
+        ...FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW,
+        ...FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW,
+      ],
+    };
+  }
+
+  /**
+   * Liga (ou desliga, com `null`) o desenho da malha facial.
+   *
+   * <p>Pode ser chamado antes ou depois do `start()` — o desenho é lido a cada
+   * frame, não capturado no início.
+   *
+   * <p>É opcional de propósito: a malha é **retorno visual**, não detecção. Sem
+   * canvas o motor roda idêntico, que é o caso do fluxo always-on, onde não há
+   * ninguém olhando para a tela. O custo de desenhar ~2.600 segmentos por frame
+   * não deve ser pago por quem não vai vê-los.
+   */
+  attachOverlay(canvas: HTMLCanvasElement | null): void {
+    this.overlay = canvas;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   /** Começa a processar frames do elemento de vídeo. `init()` precisa ter resolvido. */
@@ -174,6 +229,10 @@ export class GestureDetector {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
     }
+    // Limpa ANTES de soltar o vídeo: `desenharMalha` usa as dimensões dele para
+    // dimensionar o canvas. Parar sem limpar deixaria a última malha desenhada
+    // sobre um preview já encerrado.
+    this.desenharMalha(undefined);
     this.video = null;
   }
 
@@ -199,13 +258,85 @@ export class GestureDetector {
     this.browRight.reset();
   }
 
-  private fire(tipoGestoId: string, now: number, confidence: number): void {
+  /**
+   * Desenha a malha facial sobre o preview. `face` ausente = limpa e sai.
+   *
+   * <p>Portado do `drawGrid()` do protótipo. Três camadas, e a hierarquia é
+   * deliberada: a tesselação inteira quase transparente diz "estou vendo seu
+   * rosto"; o contorno mais firme mostra o enquadramento; olhos e sobrancelhas
+   * em verde vivo são as regiões que produzem os seis gestos — é onde a pessoa
+   * precisa olhar para entender o que o motor está lendo.
+   *
+   * <p>O canvas é redimensionado para o tamanho do vídeo, não do CSS: as
+   * coordenadas do MediaPipe são normalizadas (0..1), então qualquer descompasso
+   * entre o buffer e o vídeo desloca a malha em relação ao rosto — e uma malha
+   * deslocada parece defeito de detecção quando é só escala.
+   */
+  private desenharMalha(face: Landmark[] | undefined): void {
+    const canvas = this.overlay;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const video = this.video;
+    const w = video?.videoWidth ?? 0;
+    const h = video?.videoHeight ?? 0;
+    if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!face || !this.conexoes) return;
+
+    const { width: W, height: H } = canvas;
+    const traco = (conexoes: readonly Conexao[]): void => {
+      ctx.beginPath();
+      for (const c of conexoes) {
+        const a = face[c.start];
+        const b = face[c.end];
+        if (!a || !b) continue;
+        ctx.moveTo(a.x * W, a.y * H);
+        ctx.lineTo(b.x * W, b.y * H);
+      }
+      // Um único path para as ~2.600 conexões da tesselação. O protótipo abria um
+      // beginPath/stroke por segmento; a 30 fps isso é ~78.000 chamadas por
+      // segundo, e o custo aparecia como queda de fps no próprio detector.
+      ctx.stroke();
+    };
+
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(80, 200, 255, 0.13)';
+    traco(this.conexoes.tesselacao);
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(80, 200, 255, 0.45)';
+    traco(this.conexoes.contorno);
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0, 255, 180, 0.92)';
+    traco(this.conexoes.destaques);
+
+    // Os pontos que ALIMENTAM o cálculo do EAR — os mesmos índices usados em
+    // calcEar(). Quem calibra consegue ver o que o número está medindo.
+    ctx.fillStyle = 'rgba(0, 255, 180, 0.9)';
+    for (const idx of [...LEFT_EYE_IDX, ...RIGHT_EYE_IDX]) {
+      const p = face[idx];
+      if (!p) continue;
+      ctx.beginPath();
+      ctx.arc(p.x * W, p.y * H, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  private fire(engineFeatureRef: EngineFeatureRef, now: number, confidence: number): void {
     // Ordem importa: resetAll() zera o cooldown, então ele é armado DEPOIS.
     // No protótipo a ordem era inversa e o cooldown nunca valia nada — um gesto
     // sustentado podia disparar repetidamente. Corrigido aqui de propósito.
     this.resetAll();
     this.cooldownUntil = now + COOLDOWN_MS;
-    this.callbacks.onGesture(tipoGestoId, confidence);
+    this.callbacks.onGesture(engineFeatureRef, confidence);
   }
 
   private tick(): void {
@@ -221,12 +352,18 @@ export class GestureDetector {
       } catch {
         // Frame ruim não derruba a sessão — mas o batimento PRECISA continuar,
         // senão o watchdog acusa parada e o erro fica invisível.
+        this.desenharMalha(undefined);
         this.callbacks.onFrame(NO_FACE);
         this.rafId = requestAnimationFrame(() => this.tick());
         return;
       }
 
       const face = result.faceLandmarks?.[0] as Landmark[] | undefined;
+
+      // A malha é limpa TODO frame, com rosto ou sem. Sem isto o último desenho
+      // fica congelado na tela quando a pessoa sai de quadro — uma malha parada
+      // sobre um rosto ausente afirma que o motor está vendo o que não vê.
+      this.desenharMalha(face);
 
       if (face) {
         const earL = calcEar(face, LEFT_EYE_IDX);
@@ -247,19 +384,19 @@ export class GestureDetector {
           this.processDoubleBlink(earAvg, now);
 
           if (this.leftBlink.process(eyeBlinkL > BLINK_BS_ON && eyeBlinkR < EYE_OTHER_MAX, SINGLE_BLINK_FRAMES)) {
-            this.fire(TIPO_GESTO.piscarEsquerdo, now, eyeBlinkL);
+            this.fire(ENGINE_FEATURE.blinkLeft, now, eyeBlinkL);
           }
           if (this.rightBlink.process(eyeBlinkR > BLINK_BS_ON && eyeBlinkL < EYE_OTHER_MAX, SINGLE_BLINK_FRAMES)) {
-            this.fire(TIPO_GESTO.piscarDireito, now, eyeBlinkR);
+            this.fire(ENGINE_FEATURE.blinkRight, now, eyeBlinkR);
           }
           if (this.browDual.process(browInnerUp > BROW_ON, BROW_MIN_FRAMES)) {
-            this.fire(TIPO_GESTO.sobrancelhaDupla, now, browInnerUp);
+            this.fire(ENGINE_FEATURE.browRaiseBoth, now, browInnerUp);
           }
           if (this.browLeft.process(browOuterUpL > BROW_ON && browOuterUpR < BROW_OFF, BROW_MIN_FRAMES)) {
-            this.fire(TIPO_GESTO.sobrancelhaEsquerda, now, browOuterUpL);
+            this.fire(ENGINE_FEATURE.browRaiseLeft, now, browOuterUpL);
           }
           if (this.browRight.process(browOuterUpR > BROW_ON && browOuterUpL < BROW_OFF, BROW_MIN_FRAMES)) {
-            this.fire(TIPO_GESTO.sobrancelhaDireita, now, browOuterUpR);
+            this.fire(ENGINE_FEATURE.browRaiseRight, now, browOuterUpR);
           }
         }
 
@@ -350,7 +487,7 @@ export class GestureDetector {
           if (this.blinkFrameCount >= BLINK_MIN_FRAMES && dentroDaJanela) {
             this.blinkState = 'DONE';
             this.blinkCount = 2;
-            this.fire(TIPO_GESTO.piscarDuplo, now, 1 - earAvg / EAR_CLOSE);
+            this.fire(ENGINE_FEATURE.blinkDouble, now, 1 - earAvg / EAR_CLOSE);
           } else {
             this.blinkState = 'WAITING_BLINK1';
             this.blinkFrameCount = 0;
