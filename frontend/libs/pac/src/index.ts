@@ -32,8 +32,19 @@ export type { PacComandoPort, Comando, ComandoEstado, SyncState } from './lib/ap
 export { TIPOS_GESTO_READ_PORT } from './lib/api/tipos-gesto-read.port';
 export type { TiposGestoReadPort, TipoGesto } from './lib/api/tipos-gesto-read.port';
 
+// Integration service — a porta do PAC para o shell.
+// É por aqui que o assistente de configuração inicial obtém o passo do paciente;
+// o shell NÃO importa mais `PatientRegisterComponent` para montá-lo.
+export { PacShellIntegrationService } from './lib/integration/pac-shell-integration.service';
+
 // Feature components exported for direct embedding (scope:acs onboarding wizard)
+// `PatientRegisterComponent` continua exportado porque é o tipo devolvido por
+// `resolvePatientRegisterSlot()` e porque os testes do próprio PAC o montam
+// diretamente — mas o shell chega nele pelo slot, não por este export.
 export { PatientRegisterComponent } from './lib/feature-patient-register/patient-register.component';
+// Passo "Primeiro comando" do assistente — exportado pelo mesmo motivo: é o tipo
+// devolvido por `resolveFirstCommandSlot()`. O shell chega nele pelo slot.
+export { FirstCommandStepComponent } from './lib/feature-first-command/first-command-step.component';
 export { CommandCatalogComponent } from './lib/feature-command-catalog/command-catalog.component';
 export { CommandEditorComponent } from './lib/feature-command-editor/command-editor.component';
 

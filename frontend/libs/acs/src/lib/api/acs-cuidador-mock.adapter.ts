@@ -1,7 +1,13 @@
 import { Injectable } from '@angular/core';
 import { Observable, of, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
-import { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto, CuidadorStatus } from './acs-cuidador.port';
+import {
+  AcsCuidadorPort,
+  CuidadorDto,
+  CuidadorCreateDto,
+  CuidadorEditDto,
+  CuidadorStatus,
+} from './acs-cuidador.port';
 import { ACS_E2E_FLAGS, ACS_E2E_CUIDADORA_OUTRA_EMPRESA } from './acs-e2e-flags';
 import {
   vinculosAtivosDoCuidador,
@@ -138,6 +144,41 @@ export class AcsCuidadorMockAdapter implements AcsCuidadorPort {
         };
         _cuidadores.set(id, cuidador);
         return of(cuidador);
+      }),
+    );
+  }
+
+  edit(id: string, dto: CuidadorEditDto): Observable<CuidadorDto> {
+    return timer(600).pipe(
+      switchMap(() => {
+        const existente = _cuidadores.get(id);
+        if (!existente) throw new Error(`mock: cuidador not found: ${id}`);
+
+        // As MESMAS regras do `CaregiverService.edit` do acs-service, e não as que
+        // pareceriam razoáveis: login normalizado para minúsculas; duplicidade
+        // checada só quando o login MUDA (reenviar o mesmo não é conflito consigo
+        // mesma — é o caso de quem corrige só o nome); papel e status preservados,
+        // porque o endpoint de edição não os aceita.
+        const login = dto.email.toLowerCase();
+        if (login !== existente.email.toLowerCase()) {
+          const conflito = Array.from(_cuidadores.values()).some(
+            (c) => c.id !== id && c.email.toLowerCase() === login,
+          );
+          if (conflito) {
+            throw Object.assign(
+              new Error('Já existe um cuidador com este e-mail nesta empresa.'),
+              { status: 409, type: '/errors/login-duplicate' },
+            );
+          }
+        }
+
+        const atualizado: CuidadorDto = {
+          ...existente,
+          nome: dto.nome,
+          email: login,
+        };
+        _cuidadores.set(id, atualizado);
+        return of(atualizado);
       }),
     );
   }

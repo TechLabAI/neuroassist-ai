@@ -53,6 +53,7 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
     list: jest.Mock;
     get: jest.Mock;
     create: jest.Mock;
+    edit: jest.Mock;
     deactivate: jest.Mock;
   };
   let linkPort: {
@@ -68,6 +69,9 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
       create: jest.fn().mockReturnValue(
         of({ ...SEED_CUIDADOR, id: 'cuid-new', nome: 'New Caregiver', email: 'new@test.com' }),
       ),
+      edit: jest
+        .fn()
+        .mockReturnValue(of({ ...SEED_CUIDADOR, nome: 'Nome Corrigido', email: 'novo@test.com' })),
       deactivate: jest.fn().mockReturnValue(of({ ...SEED_CUIDADOR, status: 'inactive' })),
     };
 
@@ -392,6 +396,68 @@ describe('AcsCaregiverFacade — FE-ACS-020', () => {
       await facade.revokeLink('cuid-test', 'link-test-001', 'pac-marcio');
       expect(facade.coverageModal()).not.toBeNull();
       expect(facade.coverageModal()?.type).toBe('deactivate');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // edit() — a capacidade que passou a existir
+  //
+  // O `save()` do editor tinha um `if` que cobria so a criacao e nenhum `else`:
+  // quem corrigia um nome clicava "Salvar", nada acontecia, e a tela nao dizia
+  // nem sucesso nem erro. A causa era mais funda que a tela — nao havia endpoint.
+  // ---------------------------------------------------------------------------
+
+  describe('edit()', () => {
+    it('manda APENAS nome e login ao servidor', async () => {
+      // O endpoint nao aceita papel, senha nem status. Mandar papel daqui faria a
+      // tela oferecer um campo que o servidor ignoraria em silencio: a pessoa
+      // mudaria o papel, veria "salvo", e nada teria mudado.
+      await facade.loadRoster();
+      await facade.edit(SEED_CUIDADOR.id, { nome: 'Nome Corrigido', email: 'novo@test.com' });
+
+      expect(cuidadorPort.edit).toHaveBeenCalledWith(SEED_CUIDADOR.id, {
+        nome: 'Nome Corrigido',
+        email: 'novo@test.com',
+      });
+    });
+
+    it('atualiza a linha NO LUGAR, sem recarregar o elenco', async () => {
+      // Recarregar perderia a posicao de quem esta no meio de uma lista longa, e
+      // o servidor ja devolve a propria linha atualizada.
+      await facade.loadRoster();
+      const chamadasDeListaAntes = cuidadorPort.list.mock.calls.length;
+
+      await facade.edit(SEED_CUIDADOR.id, { nome: 'Nome Corrigido', email: 'novo@test.com' });
+
+      expect(facade.caregivers().find((c) => c.id === SEED_CUIDADOR.id)?.nome).toBe(
+        'Nome Corrigido',
+      );
+      expect(cuidadorPort.list.mock.calls.length).toBe(chamadasDeListaAntes);
+    });
+
+    it('falha publica o erro e devolve null — a tela precisa saber', async () => {
+      // O no-op original nao dizia NEM sucesso NEM erro. Devolver null e publicar
+      // a mensagem e o que impede aquilo de voltar.
+      cuidadorPort.edit.mockReturnValue(
+        throwError(() => new Error('Já existe um cuidador com este e-mail nesta empresa.')),
+      );
+
+      const resultado = await facade.edit(SEED_CUIDADOR.id, {
+        nome: 'X',
+        email: 'duplicado@test.com',
+      });
+
+      expect(resultado).toBeNull();
+      expect(facade.error()).toContain('e-mail');
+    });
+
+    it('uma tentativa nova nao herda o erro da anterior', async () => {
+      cuidadorPort.edit.mockReturnValueOnce(throwError(() => new Error('falhou')));
+      await facade.edit(SEED_CUIDADOR.id, { nome: 'X', email: 'x@test.com' });
+      expect(facade.error()).not.toBeNull();
+
+      await facade.edit(SEED_CUIDADOR.id, { nome: 'Y', email: 'y@test.com' });
+      expect(facade.error()).toBeNull();
     });
   });
 });

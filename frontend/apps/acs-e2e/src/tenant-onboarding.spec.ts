@@ -96,7 +96,11 @@ test.describe('Tenant onboarding — provision empresa and register primary care
     // so page.locator('h1') resolves to 2 elements and Playwright rejects it.
     await expect(page.getByRole('heading', { name: /Configuração inicial/i })).toBeVisible();
 
-    // Step 1: tenant setup — inline input with placeholder "Nome da família ou clínica"
+    // A empresa deixou de ser o PASSO 1 e virou CONTEXTO no alto da tela (secao
+    // `empresa-contexto`): `acs.tenant.provisionar` nao e dada a papel humano
+    // nenhum, entao o passo 1 era sempre um passo que a pessoa nao pode
+    // executar. O formulario continua o mesmo, so nao e mais numerado.
+    await expect(page.getByTestId('empresa-contexto')).toBeVisible();
     const tenantInput = page.getByPlaceholder(/nome da família ou clínica/i);
     await expect(tenantInput).toBeVisible();
 
@@ -112,7 +116,7 @@ test.describe('Tenant onboarding — provision empresa and register primary care
     await expect(page.getByText('Família Teste E2E')).toBeVisible();
     await expect(page.getByTestId('tenant-provisioning')).toBeHidden();
 
-    // Step 1 section should no longer show the input (a empresa está pronta).
+    // A secao de contexto deixa de mostrar o input (a empresa esta pronta).
     await expect(tenantInput).not.toBeVisible();
   });
 
@@ -237,7 +241,12 @@ test.describe('Tenant onboarding — provision empresa and register primary care
   test('Registering the primary caregiver and linking it covers the paciente', async ({ page }) => {
     await openOnboarding(page);
 
-    await expect(page.getByTestId('caregiver-link-step')).toBeVisible({ timeout: 5000 });
+    // ENDERECO NOVO. O passo deixou de ser um <div> escrito no assistente com
+    // testid proprio: agora e o ACS que DECLARA o passo, e o hospedeiro desenha
+    // um cartao generico por passo, marcado com a chave que o modulo declarou.
+    // `data-step-key` e o gancho estavel dessa composicao — casar por testid
+    // fixo voltaria a exigir que o shell conhecesse o passo do ACS pelo nome.
+    await expect(page.locator('[data-step-key="acs-caregiver-link"]')).toBeVisible({ timeout: 5000 });
 
     // O passo é a superfície REAL de vínculo, não um invólucro com testid: o
     // que prova isso é o conteúdo próprio da PatientLinkageComponent — o
@@ -267,9 +276,14 @@ test.describe('Tenant onboarding — provision empresa and register primary care
   test('The PAC and EDGE onboarding steps are composed only at the shell page level', async ({ page }) => {
     await openOnboarding(page);
 
-    // The wizard page renders 5 steps. PAC contributes step 2 (Paciente) and
-    // EDGE contributes step 3 (Dispositivo edge) — composed as labels/indicators.
-    // These are scope:web level compositions (scope:acs wizard orchestrates scope:pac + scope:edge).
+    // O assistente renderiza 5 passos NUMERADOS, e a empresa nao e um deles —
+    // ela virou contexto no alto da tela. PAC declara o passo 1 (Paciente),
+    // EDGE declara o passo 2 (Dispositivo edge) e ACS declara o 5 (vinculo); o
+    // hospedeiro ainda desenha por conta propria o 3 (Primeiro comando) e o 4
+    // (Convidar cuidadora).
+    //
+    // A composicao inverteu de direcao: nao e mais o shell que conhece PAC e
+    // EDGE por dentro — sao os modulos que DECLARAM o passo, e o shell reune.
 
     // Step 2: Paciente — must be visible at the wizard level.
     // Use getByRole('heading') to avoid strict mode violation: getByText('Paciente') with
@@ -297,9 +311,22 @@ test.describe('Tenant onboarding — provision empresa and register primary care
     // Step 5: Convidar cuidadora — ACS owns this step
     await expect(page.getByText('Convidar cuidadora')).toBeVisible();
 
-    // All 5 step numbers must be rendered (step indicators 1-5)
+    // Os 5 numeros de passo (1-5). Antes eram 1,3,4,5,6 no shell mais um "2"
+    // que o proprio componente do PAC desenhava — a conta batia por coincidencia.
+    // Agora a numeracao e uma so, feita por POSICAO pelo hospedeiro.
     const stepNumbers = page.locator('.rounded-full').filter({ hasText: /^[1-5]$/ });
     await expect(stepNumbers).toHaveCount(5);
+
+    // E a empresa esta FORA da sequencia numerada: nenhum cartao de passo tem o
+    // titulo dela. Sem esta assercao, reverter a empresa para passo 1 apenas
+    // empurraria os numeros e a contagem acima continuaria em 5.
+    await expect(
+      page.locator('[data-testid="wizard-step"]').filter({ hasText: 'Unidade de cuidado' }),
+    ).toHaveCount(0);
+    await expect(page.locator('[data-testid="wizard-step"][data-step-number="1"]')).toHaveAttribute(
+      'data-step-key',
+      'pac-patient-register',
+    );
   });
 
 });

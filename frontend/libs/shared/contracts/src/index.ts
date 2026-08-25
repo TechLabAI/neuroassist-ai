@@ -28,3 +28,9 @@ export type {
   PairedDeviceOutcome,
   EdgeReadModelDeps,
 } from './lib/edge-contracts';
+
+export type {
+  OnboardingWizardStep,
+  OnboardingWizardContext,
+  OnboardingWizardContributor,
+} from './lib/onboarding-wizard';

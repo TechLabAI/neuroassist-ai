@@ -156,7 +156,7 @@ quem recebe o pedido quando mais ninguém recebeu.
 | **Não há tela de login** | Confirmado: zero ocorrências de login em `apps/neuroassist-ai-web` e em `libs/shared/auth-session`. O backend inteiro é autenticado; o frontend não autentica ninguém |
 | **Menu espelha módulos técnicos** | `gest`, `eventos`, `pac`, `edge`, `acs`, `historico` — nomes de arquitetura, não de trabalho |
 | **Menu não é filtrado por perfil** | Todos veem tudo |
-| **Wizard de onboarding começa por "criar empresa"** | Passo 1 do wizard cria a empresa, mas isso deixou de ser operação de coordenadora (E2E-029). O wizard precisa começar depois disso |
+| ~~**Wizard de onboarding começa por "criar empresa"**~~ | **Resolvido em 2026-08-25:** a empresa deixou de ser passo numerado e virou **contexto** no alto do assistente — "onde você está", com os três estados de provisionamento e a retentativa. A sequência numerada começa no **paciente**, e o checklist e o `podeConcluir()` deixaram de exigir a empresa. Razão: `acs.tenant.provisionar` não é dada a papel humano nenhum (E2E-029), então o passo 1 era sempre um passo que a pessoa diante da tela não podia executar |
 | **Sem tela para paciente descoberto** | O dado existe; a tela não |
 | **Admin de plataforma sem interface** | Criar clínica é chamada de API com segredo de cliente. **Decidido: precisa de tela** (2026-08-24) |
 

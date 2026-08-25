@@ -1,9 +1,14 @@
-import { Injectable, Signal, Type, inject } from '@angular/core';
+import { Injectable, Signal, Type, computed, inject } from '@angular/core';
 import { AcsTenantFacade } from '../acs-tenant.facade';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 import { ACS_MODULE_DESCRIPTOR } from '../acs.descriptor';
 import { ACS_NAV_CONFIG } from '../acs-nav-config';
 import { PatientLinkageComponent } from '../feature-patient-linkage/patient-linkage.component';
+import { CaregiverEditorComponent } from '../feature-caregiver-editor/caregiver-editor.component';
+import type {
+  OnboardingWizardStep,
+  OnboardingWizardContributor,
+} from '@neuroassist/shared/contracts';
 import { AcsEmpresaContextService } from '../api/acs-empresa-context.service';
 
 // =============================================================================
@@ -48,19 +53,13 @@ export interface AcsShellRegistry {
 }
 
 /** One step in the onboarding wizard composition. */
-export interface OnboardingWizardStep {
-  /** Unique step key. */
-  key: string;
-  /** Human-readable title (pt-BR). */
-  title: string;
-  /** Lazy-resolved component for the onboarding wizard host to render. */
-  component: Promise<Type<unknown>>;
-  /** Step index (1-based). Lower numbers appear earlier in the wizard. */
-  order: number;
-}
+// O tipo `OnboardingWizardStep` MUDOU DE CASA: foi para
+// `@neuroassist/shared/contracts`. Enquanto morava aqui, só o ACS podia declarar
+// um passo — e o assistente tinha de conhecer PAC e EDGE por dentro para montar
+// os deles. Com o contrato em `shared`, cada módulo declara o seu.
 
 @Injectable({ providedIn: 'root' })
-export class AcsShellIntegrationService {
+export class AcsShellIntegrationService implements OnboardingWizardContributor {
   private readonly tenantFacade = inject(AcsTenantFacade);
   private readonly caregiverFacade = inject(AcsCaregiverFacade);
   private readonly empresaContext = inject(AcsEmpresaContextService);
@@ -165,11 +164,36 @@ export class AcsShellIntegrationService {
   onboardingWizardComposition(): OnboardingWizardStep[] {
     return [
       {
+        // O CONVITE deixou de ser formulário embutido no assistente.
+        //
+        // Eram dois <input> escritos no template do shell chamando
+        // `AcsCaregiverFacade` direto — e o convite só era efetivamente enviado
+        // no botão "Concluir configuração", lá no fim. Ou seja, o passo não
+        // fazia o que dizia fazer no momento em que dizia.
+        //
+        // Agora é o `CaregiverEditorComponent`, o MESMO da rota
+        // /acs/cuidadores/novo: validação, papel e estado de erro vêm de graça,
+        // e não há uma segunda superfície de convite para envelhecer sozinha.
+        key: 'acs-caregiver-invite',
+        title: 'Convidar cuidadora',
+        component: this.resolveCaregiverInviteSlot() as Promise<Type<unknown>>,
+        order: 5,
+        // `composto` suprime o <h1>, o contêiner e o botão "Cancelar" — e, o que
+        // mais importa, impede a NAVEGAÇÃO para /acs no sucesso, que ejetaria a
+        // pessoa do assistente depois de uma ação bem-sucedida.
+        inputs: () => ({ composto: true }),
+      },
+      {
         key: 'acs-caregiver-link',
         title: 'Vincular cuidadora ao paciente',
         component: this.resolveCaregiverLinkSlot() as Promise<Type<unknown>>,
         // Depois de convidar a cuidadora (passo 5): não há a quem vincular antes.
         order: 6,
+        // `pacienteId` vem do CONTEXTO porque em /onboarding não há `:pacienteId`
+        // na rota, e o ACS não pode (nem deve) importar o PAC para descobri-lo.
+        // `composto` suprime o <h1> e o contêiner do componente: aqui ele é um
+        // pedaço da página, não a página.
+        inputs: (contexto) => ({ pacienteId: contexto.pacienteId, composto: true }),
       },
     ];
   }
@@ -186,6 +210,33 @@ export class AcsShellIntegrationService {
   resolveCaregiverLinkSlot(): Promise<Type<PatientLinkageComponent>> {
     return Promise.resolve(PatientLinkageComponent);
   }
+
+  /**
+   * Entrega a superfície de CONVITE para quem compõe o assistente.
+   *
+   * <p>É o componente da rota /acs/cuidadores/novo, e de propósito: o convite do
+   * assistente e o convite do elenco são a mesma operação, com as mesmas
+   * validações. Duas superfícies para a mesma coisa garantem que uma delas
+   * envelheça calada.
+   */
+  resolveCaregiverInviteSlot(): Promise<Type<CaregiverEditorComponent>> {
+    return Promise.resolve(CaregiverEditorComponent);
+  }
+
+  /**
+   * Há ao menos uma cuidadora ativa na empresa.
+   *
+   * <p>É o que o assistente precisa saber para marcar "Cuidadora convidada" no
+   * progresso. Antes ele lia o próprio campo de e-mail — isto é, o item ficava
+   * verde assim que a pessoa DIGITAVA, antes de qualquer convite ter sido
+   * enviado. Progresso falso, e o convite só saía no botão de concluir.
+   *
+   * <p>Agora o critério é o estado real do elenco, e quem o observa não precisa
+   * injetar `AcsCaregiverFacade`.
+   */
+  readonly temCuidadoraAtiva: Signal<boolean> = computed(
+    () => this.caregiverFacade.activeCaregivers().length > 0,
+  );
 
   // ---------------------------------------------------------------------------
   // Existing read-model signals (kept for backward compatibility)

@@ -3,6 +3,10 @@ import { DeviceFacade } from '../edge.facade';
 import { EdgeActivePatientService } from './edge-active-patient.service';
 import { PairingFacade } from '../edge-pairing.facade';
 import { DeviceConnectivityVM, PairingPhase } from '@neuroassist/shared/contracts';
+import type {
+  OnboardingWizardStep,
+  OnboardingWizardContributor,
+} from '@neuroassist/shared/contracts';
 import { DevicePairingPageComponent } from '../feature-pairing/device-pairing-page.component';
 
 // ---------------------------------------------------------------------------
@@ -17,7 +21,7 @@ import { DevicePairingPageComponent } from '../feature-pairing/device-pairing-pa
 // ---------------------------------------------------------------------------
 
 @Injectable({ providedIn: 'root' })
-export class EdgeShellIntegrationService {
+export class EdgeShellIntegrationService implements OnboardingWizardContributor {
   private readonly deviceFacade = inject(DeviceFacade);
   private readonly pairingFacade = inject(PairingFacade);
   private registered = false;
@@ -78,6 +82,35 @@ export class EdgeShellIntegrationService {
    */
   resolvePairingSlot(): Promise<Type<DevicePairingPageComponent>> {
     return Promise.resolve(DevicePairingPageComponent);
+  }
+
+  /**
+   * O passo do assistente de configuração inicial que pertence ao EDGE.
+   *
+   * <p>Antes o hospedeiro é que sabia disto: ele tinha um bloco de template com
+   * o número 3, o título "Dispositivo edge" e as entradas do pareamento
+   * escritas à mão. Cada passo novo era mais um módulo que o shell precisava
+   * conhecer por dentro. Agora quem sabe o que é o passo do EDGE é o EDGE.
+   *
+   * <p>`order` é chave de ORDENAÇÃO, não o número mostrado na tela: o
+   * hospedeiro numera por posição depois de ordenar, de modo que remover um
+   * passo renumere os seguintes em vez de deixar buraco.
+   */
+  onboardingWizardComposition(): OnboardingWizardStep[] {
+    return [
+      {
+        key: 'edge-device-pairing',
+        title: 'Dispositivo edge',
+        component: this.resolvePairingSlot() as Promise<Type<unknown>>,
+        // Depois do paciente (order 2): parear é parear COM alguém.
+        order: 3,
+        // `pacienteHint` vem do CONTEXTO porque `/onboarding` não tem
+        // `:pacienteId` na rota e o EDGE não pode importar o PAC para
+        // descobri-lo. `composto` suprime o <h1> e o contêiner próprios do
+        // componente: aqui ele é um pedaço da página, não a página.
+        inputs: (contexto) => ({ pacienteHint: contexto.pacienteId, composto: true }),
+      },
+    ];
   }
 
   /** Whether EDGE has been registered with the shell. */

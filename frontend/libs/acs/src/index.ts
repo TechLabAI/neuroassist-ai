@@ -32,7 +32,6 @@ export type {
   AcsBreadcrumbItem,
   AcsBreadcrumbPort,
   AcsShellRegistry,
-  OnboardingWizardStep,
 } from './lib/integration/acs-shell-integration.service';
 
 // Empresa context — ACS is the sole writer; scope:web and peers read via this service

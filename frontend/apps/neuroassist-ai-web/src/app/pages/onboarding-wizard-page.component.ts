@@ -7,55 +7,105 @@ import {
   OnInit,
   Type,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { NgComponentOutlet } from '@angular/common';
 import {
   AcsTenantFacade,
-  AcsCaregiverFacade,
   AcsShellIntegrationService,
   ACS_ACCESS_DECISION,
   ACS_MODULE_DESCRIPTOR,
 } from '@neuroassist/acs';
 import { EdgeShellIntegrationService } from '@neuroassist/edge';
-import { PacPacienteFacade, PatientRegisterComponent } from '@neuroassist/pac';
+import { PacShellIntegrationService } from '@neuroassist/pac';
+import type {
+  OnboardingWizardContext,
+  OnboardingWizardContributor,
+  OnboardingWizardStep,
+} from '@neuroassist/shared/contracts';
 
 // =============================================================================
-// OnboardingWizardPageComponent — scope:web wizard shell (ACS owns this page)
-// Promotes design-reference onboarding.component.ts to production.
-// ACS owns the wizard orchestration; each step composites a module's step feature.
+// OnboardingWizardPageComponent — o HOSPEDEIRO do assistente de configuração
+// inicial. Rota /onboarding (scope:web, fora do shell).
 //
-// Step 1: Tenant setup        → AcsTenantFacade.create() / .retryProvisioning()
-//                               TRÊS estados: sem empresa · provisionando · ativa
-// Step 2: Patient register    → PatientRegisterComponent (PAC-owned, composto aqui)
+// -----------------------------------------------------------------------------
+// DECISÃO 1 — cada módulo declara o seu passo; esta página só hospeda.
+// -----------------------------------------------------------------------------
 //
-// nx-boundary do passo 2: importado do BARRIL @neuroassist/pac, que é a mesma
-// porta por onde `PacPacienteFacade` já entrava nesta página. Não usa
-// NgComponentOutlet como o passo 3 porque o PAC não publica um resolvedor de
-// slot (não há `resolvePatientRegisterSlot()`), e sem resolvedor o outlet teria
-// de importar o tipo do componente do mesmo jeito — só que perdendo a checagem
-// de template. O barril do PAC declara este componente como sendo justamente
-// para o wizard do ACS.
-// Step 3: Edge device pairing → EdgeShellIntegrationService.resolvePairingSlot()
-//                               (rendered via NgComponentOutlet — INT-FE-EDGE-003)
-// Step 4: First command       → link to /pac (PAC catalog)
-// Step 5: Invite caregiver    → AcsCaregiverFacade.invite()
-// Step 6: Caregiver link      → AcsShellIntegrationService.resolveCaregiverLinkSlot()
-//                               (PatientLinkageComponent via NgComponentOutlet)
+// Até aqui esta página CONHECIA OS MÓDULOS POR DENTRO: importava o
+// `PatientRegisterComponent` do barril do PAC e o montava com o número e o
+// título escritos à mão no template; resolvia o pareamento por um slot do EDGE
+// e escrevia as entradas dele aqui; e tinha um bloco de template por passo.
+// Cada passo novo era mais um módulo que o shell precisava conhecer.
 //
-// nx-boundary: EdgeShellIntegrationService imported from @neuroassist/edge barrel only
-// (no scope:edge internal imports in scope:web). DevicePairingPageComponent type is
-// never imported here — obtained lazily via resolvePairingSlot() at runtime.
+// Agora cada módulo implementa `OnboardingWizardContributor` e DECLARA o passo
+// que é dele (chave, título, componente, ordem, entradas). Esta página reúne o
+// que os contribuidores declararam, ORDENA por `order` e renderiza por
+// `NgComponentOutlet` com `inputs(contexto)` — sem importar componente de módulo
+// nenhum.
 //
-// Route: /onboarding (scope:web, outside shell — uses AppComponent directly)
-// Wired by app.routes.ts as a standalone loadComponent (no shell layout).
+// TODOS os cinco passos numerados são declarados pelos módulos: PAC declara o
+// paciente e o primeiro comando, EDGE o dispositivo, ACS o convite e o vínculo.
+// O template desta página não tem mais um único bloco por passo — tem UM cartão
+// genérico, repetido.
+//
+// O que ela ainda sabe, e por quê:
+//   - QUEM são os contribuidores (injeta os três serviços de integração). É a
+//     lista de módulos participantes; num registro dinâmico isso viraria um
+//     multi-provider, e o contrato já permite essa evolução sem tocar aqui.
+//   - O CONTEXTO (`pacienteId`), que é justamente o que nenhum módulo sozinho
+//     sabe. Ele vem do serviço de integração do PAC, não da facade: o shell não
+//     injeta mais `PacPacienteFacade` nem `AcsCaregiverFacade`.
+//
+// -----------------------------------------------------------------------------
+// DECISÃO 2 — a empresa é CONTEXTO, não passo numerado.
+// -----------------------------------------------------------------------------
+//
+// A empresa aparece no alto, como "onde você está", com os três estados de
+// provisionamento e a retentativa quando for o caso. A sequência numerada começa
+// no PACIENTE.
+//
+// Razão: `acs.tenant.provisionar` não é dada a papel humano nenhum
+// (RoleAuthorityPolicy, E2E-029 — vive no cliente de serviço platform-ops).
+// Enquanto a empresa era o passo 1, o assistente abria com um item que a pessoa
+// à frente dele NÃO PODE executar, e o checklist começava por algo fora do
+// alcance dela. Quem chega aqui já tem a clínica: ela é cenário, não tarefa.
+// Por isso saiu do checklist e saiu de `podeConcluir()`.
+//
+// -----------------------------------------------------------------------------
+// O QUE AINDA ESTÁ ACOPLADO (dito de propósito, para não passar por resolvido)
+// -----------------------------------------------------------------------------
+//   - A EMPRESA. O cartão de contexto no alto é desenhado aqui e chama
+//     `AcsTenantFacade` direto (criar, retentar, ler os três estados). Não é
+//     passo, então não passa pelo contrato de composição — e o contrato hoje só
+//     descreve passos. Enquanto for assim, o shell conhece o ACS por dentro
+//     para esta parte.
+//   - O passo do EDGE tem um tratamento especial no template (o distintivo
+//     "Pareado" e a troca do conteúdo quando o pareamento conclui), o que faz o
+//     hospedeiro reconhecer uma chave de módulo pelo nome. É a última coisa que
+//     ele reconhece por nome.
+//   - O CHECKLIST é do hospedeiro e sabe quais três coisas contam. Ele lê o
+//     estado pelos serviços de integração, não pelas facades — mas a LISTA de
+//     itens continua escrita aqui, e um módulo novo não a estende sozinho.
 // =============================================================================
 
 type Pareamento = 'idle' | 'pareando' | 'pareado';
 
+/**
+ * Um passo pronto para renderizar: o que o módulo declarou, já com o componente
+ * resolvido e as entradas calculadas para o contexto corrente.
+ */
+interface PassoRenderizado {
+  readonly key: string;
+  readonly title: string;
+  readonly order: number;
+  /** null enquanto o `Promise` do módulo não resolveu — ou para passos embutidos. */
+  readonly component: Type<object> | null;
+  readonly inputs: Record<string, unknown>;
+}
+
 @Component({
   selector: 'app-onboarding-wizard-page',
   standalone: true,
-  imports: [RouterLink, NgComponentOutlet, PatientRegisterComponent],
+  imports: [NgComponentOutlet],
   template: `
     <div class="mx-auto max-w-6xl p-8">
       <header class="mb-7">
@@ -63,237 +113,155 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
         <p class="mt-1 text-sm text-ink-soft">Passo único, conduzido pelo condutor técnico — não faz parte do uso diário da cuidadora.</p>
       </header>
 
+      <!-- ===================================================================
+           CONTEXTO — "onde você está". NÃO é passo numerado.
+
+           Criar empresa exige 'acs.tenant.provisionar', que o RoleAuthorityPolicy
+           não concede a papel humano nenhum (E2E-029 a moveu para o cliente de
+           serviço 'platform-ops'). Enquanto isto era o passo 1, o assistente
+           abria com uma tarefa que quem está diante dele não pode executar.
+           Quem chega aqui já tem a clínica.
+
+           Os três estados continuam desenhados: sem empresa (formulário, para o
+           condutor de plataforma), provisionando (a saga responde 202) e ativa.
+           A insígnia verde exige 'isActive', e não a mera existência do registro.
+           =================================================================== -->
+      <section
+        class="mb-6 rounded-2xl border border-line bg-surface-2 p-5"
+        data-testid="empresa-contexto"
+        aria-label="Unidade de cuidado"
+      >
+        <div class="mb-3 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px] text-ink-faint" aria-hidden="true">apartment</span>
+          <h2 class="font-display text-sm font-semibold text-ink">Unidade de cuidado</h2>
+          @if (empresaAtiva()) {
+            <span class="ml-auto text-xs font-medium text-success-ink" data-testid="tenant-active">
+              <span class="material-symbols-outlined text-[14px] align-middle">check_circle</span>
+              {{ tenantFacade.tenant()!.nome }} — empresa ativa
+            </span>
+          }
+        </div>
+
+        @if (empresaAtiva()) {
+          <p class="text-sm text-ink-soft">Empresa confirmada pelo backend. A configuração abaixo é feita dentro dela.</p>
+        } @else if (tenantFacade.tenant()) {
+          <!-- SEGUNDO estado: o registro existe e o provisionamento não terminou.
+               Provisionar schema é uma saga no acs-service, que responde 202. -->
+          <div class="flex flex-col gap-3">
+            <div
+              class="flex items-center gap-2 text-sm text-brand"
+              role="status"
+              data-testid="tenant-provisioning"
+            >
+              <span class="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">progress_activity</span>
+              Provisionando {{ tenantFacade.tenant()!.nome }}… a confirmação vem do backend.
+            </div>
+
+            <!-- A faixa só aparece DEPOIS de uma retentativa que não resolveu.
+                 Mostrá-la já na primeira espera transformaria o caminho normal da
+                 saga (que leva segundos) num aviso de falha. -->
+            @if (retryTentado() && !tenantFacade.loading()) {
+              <p
+                class="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-ink"
+                role="alert"
+                data-testid="tenant-provisioning-failed"
+              >
+                Empresa ainda não confirmada — o provisionamento segue pendente.
+              </p>
+            }
+
+            @if (tenantFacade.error()) {
+              <p class="text-xs text-error-ink" role="alert">{{ tenantFacade.error() }}</p>
+            }
+
+            <div>
+              <button
+                class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface disabled:opacity-50"
+                [disabled]="tenantFacade.loading()"
+                (click)="retentarProvisionamento()"
+                data-testid="tenant-retry"
+              >
+                {{ tenantFacade.loading() ? 'Tentando…' : 'Tentar novamente' }}
+              </button>
+            </div>
+          </div>
+        } @else {
+          <div class="flex gap-3">
+            <input
+              type="text"
+              class="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+              [value]="tenantNome()"
+              (input)="tenantNome.set($any($event.target).value)"
+              placeholder="Nome da família ou clínica"
+            />
+            <!-- Ver a nota do bloco: a authority não é de papel humano. Sem esta
+                 trava o botão ficava vivo para quem chegasse aqui, e o 403 só
+                 apareceria depois do clique — no dia em que sair do mock. -->
+            <button
+              class="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-strong disabled:opacity-50"
+              [disabled]="!podeCriarEmpresa() || !tenantNome().trim() || tenantFacade.loading()"
+              (click)="criarTenant()"
+            >
+              {{ tenantFacade.loading() ? 'Criando…' : 'Criar' }}
+            </button>
+          </div>
+          @if (!podeCriarEmpresa()) {
+            <p class="mt-2 text-xs text-ink-soft" data-testid="tenant-write-denied">
+              Criar a empresa é do administrador de plataforma — a clínica é registrada pela equipe técnica antes desta tela.
+            </p>
+          }
+          @if (tenantFacade.error()) {
+            <p class="mt-2 text-xs text-error-ink">{{ tenantFacade.error() }}</p>
+          }
+        }
+      </section>
+
       <div class="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1fr]">
-        <!-- Coluna principal: passos do wizard -->
+        <!-- ===================================================================
+             SEQUÊNCIA NUMERADA — um cartão por passo, na ordem declarada.
+
+             O número vem da POSIÇÃO, não de 'order': assim, um módulo que deixa
+             de declarar renumera os seguintes em vez de deixar buraco na conta.
+             =================================================================== -->
         <div class="flex flex-col gap-5">
-          <!-- Step 1: Unidade de cuidado (ACS) -->
-          <div class="rounded-2xl border border-line bg-surface p-5">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">1</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Unidade de cuidado</h2>
-              <!-- A insígnia verde exige 'isActive', e não a mera existência do
-                   registro. Antes bastava 'tenant()' ser truthy: uma empresa que
-                   voltou 202 — ou seja, cujo schema ainda está sendo provisionado
-                   — aparecia com check verde e nome, e o assistente seguia como se
-                   estivesse pronta. O mesmo defeito se repetia no checklist e em
-                   podeConcluir(). -->
-              @if (empresaAtiva()) {
-                <span class="ml-auto text-xs font-medium text-success-ink" data-testid="tenant-active">
-                  <span class="material-symbols-outlined text-[14px] align-middle">check_circle</span>
-                  {{ tenantFacade.tenant()!.nome }} — empresa ativa
-                </span>
-              }
-            </div>
-
-            @if (empresaAtiva()) {
-              <p class="text-sm text-ink-soft">Empresa confirmada pelo backend. Siga para o cadastro do paciente.</p>
-            } @else if (tenantFacade.tenant()) {
-              <!-- SEGUNDO estado: o registro existe e o provisionamento não
-                   terminou. Provisionar schema é uma saga no acs-service, que
-                   responde 202; 'AcsTenantFacade.provisioning()' já representava
-                   isso e nenhuma tela o desenhava. -->
-              <div class="flex flex-col gap-3">
-                <div
-                  class="flex items-center gap-2 text-sm text-brand"
-                  role="status"
-                  data-testid="tenant-provisioning"
-                >
-                  <span class="material-symbols-outlined animate-spin text-[18px]" aria-hidden="true">progress_activity</span>
-                  Provisionando {{ tenantFacade.tenant()!.nome }}… a confirmação vem do backend.
-                </div>
-
-                <!-- A faixa só aparece DEPOIS de uma retentativa que não resolveu.
-                     Mostrá-la já na primeira espera transformaria o caminho normal
-                     da saga (que leva segundos) num aviso de falha. -->
-                @if (retryTentado() && !tenantFacade.loading()) {
-                  <p
-                    class="rounded-lg bg-warning-bg px-3 py-2 text-xs text-warning-ink"
-                    role="alert"
-                    data-testid="tenant-provisioning-failed"
-                  >
-                    Empresa ainda não confirmada — o provisionamento segue pendente.
-                  </p>
+          @for (passo of passos(); track passo.key; let i = $index) {
+            <div
+              class="rounded-2xl border border-line bg-surface p-5"
+              data-testid="wizard-step"
+              [attr.data-step-key]="passo.key"
+              [attr.data-step-number]="i + 1"
+            >
+              <div class="mb-3 flex items-center gap-2">
+                <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">{{ i + 1 }}</span>
+                <h2 class="font-display text-sm font-semibold text-ink">{{ passo.title }}</h2>
+                @if (passo.key === 'edge-device-pairing' && pareamentoEfetivo() === 'pareado') {
+                  <span class="ml-auto text-xs font-medium text-success-ink">
+                    <span class="material-symbols-outlined text-[14px] align-middle">check_circle</span>
+                    Pareado
+                  </span>
                 }
+              </div>
 
-                @if (tenantFacade.error()) {
-                  <p class="text-xs text-error-ink" role="alert">{{ tenantFacade.error() }}</p>
-                }
-
-                <div>
-                  <button
-                    class="rounded-xl border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface-2 disabled:opacity-50"
-                    [disabled]="tenantFacade.loading()"
-                    (click)="retentarProvisionamento()"
-                    data-testid="tenant-retry"
-                  >
-                    {{ tenantFacade.loading() ? 'Tentando…' : 'Tentar novamente' }}
-                  </button>
+              <!-- O hospedeiro NAO conhece mais nenhum passo por dentro: ele
+                   monta o componente que o modulo declarou, com as entradas que
+                   o modulo calculou a partir do contexto. -->
+              @if (passo.key === 'edge-device-pairing' && pareamentoEfetivo() === 'pareado') {
+                <div class="flex items-center gap-2 text-sm text-success-ink">
+                  <span class="material-symbols-outlined text-[18px]">check_circle</span>
+                  Dispositivo pareado com sucesso.
                 </div>
-              </div>
-            } @else {
-              <div class="flex gap-3">
-                <input
-                  type="text"
-                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-                  [value]="tenantNome()"
-                  (input)="tenantNome.set($any($event.target).value)"
-                  placeholder="Nome da família ou clínica"
-                />
-                <!-- Criar EMPRESA é operação de plataforma, não de coordenadora:
-                     'TenantController:45' exige 'acs.tenant.provisionar', que o
-                     'RoleAuthorityPolicy' não concede a papel humano nenhum
-                     (E2E-029 tirou-a do COORDENADOR_CLINICA; ela vive no cliente
-                     de serviço 'platform-ops'). Sem esta trava o botão ficava
-                     vivo para quem chegasse aqui, e o 403 só apareceria depois do
-                     clique — no dia em que sair do mock. -->
-                <button
-                  class="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-ink hover:bg-brand-strong disabled:opacity-50"
-                  [disabled]="!podeCriarEmpresa() || !tenantNome().trim() || tenantFacade.loading()"
-                  (click)="criarTenant()"
-                >
-                  {{ tenantFacade.loading() ? 'Criando…' : 'Criar' }}
-                </button>
-              </div>
-              @if (!podeCriarEmpresa()) {
-                <p class="mt-2 text-xs text-ink-soft" data-testid="tenant-write-denied">
-                  Criar a empresa é do administrador de plataforma — a clínica é registrada pela equipe técnica antes deste passo.
-                </p>
-              }
-              @if (tenantFacade.error()) {
-                <p class="mt-2 text-xs text-error-ink">{{ tenantFacade.error() }}</p>
-              }
-            }
-          </div>
-
-          <!-- Step 2: Paciente (PAC) — PatientRegisterComponent composto em lugar
-               do parágrafo estático que havia aqui.
-
-               O parágrafo dizia "O registro do paciente é gerido pelo módulo PAC"
-               com um link para /pac, e isso FECHAVA UM CICLO SEM SAÍDA: sem
-               paciente registrado, /pac cai no pacTenantPatientGuard, que manda
-               para /onboarding, que manda de volta para /pac. Não havia
-               superfície nenhuma no produto por onde cadastrar o primeiro
-               paciente — o componente que faz isso existe desde sempre, está no
-               barril do PAC e não era montado em lugar algum. O item "Paciente
-               registrado" da lista de progresso lê pacFacade.hasPatient(), que
-               por ação de quem usa nunca podia virar verdadeiro.
-
-               O componente traz o próprio cartão, o próprio número do passo e o
-               próprio h2 "Paciente" — por isso substitui o bloco inteiro em vez
-               de ser aninhado nele. Não tem h1, então não repete o título da
-               página como o passo 3 repetia (é o que a entrada "composto" do
-               pareamento existe para evitar). -->
-          <pac-patient-register />
-
-          <!-- Step 3: Dispositivo edge (EDGE) — INT-FE-EDGE-003 -->
-          <!-- DevicePairingPageComponent mounted via NgComponentOutlet (no direct import, nx-boundary preserved) -->
-          <!-- pacienteHint wired from PacPacienteFacade.patient().id via ngComponentOutletInputs -->
-          <div class="rounded-2xl border border-line bg-surface p-5">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">3</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Dispositivo edge</h2>
-              @if (pareamentoEfetivo() === 'pareado') {
-                <span class="ml-auto text-xs font-medium text-success-ink">
-                  <span class="material-symbols-outlined text-[14px] align-middle">check_circle</span>
-                  Pareado
-                </span>
-              }
-            </div>
-            @if (pareamentoEfetivo() !== 'pareado') {
-              @if (pairingComponentType(); as compType) {
-                <!-- DevicePairingPageComponent composed in place via slot (SPEC-06 §3) -->
+              } @else if (passo.component; as tipo) {
                 <ng-container
-                  [ngComponentOutlet]="compType"
-                  [ngComponentOutletInputs]="pairingInputs()" />
+                  [ngComponentOutlet]="tipo"
+                  [ngComponentOutletInputs]="passo.inputs" />
               } @else {
-                <div class="flex items-center gap-2 text-sm text-ink-soft">
+                <div class="flex items-center gap-2 text-sm text-ink-soft" data-testid="passo-carregando">
                   <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                  Carregando módulo de pareamento…
+                  Carregando o passo…
                 </div>
               }
-            } @else {
-              <div class="flex items-center gap-2 text-sm text-success-ink">
-                <span class="material-symbols-outlined text-[18px]">check_circle</span>
-                Dispositivo pareado com sucesso.
-              </div>
-            }
-          </div>
-
-          <!-- Step 4: Primeiro comando (PAC) -->
-          <div class="rounded-2xl border border-line bg-surface p-5">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">4</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Primeiro comando</h2>
             </div>
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm text-ink-soft">Configure ao menos 1 comando (gesto → necessidade) no catálogo antes de convidar a cuidadora.</p>
-              <a routerLink="/pac" class="flex-shrink-0">
-                <button class="rounded-xl border border-line px-3 py-1.5 text-xs font-semibold text-ink hover:bg-surface-2">
-                  Ir ao catálogo
-                  <span class="material-symbols-outlined text-[14px] align-middle">arrow_forward</span>
-                </button>
-              </a>
-            </div>
-          </div>
-
-          <!-- Step 5: Convidar cuidadora (ACS) -->
-          <div class="rounded-2xl border border-line bg-surface p-5">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">5</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Convidar cuidadora</h2>
-            </div>
-            <div class="flex flex-col gap-3">
-              <div class="flex gap-3">
-                <input
-                  type="text"
-                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-                  [value]="cuidadoraNome()"
-                  (input)="cuidadoraNome.set($any($event.target).value)"
-                  placeholder="Nome da cuidadora"
-                />
-                <input
-                  type="email"
-                  class="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-                  [value]="cuidadoraEmail()"
-                  (input)="cuidadoraEmail.set($any($event.target).value)"
-                  placeholder="E-mail"
-                />
-              </div>
-              @if (caregiverFacade.error()) {
-                <p class="text-xs text-error-ink">{{ caregiverFacade.error() }}</p>
-              }
-            </div>
-          </div>
-
-          <!-- Step 6: Vincular cuidadora ao paciente (ACS) — Passo 3 do tutorial.
-
-               Era a lacuna entre o guia e o produto: o tutorial manda a
-               coordenadora vincular a cuidadora ao paciente, e não havia
-               superfície nenhuma no assistente por onde fazê-lo. O que existia
-               era 'AcsShellIntegrationService.onboardingWizardComposition()'
-               devolvendo 'TenantSetupComponent' de novo, sob
-               'TODO[FE-ACS-021]' — e ninguém chamava aquele método.
-
-               Composto por 'NgComponentOutlet' a partir de
-               'resolveCaregiverLinkSlot()', exatamente como o passo 3 compõe o
-               pareamento do EDGE: 'scope:web' nunca importa o tipo do
-               componente de dentro do 'scope:acs'. -->
-          <div class="rounded-2xl border border-line bg-surface p-5" data-testid="caregiver-link-step">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">6</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Vincular cuidadora ao paciente</h2>
-            </div>
-            @if (caregiverLinkComponentType(); as compLink) {
-              <ng-container
-                [ngComponentOutlet]="compLink"
-                [ngComponentOutletInputs]="caregiverLinkInputs()" />
-            } @else {
-              <div class="flex items-center gap-2 text-sm text-ink-soft">
-                <span class="material-symbols-outlined animate-spin text-[18px]">progress_activity</span>
-                Carregando módulo de vínculo…
-              </div>
-            }
-          </div>
+          }
         </div>
 
         <!-- Coluna lateral: progresso + conclusão -->
@@ -307,8 +275,8 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
                   ícone é uma LIGADURA, então o texto do item é
                   "check_circle Paciente registrado" — e um seletor que casasse
                   com o rótulo exato não achava o item, enquanto um que casasse
-                  por pedaço achava também os ancestrais. data-done diz o
-                  estado sem depender de qual ligadura está desenhada.
+                  por pedaço achava também os ancestrais. data-done diz o estado
+                  sem depender de qual ligadura está desenhada.
                 -->
                 <div
                   class="flex items-center gap-2.5 text-sm"
@@ -351,11 +319,17 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
 })
 export class OnboardingWizardPageComponent implements OnInit {
   readonly tenantFacade = inject(AcsTenantFacade);
-  readonly caregiverFacade = inject(AcsCaregiverFacade);
-  protected readonly pacFacade = inject(PacPacienteFacade);
 
-  // Composição do passo 6 (vínculo) — mesma porta do EDGE no passo 3.
+  /**
+   * Os módulos que contribuem passos.
+   *
+   * <p>É a única coisa que o hospedeiro sabe sobre eles: que existem e que
+   * implementam `OnboardingWizardContributor`. Não sabe quantos passos cada um
+   * traz, nem quais, nem onde entram na sequência.
+   */
   private readonly acsIntegration = inject(AcsShellIntegrationService);
+  private readonly edgeIntegration = inject(EdgeShellIntegrationService);
+  private readonly pacIntegration = inject(PacShellIntegrationService);
 
   /**
    * Decisão de acesso do ACS. `app.config.ts` a traduz pelo
@@ -368,25 +342,20 @@ export class OnboardingWizardPageComponent implements OnInit {
    */
   private readonly access = inject(ACS_ACCESS_DECISION, { optional: true });
 
-  // INT-FE-EDGE-003: EDGE composition via EdgeShellIntegrationService (no DeviceFacade import).
-  // scope:web only sees EdgeShellIntegrationService from @neuroassist/edge barrel.
-  private readonly edgeIntegration = inject(EdgeShellIntegrationService);
-
   readonly tenantNome = signal('');
-  readonly cuidadoraNome = signal('');
-  readonly cuidadoraEmail = signal('');
   readonly pareamento = signal<Pareamento>('idle');
   readonly concluido = signal(false);
 
-  /**
-   * DevicePairingPageComponent type, resolved lazily via resolvePairingSlot().
-   * Typed as Type<object> to avoid importing DevicePairingPageComponent in scope:web
-   * (nx-boundary: no direct scope:edge component import in scope:web).
-   */
-  readonly pairingComponentType = signal<Type<object> | null>(null);
+  /** O que os contribuidores declararam, já ordenado por `order`. */
+  private readonly declarados = signal<readonly OnboardingWizardStep[]>([]);
 
-  /** PatientLinkageComponent, resolvido por slot — ver a nota do passo 6. */
-  readonly caregiverLinkComponentType = signal<Type<object> | null>(null);
+  /**
+   * Componentes já resolvidos, por chave de passo.
+   *
+   * <p>Mapa, e não um campo por passo, porque o hospedeiro não conhece as chaves
+   * de antemão — ele descobre quais existem lendo o que os módulos declararam.
+   */
+  private readonly tiposResolvidos = signal<ReadonlyMap<string, Type<object>>>(new Map());
 
   /**
    * Uma retentativa de provisionamento já foi disparada nesta sessão de tela.
@@ -396,31 +365,43 @@ export class OnboardingWizardPageComponent implements OnInit {
    */
   readonly retryTentado = signal(false);
 
-  /** Inputs for NgComponentOutlet — pacienteHint bound from active patient (SPEC-06 §3). */
-  readonly pairingInputs = computed<Record<string, unknown>>(() => ({
-    pacienteHint: this.pacFacade.patient()?.id ?? null,
-    // Aqui ele é um PEDAÇO da página, não a página: sem isto o passo 3 trazia o
-    // próprio <h1>, e /onboarding ficava com dois títulos de nível 1.
-    composto: true,
+  /**
+   * O que o hospedeiro sabe e os módulos não.
+   *
+   * <p>`computed`, e não um objeto fixo: o paciente ativo só existe depois que o
+   * passo do paciente termina, e as entradas dos passos seguintes precisam
+   * enxergar essa mudança.
+   */
+  readonly contexto = computed<OnboardingWizardContext>(() => ({
+    pacienteId: this.pacIntegration.pacienteAtivoId(),
   }));
 
   /**
-   * Entradas do passo 6. `pacienteId` vem do paciente ativo do PAC porque em
-   * `/onboarding` não existe `:pacienteId` na rota — é o único jeito de a
-   * superfície de vínculo saber de quem se trata. `composto` suprime o <h1> e o
-   * contêiner próprios do componente, pelo mesmo motivo do passo 3.
+   * A sequência final: o que os módulos declararam mais os passos que esta
+   * página ainda desenha, tudo ordenado por `order`.
+   *
+   * <p>Os embutidos entram na MESMA lista, com `order` próprio, em vez de serem
+   * intercalados no template — do contrário a ordem seria decidida em dois
+   * lugares e um passo declarado nunca poderia se pôr entre eles.
    */
-  readonly caregiverLinkInputs = computed<Record<string, unknown>>(() => ({
-    pacienteId: this.pacFacade.patient()?.id ?? null,
-    composto: true,
-  }));
+  readonly passos = computed<readonly PassoRenderizado[]>(() => {
+    const contexto = this.contexto();
+    const tipos = this.tiposResolvidos();
+
+    return this.declarados().map((passo) => ({
+      key: passo.key,
+      title: passo.title,
+      order: passo.order,
+      component: tipos.get(passo.key) ?? null,
+      inputs: passo.inputs ? passo.inputs(contexto) : {},
+    }));
+  });
 
   /**
    * A empresa está PRONTA — não apenas registrada.
    *
    * <p>`isActive` é `provisioningStatus === 'active'`. Trocar isto de volta por
-   * `!!tenant()` faz uma empresa em provisionamento passar por pronta em três
-   * lugares desta tela.
+   * `!!tenant()` faz uma empresa em provisionamento passar por pronta.
    */
   readonly empresaAtiva = computed(() => this.tenantFacade.tenant()?.isActive === true);
 
@@ -430,10 +411,9 @@ export class OnboardingWizardPageComponent implements OnInit {
   );
 
   /**
-   * Detects pairing completion via two signals:
-   *   1. connectivity.paired — updated after next liveness poll (authoritative)
-   *   2. pairingPhase === 'paired' — immediate (after first heartbeat confirmed by PairingFacade)
-   * This ensures the checklist updates without waiting for the next poll cycle.
+   * Detecta a conclusão do pareamento por dois sinais:
+   *   1. connectivity.paired — atualizado no próximo poll de liveness (autoritativo)
+   *   2. pairingPhase === 'paired' — imediato (primeiro heartbeat confirmado)
    */
   readonly dispositivoExistente = computed(
     () =>
@@ -445,31 +425,61 @@ export class OnboardingWizardPageComponent implements OnInit {
     this.dispositivoExistente() ? 'pareado' : this.pareamento(),
   );
 
+  /**
+   * O checklist NÃO abre mais por "Unidade de cuidado".
+   *
+   * <p>Era um item que a pessoa diante da tela não pode executar (a authority de
+   * provisionar não é de papel humano). Um checklist que abre com algo fora do
+   * alcance de quem o lê ensina a ignorá-lo.
+   */
   readonly checklist = computed(() => [
-    { label: 'Unidade de cuidado', done: this.empresaAtiva() },
-    { label: 'Paciente registrado', done: this.pacFacade.hasPatient() },
+    { label: 'Paciente registrado', done: this.pacIntegration.temPaciente() },
     { label: 'Dispositivo pareado', done: this.pareamentoEfetivo() === 'pareado' },
-    { label: 'Cuidadora convidada', done: this.cuidadoraEmail().trim().length > 0 },
+    // O critério mudou junto com o passo. Antes era "o campo de e-mail desta
+    // página não está vazio" — ou seja, o item ficava verde ao DIGITAR, e o
+    // convite só era enviado lá no botão de concluir. Agora é o estado real do
+    // elenco, lido pela porta do ACS.
+    { label: 'Cuidadora convidada', done: this.acsIntegration.temCuidadoraAtiva() },
   ]);
 
-  readonly podeConcluir = computed(() =>
-    this.empresaAtiva() &&
-    this.pareamentoEfetivo() === 'pareado' &&
-    this.cuidadoraEmail().trim().length > 0,
+  /**
+   * `empresaAtiva()` SAIU da condição, pela mesma razão do checklist: a empresa
+   * é pré-condição de plataforma, não tarefa desta pessoa. Prendê-la aqui fazia
+   * o botão de concluir depender de algo que ela não tem como destravar.
+   */
+  readonly podeConcluir = computed(
+    () => this.pareamentoEfetivo() === 'pareado' && this.acsIntegration.temCuidadoraAtiva(),
   );
 
   /**
-   * Resolve the pairing component type at init so the slot is ready to render
-   * before the user reaches step 3 (SPEC-06 §3, INT-FE-EDGE-003).
-   * resolvePairingSlot() returns Promise.resolve(DevicePairingPageComponent) — synchronous in mock.
+   * Reúne o que cada módulo declarou e resolve os componentes.
+   *
+   * <p>A ordenação acontece aqui uma vez (a declaração não muda em tempo de
+   * execução); as ENTRADAS, essas sim, são recalculadas a cada mudança de
+   * contexto, em `passos()`.
    */
   ngOnInit(): void {
-    this.edgeIntegration.resolvePairingSlot().then((comp) => {
-      this.pairingComponentType.set(comp as Type<object>);
-    });
-    this.acsIntegration.resolveCaregiverLinkSlot().then((comp) => {
-      this.caregiverLinkComponentType.set(comp as Type<object>);
-    });
+    const contribuidores: readonly OnboardingWizardContributor[] = [
+      this.pacIntegration,
+      this.edgeIntegration,
+      this.acsIntegration,
+    ];
+
+    const declarados = contribuidores
+      .flatMap((contribuidor) => contribuidor.onboardingWizardComposition())
+      .sort((a, b) => a.order - b.order);
+
+    this.declarados.set(declarados);
+
+    for (const passo of declarados) {
+      passo.component.then((tipo) => {
+        this.tiposResolvidos.update((atual) => {
+          const proximo = new Map(atual);
+          proximo.set(passo.key, tipo as Type<object>);
+          return proximo;
+        });
+      });
+    }
   }
 
   async criarTenant(): Promise<void> {
@@ -490,23 +500,24 @@ export class OnboardingWizardPageComponent implements OnInit {
   }
 
   /**
-   * Called by host when the (paired) output is emitted from DevicePairingPageComponent.
-   * Advances the onboarding state (SPEC-06 §3 / INT-FE-EDGE-003).
-   * Note: since NgComponentOutlet does not wire outputs natively, this method is also
-   * triggered reactively via dispositivoExistente when pairingPhase() === 'paired'.
+   * Chamado quando o pareamento conclui. `NgComponentOutlet` não liga saídas
+   * nativamente, então o caminho reativo é `dispositivoExistente()`; este método
+   * fica como entrada explícita para testes e para quem compuser de outro jeito.
    */
-  onDevicePaired(_outcome: unknown): void {
+  onDevicePaired(_desfecho: unknown): void {
     this.pareamento.set('pareado');
   }
 
-  protected async concluir(): Promise<void> {
-    if (this.cuidadoraEmail().trim()) {
-      await this.caregiverFacade.invite({
-        nome: this.cuidadoraNome().trim() || 'Cuidadora',
-        email: this.cuidadoraEmail().trim(),
-        papel: 'cuidadora',
-      });
-    }
+  /**
+   * Fecha a configuração.
+   *
+   * <p>Ele CONVIDAVA a cuidadora aqui — o formulário embutido só juntava nome e
+   * e-mail, e a escrita acontecia neste botão, um passo inteiro depois de a
+   * pessoa achar que já tinha convidado. O convite agora é feito pelo passo do
+   * ACS, no momento em que a pessoa clica em "Convidar"; a este botão sobrou o
+   * que ele sempre deveria ter feito: registrar que acabou.
+   */
+  protected concluir(): void {
     this.concluido.set(true);
   }
 }

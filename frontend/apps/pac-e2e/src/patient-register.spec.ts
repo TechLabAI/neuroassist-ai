@@ -367,18 +367,39 @@ test.describe('Onboarding — register paciente (step 2)', () => {
   // BDD (adapted): Onboarding wizard step 2 is visible and labelled "Paciente"
   // EXECUTÁVEL: dependia só do BLOCKER-1, que caducou. Afirma a estrutura do
   // wizard (o passo existe e é o do paciente), não o componente do passo.
-  test('ACS wizard step 2 is the Paciente step', async ({ page }) => {
+  //
+  // ASSERCAO AJUSTADA A REALIDADE NOVA (nao relaxada — trocada por uma mais
+  // forte). O paciente era "o passo 2", depois do passo 1 "Unidade de cuidado".
+  // A empresa deixou de ser passo numerado e virou CONTEXTO no alto da tela:
+  // `acs.tenant.provisionar` nao e concedida a papel humano nenhum (E2E-029),
+  // entao o passo 1 era sempre um passo que a pessoa diante da tela NAO PODE
+  // executar. O paciente passou a ser o passo 1.
+  //
+  // Antes o cenario so afirmava a presenca de tres <h2>; agora afirma a POSICAO
+  // (o passo 1 e o do paciente, pela chave que o PAC declarou) e afirma que a
+  // empresa esta fora da sequencia. Ordem e o que faz de um passo "o passo N",
+  // e agora isso e verificado, e nao suposto.
+  test('ACS wizard step 1 is the Paciente step', async ({ page }) => {
     await openOnboarding(page);
 
-    // Nome EXATO: `hasText` é substring, e o assistente ganhou um passo
-    // "Vincular cuidadora ao paciente" — o locator solto passou a casar com os
-    // dois. Um título de passo é um nome, não um pedaço de frase.
-    const tituloPasso2 = page.getByRole('heading', { name: 'Paciente', exact: true });
-    await expect(tituloPasso2).toBeVisible();
+    // Nome EXATO: `hasText` é substring, e o assistente tem um passo
+    // "Vincular cuidadora ao paciente" — o locator solto casaria com os dois.
+    // Um título de passo é um nome, não um pedaço de frase.
+    await expect(page.getByRole('heading', { name: 'Paciente', exact: true })).toBeVisible();
 
-    // O passo 2 vem depois do passo 1 (Unidade de cuidado) e antes do 3
-    // (Dispositivo edge) — a ordem é o que faz dele "o passo 2".
-    await expect(page.locator('h2', { hasText: 'Unidade de cuidado' })).toBeVisible();
+    // O passo 1 é o do paciente — pela chave que o próprio PAC declara.
+    await expect(page.locator('[data-testid="wizard-step"][data-step-number="1"]')).toHaveAttribute(
+      'data-step-key',
+      'pac-patient-register',
+    );
+
+    // A empresa continua na tela, mas como CONTEXTO — e não como passo.
+    await expect(page.getByTestId('empresa-contexto')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="wizard-step"]').filter({ hasText: 'Unidade de cuidado' }),
+    ).toHaveCount(0);
+
+    // E o dispositivo vem depois do paciente: parear é parear com alguém.
     await expect(page.locator('h2', { hasText: 'Dispositivo edge' })).toBeVisible();
   });
 

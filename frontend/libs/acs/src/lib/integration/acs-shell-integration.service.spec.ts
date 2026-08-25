@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { AcsShellIntegrationService } from './acs-shell-integration.service';
 import { PatientLinkageComponent } from '../feature-patient-linkage/patient-linkage.component';
+import { CaregiverEditorComponent } from '../feature-caregiver-editor/caregiver-editor.component';
 import { ACS_TENANT_PORT } from '../api/acs-tenant.port';
 import { ACS_CUIDADOR_PORT } from '../api/acs-cuidador.port';
 import { ACS_LINK_PORT } from '../api/acs-link.port';
@@ -65,7 +66,32 @@ describe('AcsShellIntegrationService — composição do assistente', () => {
   });
 
   it('o vínculo vem DEPOIS do convite da cuidadora — não há a quem vincular antes', () => {
-    const vinculo = service.onboardingWizardComposition().find((p) => p.key === 'acs-caregiver-link');
-    expect(vinculo?.order).toBeGreaterThan(5);
+    const passos = service.onboardingWizardComposition();
+    const convite = passos.find((p) => p.key === 'acs-caregiver-invite');
+    const vinculo = passos.find((p) => p.key === 'acs-caregiver-link');
+    expect(convite).toBeDefined();
+    expect(vinculo!.order).toBeGreaterThan(convite!.order);
+  });
+
+  // ---------------------------------------------------------------------------
+  // O CONVITE deixou de ser formulário embutido no assistente
+  // ---------------------------------------------------------------------------
+
+  it('declara o passo de convite com o MESMO editor da rota /acs/cuidadores/novo', async () => {
+    const convite = service.onboardingWizardComposition().find((p) => p.key === 'acs-caregiver-invite');
+    expect(convite?.title).toBe('Convidar cuidadora');
+    await expect(convite!.component).resolves.toBe(CaregiverEditorComponent);
+  });
+
+  // CONTROLE NEGATIVO de `composto`: sem esta entrada o editor traz o próprio
+  // <h1>, o contêiner de largura e — o que mais importa — NAVEGA para /acs ao
+  // convidar, ejetando a pessoa do assistente depois de uma ação bem-sucedida.
+  it('o passo de convite é declarado como COMPOSTO, não como página', () => {
+    const convite = service.onboardingWizardComposition().find((p) => p.key === 'acs-caregiver-invite');
+    expect(convite?.inputs?.({ pacienteId: null })).toEqual({ composto: true });
+  });
+
+  it('temCuidadoraAtiva começa falso — é o progresso lido do elenco, não de um campo', () => {
+    expect(service.temCuidadoraAtiva()).toBe(false);
   });
 });

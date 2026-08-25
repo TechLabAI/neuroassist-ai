@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, Signal } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
-import { ACS_CUIDADOR_PORT } from './api/acs-cuidador.port';
+import { ACS_CUIDADOR_PORT, CuidadorEditDto } from './api/acs-cuidador.port';
 import type { CuidadorCreateDto } from './api/acs-cuidador.port';
 import { ACS_LINK_PORT } from './api/acs-link.port';
 import { CuidadorVm, CoverageVm, toCuidadorVm } from './acs.types';
@@ -110,6 +110,40 @@ export class AcsCaregiverFacade {
     } catch (err) {
       this._error.set(err instanceof Error ? err.message : 'Erro ao convidar cuidador');
       this.telemetry.trackInviteError();
+      return null;
+    } finally {
+      this._saving.set(false);
+    }
+  }
+
+  /**
+   * Corrige nome e login de uma cuidadora já cadastrada.
+   *
+   * <p><b>Por que isto passou a existir.</b> O `save()` do editor tinha um `if`
+   * que cobria só a criação e nenhum `else`: quem corrigia um nome clicava em
+   * "Salvar", nada acontecia, e a tela não dizia nem sucesso nem erro. A causa
+   * era mais funda que a tela — não havia endpoint de edição, e a matriz de
+   * perfis não listava a capacidade. Ela foi definida (`acs.cuidador.editar`,
+   * só para a coordenadora) porque a alternativa disponível — desativar a
+   * pessoa e criar outra — quebra o histórico: a confirmação de alarme guarda o
+   * id da cuidadora.
+   *
+   * <p>Atualiza a linha NO LUGAR, sem recarregar o elenco: recarregar perderia a
+   * posição de quem está no meio de uma lista longa, e o servidor devolve a
+   * própria linha atualizada.
+   */
+  async edit(id: string, dto: CuidadorEditDto): Promise<CuidadorVm | null> {
+    this._saving.set(true);
+    this._error.set(null);
+    try {
+      const result = await lastValueFrom(this.cuidadorPort.edit(id, dto));
+      const vm = toCuidadorVm(result);
+      this._caregivers.update((list) => list.map((c) => (c.id === id ? vm : c)));
+      return vm;
+    } catch (err) {
+      // Login duplicado é o erro esperado aqui, e o backend o devolve como 409.
+      // A frase do servidor é preferida quando existe: ela diz QUAL conflito.
+      this._error.set(err instanceof Error ? err.message : 'Erro ao salvar cuidador');
       return null;
     } finally {
       this._saving.set(false);
