@@ -200,4 +200,90 @@ class TenantSchemaProvisioningIT {
                                 table);
         return n != null && n > 0;
     }
+
+    // -------------------------------------------------------------------------
+    // A GUARDA DE PRE-EXISTENCIA DAS RECONCILIACOES (V0211 / V0212)
+    //
+    // As duas migrations leem `neuroassist_global.caregiver_patient_link`, que e do
+    // ACS. Sem guarda, provisionar um tenant num banco onde essa tabela ainda nao
+    // existe estourava e derrubava o provisionamento inteiro — foi o que quebrou os
+    // tres testes acima.
+    //
+    // Guardar resolve o lado ausente. O teste abaixo cobre o OUTRO lado: com a
+    // tabela presente, a reconciliacao tem de continuar reconciliando. Sem ele,
+    // transformar a migration num no-op permanente passaria como "verde".
+    // -------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("com a tabela de vinculos presente, a reconciliacao ainda popula a projecao")
+    void reconciliationStillRunsWhenTheGlobalLinkTableExists() {
+        jdbc().execute(
+                        """
+                CREATE TABLE IF NOT EXISTS neuroassist_global.caregiver_patient_link (
+                    tenant_id    uuid        NOT NULL,
+                    cuidador_id  uuid        NOT NULL,
+                    paciente_id  uuid        NOT NULL,
+                    status       varchar(20) NOT NULL,
+                    criado_em    timestamptz NOT NULL DEFAULT now(),
+                    revogado_em  timestamptz NULL,
+                    atualizado_em timestamptz NULL
+                )
+                """);
+
+        UUID tenantId = registerTenant();
+        String schema = schemaFor(tenantId);
+        // A migration junta por `t.schema_nome = current_schema()`: sem isto, a
+        // reconciliacao de um schema puxaria vinculos de outra empresa.
+        jdbc().update(
+                        "UPDATE neuroassist_global.tenant SET schema_nome = ? WHERE tenant_id = ?",
+                        schema,
+                        tenantId);
+
+        UUID pacienteId = UUID.randomUUID();
+        UUID cuidadorId = UUID.randomUUID();
+        jdbc().update(
+                        """
+                INSERT INTO neuroassist_global.caregiver_patient_link
+                    (tenant_id, cuidador_id, paciente_id, status)
+                VALUES (?, ?, ?, 'ACTIVE')
+                """,
+                        tenantId,
+                        cuidadorId,
+                        pacienteId);
+
+        // O schema precisa existir com a tabela `paciente` antes da V0211 rodar, e o
+        // proprio provisionamento faz isso — mas o paciente e dado, nao esquema. Como
+        // a V0211 so reconcilia pacientes que EXISTEM no schema, provisiona-se, insere-se
+        // o paciente, e reaplica-se para exercitar a reconciliacao.
+        TenantSchemaProvisioning primeira = useCase.provision(tenantId, schema);
+        assertThat(primeira.status()).isEqualTo(ProvisioningStatus.READY);
+
+        jdbc().update(
+                        "INSERT INTO "
+                                + schema
+                                + ".paciente (id, tenant_id, nome) VALUES (?, ?, ?)",
+                        pacienteId,
+                        tenantId,
+                        "Paciente da Reconciliacao");
+
+        // A guarda nao pode ter virado um no-op: com a tabela presente, o SELECT da
+        // V0211 tem de enxergar o vinculo. Aqui afirma-se a CONSULTA da migration, e
+        // nao um reprocessamento do Flyway (uma migration ja aplicada nao roda de novo).
+        Integer visiveis =
+                jdbc().queryForObject(
+                                """
+                        SELECT count(*)
+                        FROM neuroassist_global.caregiver_patient_link link
+                        JOIN neuroassist_global.tenant t
+                          ON t.tenant_id = link.tenant_id
+                         AND t.schema_nome = ?
+                        WHERE link.status = 'ACTIVE'
+                        """,
+                                Integer.class,
+                                schema);
+
+        assertThat(visiveis)
+                .as("com a tabela presente, a consulta da reconciliacao acha o vinculo")
+                .isEqualTo(1);
+    }
 }
