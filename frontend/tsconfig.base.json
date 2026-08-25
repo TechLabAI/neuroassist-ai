@@ -33,6 +33,9 @@
       "@neuroassist/acs": [
         "libs/acs/src/index.ts"
       ],
+      "@neuroassist/acs/testing": [
+        "libs/acs/src/testing/index.ts"
+      ],
       "@neuroassist/hist": [
         "libs/hist/src/index.ts"
       ],
