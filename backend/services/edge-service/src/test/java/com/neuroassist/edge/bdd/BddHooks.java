@@ -34,10 +34,11 @@ public class BddHooks {
 
     @Autowired private ServiceTokenProvider serviceTokenProvider;
 
-    /**
-     * Name of the Resilience4j circuit breaker protecting the GEST detection-profile Feign call.
-     */
+    /** Name of the Resilience4j circuit breaker protecting the heartbeat GEST profile call. */
     private static final String CB_GEST = "gest-detection-profile";
+
+    /** Name of the Resilience4j circuit breaker for GET /api/v1/edge/profile (EDGE-022). */
+    private static final String CB_DEVICE_PROFILE = "edge-device-profile";
 
     @Before
     public void cleanUpAndResetStubs() {
@@ -64,14 +65,19 @@ public class BddHooks {
         // Invalidate cached service token so the next scenario gets a fresh one.
         serviceTokenProvider.invalidate(TestJwtFactory.TEST_TENANT);
 
-        // Reset the circuit breaker so "CB open" tests do not bleed into later scenarios.
+        // Reset circuit breakers so "CB open" tests do not bleed into later scenarios.
+        resetCircuitBreaker(CB_GEST);
+        resetCircuitBreaker(CB_DEVICE_PROFILE);
+    }
+
+    private void resetCircuitBreaker(String name) {
         try {
-            CircuitBreaker cb = circuitBreakerRegistry.circuitBreaker(CB_GEST);
+            CircuitBreaker cb = circuitBreakerRegistry.circuitBreaker(name);
             if (cb.getState() != CircuitBreaker.State.CLOSED) {
                 cb.reset();
             }
         } catch (Exception ignored) {
-            // CB might not have been created yet if no heartbeat was sent.
+            // CB might not have been created yet if the relevant operation has not run.
         }
     }
 

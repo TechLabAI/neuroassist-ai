@@ -69,8 +69,20 @@ public final class ProblemDetailFactory {
                                     "forbidden", 403, "Insufficient scope for this operation")),
                     Map.entry(
                             "edge.optimistic-lock",
+                            new ErrorMetadata("conflict", 409, "Concurrent modification detected")),
+                    // EDGE-022: device profile endpoint (P1)
+                    Map.entry(
+                            "edge.device-not-paired",
                             new ErrorMetadata(
-                                    "conflict", 409, "Concurrent modification detected")));
+                                    "forbidden",
+                                    403,
+                                    "Device is registered but not paired to a patient")),
+                    Map.entry(
+                            "edge.profile-unavailable",
+                            new ErrorMetadata(
+                                    "upstream_error",
+                                    502,
+                                    "Detection profile service unavailable")));
 
     private static final Map<String, CategoryMetadata> CATEGORY_METADATA =
             Map.ofEntries(

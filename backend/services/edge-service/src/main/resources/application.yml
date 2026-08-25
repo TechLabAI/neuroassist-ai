@@ -96,3 +96,26 @@ resilience4j:
         # abriria o breaker contra um GEST saudavel e faria HB-04 relatar degradado.
         ignore-exceptions:
           - feign.FeignException$NotFound
+      # Circuit breaker for GET /api/v1/edge/profile (EDGE-022, P1).
+      # Separate from gest-detection-profile so a degraded station profile fetch
+      # does not degrade the heartbeat circuit or vice-versa.
+      edge-device-profile:
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        # 404 = "no profile for this device" — GEST is healthy. Not counting it
+        # as a failure avoids opening the breaker against a working GEST.
+        # 403 = service identity misconfiguration — rethrown before reaching CB.
+        #
+        # O 304 nao aparece nesta lista de proposito: ele NAO escapa do adaptador.
+        # O Feign lanca FeignException para tudo fora de 2xx (3xx incluido), e o
+        # adaptador o converte em ProfileResult.notModified() antes de qualquer
+        # exception chegar ao breaker. Listar aqui daria a impressao de que um 304
+        # pode escapar — nao pode, e se um dia escapar e defeito do adaptador, que
+        # deve falhar visivelmente em vez de ser silenciado por configuracao.
+        ignore-exceptions:
+          - feign.FeignException$NotFound
+          - feign.FeignException$Forbidden
