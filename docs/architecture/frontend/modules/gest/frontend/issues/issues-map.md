@@ -1,7 +1,8 @@
 # Issues Map — GEST Frontend
 
 > Module: **GEST — Detecção de Gesto (Edge)** | NeuroAssist AI
-> Generated: 2026-07-28 | Total: 26 functional + 7 integration = 33 issues
+> Generated: 2026-07-28 | Atualizado: 2026-08-25 (W10 — estação do paciente)
+> Total: 33 functional + 8 integration = 41 issues
 
 ## Master table
 
@@ -41,6 +42,22 @@
 | GEST-FE-025 | Playwright e2e — composition-boundary + backend-error-handling | FE | P9 | W9 | ABERTA |
 | GEST-FE-026 | **[GAP CLOSURE]** stream-no-cache-between-runs.feature — SPEC-04 §5 (M4-fe mandatory) | FE | P9 | W9 | ABERTA |
 
+<!-- ─── Estação do paciente (ADR-008 / SPEC-09) — W10 ─────────────────────────
+     Onda distinta das anteriores por natureza, não por sequência: W1..W9
+     constroem o TESTE AO VIVO (calibração, com uma cuidadora olhando). W10
+     constrói o RUNTIME — a superfície que observa o paciente sem ninguém por
+     perto. É o que hoje não existe: a cadeia gesto → relato → evento → alarme
+     não tem execução, e as telas de alarme são alimentadas por mock.
+     Ordem obrigatória: 027 → 028 → 029 → 030; 031/032 dependem de 030.        -->
+| GEST-FE-027 | Sessão de dispositivo — DeviceSessionStore + POST /oauth2/token/device | FE | P10 | W10 | ABERTA |
+| GEST-FE-028 | Perfil de detecção do dispositivo — GET condicional com ETag/304 | FE | P10 | W10 | ABERTA |
+| GEST-FE-029 | Limiares vêm do perfil publicado, não de constantes de código | FE | P10 | W10 | ABERTA |
+| GEST-FE-030 | Rota /estacao + laço always-on + POST /api/v1/reports (fecha a cadeia) | FE | P10 | W10 | ABERTA |
+| GEST-FE-031 | Heartbeat, Wake Lock e o estado "parada" — detecção parada nunca em silêncio | FE | P11 | W10 | ABERTA |
+| GEST-FE-032 | Fila de relatos em IndexedDB — "enfileirado" ≠ "não aconteceu" | FE | P11 | W10 | ABERTA |
+| GEST-FE-033 | Playwright e2e da estação — os oito cenários da SPEC-09 §5 | FE | P12 | W10 | ABERTA |
+| GEST-INT-008 | Guarda de drift dos limiares apontando para o BROWSER | INT | P12 | W10 | ABERTA |
+
 ---
 
 ## By priority (P1 → P9)
@@ -56,7 +73,10 @@
 | P7 (UX polish) | GEST-FE-019..020 | 2 |
 | P8 (Observability) | GEST-FE-021 | 1 |
 | P9 (e2e + Hardening) | GEST-FE-022..026 | 5 |
-| **TOTAL** | | **33** |
+| P10 Estação — identidade, perfil, limiares, laço | 4 | 
+| P11 Estação — sobrevivência (heartbeat, wake lock, fila) | 2 | 
+| P12 Estação — e2e + guarda de drift | 2 | 
+| **TOTAL** | | **41** |
 
 ---
 
@@ -131,7 +151,8 @@ GEST-FE-026 (stream-no-cache — gap SPEC-04 §5, mandatory before gate closure)
 | W7 UX polish | 2 issues | 1 day |
 | W8 Observability | 1 issue | 0.5 days |
 | W9 e2e + Hardening | 5 issues | 2.5 days |
-| **TOTAL** | **33** | **~14 days** |
+| W10 Estação do paciente (ADR-008) | 8 issues | ~5 days |
+| **TOTAL** | **41** | **~19 days** |
 
 ---
 
@@ -140,6 +161,9 @@ GEST-FE-026 (stream-no-cache — gap SPEC-04 §5, mandatory before gate closure)
 | Item | Issue | Status |
 |---|---|---|
 | Bridge transport auth (mTLS vs OAuth2) | GEST-INT-004 | OPEN — joint decision with EDGE team |
+| **Credencial de dispositivo no browser** — um `clientSecret` não pode viver ali | GEST-FE-027 | **OPEN — bloqueia uso fora de piloto fechado** (ADR-008 P1) |
+| Guarda de drift aponta para `edge_agent_core.py`, runtime que a ADR-007 aposentou | GEST-INT-008 | OPEN — gate verde pelo lado errado (ADR-008 P2/P3) |
+| Workflows de CI desativados desde 25/08/2026 | GEST-INT-008 | OPEN — o guarda não roda enquanto isso |
 | stream-no-cache-between-runs.feature | GEST-FE-026 | MANDATORY gap closure (SPEC-04 §5) |
 | Registry fields (frontendLib/hasUi) | GEST-INT-007 | Fix FIRST (blocks scaffold automation) |
 | bddGate (BE) | BE GEST-023,024 | Deferred — run after BE scaffold |
