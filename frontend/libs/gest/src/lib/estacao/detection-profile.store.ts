@@ -1,27 +1,19 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { isEngineFeatureRef, type EngineFeatureRef } from '@neuroassist/shared/contracts';
 import { DetectionProfileHttpAdapter } from './detection-profile-http.adapter';
-import { isNotModified, type DetectionProfileDto, type PrimitivoDeteccao } from './detection-profile.port';
+import { isNotModified, ProfileErro, type DetectionProfileDto, type PrimitivoDeteccao } from './detection-profile.port';
 import type { DetectionThresholds } from '@neuroassist/shared/contracts';
 import { LIMIARES_PADRAO } from '@neuroassist/shared/contracts';
 
 // =============================================================================
 // DetectionProfileStore — perfil de detecção em runtime (GEST-FE-028)
 //
-// TODO[GEST-FE-028][blocked] — loadProfile() RETORNA DEGRADADO IMEDIATAMENTE.
-//   O token de dispositivo (`edge.device`) recebe 403 em
-//   GET /gest-service/detection-profile/devices/{deviceId} porque a autoridade
-//   `gest.detection-profile.read` não foi concedida ao DeviceTokenService.
-//   O adapter, o store e o DTO estão implementados e prontos — o TRANSPORTE está
-//   bloqueado por decisão de backend. Enquanto isso, `degradacao().semPerfil`
-//   sempre será true e o detector usa LIMIARES_PADRAO como fallback.
-//   Decisão de arquitetura pendente: ver evento ES 10c02bcf9446.
-//
-// Responsabilidades (quando desbloqueado):
-//   - Buscar GET /gest-service/detection-profile/devices/{deviceId} com ETag
+// Responsabilidades:
+//   - Buscar GET /api/v1/edge/profile com ETag condicional (EDGE-022)
 //   - Expor os primitivos válidos (origem ≠ INDISPONIVEL, engineFeatureRef conhecido)
 //   - Expor os limiares da faixa correta para cada primitivo
 //   - Expor o estado de degradação (parcial ou total)
+//   - Distinguir sem-vinculo (403) de degradada (502) de erro genérico
 //   - 304 → manter perfil em memória sem sobrescrever nada
 //
 // Primitivos com origem: INDISPONIVEL são descartados da lista de primitivos
@@ -61,6 +53,10 @@ export class DetectionProfileStore {
   private readonly _perfil = signal<DetectionProfileDto | null>(null);
   private readonly _carregando = signal(false);
   private readonly _erro = signal<string | null>(null);
+  /** 403 edge.device-not-paired — dispositivo sem paciente pareado (SPEC-09 §3). */
+  private readonly _semVinculo = signal(false);
+  /** 502 edge.profile-unavailable — GEST fora do ar (SPEC-09 §3). */
+  private readonly _perfilIndisponivel = signal(false);
   private _etag: string | null = null;
 
   // ---------------------------------------------------------------------------
@@ -78,6 +74,18 @@ export class DetectionProfileStore {
 
   /** Mensagem de erro da última tentativa, ou null. */
   readonly erro = this._erro.asReadonly();
+
+  /**
+   * true se o dispositivo não está pareado a nenhum paciente (403 edge.device-not-paired).
+   * Estado de primeira classe — exige ação humana, não retry automático.
+   */
+  readonly semVinculo = this._semVinculo.asReadonly();
+
+  /**
+   * true se o GEST está fora do ar (502 edge.profile-unavailable).
+   * Estado `degradada` — NUNCA tratar como "nenhum gesto configurado".
+   */
+  readonly perfilIndisponivel = this._perfilIndisponivel.asReadonly();
 
   /**
    * Primitivos detectáveis — apenas os com origem válida (PACIENTE | PERFIL_EMPRESA)
@@ -143,6 +151,21 @@ export class DetectionProfileStore {
   });
 
   /**
+   * Limiares globais da faixa 'media' do perfil carregado.
+   * Usados pelo always-on loop (EstacaoComponent) como threshold único para o detector.
+   * Quando não há perfil, retorna LIMIARES_PADRAO.
+   */
+  readonly thresholdsGlobaisMedia = computed((): DetectionThresholds => {
+    return this._perfil()?.thresholds.media ?? LIMIARES_PADRAO;
+  });
+
+  /**
+   * pacienteId do perfil carregado — vem do pareamento no backend.
+   * null quando não há perfil ou o backend não informou.
+   */
+  readonly pacienteId = computed(() => this._perfil()?.pacienteId ?? null);
+
+  /**
    * Limiares padrão quando não há perfil carregado.
    * Use `primitivos()` → cada `PrimitivoResolvido.thresholds` para produção;
    * este getter existe para que componentes exibam qual faixa está em uso.
@@ -154,16 +177,21 @@ export class DetectionProfileStore {
   // ---------------------------------------------------------------------------
 
   /**
-   * Carrega o perfil do dispositivo.
+   * Carrega o perfil do dispositivo autenticado.
+   * O deviceId é derivado do claim `sub` do JWT pelo backend (EDGE-022).
    * - 304: mantém o perfil em memória sem sobrescrever nada.
-   * - Erro de rede: sinaliza `erro`; `degradacao().semPerfil` permanece true.
+   * - 403 edge.device-not-paired: sinaliza `semVinculo`.
+   * - 502 edge.profile-unavailable: sinaliza `perfilIndisponivel`.
+   * - Outro erro: sinaliza `erro`; `degradacao().semPerfil` permanece true.
    */
-  async loadProfile(deviceId: string): Promise<void> {
+  async loadProfile(): Promise<void> {
     this._carregando.set(true);
     this._erro.set(null);
+    this._semVinculo.set(false);
+    this._perfilIndisponivel.set(false);
 
     try {
-      const resultado = await this.adapter.fetchProfile(deviceId, this._etag ?? undefined);
+      const resultado = await this.adapter.fetchProfile(this._etag ?? undefined);
 
       if (isNotModified(resultado)) {
         // 304 — perfil em memória está atual; não substituir nada.
@@ -173,9 +201,17 @@ export class DetectionProfileStore {
       this._perfil.set(resultado);
       this._etag = resultado.etag ?? null;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this._erro.set(msg);
-      // _perfil permanece null (ou o último valor válido em memória).
+      if (err instanceof ProfileErro) {
+        if (err.tipo === 'sem-vinculo') {
+          this._semVinculo.set(true);
+        } else if (err.tipo === 'degradada') {
+          this._perfilIndisponivel.set(true);
+        }
+        // _perfil permanece null (ou o último valor válido em memória).
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        this._erro.set(msg);
+      }
     } finally {
       this._carregando.set(false);
     }
@@ -185,9 +221,9 @@ export class DetectionProfileStore {
    * Força recarregamento ignorando o ETag atual.
    * Usado pelo HeartbeatService quando profileDrift=true (P5 — GEST-FE-031).
    */
-  async forceReload(deviceId: string): Promise<void> {
+  async forceReload(): Promise<void> {
     this._etag = null;
-    await this.loadProfile(deviceId);
+    await this.loadProfile();
   }
 
   // ---------------------------------------------------------------------------

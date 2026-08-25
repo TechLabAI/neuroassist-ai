@@ -5,28 +5,24 @@ import {
   provideHttpClientTesting,
 } from '@angular/common/http/testing';
 import { DetectionProfileHttpAdapter } from './detection-profile-http.adapter';
-import { GEST_SERVICE_BASE_URL } from '../api/gest-service.config';
 import type { DetectionProfileDto } from './detection-profile.port';
-import { isNotModified } from './detection-profile.port';
+import { isNotModified, ProfileErro } from './detection-profile.port';
 
 // =============================================================================
 // DetectionProfileHttpAdapter — unit tests (GEST-FE-028)
 //
-// TODO[GEST-FE-028][blocked] — estes testes cobrem o comportamento do adapter
-// (GET condicional, 200, 304, 404). O token de dispositivo (`edge.device`)
-// recebe 403 neste endpoint em produção — a autoridade `gest.detection-profile.read`
-// não foi concedida ao DeviceTokenService. Os testes são válidos para quando
-// o backend conceder a autoridade.
+// Endpoint: GET /api/v1/edge/profile (EDGE-022)
+// O deviceId NÃO aparece em path, query ou corpo — o backend deriva do JWT sub.
 //
-// NÃO existe teste que simula 403 como sucesso — seria plantar o defeito E2E
-// catalogado em CLAUDE.md: stub correto para premissa errada.
+// Fixture espelha DeviceProfileResponse.java + DeviceProfileController.java
+// lidos do edge-service. A URL é relativa (proxy de dev ou nginx de prod roteiam
+// /api/v1/ para o gateway).
 //
-// Fixture lida de DetectionProfileController.findForDevice() + DetectionProfileResponse.java.
+// Mutação confirmada: ao trocar `toBe(7)` por `toBe(99)` em resultado.version
+// o teste "deve retornar DetectionProfileDto com o etag" falha. O guarda é real.
 // =============================================================================
 
-const DEVICE_ID = 'b0000000-0000-0000-0000-000000000042';
-const BASE_URL = 'http://localhost:8084';
-const URL = `${BASE_URL}/gest-service/detection-profile/devices/${DEVICE_ID}`;
+const URL = '/api/v1/edge/profile';
 
 const FIXTURE_THRESHOLDS_MEDIA = {
   earClose: 0.22,
@@ -41,10 +37,8 @@ const FIXTURE_THRESHOLDS_MEDIA = {
 };
 
 const FIXTURE_PERFIL: DetectionProfileDto = {
-  id: 'c0000000-0000-0000-0000-000000000001',
   version: 7,
-  active: true,
-  contractVersion: '1.0.0',
+  catalogoDegradado: false,
   thresholds: {
     baixa: { ...FIXTURE_THRESHOLDS_MEDIA, earClose: 0.19, earOpen: 0.24 },
     media: FIXTURE_THRESHOLDS_MEDIA,
@@ -60,9 +54,6 @@ const FIXTURE_PERFIL: DetectionProfileDto = {
     },
   ],
   pacienteId: 'e0000000-0000-0000-0000-000000000001',
-  catalogoVersao: 3,
-  catalogoDegradado: false,
-  publishedAt: '2026-08-25T10:00:00Z',
   etag: '"v7-e0000001"',
 };
 
@@ -76,7 +67,6 @@ describe('DetectionProfileHttpAdapter', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         DetectionProfileHttpAdapter,
-        { provide: GEST_SERVICE_BASE_URL, useValue: BASE_URL },
       ],
     });
     adapter = TestBed.inject(DetectionProfileHttpAdapter);
@@ -92,8 +82,8 @@ describe('DetectionProfileHttpAdapter', () => {
   // ---------------------------------------------------------------------------
 
   describe('200 — carga inicial', () => {
-    it('deve enviar GET para o endpoint correto', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID);
+    it('deve enviar GET /api/v1/edge/profile sem deviceId na URL', async () => {
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
       expect(req.request.method).toBe('GET');
       req.flush(FIXTURE_PERFIL, { headers: { ETag: '"v7-e0000001"' } });
@@ -101,7 +91,7 @@ describe('DetectionProfileHttpAdapter', () => {
     });
 
     it('deve retornar DetectionProfileDto com o etag do header de resposta', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID);
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
       req.flush(FIXTURE_PERFIL, { headers: { ETag: '"v7-e0000001"' } });
       const resultado = await promise;
@@ -114,7 +104,7 @@ describe('DetectionProfileHttpAdapter', () => {
     });
 
     it('deve não enviar If-None-Match quando não há etag atual', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID);
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
       expect(req.request.headers.has('If-None-Match')).toBe(false);
       req.flush(FIXTURE_PERFIL, { headers: { ETag: '"v7-e0000001"' } });
@@ -128,7 +118,7 @@ describe('DetectionProfileHttpAdapter', () => {
 
   describe('GET condicional — If-None-Match', () => {
     it('deve enviar If-None-Match quando etag fornecido', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID, '"v7-e0000001"');
+      const promise = adapter.fetchProfile('"v7-e0000001"');
       const req = httpMock.expectOne(URL);
       expect(req.request.headers.get('If-None-Match')).toBe('"v7-e0000001"');
       req.flush(FIXTURE_PERFIL, { headers: { ETag: '"v7-e0000001"' } });
@@ -136,7 +126,7 @@ describe('DetectionProfileHttpAdapter', () => {
     });
 
     it('deve retornar { notModified: true } quando servidor retorna 304', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID, '"v7-e0000001"');
+      const promise = adapter.fetchProfile('"v7-e0000001"');
       const req = httpMock.expectOne(URL);
       // HttpTestingController: 304 sem corpo é tratado como HttpErrorResponse pelo Angular.
       // O adapter captura HttpErrorResponse.status === 304 e retorna { notModified: true }.
@@ -147,28 +137,50 @@ describe('DetectionProfileHttpAdapter', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Erros
+  // Erros com códigos específicos do endpoint (SPEC-09 §3 — ProblemDetailFactory)
   // ---------------------------------------------------------------------------
 
-  describe('erros', () => {
-    it('deve lançar Error descritivo em 404 (dispositivo sem perfil publicado)', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID);
+  describe('erros de domínio', () => {
+    it('deve lançar ProfileErro("sem-vinculo") em 403 edge.device-not-paired', async () => {
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
-      req.flush({ error: 'profile not found' }, { status: 404, statusText: 'Not Found' });
-      await expect(promise).rejects.toThrow(/HTTP 404/);
+      req.flush(
+        { error: { code: 'edge.device-not-paired', message: 'Device not paired to any patient' } },
+        { status: 403, statusText: 'Forbidden' },
+      );
+      const err = await promise.catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ProfileErro);
+      expect((err as ProfileErro).tipo).toBe('sem-vinculo');
     });
 
-    it('deve lançar Error descritivo em 403 (token sem autoridade — estado atual em produção)', async () => {
-      // TODO[GEST-FE-028][blocked]: este é o caso real em produção hoje.
-      // token `edge.device` recebe 403 porque falta `gest.detection-profile.read`.
-      const promise = adapter.fetchProfile(DEVICE_ID);
+    it('deve lançar ProfileErro("degradada") em 502 edge.profile-unavailable', async () => {
+      const promise = adapter.fetchProfile();
+      const req = httpMock.expectOne(URL);
+      req.flush(
+        { error: { code: 'edge.profile-unavailable', message: 'GEST service unavailable' } },
+        { status: 502, statusText: 'Bad Gateway' },
+      );
+      const err = await promise.catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ProfileErro);
+      expect((err as ProfileErro).tipo).toBe('degradada');
+    });
+
+    it('deve lançar Error descritivo em 403 genérico (sem code de domínio)', async () => {
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
       req.flush({ error: 'forbidden' }, { status: 403, statusText: 'Forbidden' });
       await expect(promise).rejects.toThrow(/HTTP 403/);
     });
 
+    it('deve lançar Error descritivo em 404', async () => {
+      const promise = adapter.fetchProfile();
+      const req = httpMock.expectOne(URL);
+      req.flush({ error: 'not found' }, { status: 404, statusText: 'Not Found' });
+      await expect(promise).rejects.toThrow(/HTTP 404/);
+    });
+
     it('deve lançar Error em falha de rede (status 0)', async () => {
-      const promise = adapter.fetchProfile(DEVICE_ID);
+      const promise = adapter.fetchProfile();
       const req = httpMock.expectOne(URL);
       req.flush(null, { status: 0, statusText: 'Network Error' });
       await expect(promise).rejects.toThrow();
@@ -178,6 +190,6 @@ describe('DetectionProfileHttpAdapter', () => {
   // ---------------------------------------------------------------------------
   // Mutação — confirmação de vermelho
   // ---------------------------------------------------------------------------
-  // Confirmado manualmente: ao trocar toBe(7) por toBe(99) em resultado.version,
+  // Confirmado: ao trocar toBe(7) por toBe(99) em resultado.version,
   // o teste "deve retornar DetectionProfileDto com o etag" falha. O guarda é real.
 });

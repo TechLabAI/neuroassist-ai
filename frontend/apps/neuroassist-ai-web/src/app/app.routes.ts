@@ -3,6 +3,7 @@ import { AppShellComponent } from './shell/app-shell.component';
 import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
 import { AUTH_ROUTES, sessaoRequeridaGuard } from '@neuroassist/shared/auth-login';
 import { acsCaregiverWriteGuard } from '@neuroassist/acs';
+import { estacaoDeviceGuard } from '@neuroassist/gest';
 // DASH — promoted by /fe-architect-promote neuroassist-ai DASH (D-494)
 
 export const appRoutes: Routes = [
@@ -10,6 +11,18 @@ export const appRoutes: Routes = [
   // inverso: quem já entrou não volta para o formulário).
   // Precisa vir antes de qualquer rota que possa casar com 'login'.
   ...AUTH_ROUTES,
+
+  // Estação do paciente — GEST-FE-030 / ADR-008 / SPEC-09
+  // Rota de topo-level: fora do AppShellComponent (como /login e /entrada).
+  // Tela cheia, sem menu/sidebar/breadcrumb — visível no quarto do paciente.
+  // Requer sessão de DISPOSITIVO (edge.device), não de usuário (estacaoDeviceGuard).
+  {
+    path: 'estacao',
+    canActivate: [estacaoDeviceGuard],
+    loadComponent: () =>
+      import('@neuroassist/gest').then((m) => m.EstacaoComponent),
+    title: 'Estação de Monitoramento',
+  },
 
   // Onboarding wizard — scope:web page (ACS-owned), outside shell layout
   // Protegido: o wizard cadastra cuidadora e paciente, trabalho de coordenadora

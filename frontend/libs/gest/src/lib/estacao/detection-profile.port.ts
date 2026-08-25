@@ -1,8 +1,9 @@
 // =============================================================================
 // DetectionProfilePort — porta de entrada do perfil de detecção (GEST-FE-028)
 //
-// Espelha o endpoint GET /gest-service/detection-profile/devices/{deviceId}
-// do DetectionProfileController do gest-service.
+// Espelha o endpoint GET /api/v1/edge/profile do DeviceProfileController
+// do edge-service (EDGE-022). O deviceId é derivado do claim `sub` do token
+// no backend — não aparece em path, query ou corpo.
 // =============================================================================
 
 import type { DetectionThresholds } from '@neuroassist/shared/contracts';
@@ -38,19 +39,25 @@ export interface ThresholdsTable {
   readonly alta: DetectionThresholds;
 }
 
-/** Resposta canônica de GET /gest-service/detection-profile/devices/{deviceId} */
+/**
+ * Resposta canônica de GET /api/v1/edge/profile (DeviceProfileResponse.java).
+ * Campos obrigatórios do edge-service: version, catalogoDegradado, etag, thresholds,
+ * primitives, pacienteId. Campos opcionais são do antigo endpoint gest-service direto
+ * e virão undefined — mantidos no tipo para compatibilidade com fixtures de P3.
+ */
 export interface DetectionProfileDto {
-  readonly id: string;
   readonly version: number;
-  readonly active: boolean;
-  readonly contractVersion: string;
+  readonly catalogoDegradado: boolean;
+  readonly etag: string | null;
   readonly thresholds: ThresholdsTable;
   readonly primitives: readonly PrimitivoDeteccao[];
   readonly pacienteId: string | null;
-  readonly catalogoVersao: number | null;
-  readonly catalogoDegradado: boolean;
-  readonly publishedAt: string;
-  readonly etag: string | null;
+  // Campos do antigo endpoint direto gest-service — ausentes na resposta edge-service:
+  readonly id?: string;
+  readonly active?: boolean;
+  readonly contractVersion?: string;
+  readonly catalogoVersao?: number | null;
+  readonly publishedAt?: string;
 }
 
 /** 304 Not Modified — ETag bate; perfil em memória está atual. */
@@ -69,13 +76,29 @@ export function isNotModified(r: ProfileResult): r is ProfileNotModified {
 /** InjectionToken para a porta — ver gest.providers.ts */
 export const DETECTION_PROFILE_PORT = Symbol('DETECTION_PROFILE_PORT');
 
+/**
+ * Erro tipado do perfil de detecção — permite ao store distinguir estados:
+ * - 'sem-vinculo': 403 edge.device-not-paired — dispositivo sem paciente pareado
+ * - 'degradada':  502 edge.profile-unavailable — GEST fora do ar
+ * - 'outro':      qualquer outro erro HTTP ou de rede
+ */
+export class ProfileErro extends Error {
+  constructor(readonly tipo: 'sem-vinculo' | 'degradada' | 'outro') {
+    super(`detection-profile: ${tipo}`);
+    this.name = 'ProfileErro';
+  }
+}
+
 /** Porta de saída — implementada por DetectionProfileHttpAdapter. */
 export interface DetectionProfilePort {
   /**
-   * Busca o perfil de detecção do dispositivo.
+   * Busca o perfil de detecção do dispositivo autenticado.
+   * O deviceId é derivado do claim `sub` do token pelo backend — não é passado aqui.
    * Se `currentEtag` for fornecido e o servidor retornar 304, devolve `{ notModified: true }`.
    *
-   * @throws Error em caso de falha de rede ou resposta inesperada.
+   * @throws ProfileErro com tipo 'sem-vinculo' em 403 edge.device-not-paired
+   * @throws ProfileErro com tipo 'degradada' em 502 edge.profile-unavailable
+   * @throws Error em caso de outro erro HTTP ou de rede.
    */
-  fetchProfile(deviceId: string, currentEtag?: string): Promise<ProfileResult>;
+  fetchProfile(currentEtag?: string): Promise<ProfileResult>;
 }

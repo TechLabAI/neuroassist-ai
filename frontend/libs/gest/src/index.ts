@@ -53,9 +53,7 @@ export { CameraPreferenceService } from './lib/detection/camera-preference.servi
 export type { CameraOption } from './lib/detection/camera-preference.service';
 
 // Estação do paciente — P3 / GEST-FE-028/029 / ADR-008
-// TODO[GEST-FE-028][blocked]: DetectionProfileHttpAdapter recebe 403 do backend
-// com token `edge.device`. O adapter, a porta e o store estão prontos; o transporte
-// está pendente de decisão de backend (ver evento ES 10c02bcf9446).
+// Endpoint migrado para GET /api/v1/edge/profile (EDGE-022 resolvido).
 export { DetectionProfileStore } from './lib/estacao/detection-profile.store';
 export type { PrimitivoResolvido, ProfileDegradacao } from './lib/estacao/detection-profile.store';
 export { DetectionProfileHttpAdapter } from './lib/estacao/detection-profile-http.adapter';
@@ -71,3 +69,12 @@ export type {
   ProfileNotModified,
 } from './lib/estacao/detection-profile.port';
 export { isNotModified } from './lib/estacao/detection-profile.port';
+
+// Estação do paciente — P4 / GEST-FE-030 / ADR-008
+// Rota /estacao: laço always-on, guard de sessão de dispositivo, relato de gesto.
+export { EstacaoComponent } from './lib/estacao/estacao.component';
+export type { EstacaoEstado } from './lib/estacao/estacao.component';
+export { estacaoDeviceGuard } from './lib/estacao/estacao.guard';
+export { ReportIngressHttpAdapter } from './lib/estacao/report-ingress-http.adapter';
+export { ReportIngressPort } from './lib/estacao/report-ingress.port';
+export type { ReportRequest, ReportResponse } from './lib/estacao/report-ingress.port';

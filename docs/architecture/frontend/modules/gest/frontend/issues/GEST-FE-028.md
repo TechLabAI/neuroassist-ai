@@ -1,6 +1,6 @@
 # GEST-FE-028 -- Perfil de detecção do dispositivo — GET condicional com ETag/304
 
-**Status:** BLOQUEADA — depende de EDGE-022
+**Status:** RESOLVIDA — EDGE-022 entregue; endpoint migrado para GET /api/v1/edge/profile
 **Maturidade:** 0 -- Inicial
 **Done/Total:** 0/5 itens
 **GitHub:** [#TBD]
