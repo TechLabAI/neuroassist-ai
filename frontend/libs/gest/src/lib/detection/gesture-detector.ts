@@ -1,5 +1,6 @@
 import type { FaceLandmarker as FaceLandmarkerType } from '@mediapipe/tasks-vision';
-import { ENGINE_FEATURE, type EngineFeatureRef } from '@neuroassist/shared/contracts';
+import { ENGINE_FEATURE, LIMIARES_PADRAO, type EngineFeatureRef } from '@neuroassist/shared/contracts';
+import type { DetectionThresholds } from '@neuroassist/shared/contracts';
 
 // =============================================================================
 // GestureDetector — motor de detecção do produto (ADR-007)
@@ -30,25 +31,34 @@ export const DEFAULT_ASSET_PATHS: DetectorAssetPaths = {
 };
 
 // ── Thresholds ──────────────────────────────────────────────────────────────
-// Valores herdados do protótipo ("proven accurate on real hardware"). Divergem
-// dos do edge-agent-ws.py (EAR_CLOSE 0.22, BRI em vez de blendshapes) — com o
-// agente fora do caminho isso deixou de ser drift entre motores e passou a ser
-// simplesmente a configuração do motor. Ver ADR-007, follow-up 6.
-const EAR_CLOSE = 0.2;
-const EAR_OPEN = 0.27;
-const BLINK_MIN_FRAMES = 3;
-const OPEN_MIN_FRAMES = 3;
-const DOUBLE_BLINK_WINDOW_MS = 1800;
+// Os limiares agora vêm do DetectionProfileStore (GEST-FE-029):
+//   - Em runtime: DetectionProfileStore.primitivos()[i].thresholds (faixa do paciente)
+//   - Fallback offline: LIMIARES_PADRAO (faixa 'media' do backend)
+//
+// LIMIARES_PADRAO substitui as constantes de módulo. Onde a grandeza é a MESMA
+// dos dois lados, os valores foram alinhados com o backend:
+//   earClose 0.20 → 0.22  |  blinkMinFrames 3 → 2  |  doubleBlinkWindowMs 1800 → 2000
+//
+// Onde NÃO é, os valores do protótipo foram MANTIDOS de propósito:
+//   briRaiseOn 0.40, briOtherMax 0.18, earOtherMax 0.30
+//
+// Este motor compara esses campos com BLENDSHAPES do MediaPipe (browInnerUp,
+// browOuterUp*, eyeBlink*) — ativações 0..1 de rede neural. O backend os calibra
+// para BRI, uma razão geométrica: (eye_top_y − brow_peak_y) / inter_eye_dist.
+// Escalas diferentes. Copiar o número do backend por igualdade de nome mudaria em
+// silêncio a sensibilidade da sobrancelha, num canal onde o falso negativo
+// significa Márcio não conseguir pedir ajuda.
+//
+// A divergência é AFIRMADA pelo guarda de drift (CAMPOS_ESCALA_BLENDSHAPE), que
+// reprova se alguém "alinhar" esses campos. Até o backend publicar uma faixa
+// calibrada para blendshapes, é assim que fica.
 
-// eyeBlink{Left,Right}: 0 = aberto, 1 = fechado
+// Constantes que NÃO fazem parte do DetectionThresholds (configuram o motor em si):
+const OPEN_MIN_FRAMES = 3; // frames de reabertura para confirmar fim da piscada 1
+
+// eyeBlink{Left,Right} blendshapes: 0 = aberto, 1 = fechado
 const BLINK_BS_ON = 0.6;
-const EYE_OTHER_MAX = 0.3; // o outro olho precisa ficar abaixo disso p/ contar como piscada única
 const SINGLE_BLINK_FRAMES = 3;
-
-// brow{InnerUp, OuterUpLeft, OuterUpRight}: 0 = neutro, 1 = totalmente levantada
-const BROW_ON = 0.4;
-const BROW_OFF = 0.18;
-const BROW_MIN_FRAMES = 5; // ~167 ms a 30 fps
 
 /** Cooldown compartilhado — impede que um mesmo gesto dispare em sequência. */
 const COOLDOWN_MS = 4000;
@@ -161,10 +171,21 @@ export class GestureDetector {
   private readonly browLeft = new OnsetDetector();
   private readonly browRight = new OnsetDetector();
 
+  /**
+   * Limiares de detecção ativos (GEST-FE-029).
+   * Em calibração ao vivo: vêm do rascunho de faixa atual do perfil.
+   * No fluxo always-on: vêm do DetectionProfileStore (faixa do primitivo).
+   * Fallback offline: LIMIARES_PADRAO (faixa 'media' do backend).
+   */
+  private readonly thresholds: DetectionThresholds;
+
   constructor(
     private readonly callbacks: GestureDetectorCallbacks,
     private readonly assets: DetectorAssetPaths = DEFAULT_ASSET_PATHS,
-  ) {}
+    thresholds: DetectionThresholds = LIMIARES_PADRAO,
+  ) {
+    this.thresholds = thresholds;
+  }
 
   /** Carrega WASM + modelo. Import dinâmico para o bundle do MediaPipe não entrar
    * no caminho inicial da aplicação (ADR-007: lazy-load obrigatório). */
@@ -383,19 +404,20 @@ export class GestureDetector {
         if (now >= this.cooldownUntil) {
           this.processDoubleBlink(earAvg, now);
 
-          if (this.leftBlink.process(eyeBlinkL > BLINK_BS_ON && eyeBlinkR < EYE_OTHER_MAX, SINGLE_BLINK_FRAMES)) {
+          const { earOtherMax, briRaiseOn, briOtherMax, browMinFrames } = this.thresholds;
+          if (this.leftBlink.process(eyeBlinkL > BLINK_BS_ON && eyeBlinkR < earOtherMax, SINGLE_BLINK_FRAMES)) {
             this.fire(ENGINE_FEATURE.blinkLeft, now, eyeBlinkL);
           }
-          if (this.rightBlink.process(eyeBlinkR > BLINK_BS_ON && eyeBlinkL < EYE_OTHER_MAX, SINGLE_BLINK_FRAMES)) {
+          if (this.rightBlink.process(eyeBlinkR > BLINK_BS_ON && eyeBlinkL < earOtherMax, SINGLE_BLINK_FRAMES)) {
             this.fire(ENGINE_FEATURE.blinkRight, now, eyeBlinkR);
           }
-          if (this.browDual.process(browInnerUp > BROW_ON, BROW_MIN_FRAMES)) {
+          if (this.browDual.process(browInnerUp > briRaiseOn, browMinFrames)) {
             this.fire(ENGINE_FEATURE.browRaiseBoth, now, browInnerUp);
           }
-          if (this.browLeft.process(browOuterUpL > BROW_ON && browOuterUpR < BROW_OFF, BROW_MIN_FRAMES)) {
+          if (this.browLeft.process(browOuterUpL > briRaiseOn && browOuterUpR < briOtherMax, browMinFrames)) {
             this.fire(ENGINE_FEATURE.browRaiseLeft, now, browOuterUpL);
           }
-          if (this.browRight.process(browOuterUpR > BROW_ON && browOuterUpL < BROW_OFF, BROW_MIN_FRAMES)) {
+          if (this.browRight.process(browOuterUpR > briRaiseOn && browOuterUpL < briOtherMax, browMinFrames)) {
             this.fire(ENGINE_FEATURE.browRaiseRight, now, browOuterUpR);
           }
         }
@@ -419,14 +441,15 @@ export class GestureDetector {
 
   /** Máquina de estados da piscada dupla (baseada em EAR). */
   private processDoubleBlink(earAvg: number, now: number): void {
-    const eyeClosed = earAvg < EAR_CLOSE;
-    const eyeOpen = earAvg >= EAR_OPEN;
+    const { earClose, earOpen, blinkMinFrames, doubleBlinkWindowMs } = this.thresholds;
+    const eyeClosed = earAvg < earClose;
+    const eyeOpen = earAvg >= earOpen;
 
     // Janela da segunda piscada expirou — recomeça.
     if (
       this.blinkState === 'WAITING_BLINK2' &&
       this.firstBlinkCompletedMs !== null &&
-      now - this.firstBlinkCompletedMs > DOUBLE_BLINK_WINDOW_MS
+      now - this.firstBlinkCompletedMs > doubleBlinkWindowMs
     ) {
       this.blinkState = 'WAITING_BLINK1';
       this.blinkFrameCount = 0;
@@ -447,7 +470,7 @@ export class GestureDetector {
         if (eyeClosed) {
           this.blinkFrameCount++;
         } else if (eyeOpen) {
-          if (this.blinkFrameCount >= BLINK_MIN_FRAMES) {
+          if (this.blinkFrameCount >= blinkMinFrames) {
             this.blinkState = 'WAITING_OPEN1';
             this.openFrameCount = 1;
             this.firstBlinkCompletedMs = now;
@@ -483,11 +506,11 @@ export class GestureDetector {
         } else if (eyeOpen) {
           const dentroDaJanela =
             this.firstBlinkCompletedMs !== null &&
-            now - this.firstBlinkCompletedMs <= DOUBLE_BLINK_WINDOW_MS;
-          if (this.blinkFrameCount >= BLINK_MIN_FRAMES && dentroDaJanela) {
+            now - this.firstBlinkCompletedMs <= doubleBlinkWindowMs;
+          if (this.blinkFrameCount >= blinkMinFrames && dentroDaJanela) {
             this.blinkState = 'DONE';
             this.blinkCount = 2;
-            this.fire(ENGINE_FEATURE.blinkDouble, now, 1 - earAvg / EAR_CLOSE);
+            this.fire(ENGINE_FEATURE.blinkDouble, now, 1 - earAvg / earClose);
           } else {
             this.blinkState = 'WAITING_BLINK1';
             this.blinkFrameCount = 0;

@@ -1,72 +1,48 @@
 #!/usr/bin/env python3
 """
-Guarda de drift dos agentes de borda — E2E-032.
+Guarda de drift dos limiares de detecção de gesto — GEST-INT-008 (atualizado P3).
 
-QUATRO lugares descrevem os mesmos limiares. Três arquivos calculam gesto a partir da webcam:
+QUATRO lugares descrevem os limiares canônicos:
 
-  backend/edge_agent_core.py                   ← a fonte
-  backend/edge-agent-ws.py                     ← ponte de calibração; IMPORTA da fonte
-  docs/paper/artifacts/poc-edge-agent-webcam.py ← aparato congelado; cópia autocontida
+  backend/.../domain/model/DetectionThresholdTable.java  ← fonte Java (defaults())
+  backend/.../db/migration/empresa/V0401__gest_detection_thresholds.sql ← SQL backfill
+  frontend/libs/shared/contracts/src/lib/detection-thresholds.ts       ← LIMIARES_PADRAO browser
+  docs/paper/artifacts/poc-edge-agent-webcam.py          ← artefato congelado (Python)
 
-O segundo não pode divergir, porque importa. O terceiro pode — e é justamente ele que este
-script vigia. Ele é mantido autocontido de propósito (um artefato de reprodução que dependesse
-de um módulo do backend deixaria de ser reproduzível isoladamente), e o preço dessa escolha é
-que a cópia precisa de um guarda.
+Decisão ADR-007 + GEST-INT-008 (2026-08-25):
 
-Por que isso importa: o laço de calibração responde "este gesto funciona para este paciente?".
-Se ele medir com limiares diferentes dos que a detecção sempre-ligada usa, a resposta não vale
-para o caminho que dispara o alarme — e a divergência seria silenciosa até um alarme não sair.
+  O agente Python (edge_agent_core.py / edge-agent-ws.py) foi aposentado pela ADR-007.
+  O browser passou a ser o ÚNICO motor de detecção. A comparação Python-vs-Python (fonte
+  contra artefato de reprodução) foi APOSENTADA porque:
 
-E, desde a E2E-033, os mesmos números existem em mais dois lugares — o GEST passou a publicar as
-faixas no perfil:
+    1. edge_agent_core.py não é mais o executor de produção — é código morto.
+    2. Manter a comparação ativa criaria a aparência de cobertura sem cobertura real:
+       o CI ficaria verde exatamente enquanto o motor do browser divergia.
 
-  backend/.../domain/model/DetectionThresholdTable.java   ← defaults() (Java)
-  .../db/migration/empresa/V0401__gest_detection_thresholds.sql  ← backfill dos perfis antigos
+  O que este script vigia agora:
+    A  browser (LIMIARES_PADRAO) === Java (defaults() faixa 'media')
+    B  Java (defaults() todas as faixas) === SQL (V0401 todas as faixas)
+    C  (opcional) artefato Python congelado — se o arquivo ainda existir, avisa
+       que ele pode ter divergido mas não bloqueia o CI.
 
-Curar a duplicação em Python e criar duas cópias novas em Java e SQL teria sido trocar de doença.
-As quatro são comparadas aqui.
-
-COMO COMPARA: pelo AST normalizado, não pelo texto. Comentário, docstring, espaçamento e o
-prefixo de `_dist` são irrelevantes; qualquer mudança de operação, de operando ou de valor de
-limiar reprova. Nada é importado — mediapipe/opencv/numpy não precisam estar instalados.
+  Dois guardas Python que sobrevivem:
+    - Funções compute_ear / compute_bri do artefato (aparato de reprodução do paper)
+      ainda podem ser verificadas contra si mesmas por test_edge_agent_core.py.
+    - Este script não toca mais os arquivos Python de produção.
 
 Uso:
   python backend/scripts/check_edge_agent_drift.py     # 0 = alinhado, 1 = drift
+
+Para provar que o guarda reprovaria com valores errados, executar:
+  python backend/scripts/check_edge_agent_drift.py --self-test
+  (este modo corrompe um valor no TS in-memory e verifica que o script acusa drift)
 """
 
-import ast
-import io
 import re
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-
-CORE = REPO / "backend" / "edge_agent_core.py"
-BRIDGE = REPO / "backend" / "edge-agent-ws.py"
-ARTIFACT = REPO / "docs" / "paper" / "artifacts" / "poc-edge-agent-webcam.py"
-
-# Limiares e índices que os dois lados têm de concordar.
-SHARED_CONSTANTS = [
-    "EAR_CLOSE", "EAR_OPEN", "EAR_OTHER_MAX", "BLINK_MIN_FRAMES", "DOUBLE_BLINK_WINDOW",
-    "BRI_RAISE_ON", "BRI_RAISE_OFF", "BRI_OTHER_MAX", "BROW_MIN_FRAMES",
-    "LEFT_EYE", "RIGHT_EYE", "LEFT_BROW_PEAK", "RIGHT_BROW_PEAK",
-    "LEFT_EYE_TOP", "RIGHT_EYE_TOP", "LEFT_EYE_OUTER", "RIGHT_EYE_OUTER",
-]
-
-# COOLDOWN_SECONDS fica DE FORA por decisão: 1.5 s na calibração (teste de tiro único) contra
-# 3.0 s no agente sempre-ligado. É divergência intencional, não drift.
-
-SHARED_FUNCTIONS = ["dist", "compute_ear", "compute_bri"]
-
-# Ordem posicional dos campos, idêntica nos três dialetos. A janela do piscar duplo é o único
-# campo com unidade divergente — segundos em Python, milissegundos em Java e SQL — e é
-# normalizada para ms antes de comparar.
-BAND_FIELDS = [
-    "earClose", "earOpen", "earOtherMax", "blinkMinFrames", "doubleBlinkWindowMs",
-    "briRaiseOn", "briRaiseOff", "briOtherMax", "browMinFrames",
-]
-BANDS = ["baixa", "media", "alta"]
 
 JAVA_DEFAULTS = (
     REPO / "backend" / "services" / "gest-service" / "src" / "main" / "java"
@@ -76,74 +52,17 @@ SQL_BACKFILL = (
     REPO / "backend" / "services" / "neuroassist-ai-migrations" / "src" / "main" / "resources"
     / "db" / "migration" / "empresa" / "V0401__gest_detection_thresholds.sql"
 )
+TS_THRESHOLDS = (
+    REPO / "frontend" / "libs" / "shared" / "contracts" / "src" / "lib"
+    / "detection-thresholds.ts"
+)
+ARTIFACT_PY = REPO / "docs" / "paper" / "artifacts" / "poc-edge-agent-webcam.py"
 
-# O artefato chama a distância de `_dist`; a fonte, de `dist`. Normalizado antes de comparar.
-ALIASES = {"_dist": "dist"}
-
-
-class _Normalize(ast.NodeTransformer):
-    """Aplica os aliases de nome para que a comparação enxergue a mesma função."""
-
-    def visit_Name(self, node):
-        node.id = ALIASES.get(node.id, node.id)
-        return node
-
-    def visit_FunctionDef(self, node):
-        node.name = ALIASES.get(node.name, node.name)
-        self.generic_visit(node)
-        return node
-
-
-def _parse(path: Path) -> ast.Module:
-    return ast.parse(io.open(path, encoding="utf-8").read(), filename=str(path))
-
-
-def _constants(tree: ast.Module) -> dict:
-    """Atribuições literais de nível de módulo, por nome."""
-    found = {}
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
-            try:
-                found[node.targets[0].id] = ast.literal_eval(node.value)
-            except ValueError:
-                pass  # não é literal — não é um limiar
-    return found
-
-
-def _functions(tree: ast.Module) -> dict:
-    """Funções de nível de módulo, normalizadas e sem docstring, prontas para comparar."""
-    tree = _Normalize().visit(tree)
-    found = {}
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef):
-            body = node.body
-            if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) \
-                    and isinstance(body[0].value.value, str):
-                body = body[1:]  # docstring não é comportamento
-            found[node.name] = "\n".join(ast.dump(stmt) for stmt in body)
-    return found
-
-
-def _python_bands(tree: ast.Module) -> dict:
-    """
-    DEFAULT_BANDS do módulo Python: {faixa: {campo: valor}}.
-
-    Não dá para usar literal_eval — os valores são chamadas a Thresholds(). Os argumentos são
-    posicionais e literais, então a ordem de BAND_FIELDS é o contrato. Janela convertida para ms.
-    """
-    for node in tree.body:
-        if not (isinstance(node, ast.Assign)
-                and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id == "DEFAULT_BANDS"):
-            continue
-        bands = {}
-        for key, value in zip(node.value.keys, node.value.values):
-            args = [ast.literal_eval(a) for a in value.args]
-            band = dict(zip(BAND_FIELDS, args))
-            band["doubleBlinkWindowMs"] = round(band["doubleBlinkWindowMs"] * 1000)
-            bands[ast.literal_eval(key)] = band
-        return bands
-    return {}
+BAND_FIELDS = [
+    "earClose", "earOpen", "earOtherMax", "blinkMinFrames", "doubleBlinkWindowMs",
+    "briRaiseOn", "briRaiseOff", "briOtherMax", "browMinFrames",
+]
+BANDS = ["baixa", "media", "alta"]
 
 
 def _java_bands(text: str) -> dict:
@@ -171,8 +90,93 @@ def _sql_bands(text: str) -> dict:
     return bands
 
 
+def _ts_limiares_padrao(text: str) -> dict:
+    """
+    Extrai os valores de LIMIARES_PADRAO do arquivo detection-thresholds.ts.
+
+    Procura o bloco `export const LIMIARES_PADRAO: DetectionThresholds = { ... }` e
+    extrai os pares campo:valor. Tolerante a espaços, comentários inline e `as const`.
+    """
+    match = re.search(
+        r"export\s+const\s+LIMIARES_PADRAO\s*:\s*DetectionThresholds\s*=\s*\{([^}]*)\}",
+        text, re.DOTALL
+    )
+    if not match:
+        return {}
+    body = match.group(1)
+    # Remove comentários de linha e trailing commas
+    body = re.sub(r"//[^\n]*", "", body)
+    pairs = re.findall(r"(\w+)\s*:\s*([0-9.]+)", body)
+    return {field: float(value) for field, value in pairs}
+
+
+# Campos que o motor do BROWSER consome contra BLENDSHAPES do MediaPipe
+# (browInnerUp, browOuterUpLeft/Right, eyeBlinkLeft/Right) — ativações 0..1 de uma
+# rede neural.
+#
+# No backend os mesmos nomes são calibrados para BRI, que é OUTRA grandeza:
+#
+#     BRI = (eye_top_y - brow_peak_y) / inter_eye_dist       (edge_agent_core.py)
+#
+# uma razão geométrica normalizada pela distância interocular. Comparar os dois
+# seria comparar escalas diferentes — e foi exatamente o que aconteceu: copiar o
+# número do backend por igualdade de NOME mudou em silêncio a sensibilidade das
+# sobrancelhas (0.40 -> 0.30 para disparar). Num canal de pedido de ajuda isso é
+# mudança clínica, não ajuste de constante.
+#
+# Espelha CAMPOS_ESCALA_BLENDSHAPE em detection-thresholds.ts.
+BLENDSHAPE_SCALE_FIELDS = ["earOtherMax", "briRaiseOn", "briRaiseOff", "briOtherMax"]
+
+
+def _compare_media_vs_browser(problems, java_bands, ts_values):
+    """
+    Compara a faixa 'media' do Java contra LIMIARES_PADRAO do TypeScript — nos
+    campos que são a MESMA grandeza nos dois motores.
+
+    EAR é calculado igual dos dois lados (altura/largura do olho), e contagens de
+    frame e janelas de tempo são adimensionais: esses comparam.
+
+    Os campos de escala de blendshape NÃO comparam, e o guarda AFIRMA isso em vez
+    de pular em silêncio — um guarda que ignora campos vira o "guarda que não
+    guarda nada". Se algum deles passar a coincidir com o backend, é sinal de que
+    alguém "alinhou" copiando número por nome, e o guarda reprova.
+    """
+    media = java_bands.get("media", {})
+
+    for field in BAND_FIELDS:
+        java_val = media.get(field)
+        ts_val = ts_values.get(field)
+
+        if java_val is None:
+            problems.append(f"media.{field}: ausente em DetectionThresholdTable.java")
+            continue
+        if ts_val is None:
+            problems.append(f"LIMIARES_PADRAO.{field}: ausente em detection-thresholds.ts")
+            continue
+
+        iguais = abs(float(java_val) - float(ts_val)) <= 1e-9
+
+        if field in BLENDSHAPE_SCALE_FIELDS:
+            # earOtherMax coincide hoje por acaso (0.30 dos dois lados) e não é
+            # defeito — por isso só briRaise*/briOtherMax são afirmados como
+            # divergentes. Ver o bloco acima.
+            if field != "earOtherMax" and iguais:
+                problems.append(
+                    f"LIMIARES_PADRAO.{field}={ts_val} coincide com java_media — "
+                    "este campo e consumido contra BLENDSHAPE no browser e contra BRI "
+                    "no backend; igualdade aqui indica alinhamento por nome, nao por "
+                    "grandeza. Ver CAMPOS_ESCALA_BLENDSHAPE."
+                )
+            continue
+
+        if not iguais:
+            problems.append(
+                f"LIMIARES_PADRAO.{field}: browser={ts_val} != java_media={java_val}"
+            )
+
+
 def _compare_bands(problems, label_a, bands_a, label_b, bands_b):
-    """Compara faixa a faixa, campo a campo. Números são comparados como float dos dois lados."""
+    """Compara faixa a faixa, campo a campo."""
     for band in BANDS:
         a, b = bands_a.get(band), bands_b.get(band)
         if a is None:
@@ -189,90 +193,118 @@ def _compare_bands(problems, label_a, bands_a, label_b, bands_b):
                 problems.append(f"{band}.{field}: ausente em {label_b}")
             elif abs(float(va) - float(vb)) > 1e-9:
                 problems.append(
-                    f"{band}.{field}: {label_a}={va} != {label_b}={vb}")
+                    f"{band}.{field}: {label_a}={va} != {label_b}={vb}"
+                )
 
 
-def main() -> int:
-    for path in (CORE, BRIDGE, ARTIFACT, JAVA_DEFAULTS, SQL_BACKFILL):
+def _self_test(java_text, sql_text, ts_text):
+    """
+    Prova por mutação: corrompe LIMIARES_PADRAO.earClose in-memory e verifica que
+    o guarda acusa drift.
+
+    Retorna 0 se o guarda realmente detecta a corrupção, 1 se falhou em detectá-la.
+    """
+    print("[self-test] Injetando mutação: LIMIARES_PADRAO.earClose := 0.99 (valor inválido)")
+    mutated_ts = re.sub(
+        r"(earClose\s*:\s*)([0-9.]+)",
+        r"\g<1>0.99",
+        ts_text,
+        count=1,
+    )
+    ts_values = _ts_limiares_padrao(mutated_ts)
+    java_bands = _java_bands(java_text)
+
+    problems = []
+    _compare_media_vs_browser(problems, java_bands, ts_values)
+
+    if problems:
+        print("[self-test] OK — guarda detectou a mutação corretamente:")
+        for p in problems:
+            print(f"  - {p}")
+        return 0
+    else:
+        print("[self-test] FALHA — o guarda NÃO detectou a mutação. O guarda está quebrado!")
+        return 1
+
+
+def main(argv=None) -> int:
+    if argv is None:
+        argv = sys.argv[1:]
+    self_test_mode = "--self-test" in argv
+
+    for path in (JAVA_DEFAULTS, SQL_BACKFILL, TS_THRESHOLDS):
         if not path.exists():
             print(f"FALHA: arquivo esperado nao existe: {path}")
             return 1
 
-    core, artifact = _parse(CORE), _parse(ARTIFACT)
-    core_consts, artifact_consts = _constants(core), _constants(artifact)
-    core_funcs, artifact_funcs = _functions(core), _functions(artifact)
+    java_text = JAVA_DEFAULTS.read_text(encoding="utf-8")
+    sql_text = SQL_BACKFILL.read_text(encoding="utf-8")
+    ts_text = TS_THRESHOLDS.read_text(encoding="utf-8")
+
+    if self_test_mode:
+        return _self_test(java_text, sql_text, ts_text)
+
+    java_bands = _java_bands(java_text)
+    sql_bands = _sql_bands(sql_text)
+    ts_values = _ts_limiares_padrao(ts_text)
+
+    if not ts_values:
+        print("FALHA: nao foi possivel extrair LIMIARES_PADRAO de detection-thresholds.ts")
+        print(f"  Arquivo: {TS_THRESHOLDS.relative_to(REPO)}")
+        return 1
 
     problems = []
 
-    for name in SHARED_CONSTANTS:
-        if name not in core_consts:
-            problems.append(f"{name}: ausente em edge_agent_core.py (a fonte)")
-        elif name not in artifact_consts:
-            problems.append(f"{name}: ausente em poc-edge-agent-webcam.py")
-        elif core_consts[name] != artifact_consts[name]:
-            problems.append(
-                f"{name}: core={core_consts[name]!r} != artefato={artifact_consts[name]!r}")
+    # A — browser vs Java (faixa 'media')
+    _compare_media_vs_browser(problems, java_bands, ts_values)
 
-    for name in SHARED_FUNCTIONS:
-        if name not in core_funcs:
-            problems.append(f"{name}(): ausente em edge_agent_core.py (a fonte)")
-        elif name not in artifact_funcs:
-            problems.append(f"{name}(): ausente em poc-edge-agent-webcam.py")
-        elif core_funcs[name] != artifact_funcs[name]:
-            problems.append(f"{name}(): a matematica difere entre a fonte e o artefato")
+    # B — Java vs SQL (todas as faixas)
+    _compare_bands(problems, "java", java_bands, "sql", sql_bands)
 
-    # A ponte importa — se ela voltar a definir um nome compartilhado, a importacao virou enfeite.
-    bridge = _parse(BRIDGE)
-    redefined = set(_constants(bridge)) & set(SHARED_CONSTANTS)
-    redefined |= set(_functions(bridge)) & set(SHARED_FUNCTIONS)
-    for name in sorted(redefined):
-        problems.append(f"{name}: edge-agent-ws.py voltou a definir localmente em vez de importar")
-
-    # ── as tres faixas, nos tres dialetos (E2E-033) ─────────────────────────
-    python_bands = _python_bands(core)
-    java_bands = _java_bands(io.open(JAVA_DEFAULTS, encoding="utf-8").read())
-    sql_bands = _sql_bands(io.open(SQL_BACKFILL, encoding="utf-8").read())
-
-    _compare_bands(problems, "python", python_bands, "java", java_bands)
-    _compare_bands(problems, "python", python_bands, "sql", sql_bands)
-
-    # A faixa `media` E o bloco de constantes historico. Se as duas divergirem, adotar o perfil
-    # passa a mudar comportamento em silencio — que e exatamente o que a faixa media existe para
-    # impedir.
-    media = python_bands.get("media", {})
-    historic = {
-        "earClose": core_consts.get("EAR_CLOSE"),
-        "earOpen": core_consts.get("EAR_OPEN"),
-        "earOtherMax": core_consts.get("EAR_OTHER_MAX"),
-        "blinkMinFrames": core_consts.get("BLINK_MIN_FRAMES"),
-        "doubleBlinkWindowMs": (core_consts.get("DOUBLE_BLINK_WINDOW") or 0) * 1000,
-        "briRaiseOn": core_consts.get("BRI_RAISE_ON"),
-        "briRaiseOff": core_consts.get("BRI_RAISE_OFF"),
-        "briOtherMax": core_consts.get("BRI_OTHER_MAX"),
-        "browMinFrames": core_consts.get("BROW_MIN_FRAMES"),
-    }
-    for field, expected in historic.items():
-        actual = media.get(field)
-        if expected is None or actual is None or abs(float(expected) - float(actual)) > 1e-9:
-            problems.append(
-                f"media.{field}: a faixa padrao ({actual}) nao reproduz a constante historica "
-                f"({expected}) — adotar o perfil mudaria comportamento em silencio")
+    # C — artefato Python congelado (aviso não-bloqueante, ADR-007 aposentou o agente)
+    if ARTIFACT_PY.exists():
+        print(
+            f"[aviso] {ARTIFACT_PY.relative_to(REPO)} ainda existe. "
+            "Este artefato foi isolado da comparação por decisão GEST-INT-008 (ADR-007 aposentou "
+            "edge_agent_core.py como motor de produção). Para verificar coerência interna do "
+            "artefato, executar: python backend/scripts/test_edge_agent_core.py"
+        )
+    else:
+        print(f"[info] artefato Python ({ARTIFACT_PY.name}) nao encontrado — ignorado.")
 
     if problems:
-        print("DRIFT nos limiares de deteccao (E2E-032 / E2E-033):\n")
+        print("\nDRIFT nos limiares de deteccao (GEST-INT-008):\n")
         for problem in problems:
             print(f"  - {problem}")
-        print(f"\nFonte:    {CORE.relative_to(REPO)}")
-        print(f"Artefato: {ARTIFACT.relative_to(REPO)}")
-        print("\nO artefato e mantido autocontido de proposito (reproducao do experimento).")
-        print("Alinhe os dois lados a mao, ou registre a divergencia como intencional neste script.")
+        print(f"\nFonte Java:  {JAVA_DEFAULTS.relative_to(REPO)}")
+        print(f"Fonte SQL:   {SQL_BACKFILL.relative_to(REPO)}")
+        print(f"Fonte TS:    {TS_THRESHOLDS.relative_to(REPO)}")
+        print(
+            "\nLIMIARES_PADRAO deve ser identico a faixa 'media' de DetectionThresholdTable.defaults()."
+        )
+        print(
+            "Edite detection-thresholds.ts para alinhar, ou ajuste os valores Java/SQL se a faixa media mudou."
+        )
         return 1
 
-    print(f"OK — {len(SHARED_CONSTANTS)} limiares/indices e {len(SHARED_FUNCTIONS)} funcoes")
-    print("     alinhados entre a fonte e o artefato congelado;")
-    print(f"     {len(BANDS)} faixas x {len(BAND_FIELDS)} campos identicas em python/java/sql;")
-    print("     a faixa 'media' reproduz as constantes historicas;")
-    print("     edge-agent-ws.py importa da fonte sem redefinir nada.")
+    comparaveis = [f for f in BAND_FIELDS if f not in BLENDSHAPE_SCALE_FIELDS]
+    fields_checked = len(BAND_FIELDS)
+    print(
+        f"OK — {len(comparaveis)} campos de LIMIARES_PADRAO alinhados com a faixa "
+        f"'media' do Java ({', '.join(comparaveis)});"
+    )
+    print(
+        f"     {len(BLENDSHAPE_SCALE_FIELDS)} campos em escala de BLENDSHAPE, "
+        "divergentes POR DECISAO e afirmados como tal "
+        f"({', '.join(BLENDSHAPE_SCALE_FIELDS)});"
+    )
+    print(
+        f"     {len(BANDS)} faixas x {fields_checked} campos identicas em java/sql;"
+    )
+    print(
+        "     decisao ADR-007/GEST-INT-008: Python (edge_agent_core.py) aposentado, "
+        "comparacao Python-vs-Python removida."
+    )
     return 0
 
 

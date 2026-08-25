@@ -54,3 +54,7 @@ export type {
 // Token de contexto HTTP compartilhado — ver o cabeçalho de http-context.ts
 // para por que ele vive aqui e não em auth-login.
 export { SKIP_AUTH_HEADER } from './lib/http-context';
+
+// Limiares de detecção de gesto — espelha DetectionThresholds do gest-service (GEST-FE-029).
+export type { DetectionThresholds } from './lib/detection-thresholds';
+export { LIMIARES_PADRAO, CAMPOS_ESCALA_BLENDSHAPE } from './lib/detection-thresholds';

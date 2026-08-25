@@ -51,3 +51,23 @@ export { GestureDetector, ENGINE_FEATURE, DEFAULT_ASSET_PATHS } from './lib/dete
 export type { GestureFrame, DetectorAssetPaths, GestureDetectorCallbacks } from './lib/detection/gesture-detector';
 export { CameraPreferenceService } from './lib/detection/camera-preference.service';
 export type { CameraOption } from './lib/detection/camera-preference.service';
+
+// Estação do paciente — P3 / GEST-FE-028/029 / ADR-008
+// TODO[GEST-FE-028][blocked]: DetectionProfileHttpAdapter recebe 403 do backend
+// com token `edge.device`. O adapter, a porta e o store estão prontos; o transporte
+// está pendente de decisão de backend (ver evento ES 10c02bcf9446).
+export { DetectionProfileStore } from './lib/estacao/detection-profile.store';
+export type { PrimitivoResolvido, ProfileDegradacao } from './lib/estacao/detection-profile.store';
+export { DetectionProfileHttpAdapter } from './lib/estacao/detection-profile-http.adapter';
+export { DETECTION_PROFILE_PORT } from './lib/estacao/detection-profile.port';
+export type {
+  DetectionProfilePort,
+  DetectionProfileDto,
+  PrimitivoDeteccao,
+  ThresholdsTable,
+  SensibilidadeNivel,
+  OrigemPerfil,
+  ProfileResult,
+  ProfileNotModified,
+} from './lib/estacao/detection-profile.port';
+export { isNotModified } from './lib/estacao/detection-profile.port';
