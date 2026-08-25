@@ -28,7 +28,7 @@
 | EDGE-019 | Wire Cucumber integration test infrastructure (Testcontainers PostgreSQL, Spring Security test stubs, device-credential mock, tenant schema setup) | BE | P8 | INTACT |
 | EDGE-020 | Implement full BDD feature coverage — wire all 4 Gherkin features (~38 scenarios: device-registration-enrollment, device-pairing, heartbeat-liveness, profile-pointer-drift) | BE | P8 | INTACT |
 | EDGE-021 | Implement optimistic-lock row_version enforcement (409 on stale write), Device detail endpoint (GET /devices/{id}), and DeviceListService with pagination | BE | P9 | INTACT |
-| EDGE-022 | GET /api/v1/edge/profile — edge-service serve o perfil de deteccao ao dispositivo (fecha C-19 para a estacao no browser; bloqueia a onda W10 do GEST) | BE | P1 | ABERTA |
+| EDGE-022 | GET /api/v1/edge/profile — edge-service serve o perfil de deteccao ao dispositivo (fecha C-19 para a estacao no browser; desbloqueia a onda W10 do GEST) | BE | P1 | DONE |
 | EDGE-INT-001 | Integration with GEST — DetectionProfile version pointer (Feign client, circuit breaker, degraded heartbeat fallback) | INT | P4 | INTACT |
 | EDGE-INT-002 | Integration with ACS — OAuth2 JWT validation (jwk-set-uri) and per-device client_credentials registration coordination | INT | P5 | INTACT |
 | EDGE-INT-003 | Integration with GWY — upstream route /api/v1/edge/** + enrollment route without Bearer + X-Correlation-Id forwarding | INT | P4 | INTACT |

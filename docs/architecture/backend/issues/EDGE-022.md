@@ -1,8 +1,8 @@
 # EDGE-022 -- GET /api/v1/edge/profile — o edge-service serve o perfil de detecção ao dispositivo (fecha C-19 para a estação no browser)
 
-**Status:** ABERTA
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/7 itens
+**Status:** DONE
+**Maturidade:** 90 -- Maduro
+**Done/Total:** 13/13 itens
 
 ## Contexto
 
@@ -46,25 +46,25 @@ intermediário deixou de existir no caminho — mas a razão de ele existir cont
 
 ## Escopo
 
-- [ ] `GET /api/v1/edge/profile` no edge-service, guardado por `@PreAuthorize("hasAuthority('edge.device')")`
-- [ ] **`deviceId` extraído do claim `sub` do JWT** — nunca de path, query ou corpo. Mesmo padrão do
+- [x] `GET /api/v1/edge/profile` no edge-service, guardado por `@PreAuthorize("hasAuthority('edge.device')")`
+- [x] **`deviceId` extraído do claim `sub` do JWT** — nunca de path, query ou corpo. Mesmo padrão do
       `HeartbeatController`, que rejeita corpo divergente com 403 `edge.identity-mismatch`. Aqui não
       há corpo: o endpoint simplesmente **não aceita** `deviceId` como parâmetro, o que fecha a
       questão por construção em vez de por validação
-- [ ] Verificar o pareamento antes de responder — dispositivo não pareado devolve o mesmo
+- [x] Verificar o pareamento antes de responder — dispositivo não pareado devolve o mesmo
       `device-not-paired` que o gest-service já produz (403), não um 200 vazio
-- [ ] Ampliar `GestDetectionProfileView`, que hoje é `record GestDetectionProfileView(long version)`
+- [x] Ampliar `GestDetectionProfileView`, que hoje é `record GestDetectionProfileView(long version)`
       — só a versão. Passa a espelhar o `DetectionProfileResponse` do gest-service no que a estação
       precisa: `thresholds` (as três faixas), `primitives[]` (com `tipoGestoId`, `nome`,
       `engineFeatureRef`, `sensibilidade`, `origem`), `pacienteId`, `version`, `etag`,
       `catalogoDegradado`. Manter `@JsonIgnoreProperties(ignoreUnknown = true)`
-- [ ] **Repassar o GET condicional de ponta a ponta**: `If-None-Match` do dispositivo vira
+- [x] **Repassar o GET condicional de ponta a ponta**: `If-None-Match` do dispositivo vira
       `If-None-Match` na chamada ao gest-service; `304` do gest-service vira `304` para o
       dispositivo, sem corpo. Sem isso a estação refaz download completo do perfil a cada
       verificação, e o `Cache-Control: max-age=60` que o gest-service publica não serve para nada
-- [ ] Reusar o `DetectionProfileClient` existente (identidade de serviço já configurada). **Não**
+- [x] Reusar o `DetectionProfileClient` existente (identidade de serviço já configurada). **Não**
       criar um segundo cliente
-- [ ] Teste de integração: token de dispositivo pareado recebe 200 com perfil; **token de usuário
+- [x] Teste de integração: token de dispositivo pareado recebe 200 com perfil; **token de usuário
       recebe 403**; dispositivo não pareado recebe 403; `If-None-Match` correspondente recebe 304
 
 ## Resultado esperado
@@ -76,13 +76,13 @@ A estação, com o token que já possui, obtém em uma chamada:
 
 ## Criterios de aceite
 
-- [ ] Token `edge.device` pareado → 200 com o perfil completo
-- [ ] Token de **usuário** (cuidadora/coordenadora) → **403**. A estação é um dispositivo; este
+- [x] Token `edge.device` pareado → 200 com o perfil completo
+- [x] Token de **usuário** (cuidadora/coordenadora) → **403**. A estação é um dispositivo; este
       endpoint não é uma segunda porta para dado clínico
-- [ ] `deviceId` não é aceito como parâmetro em forma nenhuma — a identidade vem só do `sub`
-- [ ] Dispositivo não pareado → 403 `device-not-paired`
-- [ ] `If-None-Match` igual ao ETag corrente → 304 sem corpo
-- [ ] gest-service indisponível → resposta degradada explícita, jamais um perfil vazio que a estação
+- [x] `deviceId` não é aceito como parâmetro em forma nenhuma — a identidade vem só do `sub`
+- [x] Dispositivo não pareado → 403 `device-not-paired`
+- [x] `If-None-Match` igual ao ETag corrente → 304 sem corpo
+- [x] gest-service indisponível → resposta degradada explícita, jamais um perfil vazio que a estação
       possa confundir com "nenhum gesto configurado". Um perfil vazio faria a estação rodar sem
       detectar nada, parecendo saudável — o pior modo de falha deste produto
 

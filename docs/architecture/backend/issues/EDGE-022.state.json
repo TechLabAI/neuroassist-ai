@@ -1,78 +1,78 @@
 {
   "issue": "EDGE-022",
   "layer": "be",
-  "computedAt": "2026-08-25T16:29:16",
+  "computedAt": "2026-08-25T17:09:27",
   "checklist": {
     "total": 13,
-    "done": 0,
+    "done": 13,
     "partial": 0,
-    "missing": 13,
+    "missing": 0,
     "blocked": 0,
     "items": [
       {
         "text": "`GET /api/v1/edge/profile` no edge-service, guardado por `@PreAuthorize(\"hasAuthority('edge.device')\")`",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "**`deviceId` extraído do claim `sub` do JWT** — nunca de path, query ou corpo. Mesmo padrão do",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Verificar o pareamento antes de responder — dispositivo não pareado devolve o mesmo",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Ampliar `GestDetectionProfileView`, que hoje é `record GestDetectionProfileView(long version)`",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "**Repassar o GET condicional de ponta a ponta**: `If-None-Match` do dispositivo vira",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Reusar o `DetectionProfileClient` existente (identidade de serviço já configurada). **Não**",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Teste de integração: token de dispositivo pareado recebe 200 com perfil; **token de usuário",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Token `edge.device` pareado → 200 com o perfil completo",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Token de **usuário** (cuidadora/coordenadora) → **403**. A estação é um dispositivo; este",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "`deviceId` não é aceito como parâmetro em forma nenhuma — a identidade vem só do `sub`",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Dispositivo não pareado → 403 `device-not-paired`",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "`If-None-Match` igual ao ETag corrente → 304 sem corpo",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "gest-service indisponível → resposta degradada explícita, jamais um perfil vazio que a estação",
-        "state": "MISSING",
-        "evidence": "desmarcado (sem arquivo verificavel)"
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
       }
     ]
   },
@@ -83,11 +83,11 @@
     "e2e": "unknown"
   },
   "score": {
-    "total": 0,
+    "total": 30,
     "provisional": true,
     "range": [
-      0,
-      10
+      30,
+      40
     ],
     "breakdown": {
       "structure": {
@@ -97,7 +97,7 @@
       },
       "functionality": {
         "max": 30,
-        "value": 0,
+        "value": 30,
         "basis": "heuristic",
         "needsAgentConfirm": true
       },
@@ -119,10 +119,10 @@
       }
     },
     "band": "Inicial",
-    "statusTag": "INTACT"
+    "statusTag": "NEAR-CLOSED"
   },
   "agentTodo": [
-    "Confirmar functionality 0/30 -- a funcionalidade alvo funciona?",
+    "Confirmar functionality 30/30 -- a funcionalidade alvo funciona?",
     "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
   ]
 }
