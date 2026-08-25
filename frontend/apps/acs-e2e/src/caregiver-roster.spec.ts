@@ -602,7 +602,14 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
   // existe para provar a tranca), ou desabilitar o botão por um flag que o
   // produto não lê. Fica vermelho até que exista um papel com leitura sem
   // escrita — decisão de produto, não de suíte.
-  test('The desativar cuidador action is disabled without cuidador write permission', async ({ page }) => {
+  //
+  // DECISÃO DO USUÁRIO (2026-08-25): não existe papel leitor, e não haverá um
+  // por enquanto — ver e gerir a equipe/os vínculos é competência de quem gere.
+  // O cenário deixa de ser vermelho permanente e passa a `fixme` COM A RAZÃO:
+  // ele não descreve uma lacuna a fechar, descreve um estado que o produto
+  // decidiu não ter. Fica escrito para o dia em que a decisão mudar — apagá-lo
+  // perderia a pergunta.
+  test.fixme('The desativar cuidador action is disabled without cuidador write permission', async ({ page }) => {
     await page.addInitScript(scriptSemearSessaoCuidadora());
     await page.goto('/acs');
 

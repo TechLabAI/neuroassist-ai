@@ -26,10 +26,12 @@
  *     `PAC_ACCESS_DECISION`, providenciado em app.config.ts e traduzido pelo
  *     `PAC_PERMISSION_MAP`.
  *
- *   BLOCKER-6 [botões de ciclo de vida]: **AINDA VALE, E É FALTA DE PRODUTO.**
- *     `CommandEditorComponent` não tem validar / publicar / recalibrar / aposentar
- *     — só "Salvar comando" e "Cancelar". Os quatro cenários de ciclo de vida
- *     ficam VERMELHOS de propósito; ver a nota detalhada acima deles.
+ *   BLOCKER-6 [botões de ciclo de vida]: RESOLVIDO — o `CommandEditorComponent`
+ *     ganhou o cartão "Ciclo de vida" com validar / publicar / recalibrar /
+ *     aposentar, habilitados a partir de `editor().estado` (SPEC-03) e da
+ *     permissão (SPEC-05), e o `PacComandoFacade` passou a expor validate() e
+ *     publish(). Os quatro cenários abaixo eram vermelhos por falta de produto;
+ *     agora medem o produto.
  */
 
 import { test, expect, Page } from '@playwright/test';
@@ -395,11 +397,13 @@ test.describe('Calibração — command editor and lifecycle', () => {
   });
 
 
-  // ═══ CENÁRIOS DE CICLO DE VIDA — VERMELHOS DE PROPÓSITO (BLOCKER-6) ═══════
+  // ═══ CENÁRIOS DE CICLO DE VIDA (BLOCKER-6 — RESOLVIDO) ════════════════════
   //
-  // Estes quatro NÃO são destraváveis por infraestrutura de teste. Falta produto.
+  // Estes quatro não eram destraváveis por infraestrutura de teste: faltava
+  // produto. O registro do que faltava fica abaixo, porque é o que explica por
+  // que eles existiam vermelhos — e o que eles passam a proteger.
   //
-  // O QUE EXISTE HOJE, conferido linha a linha:
+  // O QUE EXISTIA ANTES, conferido linha a linha:
   //   - `PacComandoPort` (api/comando.port.ts) declara validate(), publish(),
   //     recalibrate() e retire(), e o `ComandoMockAdapter` implementa os quatro;
   //   - `PacComandoFacade` expõe recalibrate() e retire(). NÃO expõe validate()
@@ -413,14 +417,16 @@ test.describe('Calibração — command editor and lifecycle', () => {
   // INALCANÇÁVEL pela pessoa que usa o produto. A calibração de um comando novo
   // termina em `drafted` e não há tela que a leve adiante.
   //
-  // O QUE FALTA, na ordem: expor validate()/publish() no facade → acrescentar os
-  // quatro botões ao template com habilitação derivada de `editor().estado` →
-  // ligar o gate de emergência ao publish (hoje ele só é exercido no create).
+  // O QUE FOI FEITO, na ordem: expor validate()/publish() no facade →
+  // acrescentar os quatro botões ao template com habilitação derivada de
+  // `editor().estado` e da permissão → ligar o gate de emergência ao publish
+  // (antes ele só era exercido no create, que é onde o backend NÃO o aplica).
   //
-  // Cada cenário abaixo afirma a AFORDÂNCIA, não a transição: enquanto o botão
-  // não existir, é isso que falta primeiro. Deixá-los `fixme` com corpo vazio —
-  // como estavam — os fazia contar como existentes no gate e passar por serem
-  // vazios, que é o pior dos dois mundos.
+  // Cada cenário abaixo afirma a AFORDÂNCIA, não a transição — e continua sendo
+  // o lugar certo para isso: a asserção `toBeDisabled()` só é verificável sobre
+  // o build AOT. No unitário o `[disabled]` do `pac-ds-button` é uma entrada
+  // `input()`, que o JIT do ts-jest não enxerga (ver a nota em
+  // `libs/pac/src/lib/feature-command-editor/command-editor.component.spec.ts`).
 
   /** Abre o editor de um comando semeado no estado pedido, via modo HTTP. */
   async function abrirEditorComEstado(page: Page, estado: string): Promise<void> {

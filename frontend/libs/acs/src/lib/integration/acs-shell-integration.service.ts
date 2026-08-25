@@ -4,6 +4,7 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 import { ACS_MODULE_DESCRIPTOR } from '../acs.descriptor';
 import { ACS_NAV_CONFIG } from '../acs-nav-config';
 import { TenantSetupComponent } from '../feature-tenant-setup/tenant-setup.component';
+import { PatientLinkageComponent } from '../feature-patient-linkage/patient-linkage.component';
 import { AcsEmpresaContextService } from '../api/acs-empresa-context.service';
 
 // =============================================================================
@@ -137,13 +138,16 @@ export class AcsShellIntegrationService {
    * Returns the ACS-owned onboarding wizard steps for the shell wizard host.
    *
    * ACS contributes two steps:
-   *   Step 1: TenantSetupComponent — provision the empresa (mandatory first step)
-   *   Step 5: CaregiverLinkStepComponent — link at least one caregiver to each patient
+   *   Step 1: TenantSetupComponent    — provision the empresa (mandatory first step)
+   *   Step 6: PatientLinkageComponent — link at least one caregiver to the paciente
    *
-   * NOTE: CaregiverLinkStepComponent is the simplified onboarding variant of
-   * PatientLinkageComponent. Until it is scaffolded separately, TenantSetupComponent
-   * is used as a placeholder for step 5 as well.
-   * TODO[FE-ACS-021]: replace step 5 placeholder with real CaregiverLinkStepComponent.
+   * O passo 6 DEIXOU DE SER PLACEHOLDER. Ele devolvia `TenantSetupComponent` de
+   * novo, sob `TODO[FE-ACS-021]: replace step 5 placeholder with real
+   * CaregiverLinkStepComponent` — um componente que nunca existiu. Não havia
+   * "variante simplificada" a escrever: a superfície de vínculo é a
+   * `PatientLinkageComponent`, que já existe, já deriva cobertura (ADR-005) e já
+   * bloqueia o vínculo entre empresas. O que faltava nela era poder ser montada
+   * fora da própria rota — resolvido pelas entradas `pacienteId` e `composto`.
    *
    * The host wizard renders these components in order; steps from other modules fill
    * in between (PAC, EDGE, etc.). ACS steps MUST NOT import PAC/EDGE/GEST scope.
@@ -158,12 +162,25 @@ export class AcsShellIntegrationService {
       },
       {
         key: 'acs-caregiver-link',
-        // TODO[FE-ACS-021]: replace with CaregiverLinkStepComponent
-        title: 'Vincular cuidador aos pacientes',
-        component: Promise.resolve(TenantSetupComponent as unknown as Type<unknown>),
-        order: 5,
+        title: 'Vincular cuidadora ao paciente',
+        component: this.resolveCaregiverLinkSlot() as Promise<Type<unknown>>,
+        // Depois de convidar a cuidadora (passo 5): não há a quem vincular antes.
+        order: 6,
       },
     ];
+  }
+
+  /**
+   * Entrega a superfície de VÍNCULO para quem compõe o assistente.
+   *
+   * <p>Espelha `EdgeShellIntegrationService.resolvePairingSlot()`, e existe pelo
+   * mesmo motivo: `scope:web` monta o componente por `NgComponentOutlet` sem
+   * jamais importar o tipo de dentro do `scope:acs`. O `Promise` é o formato
+   * combinado — hoje resolve na hora, e é o gancho por onde o componente vira
+   * `import()` preguiçoso sem mexer em quem chama.
+   */
+  resolveCaregiverLinkSlot(): Promise<Type<PatientLinkageComponent>> {
+    return Promise.resolve(PatientLinkageComponent);
   }
 
   // ---------------------------------------------------------------------------

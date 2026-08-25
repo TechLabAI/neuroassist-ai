@@ -38,6 +38,30 @@ export const ACS_E2E_FLAGS = {
    * cobertura é RE-DERIVADA depois de um erro de vínculo.
    */
   falhaVincular: '__ACS_E2E_LINK_FAIL__',
+  /**
+   * A empresa nasce EM PROVISIONAMENTO em vez de já ativa.
+   *
+   * <p>Vale para os dois lados do `AcsTenantMockAdapter`: o registro semeado
+   * (`tenant-familia-amaral`) passa a responder `provisioning` no `get()`, e o
+   * `create()` devolve 202 em vez de 201. Sem ela o mock devolvia `active`
+   * incondicionalmente e o estado intermediário — que o backend produz de
+   * verdade, porque provisionar schema é uma saga — não tinha como aparecer na
+   * tela.
+   *
+   * <p>Fica atrás de bandeira porque o cenário 1 desta suíte afirma o caminho
+   * feliz (201 ativo na hora); semear provisionamento sempre o reprovaria.
+   */
+  empresaProvisionando: '__ACS_E2E_TENANT_PROVISIONING__',
+  /**
+   * `retryProvisioning()` NÃO resolve — devolve `provisioning` de novo.
+   *
+   * <p>É o cenário da faixa "ainda não confirmada": a pessoa tenta de novo e a
+   * saga continua pendente. Separada de `empresaProvisionando` porque as duas
+   * metades são estados distintos do produto (em curso × retentativa que não
+   * resolveu) e o cenário do retry BEM-SUCEDIDO precisa da primeira sem a
+   * segunda.
+   */
+  retryNaoResolve: '__ACS_E2E_TENANT_RETRY_STUCK__',
 } as const;
 
 /**

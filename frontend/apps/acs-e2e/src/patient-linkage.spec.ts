@@ -375,7 +375,14 @@ test.describe('Patient linkage — link, unlink and coverage invariant', () => {
   // Não há terceiro estado, e fabricá-lo exigiria destrancar a rota — regressão
   // real, e o cenário 12 existe justamente para provar a tranca. Fica vermelho
   // até que exista um papel com leitura de vínculo sem escrita.
-  test('The vincular and desvincular actions are disabled without vinculo write permission', async ({ page }) => {
+  //
+  // DECISÃO DO USUÁRIO (2026-08-25): não existe papel leitor, e não haverá um
+  // por enquanto — ver e gerir a equipe/os vínculos é competência de quem gere.
+  // O cenário deixa de ser vermelho permanente e passa a `fixme` COM A RAZÃO:
+  // ele não descreve uma lacuna a fechar, descreve um estado que o produto
+  // decidiu não ter. Fica escrito para o dia em que a decisão mudar — apagá-lo
+  // perderia a pergunta.
+  test.fixme('The vincular and desvincular actions are disabled without vinculo write permission', async ({ page }) => {
     await page.addInitScript(scriptSemearSessaoCuidadora());
     await page.goto('/acs/pacientes/pac-marcio/vinculos');
 

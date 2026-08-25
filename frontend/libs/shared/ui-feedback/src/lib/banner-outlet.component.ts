@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { BannerService } from './banner.service';
 
 // =============================================================================
@@ -6,9 +6,18 @@ import { BannerService } from './banner.service';
 // flutuando por cima dela. Uma condição que continua valendo deve ocupar espaço;
 // sobrepor esconderia justamente o que a pessoa precisa consertar.
 //
-// `role="status"` com `aria-live="polite"`: a faixa é visível e permanente, então
-// interromper a leitura não acrescenta nada. Quem interrompe, neste produto, é o
-// alarme.
+// O PAPEL DEPENDE DA SEVERIDADE, e a distinção é principiada:
+//
+//   consultiva → `role="status"` (`aria-live="polite"`). Ela informa; a leitura
+//     em curso não precisa ser cortada por causa dela.
+//   não consultiva → `role="alert"` (assertivo). Ela descreve uma condição
+//     QUEBRADA — sessão sem empresa, catálogo indisponível — e quem está usando
+//     o sistema precisa saber disso antes de continuar digitando.
+//
+// Isto não contradiz a regra de que só o alarme de emergência interrompe: aquela
+// regra vale para o AVISO PASSAGEIRO, que é frequente e trata do que acabou de
+// acontecer. Uma faixa de erro é rara e persistente. Gastar a interrupção aqui é
+// justamente o caso para o qual `alert` existe.
 // =============================================================================
 
 @Component({
@@ -16,7 +25,7 @@ import { BannerService } from './banner.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div role="status" aria-live="polite">
+    <div [attr.role]="papel()" [attr.aria-live]="vivacidade()">
       @if (banners.faixa(); as faixa) {
         <div
           class="flex items-start gap-3 border-b px-6 py-3 text-sm"
@@ -48,4 +57,20 @@ import { BannerService } from './banner.service';
 })
 export class BannerOutletComponent {
   protected readonly banners = inject(BannerService);
+
+  /**
+   * `alert` para erro, `status` para consultiva.
+   *
+   * <p>Sem faixa alguma o contêiner fica como `status`: um `role="alert"` vazio
+   * e permanente no DOM é ruído para o leitor de tela, e alguns anunciam a
+   * região ao entrar nela.
+   */
+  protected readonly papel = computed(() => {
+    const faixa = this.banners.faixa();
+    return faixa !== null && !faixa.consultiva ? 'alert' : 'status';
+  });
+
+  protected readonly vivacidade = computed(() =>
+    this.papel() === 'alert' ? 'assertive' : 'polite',
+  );
 }

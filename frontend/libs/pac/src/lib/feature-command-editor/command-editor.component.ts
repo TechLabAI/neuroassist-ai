@@ -19,6 +19,8 @@ import { PacDsCardComponent } from '../ui/ds-card.component';
 import { PacDsButtonComponent } from '../ui/ds-button.component';
 import { PacDsInputComponent } from '../ui/ds-input.component';
 import { ComandoSensibilidade, ComandoUrgencia } from '../api/comando.port';
+import { PAC_ACCESS_DECISION } from '../access/pac-access-tokens';
+import { ModalService } from '@neuroassist/shared/ui-feedback';
 
 // ---------------------------------------------------------------------------
 // CommandEditorComponent — SPEC-02 §2, promoted from calibracao.component.ts
@@ -290,6 +292,46 @@ type NovoTipoAlvo = 'principal' | 'secundario' | null;
               <p class="mt-2 text-xs text-danger">Erro ao salvar. Tente novamente.</p>
             }
           </pac-ds-card>
+
+          <!-- Ciclo de vida (ADR-006 / SPEC-03) ─────────────────────────────
+               O clique vai no HOST pac-ds-button, não num output: o componente
+               não expõe evento de clique, e o botão interno com [disabled] não
+               deixa o evento subir. É essa a propriedade que torna a
+               desabilitação real e não decorativa. -->
+          <pac-ds-card>
+            <h3 class="mb-1 font-display text-sm font-semibold text-ink">Ciclo de vida</h3>
+            <p class="text-xs text-ink-soft">{{ cicloDeVidaLegenda() }}</p>
+            <div class="mt-4 flex flex-col gap-2">
+              <pac-ds-button
+                variant="secondary"
+                [disabled]="!podeValidar()"
+                (click)="onValidar()">
+                Validar
+              </pac-ds-button>
+              <pac-ds-button
+                [disabled]="!podePublicar()"
+                (click)="onPublicar()">
+                Publicar
+              </pac-ds-button>
+              <pac-ds-button
+                variant="secondary"
+                [disabled]="!podeRecalibrar()"
+                (click)="onRecalibrar()">
+                Recalibrar
+              </pac-ds-button>
+              <pac-ds-button
+                variant="danger"
+                [disabled]="!podeAposentar()"
+                (click)="onAposentar()">
+                Aposentar
+              </pac-ds-button>
+            </div>
+            @if (!podeGerirCiclo()) {
+              <p class="mt-2 text-xs text-ink-faint">
+                Seu perfil não permite mudar o estado de um comando.
+              </p>
+            }
+          </pac-ds-card>
         </div>
       </div>
     </div>
@@ -302,6 +344,11 @@ export class CommandEditorComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
+  // Mesmo padrão de command-catalog.component.ts:180 — token ausente (lib
+  // montada isolada em teste) deixa passar. No aplicativo real quem providencia
+  // é app.config.ts, traduzindo pelo PAC_PERMISSION_MAP; ver pac-access-tokens.ts.
+  private readonly acesso = inject(PAC_ACCESS_DECISION, { optional: true });
+  private readonly modais = inject(ModalService);
 
   protected readonly sensibilidades = SENSIBILIDADES;
   protected readonly novoTipoAberto = signal<NovoTipoAlvo>(null);
@@ -311,6 +358,75 @@ export class CommandEditorComponent implements OnInit {
   readonly tipos = this.tiposFacade.tipos;
   readonly emergencyGateError = computed(() => this.editor().emergencyGateError);
   readonly isNew = computed(() => this.editor().cid === null);
+
+  // ─── Ciclo de vida: quem pode, e quando ───────────────────────────────────
+  //
+  // Duas condições independentes, e a distinção importa:
+  //
+  //   PERMISSÃO — de quem está logado. SPEC-05: "WHILE the caller lacks the
+  //   comando publish permission, THE SYSTEM SHALL disable the validar publicar
+  //   recalibrar and retirar lifecycle actions". Uma única permissão governa as
+  //   quatro; recalibrar e aposentar exigem ainda a sua própria.
+  //
+  //   ESTADO — do comando (SPEC-03). Uma coordenadora com todas as permissões
+  //   continua sem poder publicar um rascunho: ele precisa ser validado antes.
+  //
+  // `estado === null` é comando novo ainda não gravado: não há o que transicionar.
+  // `saveState === 'saving'` desabilita tudo enquanto uma chamada está no ar —
+  // duas transições concorrentes partem do mesmo If-Match e a segunda volta 409.
+
+  private readonly pode = (chave: string): boolean =>
+    this.acesso === null || this.acesso.can(chave);
+
+  /** Permissão-guarda-chuva das quatro ações (SPEC-05). */
+  readonly podeGerirCiclo = computed(() => this.pode('commandPublish'));
+
+  private readonly ocupado = computed(
+    () => this.editor().saveState === 'saving',
+  );
+
+  readonly podeValidar = computed(
+    () => this.podeGerirCiclo() && !this.ocupado() && this.editor().estado === 'drafted',
+  );
+
+  readonly podePublicar = computed(
+    () => this.podeGerirCiclo() && !this.ocupado() && this.editor().estado === 'validated',
+  );
+
+  readonly podeRecalibrar = computed(
+    () =>
+      this.podeGerirCiclo() &&
+      this.pode('commandRecalibrate') &&
+      !this.ocupado() &&
+      this.editor().estado === 'published',
+  );
+
+  /** Aposentar cabe em qualquer estado vivo — 'retired' é terminal (ADR-006). */
+  readonly podeAposentar = computed(() => {
+    const estado = this.editor().estado;
+    return (
+      this.podeGerirCiclo() &&
+      this.pode('commandRetire') &&
+      !this.ocupado() &&
+      estado !== null &&
+      estado !== 'retired'
+    );
+  });
+
+  protected cicloDeVidaLegenda(): string {
+    switch (this.editor().estado) {
+      case 'drafted':
+        return 'Rascunho — valide para conferir que o gesto é reconhecível.';
+      case 'validated':
+        return 'Validado — publique para que o dispositivo passe a reconhecê-lo.';
+      case 'published':
+        return 'Publicado — ajustes de sensibilidade e tempo entram por recalibrar.';
+      case 'retired':
+        return 'Aposentado — estado terminal, o comando fica no histórico.';
+      default:
+        return 'Salve o comando para poder validá-lo e publicá-lo.';
+    }
+  }
 
   ngOnInit(): void {
     this.tiposFacade.load();
@@ -435,6 +551,69 @@ export class CommandEditorComponent implements OnInit {
     // editor().saveState. When save succeeds → 'saved-pending-sync' → navigate to '..'.
     // When save fails with 422 emergency-not-detectable → 'error' → stay on editor,
     // blocking modal appears via emergencyGateError() signal.
+  }
+
+  // ─── Ações de ciclo de vida ───────────────────────────────────────────────
+  //
+  // SOBRE A CONFIRMAÇÃO, E POR QUE ELA NÃO É `bloqueante`
+  //
+  // O `ModalOutletComponent` desenha UM botão — o da `acao`. Com
+  // `bloqueante: true` não há Esc nem clique fora, e então o único caminho para
+  // fora da caixa é o botão que CONFIRMA: seria uma "confirmação" que não sabe
+  // dizer não. Por isso estas duas são não-bloqueantes — Esc e o clique fora são
+  // o "cancelar", e o botão é o "sim".
+  //
+  // O modal bloqueante do módulo continua sendo um só: o do portão de
+  // emergência, que aparece DEPOIS de o backend já ter recusado a publicação.
+  // Ali não há decisão a tomar, só um caminho de saída.
+
+  protected onValidar(): void {
+    this.comandoFacade.validate();
+  }
+
+  /**
+   * Publicar. Rotina vai direto; emergência confirma antes.
+   *
+   * <p>Publicar um comando de emergência é o que faz um gesto passar a disparar
+   * alarme em tela cheia na casa de alguém. Rotina não tem esse peso — pedir
+   * confirmação nas duas ensinaria a clicar "sim" sem ler, que é como se perde a
+   * confirmação que importa.
+   */
+  protected onPublicar(): void {
+    if (this.editor().urgencia !== 'emergencia') {
+      this.comandoFacade.publish();
+      return;
+    }
+    // `confirmar()` é bloqueante E oferece a recusa. A primeira versão usava
+    // `abrir({bloqueante:false})` porque o modal só sabia desenhar UM botão — e
+    // um bloqueante de botão único é uma confirmação incapaz de dizer não, com o
+    // clique fora servindo de cancelar. O serviço passou a suportar as duas
+    // saídas, então a decisão volta a ser deliberada: sai por um dos dois botões,
+    // e não por um clique distraído fora do quadro.
+    this.modais.confirmar({
+      titulo: 'Publicar comando de emergência',
+      mensagem:
+        `Ao publicar, o gesto de "${this.editor().rotulo}" passa a disparar o alarme em tela cheia ` +
+        'e exigir confirmação imediata da cuidadora. Confirma a publicação?',
+      rotuloConfirmar: 'Publicar emergência',
+      aoConfirmar: () => this.comandoFacade.publish(),
+    });
+  }
+
+  protected onRecalibrar(): void {
+    this.comandoFacade.recalibrateCurrent();
+  }
+
+  /** Aposentar sempre confirma: é terminal e não há DELETE nem volta (ADR-006). */
+  protected onAposentar(): void {
+    this.modais.confirmar({
+      titulo: 'Aposentar comando',
+      mensagem:
+        `"${this.editor().rotulo}" deixará de ser reconhecido pelo dispositivo. ` +
+        'Aposentar é definitivo — o comando fica no histórico, mas não volta ao catálogo ativo.',
+      rotuloConfirmar: 'Aposentar',
+    aoConfirmar: () => this.comandoFacade.retireCurrent(),
+    });
   }
 
   protected onCancel(): void {

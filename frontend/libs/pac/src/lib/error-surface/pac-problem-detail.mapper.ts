@@ -16,12 +16,18 @@ export interface ProblemDetail {
   readonly status: number;
   readonly detail?: string;
   readonly instance?: string;
+  /** Erros por campo, quando é uma falha de validação. */
+  readonly fieldErrors?: readonly { readonly field: string; readonly message: string }[];
 }
 
 /** Canonical PT-BR messages per error code (user-facing). */
 const DEFAULT_MESSAGES: Record<string, string> = {
   'validation':                  'Os dados informados são inválidos. Verifique os campos e tente novamente.',
-  'missing-tenant':              'Esta operação requer um tenant configurado. Entre em contato com o administrador.',
+  // Reescrita: "tenant" é palavra de quem escreve o sistema, não de quem o usa, e
+  // "entre em contato com o administrador" é um beco — a pessoa não tem o que
+  // fazer com isso. O que de fato aconteceu é que a sessão perdeu o vínculo com a
+  // empresa, e o que resolve é entrar de novo. A frase agora diz isso.
+  'missing-tenant':              'Sua sessão perdeu o vínculo com a empresa. Entre de novo para continuar.',
   'tenant-mismatch':             'Você não tem acesso a este recurso. O tenant não corresponde à sua sessão.',
   'unauthorized':                'Sessão expirada. Faça login novamente para continuar.',
   'insufficient-scope':          'Você não tem permissão para realizar esta ação.',
@@ -53,6 +59,22 @@ export function extractErrorCode(type: string | undefined): string {
  */
 export function mapProblemDetailToAppError(pd: ProblemDetail): AppError {
   const code = extractErrorCode(pd.type);
-  const message = pd.detail ?? DEFAULT_MESSAGES[code] ?? pd.title ?? 'Erro desconhecido.';
-  return { code, message };
+  // A ORDEM MUDOU, e é uma decisão de produto.
+  //
+  // Antes o `detail` vinha primeiro. Ele é escrito pelo backend para quem depura
+  // — em inglês e técnico ("The request does not carry a valid X-Empresa-Id
+  // header.") — e ia direto para a tela de uma coordenadora. Para CÓDIGO
+  // CONHECIDO a mensagem canônica em pt-BR passa na frente; o `detail` fica como
+  // recurso para código que não sabemos traduzir, onde dizer algo específico em
+  // inglês ainda é melhor que "Erro desconhecido".
+  //
+  // O que é específico do caso não se perde: quando a falha é por campo, ela vai
+  // em `fieldErrors`, ao lado do campo, que é onde a pessoa pode agir.
+  const message = DEFAULT_MESSAGES[code] ?? pd.detail ?? pd.title ?? 'Erro desconhecido.';
+  return {
+    code,
+    message,
+    ...(pd.type ? { type: pd.type } : {}),
+    ...(pd.fieldErrors?.length ? { fieldErrors: pd.fieldErrors } : {}),
+  };
 }

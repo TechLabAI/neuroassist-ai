@@ -58,6 +58,20 @@ import { ModalService } from './modal.service';
           <p id="ui-modal-mensagem" class="mt-2 text-sm text-ink-soft">{{ modal.mensagem }}</p>
 
           <div class="mt-5 flex justify-end gap-2">
+            <!--
+              A recusa vem PRIMEIRO na ordem de tabulação, de propósito: é a
+              saída sem consequência, e é onde o foco entra. Confirmar por
+              engano ao apertar Enter é o erro que custa caro.
+            -->
+            @if (modal.cancelar; as rotuloCancelar) {
+              <button
+                type="button"
+                class="rounded-xl border border-line px-5 py-2.5 text-sm font-medium text-ink"
+                data-testid="modal-cancelar"
+                (click)="modais.fechar()">
+                {{ rotuloCancelar }}
+              </button>
+            }
             <button
               type="button"
               class="rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-brand-ink"

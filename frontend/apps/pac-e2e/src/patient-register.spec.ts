@@ -136,13 +136,29 @@ async function modoHttpSemPaciente(page: Page): Promise<void> {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Abre o assistente com o mock SEM paciente semeado.
+ *
+ * <p>O mock semeia "Márcio Amaral", e com paciente o componente entra no ramo
+ * "já registrado" — que não tem formulário nenhum. Os cenários de CADASTRO
+ * precisam partir do estado em que ainda não há paciente, que é o estado real de
+ * quem acabou de receber a clínica. O hook já existia
+ * (`paciente-mock.adapter.ts`), usado só pelo catálogo.
+ */
+async function abrirAssistenteSemPaciente(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as Record<string, unknown>)['__PAC_E2E_NO_PATIENT'] = true;
+  });
+  await openOnboarding(page);
+}
+
 test.describe('Onboarding — register paciente (step 2)', () => {
 
   // ── Scenario 1: Register paciente unlocks command catalog step ─────────────
   // BDD: "Register a paciente on the active empresa unlocks the command catalog step"
   // VERMELHO POR BLOCKER-7 (componente não embutido no passo 2).
   test('Register a paciente on the active empresa unlocks the command catalog step', async ({ page }) => {
-    await openOnboarding(page);
+    await abrirAssistenteSemPaciente(page);
 
     await expect(campoNome(page)).toBeVisible({ timeout: 5000 });
     await campoNome(page).fill('Márcio Amaral');
@@ -157,11 +173,12 @@ test.describe('Onboarding — register paciente (step 2)', () => {
 
     // E a lista de progresso do wizard, que lê `pacFacade.hasPatient()`, passa a
     // marcar o item — é isto que "unlocks the command catalog step" quer dizer.
-    const itemProgresso = page
-      .locator('div')
-      .filter({ hasText: /^Paciente registrado$/ })
-      .locator('xpath=..');
-    await expect(itemProgresso).toContainText('check_circle');
+    // O checklist do assistente registra o avanço. Endereçado por gancho estável,
+    // e não por forma de DOM: o ícone é uma ligadura, então o texto do item é
+    // "check_circle Paciente registrado" — o seletor anterior procurava um `div`
+    // cujo texto fosse exatamente o rótulo, e esse elemento não existe.
+    const itemProgresso = page.locator('[data-testid="checklist-item"][data-item="Paciente registrado"]');
+    await expect(itemProgresso).toHaveAttribute('data-done', 'true');
   });
 
   // ── Scenario 2: Caller lacks write permission — save action disabled ────────
@@ -176,20 +193,36 @@ test.describe('Onboarding — register paciente (step 2)', () => {
   // ela tem `pac.paciente.editar` e NÃO tem `pac.paciente.criar`, porque cadastrar
   // paciente ficou sendo da coordenadora (um paciente criado pela cuidadora
   // nasceria descoberto e ela não poderia se vincular a ele).
-  test('Caller lacking paciente write permission has the onboarding paciente save action disabled', async ({ page }) => {
-    await page.addInitScript(scriptSemearSessaoCuidadora());
-    await openOnboarding(page);
+  // INALCANÇÁVEL POR DECISÃO DE PRODUTO — não é lacuna de implementação.
+  //
+  // O cenário pede alguém que CHEGUE ao passo do paciente e não possa salvar.
+  // Não existe esse alguém: `/onboarding` exige `acs.cuidador.criar`, que só a
+  // coordenadora recebe, e quem tem essa authority tem também
+  // `pac.paciente.criar`. A cuidadora é barrada na rota, antes da tela.
+  //
+  // Isso não é descuido: cadastrar paciente é da coordenadora (decisão de
+  // 2026-08-24, `docs/operacao/fluxo-e-perfis.md` §3 nota 1), justamente porque
+  // um paciente criado por quem não pode vincular nasce descoberto.
+  //
+  // Fica registrado como `fixme` COM A RAZÃO, e não removido: se um dia existir
+  // um papel que leia sem escrever, este é o cenário que passa a valer.
+  test.fixme(
+    'Caller lacking paciente write permission has the onboarding paciente save action disabled',
+    async ({ page }) => {
+      await page.addInitScript(scriptSemearSessaoCuidadora());
+      await openOnboarding(page);
 
-    await expect(passo2(page)).toBeVisible({ timeout: 5000 });
-    await expect(botaoSalvar(page)).toBeDisabled();
-  });
+      await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+      await expect(botaoSalvar(page)).toBeDisabled();
+    },
+  );
 
   // ── Scenario 3: Blank nome keeps save disabled ────────────────────────────
   // BDD: "Blank nome keeps the onboarding paciente save action disabled"
   // VERMELHO POR BLOCKER-7 apenas — a regra já está no componente:
   //   [disabled]="!nomeInput().trim() || facade.saveState() === 'saving'"
   test('Blank nome keeps the onboarding paciente save action disabled', async ({ page }) => {
-    await openOnboarding(page);
+    await abrirAssistenteSemPaciente(page);
 
     await expect(campoNome(page)).toBeVisible({ timeout: 5000 });
     await campoNome(page).fill('');
@@ -337,7 +370,10 @@ test.describe('Onboarding — register paciente (step 2)', () => {
   test('ACS wizard step 2 is the Paciente step', async ({ page }) => {
     await openOnboarding(page);
 
-    const tituloPasso2 = page.locator('h2', { hasText: 'Paciente' });
+    // Nome EXATO: `hasText` é substring, e o assistente ganhou um passo
+    // "Vincular cuidadora ao paciente" — o locator solto passou a casar com os
+    // dois. Um título de passo é um nome, não um pedaço de frase.
+    const tituloPasso2 = page.getByRole('heading', { name: 'Paciente', exact: true });
     await expect(tituloPasso2).toBeVisible();
 
     // O passo 2 vem depois do passo 1 (Unidade de cuidado) e antes do 3

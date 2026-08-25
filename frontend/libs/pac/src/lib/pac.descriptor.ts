@@ -30,6 +30,12 @@ export const PAC_PERMISSION_MAP = {
   commandRead: 'pac.comando-lifecycle.read',
   commandWrite: 'pac.comando-authoring.criar',
   commandPublish: 'pac.comando-lifecycle.publicar',
+  // Faltavam as duas: os botões de recalibrar e aposentar não tinham chave de
+  // tela, e a regra do SPEC-05 §"lifecycle actions" não tinha como ser aplicada
+  // a elas. Nomes conferidos em arch/decisions/permission-catalogue.arch.json —
+  // não são o formato <recurso>.<verbo em inglês> que parece razoável.
+  commandRecalibrate: 'pac.comando-lifecycle.recalibrar',
+  commandRetire: 'pac.comando-lifecycle.aposentar',
 } as const;
 
 export const PAC_FEATURE_FLAGS = {

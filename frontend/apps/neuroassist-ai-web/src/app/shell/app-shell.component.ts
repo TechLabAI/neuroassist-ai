@@ -1,9 +1,4 @@
 import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
-import {
-  ToastOutletComponent,
-  BannerOutletComponent,
-  ModalOutletComponent,
-} from '@neuroassist/shared/ui-feedback';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './sidebar.component';
 import { TopbarComponent } from './topbar.component';
@@ -35,34 +30,25 @@ import { EdgeShellIntegrationService } from '@neuroassist/edge';
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [ToastOutletComponent, BannerOutletComponent, ModalOutletComponent, RouterOutlet, SidebarComponent, TopbarComponent, AlarmOverlayComponent],
+  imports: [RouterOutlet, SidebarComponent, TopbarComponent, AlarmOverlayComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- Overlay global de alarme (camada de interrupção ADR-005) — acima de sidebar, topbar e outlet -->
     <evnt-alarm-overlay />
 
     <!--
-      Avisos passageiros. Montado UMA vez, aqui, e não por tela: o contêiner com
-      aria-live precisa já existir no DOM quando o texto entra, senão o leitor
-      de tela não anuncia. Fica ABAIXO do alarme na ordem de importância — o
-      alarme interrompe, o aviso informa.
+      Os outlets de aviso/faixa/modal MUDARAM DE LUGAR: subiram para o
+      AppShellRootComponent. Estavam aqui, e este componente não envolve as rotas
+      de topo — /onboarding, /login e /entrada ficam fora dele. Resultado:
+      o assistente de configuração disparava faixa e aviso que não tinham onde
+      aparecer. O código parecia tratar o erro; a tela seguia muda.
     -->
-    <ui-toast-outlet />
-
-    <!-- Modal: sobreposição, z-40 — abaixo do alarme, acima do aviso. -->
-    <ui-modal-outlet />
 
     <div class="grid h-screen grid-cols-[auto_1fr] overflow-hidden">
       <app-sidebar />
       <div class="flex min-w-0 flex-col overflow-hidden">
         <app-topbar />
         <main class="content-mesh min-h-0 flex-1 overflow-y-auto">
-          <!--
-            A faixa fica DENTRO do main e EMPURRA o conteúdo, em vez de flutuar
-            por cima: ela descreve uma condição que continua valendo, e sobrepor
-            esconderia justamente o que a pessoa precisa consertar.
-          -->
-          <ui-banner-outlet />
           <router-outlet />
         </main>
       </div>

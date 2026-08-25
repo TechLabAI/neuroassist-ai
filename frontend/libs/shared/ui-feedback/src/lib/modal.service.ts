@@ -31,6 +31,18 @@ export interface Modal {
   /** Não fecha por Esc nem por clique fora. Ver a nota acima. */
   readonly bloqueante: boolean;
   readonly acao: AcaoDeModal | null;
+  /**
+   * Rótulo do botão que RECUSA — presente quando o modal é uma confirmação.
+   *
+   * <p>Sem isto, um modal bloqueante com uma única ação era uma "confirmação"
+   * incapaz de dizer não: sem Esc, sem clique fora, e o único caminho para fora
+   * da caixa era o botão que confirma. Quem só queria olhar ficava sem saída a
+   * não ser aceitar.
+   *
+   * <p>Quando ausente, o modal é um AVISO (o portão de emergência, por exemplo):
+   * não há decisão a tomar, e o botão único apenas fecha.
+   */
+  readonly cancelar: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -45,12 +57,38 @@ export class ModalService {
     titulo?: string | null;
     bloqueante?: boolean;
     acao?: AcaoDeModal;
+    cancelar?: string;
   }): void {
     this._modal.set({
       titulo: opcoes.titulo ?? null,
       mensagem: opcoes.mensagem,
       bloqueante: opcoes.bloqueante ?? false,
       acao: opcoes.acao ?? null,
+      cancelar: opcoes.cancelar ?? null,
+    });
+  }
+
+  /**
+   * Atalho para CONFIRMAÇÃO: duas saídas, e a recusa é a saída barata.
+   *
+   * <p>É bloqueante de propósito — uma decisão não deve ser desfeita por um
+   * clique fora do quadro — e por isso mesmo precisa do botão de recusar, que
+   * este atalho garante que exista. Foi a lacuna que fez uma frente evitar
+   * `bloqueante: true` nas confirmações de publicar e aposentar.
+   */
+  confirmar(opcoes: {
+    mensagem: string;
+    titulo?: string;
+    rotuloConfirmar: string;
+    aoConfirmar: () => void;
+    rotuloCancelar?: string;
+  }): void {
+    this.abrir({
+      mensagem: opcoes.mensagem,
+      titulo: opcoes.titulo ?? null,
+      bloqueante: true,
+      acao: { label: opcoes.rotuloConfirmar, callback: opcoes.aoConfirmar },
+      cancelar: opcoes.rotuloCancelar ?? 'Cancelar',
     });
   }
 

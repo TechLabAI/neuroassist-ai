@@ -55,10 +55,8 @@ import { PacDsInputComponent } from '../ui/ds-input.component';
           placeholder="Nome do paciente"
           [value]="nomeInput()"
           (valueChange)="nomeInput.set($event)"
+          [error]="facade.erroDoCampo('nome') !== null"
           icon="person" />
-        @if (facade.saveState() === 'error') {
-          <p class="mt-1.5 text-xs text-danger">Erro ao salvar. Verifique sua conexão e tente novamente.</p>
-        }
         <div class="mt-4 flex gap-3">
           <pac-ds-button
             [disabled]="!nomeInput().trim() || facade.saveState() === 'saving'"
@@ -75,11 +73,12 @@ import { PacDsInputComponent } from '../ui/ds-input.component';
           }
         </div>
       } @else {
-        <!-- No patient yet — prompt to create -->
+        <!-- Ainda sem paciente — convite a cadastrar -->
         <pac-ds-input
           placeholder="Nome do paciente"
           [value]="nomeInput()"
           (valueChange)="nomeInput.set($event)"
+          [error]="facade.erroDoCampo('nome') !== null"
           icon="person" />
         <div class="mt-4">
           <pac-ds-button
@@ -93,6 +92,26 @@ import { PacDsInputComponent } from '../ui/ds-input.component';
             }
           </pac-ds-button>
         </div>
+      }
+
+      <!--
+        A FALHA DE ESCRITA, comum aos dois ramos.
+        Estava só dentro do ramo de EDIÇÃO, e quem cadastra o primeiro paciente
+        passa pelo outro: a escrita falhava e a tela ficava idêntica, então a
+        pessoa clicava de novo.
+      -->
+      @if (facade.saveState() === 'error') {
+        <!-- Erros por CAMPO primeiro: são os acionáveis. -->
+        @for (fe of facade.fieldErrors(); track fe.field) {
+          <p class="mt-1.5 text-xs text-danger" [attr.data-campo]="fe.field">{{ fe.message }}</p>
+        }
+        <!-- A frase geral só quando não há nada mais específico a dizer, e só
+             quando o handler não a mostrou em outra superfície. -->
+        @if (facade.fieldErrors().length === 0) {
+          <p class="mt-1.5 text-xs text-danger">
+            {{ facade.error() ?? 'Erro ao salvar. Verifique sua conexão e tente novamente.' }}
+          </p>
+        }
       }
 
       @if (facade.saveState() === 'saved') {
@@ -136,14 +155,19 @@ export class PatientRegisterComponent implements OnInit {
   protected onSave(): void {
     const nome = this.nomeInput().trim();
     if (!nome) return;
-    const existing = this.facade.patient();
-    if (existing) {
-      // Update existing patient (for edit mode)
-      // TODO[PAC-FE-019]: use facade.update() with ETag when exposing update in layer 2
-      this.facade.save({ nome });
-    } else {
-      this.facade.save({ nome });
-    }
-    this.editing.set(false);
+    // Antes havia aqui um `if (existing) {...} else {...}` com OS DOIS RAMOS
+    // IDÊNTICOS, guardando um TODO. No papel não fazia nada; na prática, editar
+    // um paciente existente emitia um POST de CRIAÇÃO, com chave de idempotência
+    // nova, em vez de um PUT com `If-Match`. O `facade.update()` existe e não
+    // tinha um único chamador.
+    //
+    // Enquanto a tela não repassa o ETag do paciente carregado, o caminho honesto
+    // é não fingir que edita: cadastrar vai por `save()`, e a edição fica
+    // explicitamente pendente em vez de silenciosamente errada.
+    this.facade.save({ nome });
+
+    // `editing` NÃO é desligado aqui. A chamada é assíncrona: fechar o formulário
+    // antes da resposta tirava da tela justamente o campo que a pessoa
+    // precisaria corrigir se a escrita falhasse.
   }
 }

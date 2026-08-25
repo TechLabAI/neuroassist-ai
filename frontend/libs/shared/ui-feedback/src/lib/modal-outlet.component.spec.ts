@@ -145,6 +145,55 @@ describe('ModalOutletComponent', () => {
     expect(document.activeElement).toBe(focaveis[0]);
   });
 
+  // ── confirmação: bloquear sem prender ─────────────────────────────────────
+
+  it('confirmar() abre bloqueante E com botão de recusar', () => {
+    // Um modal bloqueante com UMA ação era uma confirmação incapaz de dizer não:
+    // sem Esc, sem clique fora, e a única saída era o botão que confirma. Quem só
+    // queria olhar ficava sem alternativa a não ser aceitar.
+    const aoConfirmar = jest.fn();
+    modais.confirmar({
+      mensagem: 'Publicar este comando de emergência?',
+      rotuloConfirmar: 'Publicar',
+      aoConfirmar,
+    });
+    fixture.detectChanges();
+
+    expect(modais.modal()?.bloqueante).toBe(true);
+    expect(fixture.nativeElement.querySelector('[data-testid="modal-cancelar"]')).not.toBeNull();
+    expect(aoConfirmar).not.toHaveBeenCalled();
+  });
+
+  it('recusar fecha sem executar a ação', () => {
+    const aoConfirmar = jest.fn();
+    modais.confirmar({ mensagem: 'x', rotuloConfirmar: 'Publicar', aoConfirmar });
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('[data-testid="modal-cancelar"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(modais.modal()).toBeNull();
+    expect(aoConfirmar).not.toHaveBeenCalled();
+  });
+
+  it('a recusa recebe o foco, e não a confirmação', () => {
+    // Confirmar por engano ao apertar Enter é o erro que custa caro; recusar não
+    // custa nada.
+    modais.confirmar({ mensagem: 'x', rotuloConfirmar: 'Aposentar', aoConfirmar: () => undefined });
+    fixture.detectChanges();
+
+    expect((document.activeElement as HTMLElement)?.dataset['testid']).toBe('modal-cancelar');
+  });
+
+  it('aviso sem decisão NÃO ganha botão de recusar', () => {
+    // O portão de emergência é aviso, não pergunta: a publicação já foi negada.
+    // Oferecer "Cancelar" ali sugeriria uma escolha que não existe.
+    modais.abrir({ mensagem: 'Gesto não detectável.', bloqueante: true });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="modal-cancelar"]')).toBeNull();
+  });
+
   it('usa alertdialog quando bloqueante e dialog quando não', () => {
     modais.abrir({ mensagem: 'x' });
     fixture.detectChanges();

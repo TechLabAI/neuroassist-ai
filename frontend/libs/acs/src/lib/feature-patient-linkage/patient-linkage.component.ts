@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnInit, Input, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.component';
@@ -27,11 +27,18 @@ import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.componen
       />
     }
 
-    <div class="mx-auto max-w-3xl p-8">
-      <header class="mb-6">
-        <h1 class="font-display text-xl font-bold text-ink">Vínculos do paciente</h1>
-        <p class="mt-1 text-sm text-ink-soft">Cuidadores autorizados a receber alertas para este paciente.</p>
-      </header>
+    <!-- 'composto' = esta superfície é um PEDAÇO de outra página (o passo de
+         vínculo do assistente de configuração), não a página inteira. Sem isto o
+         assistente ganhava um segundo <h1> e o seu próprio contêiner de largura,
+         que é exatamente a entrada que o passo de pareamento do EDGE tem pelo
+         mesmo motivo. -->
+    <div [class]="estaComposto() ? '' : 'mx-auto max-w-3xl p-8'">
+      @if (!estaComposto()) {
+        <header class="mb-6">
+          <h1 class="font-display text-xl font-bold text-ink">Vínculos do paciente</h1>
+          <p class="mt-1 text-sm text-ink-soft">Cuidadores autorizados a receber alertas para este paciente.</p>
+        </header>
+      }
 
       <!-- Coverage badge -->
       <div
@@ -164,10 +171,50 @@ export class PatientLinkageComponent implements OnInit {
   readonly facade = inject(AcsCaregiverFacade);
   private readonly route = inject(ActivatedRoute);
 
-  readonly pacienteId = signal('');
+  // POR QUE @Input() COM SETTER, E NÃO input() DE SINAL
+  //
+  // As duas entradas abaixo são a razão de este componente poder ser montado
+  // fora da própria rota, e existe teste unitário para as duas. Sob ts-jest o
+  // Angular compila em JIT, e em JIT uma entrada declarada por `input()` NÃO
+  // chega a ser registrada: `componentRef.setInput()` estoura com NG0303 — a
+  // limitação já está anotada em
+  // `libs/edge/.../connectivity-chip.component.spec.ts:206`, onde o teste da
+  // entrada foi simplesmente abandonado. Entrada não testável é entrada que
+  // ninguém percebe quando para de funcionar. O decorador registra em JIT e em
+  // AOT, e `ngComponentOutletInputs` — que é como o assistente as passa —
+  // funciona igual nos dois.
+
+  private readonly _pacienteIdEntrada = signal<string | null>(null);
+
+  /**
+   * Paciente a exibir, quando quem monta esta superfície é OUTRA página.
+   *
+   * <p>A rota /acs/pacientes/:pacienteId/vinculos continua sendo a fonte
+   * normal. O assistente de configuração, porém, monta este componente dentro
+   * de /onboarding, onde não há :pacienteId — ele passa o paciente ativo por
+   * entrada. Entrada vence rota porque só quem compõe sabe de quem se trata.
+   */
+  @Input() set pacienteId(valor: string | null) {
+    this._pacienteIdEntrada.set(valor);
+  }
+
+  private readonly _composto = signal(false);
+
+  /** Monta sem cabeçalho nem contêiner próprios — ver a nota no template. */
+  @Input() set composto(valor: boolean) {
+    this._composto.set(valor);
+  }
+
+  /** Verdadeiro quando este componente é um pedaço de outra página. */
+  readonly estaComposto = this._composto.asReadonly();
+
+  private readonly pacienteIdRota = signal('');
+
+  /** Paciente efetivo: o da entrada quando há; senão o do parâmetro de rota. */
+  readonly pacienteAlvo = computed(() => this._pacienteIdEntrada() ?? this.pacienteIdRota());
 
   /** Derived coverage for the current patient — reacts to facade's coverageMap updates. */
-  readonly coverage = computed(() => this.facade.coverageFor(this.pacienteId()));
+  readonly coverage = computed(() => this.facade.coverageFor(this.pacienteAlvo()));
 
   /** Active caregivers already linked to this patient. */
   readonly linkedCaregivers = computed(() =>
@@ -184,12 +231,12 @@ export class PatientLinkageComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('pacienteId') ?? '';
-    this.pacienteId.set(id);
+    this.pacienteIdRota.set(id);
     void this.facade.loadRoster();
   }
 
   async link(cuidadorId: string): Promise<void> {
-    await this.facade.linkToPatient(cuidadorId, this.pacienteId());
+    await this.facade.linkToPatient(cuidadorId, this.pacienteAlvo());
   }
 
   /** First click — shows inline confirmation. */
@@ -203,7 +250,7 @@ export class PatientLinkageComponent implements OnInit {
 
   /** Second click — performs actual revoke after obtaining linkId from facade. */
   async confirmRevoke(cuidadorId: string): Promise<void> {
-    const pid = this.pacienteId();
+    const pid = this.pacienteAlvo();
     const linkId = this.facade.linkIdFor(cuidadorId, pid);
     if (linkId) {
       await this.facade.revokeLink(cuidadorId, linkId, pid);

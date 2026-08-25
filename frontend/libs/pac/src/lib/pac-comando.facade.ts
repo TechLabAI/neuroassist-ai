@@ -39,6 +39,29 @@ export interface ComandoRowVM {
   readonly urgencia: ComandoUrgencia;
   readonly primitivoPrincipalNome: string;
   readonly primitivoSecundarioNome: string | null;
+  /**
+   * Ids dos primitivos, separados dos nomes de exibição.
+   *
+   * <p>Existiam só os campos `…Nome`, e o `openEdit()` copiava o NOME para o
+   * campo de ID do editor. Hoje isso é inócuo porque `_toRowVM()` guarda o id
+   * nos dois — o nome ainda não é resolvido pelo catálogo de tipos. Assim que
+   * for (o `_toRowVM` já tem o TODO), o editor passaria a mandar
+   * "Levantar sobrancelha" onde o backend espera "tg-sobrancelha". Com o botão
+   * de recalibrar ligado, esse envio deixa de ser hipotético.
+   */
+  readonly primitivoPrincipalId: string;
+  readonly primitivoSecundarioId: string | null;
+  /**
+   * Janela de tempo do gesto, vinda do backend.
+   *
+   * <p>Não aparece na linha do catálogo — está aqui porque o `openEdit()`
+   * precisa dela e a linha é a única fonte que ele recebe. Antes o editor
+   * FABRICAVA 400/1500 fixos, e `recalibrate()` manda esses dois campos no
+   * corpo: recalibrar um comando de 250/900 o reescreveria para 400/1500 sem
+   * que ninguém tivesse pedido.
+   */
+  readonly tempoMinimoGestoMs: number;
+  readonly tempoMaximoGestoMs: number;
   readonly sensibilidade: ComandoSensibilidade;
   readonly estado: ComandoEstado;
   /** ADR-005: never 'active-on-device' until EDGE ack (stub always returns 'pending-sync') */
@@ -155,11 +178,13 @@ export class PacComandoFacade {
       cid: row.id,
       rotulo: row.rotulo,
       urgencia: row.urgencia,
-      primitivoPrincipal: row.primitivoPrincipalNome,
-      primitivoSecundario: row.primitivoSecundarioNome,
+      // Ids, não nomes — ver a nota em ComandoRowVM.primitivoPrincipalId.
+      primitivoPrincipal: row.primitivoPrincipalId,
+      primitivoSecundario: row.primitivoSecundarioId,
       sensibilidade: row.sensibilidade,
-      tempoMinimoGestoMs: 400,
-      tempoMaximoGestoMs: 1500,
+      // Vindos do backend. Antes eram 400/1500 literais aqui dentro.
+      tempoMinimoGestoMs: row.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: row.tempoMaximoGestoMs,
       estado: row.estado,
       etag: row.etag,
       dirty: false,
@@ -240,10 +265,96 @@ export class PacComandoFacade {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Ciclo de vida (ADR-006): drafted → validated → published → (recalibrated ↻)
+  //                                                          → retired
+  //
+  // POR QUE O ESTADO FINAL É 'idle' E NÃO 'saved-pending-sync'
+  //
+  // 'saved-pending-sync' é o gatilho do efeito de save-then-navigate do
+  // CommandEditorComponent: ao vê-lo, a tela volta ao catálogo. É o que se quer
+  // ao SALVAR — e é exatamente o que não se quer numa transição, porque a
+  // sequência natural é validar e então publicar, no mesmo editor. Devolver ao
+  // catálogo entre as duas obrigaria a reabrir o comando para dar o passo
+  // seguinte.
+  //
+  // POR QUE CADA UMA GUARDA O ESTADO DE ORIGEM
+  //
+  // A habilitação dos botões já deriva de `estado`, mas a guarda no facade não é
+  // redundante: quem chama o facade não é só o template (há o catálogo, e haverá
+  // testes e atalhos). Um :publish sobre um comando 'drafted' devolve 422
+  // invalid-lifecycle-transition — e um erro que dá para não provocar não deve
+  // ser provocado.
+  // -------------------------------------------------------------------------
+
+  /** Validar: drafted → validated. */
+  validate(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado !== 'drafted') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.validate(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('validated', ed.cid!);
+          this.load(ed.pid);
+        },
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
+  /**
+   * Publicar: validated → published.
+   *
+   * <p>É aqui que o portão de emergência do backend dispara (SPEC-07 §4): um
+   * comando de urgência 'emergencia' cujo gesto o motor de visão não detecta
+   * volta 422 emergency-not-detectable. O `_handleSaveError` já sabe montar o
+   * modal bloqueante — o que faltava era alguém chamá-lo neste caminho. Até
+   * agora o portão só era exercido no `create`, que é onde o backend NÃO o
+   * aplica; a rigor, o gate estava desligado no produto.
+   */
+  publish(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado !== 'validated') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.publish(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('published', ed.cid!);
+          this.load(ed.pid);
+        },
+        // SPEC-07: "leave the emergency comando validated" — o `estado` do editor
+        // não é tocado no erro, então continua 'validated'.
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
   /** Recalibrate: for published commands, adjusts tuning without going back to drafted */
   recalibrate(tuning: ComandoTuning): void {
     const ed = this._editor();
-    if (!ed.cid) return;
+    if (!ed.cid || ed.estado !== 'published') return;
+    // Faltava o 'saving': sem ele os botões continuavam clicáveis durante a
+    // chamada e um duplo clique mandava dois :recalibrate com o MESMO If-Match —
+    // o segundo volta 409 conflict-precondition sobre uma operação que deu certo.
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
     from(lastValueFrom(this.port.recalibrate(ed.pid, ed.cid, tuning, ed.etag)))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -251,10 +362,54 @@ export class PacComandoFacade {
           this._editor.update((e) => ({
             ...e,
             sensibilidade: updated.sensibilidade,
+            tempoMinimoGestoMs: updated.tempoMinimoGestoMs,
+            tempoMaximoGestoMs: updated.tempoMaximoGestoMs,
+            estado: updated.estado,
             etag: updated.etag,
-            saveState: 'saved-pending-sync',
+            saveState: 'idle',
+            dirty: false,
           }));
           this.telemetry.trackLifecycleTransition('recalibrated', ed.cid!);
+          this.load(ed.pid);
+        },
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
+  /** Recalibrar a partir do editor aberto, com o tuning que está na tela. */
+  recalibrateCurrent(): void {
+    const ed = this._editor();
+    this.recalibrate({
+      sensibilidade: ed.sensibilidade,
+      tempoMinimoGestoMs: ed.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: ed.tempoMaximoGestoMs,
+    });
+  }
+
+  /**
+   * Aposentar a partir do editor aberto.
+   *
+   * <p>O `retire(pid, row)` abaixo serve o catálogo, que tem a linha em mãos. A
+   * tela do editor não tem linha nenhuma — tem o `EditorVM` —, e era por isso
+   * que não havia caminho para aposentar de dentro do editor.
+   */
+  retireCurrent(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado === 'retired') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.retire(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('retired', ed.cid!);
           this.load(ed.pid);
         },
         error: (err: unknown) => this._handleSaveError(err, ed.cid),
@@ -297,6 +452,10 @@ export class PacComandoFacade {
       // For the mock, we store the id as the name until TipoGesto names are resolved
       primitivoPrincipalNome: c.primitivoPrincipal,
       primitivoSecundarioNome: c.primitivoSecundario,
+      primitivoPrincipalId: c.primitivoPrincipal,
+      primitivoSecundarioId: c.primitivoSecundario,
+      tempoMinimoGestoMs: c.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: c.tempoMaximoGestoMs,
       sensibilidade: c.sensibilidade,
       estado: c.estado,
       syncState: 'pending-sync',  // ADR-005: always pending until EDGE ack
