@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { AppShellComponent } from './shell/app-shell.component';
 import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
 import { AUTH_ROUTES, sessaoRequeridaGuard } from '@neuroassist/shared/auth-login';
+import { acsCaregiverWriteGuard } from '@neuroassist/acs';
 // DASH — promoted by /fe-architect-promote neuroassist-ai DASH (D-494)
 
 export const appRoutes: Routes = [
@@ -13,9 +14,21 @@ export const appRoutes: Routes = [
   // Onboarding wizard — scope:web page (ACS-owned), outside shell layout
   // Protegido: o wizard cadastra cuidadora e paciente, trabalho de coordenadora
   // autenticada (docs/operacao/fluxo-e-perfis.md §2).
+  //
+  // O comentário acima já dizia "coordenadora", e a rota exigia apenas SESSÃO —
+  // e cuidadora tem sessão, e o apoio também. Qualquer pessoa autenticada
+  // alcançava o assistente que cria clínica, cuidadoras e pacientes. O menu não
+  // mostrava o caminho para quem não deve vê-lo, mas menu não é tranca: bastava
+  // digitar /onboarding.
+  //
+  // É o gêmeo do buraco que estava em /acs, e a correção é a mesma: além da
+  // sessão, a CAPACIDADE. `acsCaregiverWriteGuard` pede `acs.cuidador.write`,
+  // que o mapa traduz para `acs.cuidador.criar` — authority que só o
+  // COORDENADOR_CLINICA recebe (verificado no RoleAuthorityPolicy). É a
+  // capacidade que o próprio wizard exerce ao registrar a primeira cuidadora.
   {
     path: 'onboarding',
-    canActivate: [sessaoRequeridaGuard],
+    canActivate: [sessaoRequeridaGuard, acsCaregiverWriteGuard],
     loadComponent: () =>
       import('./pages/onboarding-wizard-page.component').then(
         (m) => m.OnboardingWizardPageComponent,

@@ -14,6 +14,7 @@ import { PacDsBadgeComponent } from '../ui/ds-badge.component';
 import { PacDsCardComponent } from '../ui/ds-card.component';
 import { PacDsButtonComponent } from '../ui/ds-button.component';
 import { PacDsKpiComponent } from '../ui/ds-kpi.component';
+import { PAC_ACCESS_DECISION } from '../access/pac-access-tokens';
 
 // ---------------------------------------------------------------------------
 // CommandCatalogComponent — SPEC-02 §1, promoted from calibracao.component.ts
@@ -54,12 +55,22 @@ import { PacDsKpiComponent } from '../ui/ds-kpi.component';
             Pendente de sincronização com o dispositivo — os comandos serão ativados no próximo heartbeat.
           </p>
         </div>
-        <a routerLink="comandos/novo">
-          <pac-ds-button>
-            <span class="material-symbols-outlined text-[18px]">add</span>
-            Novo comando
-          </pac-ds-button>
-        </a>
+        <!--
+          Sem permissão de escrever comando o link NÃO é renderizado — não é
+          escondido por CSS. Um item invisível mas presente no DOM continua
+          navegável por teclado e por leitor de tela; "escondido" não é resposta,
+          é aparência de resposta. Quem barra de verdade é o pacCommandWriteGuard
+          na rota e o backend na chamada; isto aqui é ergonomia — não oferecer
+          uma porta que vai bater na cara da pessoa.
+        -->
+        @if (podeEscreverComando()) {
+          <a routerLink="comandos/novo">
+            <pac-ds-button>
+              <span class="material-symbols-outlined text-[18px]">add</span>
+              Novo comando
+            </pac-ds-button>
+          </a>
+        }
       </header>
 
       @if (loading()) {
@@ -77,9 +88,11 @@ import { PacDsKpiComponent } from '../ui/ds-kpi.component';
                 <div class="flex flex-col items-center py-10 text-center">
                   <span class="material-symbols-outlined text-[40px] text-ink-faint">sentiment_neutral</span>
                   <p class="mt-3 text-sm text-ink-soft">Nenhum comando configurado ainda.</p>
-                  <a routerLink="comandos/novo" class="mt-4">
-                    <pac-ds-button>Adicionar primeiro comando</pac-ds-button>
-                  </a>
+                  @if (podeEscreverComando()) {
+                    <a routerLink="comandos/novo" class="mt-4">
+                      <pac-ds-button>Adicionar primeiro comando</pac-ds-button>
+                    </a>
+                  }
                 </div>
               </pac-ds-card>
             } @else {
@@ -164,6 +177,16 @@ export class CommandCatalogComponent implements OnInit {
   private readonly comandoFacade = inject(PacComandoFacade);
   private readonly tiposFacade = inject(TiposGestoReadFacade);
   private readonly pacienteFacade = inject(PacPacienteFacade);
+  private readonly acesso = inject(PAC_ACCESS_DECISION, { optional: true });
+
+  /**
+   * Pode escrever comando? Token ausente (lib montada isolada em teste) deixa
+   * passar — ver a nota em pac-access-tokens.ts. No aplicativo real o provider
+   * de app.config.ts traduz 'commandWrite' pelo PAC_PERMISSION_MAP.
+   */
+  protected readonly podeEscreverComando = computed(
+    () => this.acesso === null || this.acesso.can('commandWrite'),
+  );
 
   /** Emitted when the caregiver initiates retire — parent handles confirmation modal */
   readonly retireRequested = output<ComandoRowVM>();

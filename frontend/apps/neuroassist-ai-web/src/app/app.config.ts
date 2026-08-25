@@ -10,8 +10,19 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
 import { provideGest } from '@neuroassist/gest';
 import { provideEvnt, EventDeliveryFacade } from '@neuroassist/evnt';
-import { providePac } from '@neuroassist/pac';
-import { provideAcs, acsHttpInterceptorFn, ACS_AUTH_SESSION } from '@neuroassist/acs';
+import {
+  providePac,
+  PAC_ACCESS_DECISION,
+  PAC_AUTH_SESSION,
+  PAC_PERMISSION_MAP,
+} from '@neuroassist/pac';
+import {
+  provideAcs,
+  acsHttpInterceptorFn,
+  ACS_AUTH_SESSION,
+  ACS_ACCESS_DECISION,
+  MODULE_PERMISSION_MAP,
+} from '@neuroassist/acs';
 import { provideAuth, authBearerInterceptorFn } from '@neuroassist/shared/auth-login';
 import { AuthSessionStore } from '@neuroassist/shared/auth-session';
 import { provideEdge, EDGE_ACCESS_DECISION, EDGE_TOAST_TOKEN } from '@neuroassist/edge';
@@ -86,13 +97,71 @@ export const appConfig: ApplicationConfig = {
     // congelar o valor no momento da injeção — o que faria o guard decidir para
     // sempre com o estado do bootstrap.
     //
-    // ACS_ACCESS_DECISION segue NÃO providenciado, deliberadamente: os guards de
-    // escrita do ACS pedem `acs.cuidador.write`/`acs.vinculo.write`, e o
-    // acs-service não emite nenhuma das duas (emite `acs.cuidador.criar`,
-    // `.read`, `.desativar`). Ligar o token hoje trancaria a coordenadora para
-    // fora das telas que ela pode usar. Divergência a resolver no ACS.
+    // FIM DO "Wave-0 bypass" do ACS também na parte de PERMISSÃO.
+    //
+    // Ficou desligado enquanto os guards pediam `acs.cuidador.write` e
+    // `acs.vinculo.write` — nomes que o acs-service nunca emitiu. Ligar assim
+    // teria trancado a coordenadora fora das telas que só ela pode usar.
+    //
+    // O que faltava não era o provider: era APLICAR o `MODULE_PERMISSION_MAP`,
+    // que existe justamente para traduzir chave de tela → authority do backend e
+    // que nenhum guard consultava. Com a tradução no lugar (e duas entradas do
+    // mapa corrigidas contra o RoleAuthorityPolicy), ligar passou a ser seguro.
+    //
+    // Uma chave desconhecida NEGA. O contrário — deixar passar o que não se sabe
+    // traduzir — transforma erro de digitação em permissão concedida.
+    {
+      provide: ACS_ACCESS_DECISION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          can: (chaveDeTela: string) => {
+            const authority = (MODULE_PERMISSION_MAP as Record<string, string>)[chaveDeTela];
+            return authority === undefined ? false : sessao.pode(authority);
+          },
+        };
+      },
+    },
     {
       provide: ACS_AUTH_SESSION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          get token(): string | null {
+            return sessao.token();
+          },
+        };
+      },
+    },
+    // FIM DO "Wave-0 bypass" do PAC. Mesma história do ACS, um módulo depois:
+    // `pacAuthGuard` e `pacCommandWriteGuard` devolviam `true` incondicionalmente,
+    // com a implementação de verdade escrita em comentário logo acima do return.
+    // As duas rotas do editor de comando (/pac/comandos/novo e
+    // /pac/comandos/:id/editar, em app.routes.ts) estavam abertas a qualquer
+    // sessão — inclusive ao apoio ao paciente, que não tem nenhuma authority de
+    // escrita e cuja única capacidade é confirmar alarme.
+    //
+    // A tradução mora aqui e não no guard PORQUE o nome da authority é decisão
+    // do acs-service e já mudou duas vezes. O guard pergunta pela CAPACIDADE
+    // ('commandWrite'); o PAC_PERMISSION_MAP diz qual authority a representa
+    // hoje — e quatro das cinco entradas dele citavam nomes que não existem em
+    // lugar nenhum até serem corrigidas contra o RoleAuthorityPolicy.
+    //
+    // Chave desconhecida NEGA, como no ACS.
+    {
+      provide: PAC_ACCESS_DECISION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          can: (chaveDeTela: string) => {
+            const authority = (PAC_PERMISSION_MAP as Record<string, string>)[chaveDeTela];
+            return authority === undefined ? false : sessao.pode(authority);
+          },
+        };
+      },
+    },
+    {
+      provide: PAC_AUTH_SESSION,
       useFactory: () => {
         const sessao = inject(AuthSessionStore);
         return {

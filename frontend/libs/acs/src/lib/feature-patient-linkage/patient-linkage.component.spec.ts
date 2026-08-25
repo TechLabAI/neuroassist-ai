@@ -33,6 +33,11 @@ function makeCuidadorVm(id: string, nome = 'Test'): CuidadorVm {
 // linkIdFor tracks cuidador:patient pairs
 const linkMapSignal = signal<ReadonlyMap<string, string>>(new Map());
 
+// ADR-005: a tela passou a desenhar o modal bloqueante (cross-empresa 422 e
+// re-imposição do último-vínculo 409), então o dublê precisa expor o sinal —
+// sem ele o template estoura em todos os casos, não só nos do modal.
+const coverageModalSignal = signal<{ type: 'deactivate' | 'cross-tenant'; pacienteNome: string } | null>(null);
+
 const mockFacade = {
   loading: loadingSignal.asReadonly(),
   saving: savingSignal.asReadonly(),
@@ -47,6 +52,8 @@ const mockFacade = {
   linkIdFor: jest.fn((cuidadorId: string, pacienteId: string): string | null => {
     return linkMapSignal().get(`${cuidadorId}:${pacienteId}`) ?? null;
   }),
+  coverageModal: coverageModalSignal.asReadonly(),
+  dismissCoverageModal: jest.fn(() => coverageModalSignal.set(null)),
   loadRoster: jest.fn().mockResolvedValue(undefined),
   linkToPatient: jest.fn().mockResolvedValue(undefined),
   revokeLink: jest.fn().mockResolvedValue(undefined),

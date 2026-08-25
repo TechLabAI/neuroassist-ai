@@ -13,11 +13,26 @@ import { ACS_NAV_CONFIG } from './acs-nav-config';
 // Maps UI-level permission keys to the corresponding BE authority strings.
 // Consumed by AcsPermissionService and shell RBAC checks.
 // ---------------------------------------------------------------------------
+//
+// CADA VALOR À DIREITA FOI CONFERIDO no `RoleAuthorityPolicy` do acs-service e
+// numa resposta real de `POST /oauth2/token`. Duas entradas estavam erradas, e
+// erradas de um jeito que nada acusava — porque os guards nem consultavam este
+// mapa: comparavam a CHAVE DE TELA com as authorities do token, e chave de tela
+// nunca é uma authority. O mapa existia e não era aplicado.
+//
+//   'acs.cuidador.read' apontava para 'acs.cuidador.listar' — o backend emite
+//   'acs.cuidador.read'. A tradução invertia o sentido.
+//
+//   'acs.vinculo.write' apontava para 'acs.vinculo.criar' — o backend NÃO emite
+//   nenhuma authority 'acs.vinculo.*'. Vincular cuidadora a paciente passou a
+//   ser competência do PAC quando ficou decidido que só a coordenadora vincula:
+//   a authority é 'pac.paciente.vincular'. Apontar para um nome inexistente
+//   trancaria a coordenadora fora da tela que ela é a única a poder usar.
 export const MODULE_PERMISSION_MAP = {
   'acs.cuidador.write': 'acs.cuidador.criar',
   'acs.cuidador.deactivate': 'acs.cuidador.desativar',
-  'acs.vinculo.write': 'acs.vinculo.criar',
-  'acs.cuidador.read': 'acs.cuidador.listar',
+  'acs.vinculo.write': 'pac.paciente.vincular',
+  'acs.cuidador.read': 'acs.cuidador.read',
 } as const;
 
 // ---------------------------------------------------------------------------

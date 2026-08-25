@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, OnInit, inject, signal, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
+import { CoverageBlockModalComponent } from '../ui/coverage-block-modal.component';
 
 // =============================================================================
 // PatientLinkageComponent — SPEC-01 route /acs/pacientes/:pacienteId/vinculos
@@ -12,8 +13,20 @@ import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 @Component({
   selector: 'acs-patient-linkage',
   standalone: true,
-  imports: [],
+  imports: [CoverageBlockModalComponent],
   template: `
+    <!-- ADR-005: modal BLOQUEANTE — vinculo cross-empresa (422) e re-imposicao do
+         ultimo-vinculo (409). A facade ja emitia o sinal coverageModal nos dois
+         casos e esta tela era a unica que nao o desenhava: o roster montava o
+         modal, aqui o sinal era escrito e ninguem lia. -->
+    @if (facade.coverageModal() !== null) {
+      <acs-coverage-block-modal
+        [type]="facade.coverageModal()!.type"
+        [pacienteNome]="facade.coverageModal()!.pacienteNome"
+        (confirmed)="facade.dismissCoverageModal()"
+      />
+    }
+
     <div class="mx-auto max-w-3xl p-8">
       <header class="mb-6">
         <h1 class="font-display text-xl font-bold text-ink">Vínculos do paciente</h1>

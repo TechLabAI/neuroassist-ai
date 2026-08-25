@@ -9,31 +9,36 @@
  * TenantSetupComponent data-testid attributes are NOT available here — the wizard
  * has its own inline UI for step 1 (tenant name input + Criar button).
  *
- * INFRASTRUCTURE BLOCKERS:
+ * ESTADO DOS BLOQUEIOS (revisto — nenhum `test.fixme` restante nesta suíte).
  *
- *   BLOCKER-MOCK-ADAPTER [scenarios 2, 3, 4]:
- *     AcsTenantMockAdapter.create() always returns provisioningStatus: 'active' immediately
- *     (800ms mock timer). Cannot simulate 'provisioning' or 'failed' states.
- *     retryProvisioning() also always returns 'active'.
- *     FIX: E2E_ADAPTER=http + backend stub returning provisioning status on first call.
+ * NENHUM dos cinco bloqueios desta suíte caducou, e os cinco têm a MESMA causa:
+ * o que falta está em `apps/neuroassist-ai-web/src/app/` — o
+ * OnboardingWizardPageComponent e a declaração da rota /onboarding —, fora do
+ * escopo desta tarefa. Não é falta de gancho de teste: as facades do ACS já
+ * expõem o que a tela precisaria desenhar.
  *
- *   BLOCKER-RBAC [scenario 5]:
- *     No real access control on the onboarding wizard (no guard on /onboarding route).
+ *   2, 3, 4 — `AcsTenantFacade.provisioning()` e `retryProvisioning()` existem e
+ *             estão corretos; o wizard não desenha estado 'provisionando' nem
+ *             oferece botão de retentativa.
+ *   5       — a rota /onboarding não tem `canActivate` algum. Buraco real e
+ *             gêmeo do que /acs tinha (fechado no cenário 25 do roster): o menu
+ *             esconde o item, a URL entra assim mesmo.
+ *   6       — o passo 5 do wizard é placeholder (TODO[FE-ACS-021]); atravessa
+ *             ACS + PAC + rota de vínculo.
  *
- *   BLOCKER-DATA [scenario 6]:
- *     Registering a primary caregiver and verifying it covers the patient requires:
- *     (a) completing steps 1-5 of the wizard + (b) navigating to /acs/pacientes/:id/vinculos.
- *     Too many dependencies for a single e2e scenario in mock mode.
+ * Os cenários EXECUTAM e ficam VERMELHOS com a asserção real e a mensagem do que
+ * falta. Não troque por `skip`.
  *
  * MOCK SEED STATE:
  *   - _tenants: Família Amaral (tenant-familia-amaral, active)
  *   - Mock create() returns a new active tenant with the provided nome
- *
- * SCENARIOS EXECUTABLE with mock adapter (3 real tests): 1, 7, 8
  */
 import { test, expect, Page } from '@playwright/test';
 
-import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import {
+  scriptSemearSessao,
+  scriptSemearSessaoCuidadora,
+} from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
 
 // Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
@@ -99,28 +104,47 @@ test.describe('Tenant onboarding — provision empresa and register primary care
 
   // ── Scenario 2: Provisioning pending state ───────────────────────────────
   // BDD: "Provisioning that is not yet confirmed shows a provisioning empresa state"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER
-  test.fixme('Provisioning that is not yet confirmed shows a provisioning empresa state', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: AcsTenantMockAdapter.create() always returns provisioningStatus: 'active'.
-    // The OnboardingWizardPageComponent does not currently render a "provisioning" state for the
-    // tenant step (it only shows the input or the success state).
-    // FIX: (a) E2E_ADAPTER=http + backend returns provisioningStatus: 'provisioning' on POST, and
-    //      (b) the wizard is updated to render a pending banner when status === 'provisioning'.
+  // BLOQUEIO AINDA VALE, e a metade que importa está FORA do alcance desta
+  // mudança. VERMELHO DELIBERADO.
+  //
+  // A metade fácil é do ACS e seria uma bandeira no `AcsTenantMockAdapter` — o
+  // mesmo formato de `ACS_E2E_FLAGS`. Não foi acrescentada de propósito: seria
+  // superfície que ninguém lê, porque a metade que falta de verdade é a TELA.
+  //
+  // `AcsTenantFacade` JÁ expõe o sinal `provisioning()` (posto em `create()`
+  // quando o serviço devolve 202) e ninguém o desenha: o
+  // `OnboardingWizardPageComponent` só tem dois estados no passo 1 — o input e o
+  // nome pronto. Esse componente vive em
+  // `apps/neuroassist-ai-web/src/app/pages/onboarding-wizard-page.component.ts`,
+  // fora do escopo desta tarefa (há outro agente no PAC em paralelo).
+  test('Provisioning that is not yet confirmed shows a provisioning empresa state', async ({ page }) => {
     await openOnboarding(page);
     await page.getByPlaceholder(/nome da família ou clínica/i).fill('Pending Corp');
     await page.getByRole('button', { name: /criar/i }).click();
-    // Expect a "provisionando" or "aguardando" state indicator
-    await expect(page.getByText(/provisionando|aguardando/i)).toBeVisible({ timeout: 3000 });
+
+    // ATENÇÃO à asserção anterior, que era um FALSO VERDE esperando para
+    // acontecer: `getByText(/provisionando|aguardando/i)` casava com
+    // "Aguardando o agente reclamar o código…" do DevicePairingPageComponent, que
+    // o passo 3 do wizard monta via NgComponentOutlet. Nada a ver com
+    // provisionamento de empresa — o cenário teria passado sem a tela existir.
+    //
+    // Endereçamos um testid próprio do passo de empresa. FALHA AQUI porque essa
+    // superfície não existe.
+    await expect(
+      page.getByTestId('tenant-provisioning'),
+      'o wizard não desenha o estado provisionando; AcsTenantFacade.provisioning() existe e ninguém o lê',
+    ).toBeVisible({ timeout: 4000 });
   });
 
   // ── Scenario 3: Provisioning retry succeeds ───────────────────────────────
   // BDD: "A provisioning retry that succeeds writes the active empresa context"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER
-  test.fixme('A provisioning retry that succeeds writes the active empresa context', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: retryProvisioning() in the mock always returns 'active' immediately.
-    // The wizard does not expose a retry button in its current template (no retry UI for step 1).
-    // FIX: (a) implement retry UI in the wizard, (b) E2E_ADAPTER=http + backend returns 'active'
-    //      on retry after initial 'provisioning' response.
+  // BLOQUEIO AINDA VALE — falta TELA, não mock. VERMELHO DELIBERADO.
+  //
+  // `AcsTenantFacade.retryProvisioning()` existe e está correto (escreve o
+  // contexto de empresa quando resolve para 'active'). O que não existe é botão
+  // algum que o chame: o template do wizard não tem afordância de retentativa.
+  // O wizard está em apps/neuroassist-ai-web/src/app/pages/ — fora do escopo.
+  test('A provisioning retry that succeeds writes the active empresa context', async ({ page }) => {
     await openOnboarding(page);
     // Click retry (UI not yet implemented)
     await page.getByRole('button', { name: /tentar novamente/i }).click();
@@ -129,10 +153,10 @@ test.describe('Tenant onboarding — provision empresa and register primary care
 
   // ── Scenario 4: Provisioning retry still not active ──────────────────────
   // BDD: "A provisioning retry that is still not active shows a retryable empresa banner"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER
-  test.fixme('A provisioning retry that is still not active shows a retryable empresa banner', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: both create() and retryProvisioning() return 'active' immediately.
-    // A 'provisioning' → retry → still 'provisioning' flow requires HTTP adapter with controlled responses.
+  // BLOQUEIO AINDA VALE — soma dos dois anteriores. VERMELHO DELIBERADO.
+  // Precisa do estado 'provisioning' desenhado (cenário 2) E do botão de
+  // retentativa (cenário 3). Ambos no wizard, fora do escopo.
+  test('A provisioning retry that is still not active shows a retryable empresa banner', async ({ page }) => {
     await openOnboarding(page);
     // First attempt: still provisioning
     await page.getByPlaceholder(/nome da família ou clínica/i).fill('Retry Corp');
@@ -144,29 +168,60 @@ test.describe('Tenant onboarding — provision empresa and register primary care
 
   // ── Scenario 5: Criar empresa disabled without permission ─────────────────
   // BDD: "The criar empresa action is disabled without tenant write permission"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The criar empresa action is disabled without tenant write permission', async ({ page }) => {
-    // BLOCKER-RBAC: /onboarding has no canActivate guard. The wizard does not check
-    // ACS_ACCESS_DECISION before rendering the Criar button.
-    // FIX: add an access check to the onboarding route or wizard component for tenant write permission.
+  // BLOQUEIO AINDA VALE, e o buraco é REAL. VERMELHO DELIBERADO — fora do escopo.
+  //
+  // O menu já esconde "Configuração inicial" de quem não tem `acs.cuidador.criar`
+  // (shell/menu-trabalho.ts, §7: cadastrar é operação de coordenadora), mas a
+  // ROTA /onboarding não tem `canActivate` nenhum — é o mesmo buraco que /acs
+  // tinha e que foi fechado no cenário 25 do roster: esconder é ergonomia, quem
+  // tranca é o guard. Aqui a cuidadora ainda entra digitando a URL.
+  //
+  // Não fechei porque a rota é declarada em
+  // `apps/neuroassist-ai-web/src/app/app.routes.ts`, fora do escopo desta tarefa
+  // (há outro agente no PAC em paralelo). É o item mais fácil e mais urgente da
+  // lista de vermelhos.
+  //
+  // Nota sobre o critério: criar EMPRESA é do administrador de plataforma, não da
+  // coordenadora (fluxo-e-perfis.md §1) — nenhum papel humano com tela deveria
+  // ver este passo 1. A authority a exigir precisa ser decidida junto com isso.
+  test('The criar empresa action is disabled without tenant write permission', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoCuidadora());
     await openOnboarding(page);
-    // Without permission: Criar button must be disabled or hidden
-    await expect(page.getByRole('button', { name: /criar/i })).toBeDisabled();
+
+    // PRECISA preencher o nome antes de afirmar. Sem isto o cenário era um FALSO
+    // VERDE: o botão é `[disabled]="!tenantNome().trim() || loading()"`, ou seja,
+    // fica desabilitado por campo vazio — nada a ver com permissão. Passaria com
+    // qualquer sessão, inclusive a da coordenadora.
+    await page.getByPlaceholder(/nome da família ou clínica/i).fill('Empresa Proibida');
+
+    // FALHA AQUI: sem guard na rota, a cuidadora chega ao wizard e o botão Criar
+    // fica vivo e habilitado assim que há texto.
+    await expect(
+      page.getByRole('button', { name: /criar/i }),
+      'a rota /onboarding não tem canActivate — a cuidadora entra pela URL e provisiona empresa',
+    ).toBeDisabled();
   });
 
   // ── Scenario 6: Registering caregiver + link covers the paciente ──────────
   // BDD: "Registering the primary caregiver and linking it covers the paciente"
-  // REQUIRES: BLOCKER-DATA (multi-step cross-module flow)
-  test.fixme('Registering the primary caregiver and linking it covers the paciente', async ({ page }) => {
-    // BLOCKER-DATA: This scenario requires:
-    //   (a) Step 1: create tenant (800ms) → active
-    //   (b) Step 2: navigate to PAC to register a patient
-    //   (c) Step 5: invite caregiver via ACS
-    //   (d) Navigate to /acs/pacientes/:id/vinculos and verify coverage badge
-    // This multi-module flow is too complex for a single mock-adapter e2e test.
-    // Deferred to P9 final e2e audit or integration test with real backend.
+  // BLOQUEIO AINDA VALE. VERMELHO DELIBERADO — e aqui o marcador estava certo.
+  //
+  // O cenário atravessa três módulos (ACS cria empresa e convida, PAC cadastra
+  // paciente, ACS vincula) e termina noutra rota. Além do tamanho, o passo 5 do
+  // wizard é hoje um PLACEHOLDER: `AcsShellIntegrationService.onboardingWizardComposition()`
+  // devolve `TenantSetupComponent` no lugar do passo de vínculo, com
+  // `TODO[FE-ACS-021]: replace step 5 placeholder with real CaregiverLinkStepComponent`.
+  // O componente do passo não existe — não há o que percorrer.
+  //
+  // Além disso PAC está fora do escopo desta tarefa (outro agente em paralelo).
+  test('Registering the primary caregiver and linking it covers the paciente', async ({ page }) => {
     await openOnboarding(page);
-    // ... implementation pending cross-module integration test infrastructure
+    // FALHA AQUI: o passo 5 deveria ser a tela de vínculo do cuidador; hoje é o
+    // TenantSetupComponent remontado.
+    await expect(
+      page.getByTestId('caregiver-link-step'),
+      'passo 5 do wizard é placeholder (TODO[FE-ACS-021]) — CaregiverLinkStepComponent não existe',
+    ).toBeVisible({ timeout: 4000 });
   });
 
   // ── Scenario 7: Wizard contributes no ACS breadcrumb ─────────────────────
@@ -198,7 +253,16 @@ test.describe('Tenant onboarding — provision empresa and register primary care
     // paragraph ("O registro do paciente…"), a DevicePairingPageComponent paragraph
     // ("Conecte o agente edge ao paciente."), and the checklist span "Paciente registrado".
     await expect(page.getByRole('heading', { name: 'Paciente' })).toBeVisible();
-    await expect(page.getByText(/registro do paciente|módulo PAC/i)).toBeVisible();
+    // O passo 2 deixou de ser um parágrafo estático ("O registro do paciente é
+    // gerido pelo módulo PAC" + link para /pac) e passou a compor o
+    // `PatientRegisterComponent` do PAC de verdade. A asserção acompanha: o que
+    // prova a composição agora é a superfície de cadastro estar montada aqui, e
+    // não uma frase avisando que ela mora noutro lugar.
+    //
+    // (Aquele parágrafo era a ponta visível de um ciclo sem saída: /pac sem
+    // paciente cai no pacTenantPatientGuard → /onboarding → link → /pac. Não
+    // havia como cadastrar o primeiro paciente em lugar nenhum do produto.)
+    await expect(page.locator('pac-patient-register')).toBeVisible();
 
     // Step 3: Dispositivo edge — must be visible at the wizard level
     await expect(page.getByText('Dispositivo edge')).toBeVisible();

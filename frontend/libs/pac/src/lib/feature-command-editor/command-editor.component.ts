@@ -332,12 +332,27 @@ export class CommandEditorComponent implements OnInit {
 
       // One-shot reactive open: calls openEdit() once when the catalog has the
       // target comando. Destroyed immediately after the first successful match.
+      //
+      // O ramo `else` é o que faltava: com um comandoId que não existe, o
+      // efeito simplesmente nunca casava e a tela ficava para sempre em "Editar
+      // comando" com o formulário em branco — indistinguível de um comando de
+      // verdade cujo carregamento demorou. Uma URL inválida tem de ter destino;
+      // aqui o destino é o catálogo, que é o pai da rota.
+      //
+      // Só decide DEPOIS de `loadState() === 'loaded'`: enquanto está 'loading'
+      // ou 'idle' a ausência do comando não significa nada.
       const stopEditInit = effect(() => {
+        const carregado = this.comandoFacade.loadState() === 'loaded';
         const row = this.comandoFacade.catalog().find((r) => r.id === cid);
         if (row) {
           untracked(() => {
             this.comandoFacade.openEdit(pid, row);
             stopEditInit.destroy();
+          });
+        } else if (carregado) {
+          untracked(() => {
+            stopEditInit.destroy();
+            this.router.navigate(['/pac']);
           });
         }
       }, { injector: this.injector });

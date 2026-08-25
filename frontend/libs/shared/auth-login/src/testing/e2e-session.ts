@@ -1,5 +1,9 @@
 import type { TokenResponse } from '@neuroassist/shared/auth-session';
-import { RESPOSTA_TOKEN_COORD, RESPOSTA_TOKEN_CUIDADORA } from './token-fixtures';
+import {
+  RESPOSTA_TOKEN_COORD,
+  RESPOSTA_TOKEN_CUIDADORA,
+  RESPOSTA_TOKEN_APOIO,
+} from './token-fixtures';
 
 // =============================================================================
 // Semear sessão nos testes de ponta a ponta.
@@ -79,6 +83,25 @@ export function scriptSemearSessaoCuidadora(validoPorSegundos = 3600): string {
     sessionStorage.setItem(${JSON.stringify(STORAGE_KEY)}, ${JSON.stringify(
       conteudoSessaoSemeada(validoPorSegundos, RESPOSTA_TOKEN_CUIDADORA),
     )});
+  } catch { /* sessionStorage bloqueado: o teste falha no guard, e isso é informação */ }
+})()`;
+}
+
+/**
+ * Script que semeia uma sessão de APOIO AO PACIENTE.
+ *
+ * <p>Para os cenários cuja regra é a AUSÊNCIA de permissão de escrita no PAC. A
+ * cuidadora não serve: ela escreve e publica comando — ver a nota da fixture em
+ * token-fixtures.ts. O apoio não tem `pac.catalogo-ativo.read` nem
+ * `pac.comando-authoring.criar`, que são exatamente as duas capacidades que os
+ * cenários de RBAC do PAC afirmam estar ausentes.
+ */
+export function scriptSemearSessaoApoio(validoPorSegundos = 3600): string {
+  return `(() => {
+  try {
+    sessionStorage.setItem(${JSON.stringify(STORAGE_KEY)}, ${JSON.stringify(
+    conteudoSessaoSemeada(validoPorSegundos, RESPOSTA_TOKEN_APOIO),
+  )});
   } catch { /* sessionStorage bloqueado: o teste falha no guard, e isso é informação */ }
 })()`;
 }

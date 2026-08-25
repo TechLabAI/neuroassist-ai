@@ -40,6 +40,14 @@ export { CommandEditorComponent } from './lib/feature-command-editor/command-edi
 // Route guards — exported so scope:web can compose its own route definitions
 // around CommandEditorComponent (e.g. the [slot=live-test] host wrapper) while
 // still enforcing the same access rules PAC_ROUTES applies internally.
+// Tokens de acesso — app.config.ts (scope:web) providencia os dois; sem isso os
+// guards abaixo deixam passar por falta de quem consultar. Ver pac-access-tokens.ts.
+export { PAC_AUTH_SESSION, PAC_ACCESS_DECISION } from './lib/access/pac-access-tokens';
+export type { PacAuthSession, PacAccessDecision } from './lib/access/pac-access-tokens';
+// PAC_PERMISSION_MAP — a tradução chave de tela → authority do acs-service.
+// Exportado porque quem traduz é o provider em app.config.ts, não a lib.
+export { PAC_PERMISSION_MAP } from './lib/pac.descriptor';
+
 export { pacAuthGuard } from './lib/access/pac-auth.guard';
 export { pacTenantPatientGuard } from './lib/access/pac-tenant-patient.guard';
 export { pacCommandWriteGuard } from './lib/access/pac-command-write.guard';

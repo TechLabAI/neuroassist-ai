@@ -133,8 +133,21 @@ export class AcsCaregiverFacade {
       this._caregivers.update((list) =>
         list.map((c) => (c.id === id ? vm : c)),
       );
+      // Re-deriva a cobertura: quem acabou de ser desativado deixa de contar como
+      // cobertura, e a pré-checagem D-204 da PRÓXIMA desativação lê exatamente
+      // este mapa. Sem isto ele ficava com o estado de antes da desativação — a
+      // barreira de segurança decidindo sobre dados vencidos.
+      await this._refreshCoverageMap(this._caregivers().filter((c) => c.isActive));
       this.telemetry.trackDeactivateSuccess(id);
-    } catch (err) {
+    } catch (err: unknown) {
+      const status = err instanceof Object && 'status' in err ? (err as { status: number }).status : 0;
+      if (status === 409) {
+        // Re-imposição pelo backend (D-204): a pré-checagem da UI deixou passar —
+        // mapa de cobertura vencido, ou vínculo mudado por outra pessoa desde a
+        // última leitura — e o serviço recusou. Mesmo modal bloqueante da
+        // pré-checagem: para quem usa, é a mesma regra.
+        this._showCoverageModal.set({ type: 'deactivate', pacienteNome: id });
+      }
       this._error.set(err instanceof Error ? err.message : 'Erro ao desativar cuidador');
       this.telemetry.trackDeactivateError();
     } finally {
@@ -154,8 +167,27 @@ export class AcsCaregiverFacade {
       await lastValueFrom(this.linkPort.link(cuidadorId, pacienteId));
       // Refresh coverage for the affected patient
       await this._refreshCoverageForPatient(pacienteId);
-    } catch (err) {
-      this._error.set(err instanceof Error ? err.message : 'Erro ao vincular cuidador ao paciente');
+    } catch (err: unknown) {
+      const status = err instanceof Object && 'status' in err ? (err as { status: number }).status : 0;
+
+      // 422 — cuidador e paciente de empresas diferentes. O acs-service estoura
+      // `CrossTenantLinkException`, que o GlobalExceptionHandler converte em 422
+      // (não 409, que é a família do último-vínculo). ADR-005 pede modal
+      // BLOQUEANTE aqui: é violação de fronteira de empresa, não um erro de
+      // digitação — uma faixa de erro que some sozinha não serve.
+      if (status === 422) {
+        this._error.set('Cuidador e paciente pertencem a empresas diferentes — vínculo não permitido.');
+        this._showCoverageModal.set({ type: 'cross-tenant', pacienteNome: pacienteId });
+      } else {
+        this._error.set(err instanceof Error ? err.message : 'Erro ao vincular cuidador ao paciente');
+      }
+
+      // RE-DERIVA a cobertura mesmo depois do erro, e é deliberado: um vínculo que
+      // falhou não diz em que estado o servidor ficou (o 500 pode ter gravado
+      // antes de estourar). Manter o mapa anterior seria afirmar sobre cobertura
+      // — invariante de segurança — a partir de um palpite. Antes daqui o `catch`
+      // só escrevia a mensagem e deixava o mapa velho no lugar.
+      await this._refreshCoverageForPatient(pacienteId);
     } finally {
       this._saving.set(false);
     }

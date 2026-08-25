@@ -20,12 +20,22 @@ describe('MODULE_PERMISSION_MAP — FE-ACS-001', () => {
     expect(MODULE_PERMISSION_MAP['acs.cuidador.deactivate']).toBe('acs.cuidador.desativar');
   });
 
-  it("'acs.vinculo.write' maps to 'acs.vinculo.criar'", () => {
-    expect(MODULE_PERMISSION_MAP['acs.vinculo.write']).toBe('acs.vinculo.criar');
+  // Estes dois casos fixavam o LADO ERRADO da divergência: afirmavam
+  // 'acs.vinculo.criar' e 'acs.cuidador.listar', nomes que o acs-service nunca
+  // emitiu. Enquanto os guards não consultavam o mapa, o teste ficava verde
+  // guardando valores que não existiam em lugar nenhum — um catálogo fixado
+  // inline contendo a própria divergência que deveria detectar.
+  //
+  // Os valores abaixo estão conferidos no RoleAuthorityPolicy do acs-service:
+  //   - vincular cuidadora a paciente virou competência do PAC (fluxo-e-perfis
+  //     §6, "as duas portas do vínculo"), logo `pac.paciente.vincular`;
+  //   - a listagem de cuidadores é `acs.cuidador.read`, e não `.listar`.
+  it("'acs.vinculo.write' maps to 'pac.paciente.vincular'", () => {
+    expect(MODULE_PERMISSION_MAP['acs.vinculo.write']).toBe('pac.paciente.vincular');
   });
 
-  it("'acs.cuidador.read' maps to 'acs.cuidador.listar'", () => {
-    expect(MODULE_PERMISSION_MAP['acs.cuidador.read']).toBe('acs.cuidador.listar');
+  it("'acs.cuidador.read' maps to 'acs.cuidador.read'", () => {
+    expect(MODULE_PERMISSION_MAP['acs.cuidador.read']).toBe('acs.cuidador.read');
   });
 
   it('has exactly 4 entries', () => {

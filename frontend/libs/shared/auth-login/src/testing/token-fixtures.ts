@@ -112,3 +112,39 @@ export const RESPOSTA_TOKEN_CUIDADORA: TokenResponse = {
     'hist:read',
   ],
 };
+
+/**
+ * Sessão de APOIO AO PACIENTE — o terceiro papel do `CuidadorPapel`.
+ *
+ * <p>Existe porque a CUIDADORA não serve para provar ausência de escrita no PAC:
+ * ela tem `pac.comando-authoring.criar` e `pac.comando-lifecycle.publicar` — a
+ * única coisa do PAC que ela não tem é `pac.paciente.criar` (cadastrar paciente
+ * é da coordenadora). Usar a cuidadora nos cenários de "sem permissão de
+ * escrever comando" produziria um verde que não prova nada, porque ela PODE.
+ *
+ * <p>O apoio é o último degrau do escalonamento (ADR-011): recebe o alarme quando
+ * ninguém mais atendeu e pode confirmá-lo. Nenhuma authority de escrita sobre
+ * paciente, comando, cuidadora ou dispositivo — e nem `pac.catalogo-ativo.read`,
+ * que é o que decide se o item "Comandos do paciente" aparece no menu.
+ *
+ * <p>Lista recopiada VERBATIM do `RoleAuthorityPolicy.AUTHORITY_MAP`
+ * (CuidadorPapel.PACIENTE_APOIO) do acs-service em 2026-08-25. Repare que ele
+ * não tem sequer `ROLE_CAREGIVER`.
+ */
+export const RESPOSTA_TOKEN_APOIO: TokenResponse = {
+  accessToken: 'eyJhbGciOiJSUzI1NiJ9.fixture-access-apoio.assinatura',
+  refreshToken: 'eyJhbGciOiJSUzI1NiJ9.fixture-refresh-apoio.assinatura',
+  tokenType: 'Bearer',
+  expiresIn: 900,
+  tenant: 'e2e00000-0000-0000-0000-000000000001',
+  sub: 'e2e00000-0000-0000-0000-000000000012',
+  papel: 'PACIENTE_APOIO',
+  nome: 'Apoio Dev',
+  authorities: [
+    'acs.directory.read',
+    'dash.panel-composition.read',
+    'hist:read',
+    'evnt.event-confirmation.confirmar',
+    'evnt.event-query.read',
+  ],
+};

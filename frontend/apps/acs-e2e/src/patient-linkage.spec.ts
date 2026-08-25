@@ -11,33 +11,42 @@
  *   pac-outro:  covered by Maria only (enables last-covering ADR-005 block scenario)
  *   pac-novo:   no links at all (enables "link a candidate" and "sem cobertura" scenarios)
  *
- * INFRASTRUCTURE BLOCKERS (remaining — do not remove these markers):
+ * ESTADO DOS BLOQUEIOS (revisto — nenhum `test.fixme` restante nesta suíte).
  *
- *   BLOCKER-MOCK-ADAPTER [scenarios 8, 9]:
- *     In-memory link mock does not make HTTP calls. page.route() cannot intercept.
- *     FIX: E2E_ADAPTER=http.
+ * Todos os cenários EXECUTAM. Os que não podem passar hoje ficam VERMELHOS de
+ * propósito, com a asserção real do BDD e uma mensagem dizendo o que falta.
+ * Não troque por `skip`.
  *
- *   BLOCKER-P8 [scenario 4]:
- *     Cross-empresa blocking modal (ADR-005) is a P8 deliverable.
- *     The facade does not yet emit a coverageModal signal for cross-tenant violations.
+ *   CADUCARAM (agora verdes):
+ *     4  — P8: o modal existe; faltava a facade emitir 'cross-tenant' e ESTA tela
+ *          desenhar o modal (o roster desenhava, esta não). DATA: a cuidadora de
+ *          outra empresa entra pela bandeira `crossEmpresa`.
+ *     9  — não era preciso adaptador HTTP: bandeira de localStorage, como as que
+ *          já existiam. E a facade não re-derivava a cobertura após erro —
+ *          corrigido.
+ *     12 — RBAC vale: 'acs.vinculo.write' → `pac.paciente.vincular`, que a
+ *          cuidadora não tem.
  *
- *   BLOCKER-RBAC [scenarios 11, 12]:
- *     acsLinkWriteGuard has Wave-0 bypass (returns true when ACS_ACCESS_DECISION is null).
+ *   AINDA BLOQUEADOS (vermelhos deliberados — ver o comentário de cada um):
+ *     8  — sem pré-checagem de UI no desvínculo, "guard contornado" e "caminho
+ *          normal" são a mesma execução; hoje é duplicata do cenário 7.
+ *     11 — inalcançável: a authority que desabilitaria os botões já barra a rota.
  *
- *   BLOCKER-DATA [scenario 10 — resolved; scenario 5 — resolved]:
- *     Scenario 5 (resolved): AcsLinkMockAdapter.link() now validates pacienteId against
- *       _knownPatientIds set. Linking to 'pac-unknown' throws a 404-equivalent error,
- *       which AcsCaregiverFacade.linkToPatient() catches and sets error() → linkage-error.
- *     Scenario 10 (resolved): seed now includes cuid-inativo (inactive) + link-inativo
- *       (cuid-inativo → pac-inativo-linked). _refreshCoverageMap() skips inactive caregivers,
- *       so pac-inativo-linked has no coverage → sem-cobertura. No cross-page state needed.
- *
- * SCENARIOS EXECUTABLE with mock adapter (7 real tests): 1, 2, 3, 5, 6, 7, 10
+ * As bandeiras de e2e vêm de `@neuroassist/acs/testing` (ACS_E2E_FLAGS) — o
+ * literal mora num lugar só.
  */
 import { test, expect, Page } from '@playwright/test';
 
-import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import {
+  scriptSemearSessao,
+  scriptSemearSessaoCuidadora,
+} from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+import {
+  ACS_E2E_FLAGS,
+  ACS_E2E_CUIDADORA_OUTRA_EMPRESA,
+  scriptLigarBandeirasAcs,
+} from '@neuroassist/acs/testing';
 
 // Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
 // qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
@@ -140,17 +149,53 @@ test.describe('Patient linkage — link, unlink and coverage invariant', () => {
 
   // ── Scenario 4: Cross-empresa link blocked ────────────────────────────────
   // BDD: "Linking a cuidador from a different empresa is blocked with a blocking modal"
-  // REQUIRES: BLOCKER-P8 (cross-empresa modal) + BLOCKER-DATA (cross-empresa cuidador in seed)
-  test.fixme('Linking a cuidador from a different empresa is blocked with a blocking modal', async ({ page }) => {
-    // BLOCKER-P8: CoverageBlockingModal for cross-tenant violations is a P8 deliverable.
-    //   facade.coverageModal signal does not yet handle cross-empresa case.
-    // BLOCKER-DATA: no mock cuidador from a different empresa in seed.
-    // FIX: add mock cuidador with tenantId='tenant-other' + implement P8 modal.
+  // DESTRAVADO — os dois bloqueios caducaram, e faltava uma terceira coisa que o
+  // marcador não mencionava.
+  //
+  //   BLOCKER-P8 caducou: `CoverageBlockModalComponent` existe e já trata
+  //     `type='cross-tenant'` (a mensagem sobre empresas diferentes está lá desde
+  //     sempre). O que faltava: a facade nunca emitia esse tipo, e ESTA TELA nem
+  //     desenhava o modal — o roster montava, a de vínculos não. Ambos corrigidos.
+  //   BLOCKER-DATA caducou: a cuidadora forasteira entra pela bandeira
+  //     `crossEmpresa` (atrás de bandeira porque o elenco base é afirmado por
+  //     contagem em seis cenários já verdes).
+  //
+  // O status é 422 e não 409: o acs-service estoura `CrossTenantLinkException`, e
+  // o GlobalExceptionHandler a mapeia para 422 — conferido no produtor, não
+  // suposto.
+  test('Linking a cuidador from a different empresa is blocked with a blocking modal', async ({ page }) => {
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.crossEmpresa));
     await openLinkage(page, 'pac-marcio');
-    // Click "Vincular" for the cross-empresa cuidador
-    await page.click('[data-testid="link-caregiver-btn"]');
-    // Expect blocking modal
-    await expect(page.locator('[role="alertdialog"]')).toBeVisible({ timeout: 3000 });
+
+    // pac-marcio já tem Jamilly e Maria vinculadas, então a ÚNICA linha em
+    // "Disponíveis para vincular" é a forasteira. Ainda assim escopamos pelo
+    // nome: um clique no primeiro botão que aparecer mediria outra coisa se a
+    // semente mudar.
+    const forasteira = page
+      .locator('[data-testid="unlinked-caregiver-row"]')
+      .filter({ hasText: ACS_E2E_CUIDADORA_OUTRA_EMPRESA.nome });
+    await expect(forasteira).toHaveCount(1);
+    await forasteira.getByTestId('link-caregiver-btn').click();
+
+    // Modal BLOQUEANTE (role=alertdialog), com a mensagem de empresas diferentes.
+    const modal = page.getByTestId('coverage-block-modal');
+    await expect(modal).toBeVisible({ timeout: 4000 });
+    await expect(modal).toHaveAttribute('role', 'alertdialog');
+    await expect(modal).toContainText(/empresas diferentes/i);
+
+    // Bloqueante de verdade: não fecha por Esc nem por clique fora — só no CTA.
+    await page.keyboard.press('Escape');
+    await expect(modal).toBeVisible();
+    await page.mouse.click(5, 5);
+    await expect(modal).toBeVisible();
+    await page.getByTestId('coverage-modal-confirm-btn').click();
+    await expect(modal).toHaveCount(0);
+
+    // E o vínculo NÃO aconteceu.
+    await expect(
+      page.locator('[data-testid="linked-caregiver-row"]')
+        .filter({ hasText: ACS_E2E_CUIDADORA_OUTRA_EMPRESA.nome }),
+    ).toHaveCount(0);
   });
 
   // ── Scenario 5: Unknown paciente reference ────────────────────────────────
@@ -232,27 +277,70 @@ test.describe('Patient linkage — link, unlink and coverage invariant', () => {
 
   // ── Scenario 8: Bypassed guard re-enforced by backend on unlink ───────────
   // BDD: "A bypassed last-covering guard is re-enforced by the backend on unlink"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER + BLOCKER-P8
-  test.fixme('A bypassed last-covering guard is re-enforced by the backend on unlink', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: mock revoke() throws a JS error (not an HTTP 409 response).
-    //   The backend re-enforcement scenario requires real HTTP 409 from acs-service.
-    // BLOCKER-P8: the pre-flight UI block (modal) is not yet implemented.
-    // FIX: E2E_ADAPTER=http + backend running → bypass modal → backend 409 → error banner.
-    await openLinkage(page, 'pac-marcio');
-    // ... implementation pending both blockers
+  // BLOQUEIO PARCIALMENTE CADUCO. VERMELHO DELIBERADO — pelo mesmo motivo do
+  // cenário 22 do roster, e vale ler os dois juntos.
+  //
+  //   BLOCKER-P8 caducou: o modal existe e esta tela passou a desenhá-lo.
+  //   O marcador também estava factualmente errado ao dizer que o mock "não
+  //     devolve 409": ele já estoura `{status:409, type:'/errors/last-covering-caregiver'}`
+  //     desde a onda P7, e o cenário 7 (VERDE) prova a propagação dessa recusa.
+  //
+  // O que sobra é a palavra BYPASSED. No caminho de desvínculo não existe
+  // pré-checagem na UI — a chamada vai ao adaptador e a recusa vem de lá —, então
+  // "guard contornado" e "caminho normal" são a MESMA execução, e é o cenário 7
+  // que já a cobre. Este cenário só passa a ter conteúdo próprio quando houver
+  // uma pré-checagem local de desvínculo para contornar (a de desativação existe;
+  // a de desvínculo não). Enquanto não houver, é duplicata do 7 disfarçada.
+  test('A bypassed last-covering guard is re-enforced by the backend on unlink', async ({ page }) => {
+    await openLinkage(page, 'pac-outro');
+
+    // Maria é a única a cobrir pac-outro. Sem pré-checagem local, o pedido sai.
+    const maria = page.locator('[data-testid="linked-caregiver-row"]').filter({ hasText: 'Maria Santos' });
+    await maria.getByTestId('revoke-link-btn').click();
+    await page.click('[data-testid="confirm-revoke-btn"]');
+    await expect(page.getByTestId('linkage-error')).toBeVisible({ timeout: 4000 });
+
+    // FALHA AQUI: para haver "re-imposição de um guard contornado" é preciso que
+    // exista um guard local a contornar. No desvínculo não existe.
+    const temPreChecagemLocal = await page.getByTestId('revoke-preflight-block').count();
+    expect(
+      temPreChecagemLocal,
+      'não há pré-checagem de UI no desvínculo para ser contornada — este cenário é hoje indistinguível do cenário 7',
+    ).toBeGreaterThan(0);
   });
 
   // ── Scenario 9: Link or unlink error re-fetches coverage ─────────────────
   // BDD: "A link or unlink error re-fetches and re-derives the paciente coverage"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER
-  test.fixme('A link or unlink error re-fetches and re-derives the paciente coverage', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: cannot simulate a network error on link/unlink with in-memory mock.
-    // FIX: E2E_ADAPTER=http + intercept POST /v1/acs/links → 500 → expect coverage re-derived.
+  // DESTRAVADO — o bloqueio tinha caducado: não é preciso adaptador HTTP para
+  // simular falha de rede, é a mesma bandeira de localStorage que já destravava
+  // `falhaListar` e `falhaCriar`. Acrescentada `falhaVincular` no mesmo formato.
+  //
+  // E destravar mostrou que a app NÃO fazia o que o cenário afirma: o `catch` de
+  // `linkToPatient` só escrevia a mensagem e deixava o mapa de cobertura anterior
+  // no lugar. Corrigido na facade — depois de um vínculo que falhou não se sabe
+  // em que estado o servidor ficou, e cobertura é invariante de segurança para se
+  // afirmar por palpite.
+  test('A link or unlink error re-fetches and re-derives the paciente coverage', async ({ page }) => {
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.falhaVincular));
     await openLinkage(page, 'pac-novo');
-    await page.click('[data-testid="link-caregiver-btn"]');
-    await expect(page.getByTestId('linkage-error')).toBeVisible({ timeout: 3000 });
-    // Coverage must be re-derived after error (re-fetched from current state)
-    await expect(page.getByTestId('coverage-badge')).toBeVisible();
+
+    // pac-novo começa sem cobertura.
+    await expect(page.getByTestId('coverage-badge')).toContainText(/sem cobertura/i);
+
+    const jamilly = page.locator('[data-testid="unlinked-caregiver-row"]').filter({ hasText: 'Jamilly Amaral' });
+    await jamilly.getByTestId('link-caregiver-btn').click();
+
+    // 500 do mock → faixa de erro.
+    await expect(page.getByTestId('linkage-error')).toBeVisible({ timeout: 4000 });
+
+    // E a cobertura foi RE-DERIVADA a partir do estado real do servidor: o
+    // vínculo não existe, então continua sem cobertura e Jamilly segue do lado de
+    // fora. Sem a correção na facade o mapa ficaria intacto — que aqui daria o
+    // mesmo resultado por acaso —, então afirmamos também que a linha NÃO migrou
+    // para a seção de vinculados, que é o que uma escrita otimista órfã faria.
+    await expect(page.getByTestId('coverage-badge')).toContainText(/sem cobertura/i);
+    await expect(page.locator('[data-testid="linked-caregiver-row"]')).toHaveCount(0);
+    await expect(jamilly).toHaveCount(1);
   });
 
   // ── Scenario 10: Inactive caregiver excluded from coverage ───────────────
@@ -274,24 +362,51 @@ test.describe('Patient linkage — link, unlink and coverage invariant', () => {
 
   // ── Scenario 11: Actions disabled without vinculo write permission ─────────
   // BDD: "The vincular and desvincular actions are disabled without vinculo write permission"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The vincular and desvincular actions are disabled without vinculo write permission', async ({ page }) => {
-    // BLOCKER-RBAC: acsLinkWriteGuard has Wave-0 bypass. Without real access control,
-    // vincular/desvincular buttons are always visible and enabled.
-    await openLinkage(page, 'pac-marcio');
-    // Without write permission: buttons must not be interactive
-    await expect(page.getByTestId('revoke-link-btn')).toBeDisabled();
+  // BLOQUEIO CADUCOU, MAS O CENÁRIO FICOU IMPOSSÍVEL. VERMELHO DELIBERADO.
+  // Mesma forma do cenário 24 do roster — vale ler os dois juntos.
+  //
+  // O RBAC passou a valer: `acsLinkWriteGuard` consulta 'acs.vinculo.write', que o
+  // MODULE_PERMISSION_MAP traduz para `pac.paciente.vincular` (vincular virou
+  // competência do PAC quando ficou decidido que só a coordenadora vincula —
+  // fluxo-e-perfis.md §6). E ao passar a valer tornou ESTE cenário inalcançável:
+  // a mesma authority que desabilitaria os botões já barra a ROTA (cenário 12).
+  // Quem não pode vincular nunca vê a tela; quem vê a tela pode vincular.
+  //
+  // Não há terceiro estado, e fabricá-lo exigiria destrancar a rota — regressão
+  // real, e o cenário 12 existe justamente para provar a tranca. Fica vermelho
+  // até que exista um papel com leitura de vínculo sem escrita.
+  test('The vincular and desvincular actions are disabled without vinculo write permission', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoCuidadora());
+    await page.goto('/acs/pacientes/pac-marcio/vinculos');
+
+    // Redirecionada: não há botão a inspecionar. `toBeDisabled()` num locator
+    // vazio falha — e falha dizendo a verdade sobre o estado inalcançável.
+    await expect(
+      page.getByTestId('revoke-link-btn'),
+      'sem pac.paciente.vincular a cuidadora nem chega à tela (acsLinkWriteGuard barra a rota) — nenhum papel alcança "tela visível + ações inertes"',
+    ).toBeDisabled({ timeout: 4000 });
   });
 
   // ── Scenario 12: Patient linkage route blocked without permission ──────────
   // BDD: "The patient linkage route is blocked without vinculo write permission"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The patient linkage route is blocked without vinculo write permission', async ({ page }) => {
-    // BLOCKER-RBAC: acsLinkWriteGuard returns true in Wave-0 (no real access decision service).
-    // FIX: provide ACS_ACCESS_DECISION with { can: () => false } → guard redirects to '/'.
+  // DESTRAVADO — o BLOCKER-RBAC caducou. `ACS_ACCESS_DECISION` está providenciado
+  // em app.config.ts e o `acsLinkWriteGuard` passou a consultar de verdade:
+  // 'acs.vinculo.write' → `pac.paciente.vincular`, que a cuidadora não tem.
+  //
+  // Sessão de cuidadora de verdade, nunca um flag inventado: o produto decide
+  // pelas authorities do token, então é o token que precisa ser outro.
+  test('The patient linkage route is blocked without vinculo write permission', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoCuidadora());
     await page.goto('/acs/pacientes/pac-marcio/vinculos');
-    // Non-authorized user should be redirected away
-    await expect(page).not.toHaveURL(/vinculos/, { timeout: 3000 });
+
+    await expect(page).not.toHaveURL(/vinculos/, { timeout: 4000 });
+    await expect(page.getByTestId('coverage-badge')).toHaveCount(0);
+
+    // Contraprova: a MESMA rota abre para a coordenadora (a do beforeEach). Sem
+    // isto o cenário passaria também se a rota estivesse quebrada para todos.
+    await page.addInitScript(scriptSemearSessao());
+    await page.goto('/acs/pacientes/pac-marcio/vinculos');
+    await expect(page.getByTestId('coverage-badge')).toBeVisible({ timeout: 6000 });
   });
 
   // ── Scenario 13: Cancel revoke clears confirmation state ─────────────────

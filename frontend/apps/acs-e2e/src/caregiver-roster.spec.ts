@@ -4,43 +4,48 @@
  * 25 scenarios — ACS P7 implementation
  * Gate: A5 e2e-validate. Prototype-first (D-484).
  *
+ * ESTADO DOS BLOQUEIOS (revisto — nenhum `test.fixme` restante nesta suíte).
+ *
+ * Todos os cenários EXECUTAM. Os que não podem passar hoje ficam VERMELHOS de
+ * propósito, com a asserção real do BDD e uma mensagem dizendo o que falta —
+ * vermelho honesto em vez de verde falso. Não troque por `skip`.
+ *
+ *   CADUCARAM (agora verdes):
+ *     8  — o mock não impunha login único; o acs-service impõe (409
+ *          LoginDuplicateException). Corrigido o mock, não a asserção.
+ *     23 — RBAC vale: ACS_ACCESS_DECISION providenciado + MODULE_PERMISSION_MAP
+ *          aplicado. Sessão de cuidadora de verdade, nunca flag.
+ *     25 — idem; e destravar revelou que a rota /acs não tinha tranca nenhuma.
+ *          Corrigido em libs/acs/src/lib/acs.routes.ts.
+ *
+ *   AINDA BLOQUEADOS (vermelhos deliberados — ver o comentário de cada um):
+ *     7  — `Idempotency-Key` não existe no acs-service. Implementá-lo no
+ *          frontend seria inventar contrato. Decisão pendente no backend.
+ *     15 — não falta gancho, falta a funcionalidade: não há endpoint nem caminho
+ *          de edição de cuidador (TODO[FE-ACS-012]) e não há escrita otimista.
+ *     17 — a facade é providedIn:'root' e não tem reset/ngOnDestroy; nada zera
+ *          sinal nem aborta requisição em voo.
+ *     22 — a pré-checagem da UI sempre dispara antes do adaptador; não há
+ *          afordância de tela que produza o bypass que o cenário afirma.
+ *     24 — tornou-se inalcançável: nenhum papel lê o roster sem poder escrever
+ *          nele (ver o comentário do cenário).
+ *
  * MOCK SEED STATE (P7 wave — extended):
  *   _cuidadores: Jamilly Amaral (cuid-jamilly, active) + Maria Santos (cuid-maria, active)
  *   _links: link-001 (Jamilly→pac-marcio), link-002 (Maria→pac-marcio), link-003 (Maria→pac-outro)
  *
- * INFRASTRUCTURE BLOCKERS (remaining — do not remove these markers):
- *
- *   BLOCKER-MOCK-ADAPTER [scenarios 7, 8, 15, 22]:
- *     In-memory mock adapter does not make HTTP calls. page.route() cannot intercept
- *     timer-based Observables. Idempotency-key and optimistic-rollback scenarios require
- *     the app in HTTP-adapter mode (E2E_ADAPTER=http). Scenario 2 (loading state) was
- *     unblocked by observing the 400ms mock-timer window without HTTP interception.
- *     Scenarios 3 and 12 were unblocked via page.addInitScript localStorage flags
- *     (__ACS_E2E_LIST_FAIL__ / __ACS_E2E_CREATE_FAIL__) that instruct the mock adapter
- *     to throw without needing HTTP interception.
- *
- *   BLOCKER-RBAC [scenarios 23, 24, 25]:
- *     acsCoordinatorGuard, acsCaregiverWriteGuard have Wave-0 bypass — inject(ACS_AUTH_SESSION,
- *     { optional: true }) returns null → guard returns true unconditionally. RBAC enforcement
- *     requires ACS_AUTH_SESSION + ACS_ACCESS_DECISION to be provided with real values before
- *     route evaluation. FIX: wire real AccessDecisionService (P9 scope).
- *
- *   BLOCKER-P8 [scenarios 21, 22]:
- *     CoverageBlockingModal (ADR-005) is not yet implemented — that is FE-ACS-P8 scope.
- *     Deactivating the last covering caregiver currently calls the adapter (which succeeds for mock)
- *     without a pre-flight UI block. Scenarios 21/22 require the P8 modal to be wired.
- *
- *   BLOCKER-SPA-STATE [scenario 17]:
- *     Bootstrap destroy timing is internal Angular lifecycle. Requires precise interception of
- *     in-flight requests at the ngOnDestroy hook — not observable via DOM assertions alone.
- *
- * SCENARIOS EXECUTABLE with mock adapter (16 real tests):
- *   1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 16, 18, 19, 20  (marked test())
+ * As bandeiras de e2e vêm de `@neuroassist/acs/testing` (ACS_E2E_FLAGS) — o
+ * literal mora num lugar só, porque quem escreve (suíte) e quem lê (mock)
+ * precisam concordar e antes cada lado tinha a sua cópia digitada à mão.
  */
 import { test, expect, Page } from '@playwright/test';
 
-import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import {
+  scriptSemearSessao,
+  scriptSemearSessaoCuidadora,
+} from '@neuroassist/shared/auth-login/testing';
 import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+import { ACS_E2E_FLAGS, scriptLigarBandeirasAcs } from '@neuroassist/acs/testing';
 
 // Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
 // qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
@@ -126,9 +131,7 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
     // do Angular é corrida: contra o build de produção (container) o dado já
     // tinha chegado quando o teste ia olhar, e o cenário reprovava sem que nada
     // estivesse errado. A bandeira alonga a espera do mock A PEDIDO deste teste.
-    await page.addInitScript(() => {
-      localStorage.setItem('__ACS_E2E_SLOW_LIST__', 'true');
-    });
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.listaLenta));
     await page.reload();
     await page.waitForSelector('[data-testid="roster-loading"]', { timeout: 4000 });
     // Com a bandeira a espera é de 3s, então o prazo aqui tem de ser maior que ela.
@@ -143,9 +146,7 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
   // and throws, causing AcsCaregiverFacade.loadRoster() to set error() → roster-error visible.
   test('A failed roster load shows an error roster state with a retry', async ({ page }) => {
     // Instruct the mock adapter to throw on list() — simulates a network error.
-    await page.addInitScript(() => {
-      localStorage.setItem('__ACS_E2E_LIST_FAIL__', 'true');
-    });
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.falhaListar));
     await page.goto('/acs');
     // After ~400ms (mock timer) the error propagates: loading hides, error banner appears.
     await expect(page.getByTestId('roster-error')).toBeVisible({ timeout: 5000 });
@@ -198,31 +199,69 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
 
   // ── Scenario 7: Retry invite idempotency key ──────────────────────────────
   // BDD: "A retried cuidador invite reuses the same idempotency key"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER (idempotency key is a backend/HTTP header concern)
-  test.fixme('A retried cuidador invite reuses the same idempotency key', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: idempotency key (Idempotency-Key header) is checked by the backend.
-    // The mock adapter does not validate headers. This scenario requires HTTP adapter + request capture.
-    // FIX: E2E_ADAPTER=http + capture Idempotency-Key header on first request → retry → same key.
+  // BLOQUEIO AINDA VALE — mas NÃO é o que o marcador dizia. VERMELHO DELIBERADO.
+  //
+  // O bloqueio anterior ("é só ligar o adaptador HTTP e capturar o header")
+  // pressupunha que existe um header a capturar. Não existe: `Idempotency-Key`
+  // não aparece em NENHUM lugar do acs-service. A idempotência ali é semântica
+  // (o CaregiverPatientLinkService devolve o vínculo ativo já existente), e o
+  // HistAuditClient diz isso com todas as letras — "a idempotência é o factId no
+  // corpo, não um header Idempotency-Key".
+  //
+  // Implementar o header no `AcsCuidadorHttpAdapter` para pintar este cenário de
+  // verde seria inventar contrato que o produtor nunca definiu — exatamente o
+  // defeito nº 1 desta casa. O cenário fica vermelho até que alguém decida, do
+  // lado do backend, se convite de cuidador ganha chave de idempotência.
+  //
+  // (Repare que o cenário 6, VERDE, se chama "…carrying an idempotency key" e não
+  // afirma nada sobre chave nenhuma. Ele passa porque não olha.)
+  test('A retried cuidador invite reuses the same idempotency key', async ({ page }) => {
+    const chaves: string[] = [];
+    await page.route('**/v1/acs/caregivers', async (route) => {
+      const k = route.request().headers()['idempotency-key'];
+      if (k) chaves.push(k);
+      await route.continue();
+    });
+
     await openInviteEditor(page);
     await page.fill('[data-testid="editor-nome"]', 'Retry User');
     await page.fill('[data-testid="editor-email"]', 'retry@example.com');
     await page.click('[data-testid="editor-submit"]');
-    // Assert idempotency key is the same on retry (HTTP adapter only)
-    expect(true).toBe(false); // placeholder — remove once BLOCKER-MOCK-ADAPTER is fixed
+    await expect(page).toHaveURL(/\/acs$/, { timeout: 4000 });
+
+    // FALHA AQUI, e é a informação: a app não emite chave de idempotência alguma.
+    expect(
+      chaves,
+      'o convite de cuidador não envia Idempotency-Key — o acs-service não define esse header',
+    ).not.toHaveLength(0);
   });
 
   // ── Scenario 8: Duplicate login ───────────────────────────────────────────
   // BDD: "An invite with a duplicate login shows an inline login error and is not saved"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER (mock does not enforce login uniqueness)
-  test.fixme('An invite with a duplicate login shows an inline login error and is not saved', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: AcsCuidadorMockAdapter.create() does not check for duplicate emails.
-    // FIX: E2E_ADAPTER=http + backend returns 409 on duplicate email → facade sets error signal.
-    // When fixed: expect the error banner (role="alert") to show and roster count unchanged.
+  // DESTRAVADO — o bloqueio tinha caducado pela metade: não era preciso subir o
+  // backend, era preciso o mock PARAR DE MENTIR. O `CaregiverService.create` do
+  // acs-service normaliza o login para minúsculas e estoura
+  // `LoginDuplicateException`, que o GlobalExceptionHandler devolve como 409; o
+  // mock aceitava e-mail repetido e ficava verde convidando duas pessoas com o
+  // mesmo login. A checagem foi acrescentada ao mock espelhando o produtor.
+  test('An invite with a duplicate login shows an inline login error and is not saved', async ({ page }) => {
     await openInviteEditor(page);
+    // E-mail de Jamilly, que já está na semente → 409 do mock, como do serviço.
     await page.fill('[data-testid="editor-nome"]', 'Jamilly Amaral');
     await page.fill('[data-testid="editor-email"]', 'jamilly.amaral@example.com');
     await page.click('[data-testid="editor-submit"]');
-    await expect(page.locator('[role="alert"]')).toBeVisible({ timeout: 3000 });
+
+    // A faixa de erro do editor. Filtrada pelo texto porque as mensagens de
+    // validação de campo também são role="alert" — sem o filtro o locator casa
+    // várias e o Playwright recusa em strict mode.
+    await expect(
+      page.getByRole('alert').filter({ hasText: /já existe/i }),
+    ).toBeVisible({ timeout: 4000 });
+
+    // "is not saved": não navegou, e o elenco continua com os dois da semente.
+    await expect(page).toHaveURL(/cuidadores\/novo/);
+    await openRoster(page);
+    await expect(page.locator('[data-testid="roster-row"]')).toHaveCount(2);
   });
 
   // ── Scenario 9: Blank nome → save disabled ────────────────────────────────
@@ -269,9 +308,7 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
   // leaving the reactive form values intact — draft preserved.
   test('An invite error preserves the coordinator draft', async ({ page }) => {
     // Instruct the mock adapter to throw on create() — simulates a server error on invite.
-    await page.addInitScript(() => {
-      localStorage.setItem('__ACS_E2E_CREATE_FAIL__', 'true');
-    });
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.falhaCriar));
     await openInviteEditor(page);
     await page.fill('[data-testid="editor-nome"]', 'Draft User');
     await page.fill('[data-testid="editor-email"]', 'draft@example.com');
@@ -317,12 +354,30 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
 
   // ── Scenario 15: Rejected optimistic edit rolls back ─────────────────────
   // BDD: "A rejected optimistic roster edit rolls back the optimistic row and preserves the draft"
-  // REQUIRES: BLOCKER-MOCK-ADAPTER
-  test.fixme('A rejected optimistic roster edit rolls back the optimistic row and preserves the draft', async ({ page }) => {
-    // BLOCKER-MOCK-ADAPTER: optimistic update + rollback requires simulating a failed save.
-    // FIX: E2E_ADAPTER=http + intercept PUT/PATCH caregivers/:id → 500 → expect rollback to original.
-    await openRoster(page);
-    // ... implementation pending BLOCKER-MOCK-ADAPTER resolution
+  // BLOQUEIO AINDA VALE, e é MAIOR do que o marcador dizia. VERMELHO DELIBERADO.
+  //
+  // Não falta um gancho de teste: falta a funcionalidade inteira. O
+  // `CaregiverEditorComponent.save()` só trata o caminho de convite e termina com
+  // `TODO[FE-ACS-012]: edit mode — update endpoint not yet in MVP api-contract`.
+  // Salvar uma edição não chama NADA. E não há atualização otimista em lugar
+  // nenhum da facade — `invite()` acrescenta a linha DEPOIS do sucesso, que é o
+  // oposto de otimista. Sem escrita otimista não existe rollback a provar.
+  //
+  // Confere com o backend: o CaregiverController expõe POST (criar), GET e
+  // PATCH /{id}/status (desativar). Não há endpoint de edição de cuidador.
+  // Destravar isto é trabalho de produto nos dois lados, não de suíte.
+  test('A rejected optimistic roster edit rolls back the optimistic row and preserves the draft', async ({ page }) => {
+    await openEditEditor(page);
+    await page.fill('[data-testid="editor-nome"]', 'Jamilly Editada');
+    await page.click('[data-testid="editor-submit"]');
+
+    // A edição deveria sair do editor em caso de sucesso, ou deixar erro visível
+    // em caso de recusa. Hoje não faz nem uma coisa nem outra: fica na tela, muda
+    // e não salva. FALHA AQUI.
+    await expect(
+      page.getByRole('alert'),
+      'salvar edição de cuidador não chama adaptador nenhum (TODO[FE-ACS-012]) — não há escrita otimista para reverter',
+    ).toBeVisible({ timeout: 4000 });
   });
 
   // ── Scenario 16: Bootstrap init primes roster on first navigation ─────────
@@ -340,18 +395,46 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
 
   // ── Scenario 17: Bootstrap destroy resets signals ─────────────────────────
   // BDD: "The ACS bootstrap destroy resets the facade signals and aborts any in-flight roster request"
-  // REQUIRES: BLOCKER-SPA-STATE
-  test.fixme('The ACS bootstrap destroy resets the facade signals and aborts any in-flight roster request', async ({ page }) => {
-    // BLOCKER-SPA-STATE: testing ngOnDestroy lifecycle timing requires precise control over
-    // in-flight requests at the moment of component destruction. The facade reset behavior
-    // (clearing signals on destroy) is better tested as a unit test (P5 spec) than e2e.
-    await page.goto('/acs');
-    await page.waitForSelector('[data-testid="roster-row"]', { timeout: 6000 });
-    // Navigate away mid-flight
-    await page.goto('/');
-    // Navigate back — signals should be fresh
-    await page.goto('/acs');
-    await expect(page.locator('[data-testid="roster-row"]')).toHaveCount(1, { timeout: 6000 });
+  // BLOQUEIO AINDA VALE — e o marcador diagnosticava errado. VERMELHO DELIBERADO.
+  //
+  // Não é "temporização de ngOnDestroy difícil de observar": é que o destroy NÃO
+  // EXISTE. A `AcsCaregiverFacade` é `providedIn:'root'` — vive enquanto a aba
+  // viver — e não tem método de reset nem `ngOnDestroy`; o
+  // `AcsShellIntegrationService` só oferece `bootstrap()`. Não há nada que zere
+  // sinal nem que aborte requisição em voo (a facade usa `lastValueFrom`, que não
+  // carrega AbortSignal).
+  //
+  // Além disso a asserção original era falsa por conta própria: esperava
+  // `toHaveCount(1)` num elenco de DOIS cuidadores ativos. Teria reprovado mesmo
+  // se o reset existisse.
+  //
+  // Tentei duas asserções observáveis antes de concluir isto, e as duas foram
+  // FALSOS VERDES — ficam registradas porque são a armadilha deste cenário:
+  //
+  //   1. "roster-error some ao revisitar /acs" — passa sempre, porque
+  //      `loadRoster()` faz `_error.set(null)` na entrada. Nada a ver com reset.
+  //   2. "o editor de Maria não abre mostrando Jamilly" — passa sempre, porque o
+  //      `draftForm` nasce vazio e só recebe `patchValue` depois do `loadOne`.
+  //      O `selected()` sujo existe na facade, mas não chega ao DOM.
+  //
+  // Conclusão: o comportamento afirmado NÃO EXISTE e, mesmo se existisse, não
+  // seria observável por asserção de DOM. Qualquer verde aqui seria acidental.
+  //
+  // O que falta, concretamente: a `AcsCaregiverFacade` é `providedIn:'root'`,
+  // vive enquanto a aba viver e não tem `ngOnDestroy` nem método de reset; o
+  // `AcsShellIntegrationService` só oferece `bootstrap()`, sem contraparte. E não
+  // há como abortar requisição em voo porque a facade usa `lastValueFrom`, que
+  // não carrega `AbortSignal`.
+  //
+  // Isto pertence ao teste unitário da facade (P5), não ao e2e. Vermelho
+  // deliberado e explícito até que o reset exista — ou até que o cenário seja
+  // movido de nível.
+  test('The ACS bootstrap destroy resets the facade signals and aborts any in-flight roster request', async ({ page }) => {
+    await openRoster(page);
+    expect(
+      false,
+      'AcsCaregiverFacade é providedIn:root sem reset/ngOnDestroy e usa lastValueFrom (sem AbortSignal): não há destroy a observar, e o efeito não é verificável por DOM — cenário pertence ao unitário da facade (P5)',
+    ).toBe(true);
   });
 
   // ── Scenario 18: Edit route pre-fills from cuidador ──────────────────────
@@ -433,48 +516,128 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
 
   // ── Scenario 22: Bypassed last-covering re-enforced by backend ───────────
   // BDD: "A bypassed last-covering guard is re-enforced by the backend on deactivation"
-  // REQUIRES: BLOCKER-P8 + BLOCKER-MOCK-ADAPTER
-  test.fixme('A bypassed last-covering guard is re-enforced by the backend on deactivation', async ({ page }) => {
-    // BLOCKER-P8: blocking modal not yet implemented.
-    // BLOCKER-MOCK-ADAPTER: mock deactivate() does not enforce last-covering rule.
-    //   The backend (acs-service) returns 409 for last-covering deactivation; mock ignores this.
-    // FIX: E2E_ADAPTER=http + backend running → deactivate Jamilly → expect 409 error banner.
+  // BLOQUEIO PARCIALMENTE CADUCO. VERMELHO DELIBERADO — mas por menos do que antes.
+  //
+  // Duas das três metades caíram:
+  //   - BLOCKER-P8 caducou: o modal bloqueante existe (CoverageBlockModalComponent)
+  //     e o cenário 33 já o exercita pela pré-checagem.
+  //   - metade do BLOCKER-MOCK-ADAPTER caducou: o mock `deactivate()` de fato
+  //     IGNORAVA a regra do último-vínculo enquanto o `CaregiverService.updateStatus`
+  //     do acs-service a impõe (`LastCaregiverLinkException` → 409). Isso era o mock
+  //     mentindo sobre o produtor, e foi corrigido — o mock agora recusa igual.
+  //
+  // O que sobra, e é o que este cenário afirma: um BYPASS da pré-checagem da UI.
+  // A facade barra antes de chamar o adaptador (`_getSolelyBlockedPatient`), e não
+  // há como, pelo DOM, chegar ao adaptador sem passar por ela — com a semente
+  // atual toda desativação perigosa é barrada antes. Provar a re-imposição do
+  // servidor exige forçar o mapa de cobertura a ficar vencido, e não existe
+  // afordância na tela que o faça.
+  //
+  // (Achado colateral: `deactivate()` NÃO re-derivava a cobertura depois do
+  // sucesso, então a pré-checagem da desativação SEGUINTE decidia sobre dados
+  // vencidos. Corrigido na facade — é justamente o tipo de vencimento que a
+  // re-imposição do backend existe para cobrir.)
+  test('A bypassed last-covering guard is re-enforced by the backend on deactivation', async ({ page }) => {
     await openRoster(page);
-    // ... implementation pending both blockers
+
+    // Maria cobre pac-outro sozinha → desativá-la é a ação perigosa.
+    const maria = page.locator('[data-testid="roster-row"]').filter({ hasText: 'Maria Santos' });
+    await maria.getByTestId('deactivate-btn').click();
+    await maria.getByTestId('confirm-deactivate-btn').click();
+
+    // A pré-checagem da UI barra e mostra o modal. Para este cenário isso é o
+    // BYPASS NÃO ACONTECENDO: queremos a recusa vinda do serviço, com faixa de
+    // erro, não o bloqueio local. FALHA AQUI.
+    await expect(
+      page.getByTestId('roster-error'),
+      'a pré-checagem da facade sempre dispara primeiro — não há como, pelo DOM, chegar ao adaptador e observar a recusa do servidor',
+    ).toBeVisible({ timeout: 4000 });
   });
 
   // ── Scenario 23: Convidar entry hidden without permission ─────────────────
   // BDD: "The convidar cuidador entry point is hidden without cuidador write permission"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The convidar cuidador entry point is hidden without cuidador write permission', async ({ page }) => {
-    // BLOCKER-RBAC: acsCaregiverWriteGuard has Wave-0 bypass (returns true when ACS_ACCESS_DECISION
-    // is not provided). To test this, provide ACS_ACCESS_DECISION with { can: () => false }.
-    // FIX: wire AccessDecisionService with a no-permission session and navigate to /acs.
-    await page.goto('/acs');
-    // "Convidar cuidador" link must NOT be visible without write permission
-    await expect(page.getByRole('link', { name: /convidar cuidador/i })).not.toBeVisible();
+  // DESTRAVADO — o BLOCKER-RBAC caducou. O `ACS_ACCESS_DECISION` está
+  // providenciado em app.config.ts e traduz chave de tela → authority pelo
+  // MODULE_PERMISSION_MAP ('acs.cuidador.write' → 'acs.cuidador.criar').
+  //
+  // Semeia-se uma sessão de CUIDADORA de verdade, não um flag: a cuidadora não
+  // tem `acs.cuidador.criar` (conferido no RoleAuthorityPolicy e na fixture), e é
+  // exatamente essa diferença que o cenário existe para provar.
+  test('The convidar cuidador entry point is hidden without cuidador write permission', async ({ page }) => {
+    // Roda depois do beforeEach e escreve a mesma chave de sessionStorage — o
+    // último addInitScript vence, então a sessão efetiva é a de cuidadora.
+    await page.addInitScript(scriptSemearSessaoCuidadora());
+
+    // A porta de entrada é a rota do editor de convite, e ela está TRANCADA:
+    // `acsCaregiverWriteGuard` redireciona para '/'. Afirmar isto — e não só a
+    // ausência do link — é o que separa "escondido" de "protegido": esconder é
+    // ergonomia, o guard é a tranca.
+    await page.goto('/acs/cuidadores/novo');
+    await expect(page).not.toHaveURL(/cuidadores\/novo/, { timeout: 4000 });
+    await expect(page.getByTestId('editor-nome')).toHaveCount(0);
+
+    // E o link tampouco é renderizado em lugar nenhum acessível à cuidadora.
+    await expect(page.getByRole('link', { name: /convidar cuidador/i })).toHaveCount(0);
   });
 
   // ── Scenario 24: Desativar disabled without permission ───────────────────
   // BDD: "The desativar cuidador action is disabled without cuidador write permission"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The desativar cuidador action is disabled without cuidador write permission', async ({ page }) => {
-    // BLOCKER-RBAC: same as scenario 23. Without real permission enforcement, deactivate-btn
-    // is always visible and enabled.
-    await openRoster(page);
-    await expect(page.getByTestId('deactivate-btn')).toBeDisabled();
+  // BLOQUEIO CADUCOU, MAS O CENÁRIO FICOU IMPOSSÍVEL. VERMELHO DELIBERADO.
+  //
+  // O RBAC passou a valer (ver cenário 23), e ao passar a valer tornou este
+  // cenário inalcançável: ele descreve um estado de tela — roster DESENHADO com o
+  // botão Desativar inerte — que sessão nenhuma consegue produzir.
+  //
+  // Motivo: o roster inteiro é a tela "Equipe", exclusiva da coordenadora
+  // (fluxo-e-perfis.md §4: a cuidadora "não vê: cuidadoras, dispositivos da
+  // clínica…"), e a rota passou a exigir a MESMA authority que o botão exigiria
+  // — `acs.cuidador.criar`. Quem não pode desativar é redirecionado antes de o
+  // roster existir; quem chega ao roster pode desativar. Não há terceiro papel
+  // com "lê o roster mas não escreve": o RoleAuthorityPolicy não concede
+  // `acs.cuidador.read` sem `criar` a ninguém além da cuidadora, que é barrada
+  // na rota.
+  //
+  // Pintar isto de verde exigiria uma das duas coisas, ambas piores que o
+  // vermelho: destrancar a rota (regressão de segurança real, e o cenário 25
+  // existe para provar a tranca), ou desabilitar o botão por um flag que o
+  // produto não lê. Fica vermelho até que exista um papel com leitura sem
+  // escrita — decisão de produto, não de suíte.
+  test('The desativar cuidador action is disabled without cuidador write permission', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoCuidadora());
+    await page.goto('/acs');
+
+    // A cuidadora é redirecionada: não há roster, logo não há deactivate-btn a
+    // inspecionar. `toBeDisabled()` num locator vazio falha — e falha dizendo a
+    // verdade, que é que o estado descrito pelo cenário não é alcançável.
+    await expect(
+      page.getByTestId('deactivate-btn'),
+      'sem permissão de escrita a cuidadora nem chega ao roster (rota exige acs.cuidador.criar) — nenhum papel alcança "roster visível + desativar inerte"',
+    ).toBeDisabled({ timeout: 4000 });
   });
 
   // ── Scenario 25: Nav item hidden and non-coordinator redirected ───────────
   // BDD: "The Cuidadores nav item is hidden and a non-coordinator is redirected off the roster"
-  // REQUIRES: BLOCKER-RBAC
-  test.fixme('The Cuidadores nav item is hidden and a non-coordinator is redirected off the roster', async ({ page }) => {
-    // BLOCKER-RBAC: acsCoordinatorGuard returns true unconditionally in Wave-0.
-    // Without real AccessDecisionService, the guard never redirects.
-    // FIX: provide ACS_AUTH_SESSION with { token: null } → guard redirects to '/'.
+  // DESTRAVADO — e destravar expôs um buraco de verdade, que foi consertado.
+  //
+  // O BLOCKER-RBAC caducou do lado do menu: `shell/menu-trabalho.ts` já filtrava
+  // o item "Equipe" por `acs.cuidador.criar`. Mas a ROTA não filtrava nada: o
+  // `acsCoordinatorGuard` só exige SESSÃO, e cuidadora tem sessão. Bastava
+  // digitar /acs para a cuidadora cair no roster inteiro — o próprio
+  // menu-trabalho.ts avisa que "esconder é ergonomia; quem tranca a porta é o
+  // guard da rota", e a porta estava destrancada.
+  //
+  // Correção na app (libs/acs/src/lib/acs.routes.ts): a rota raiz do ACS passou a
+  // exigir `acsCaregiverWriteGuard` além da sessão.
+  test('The Cuidadores nav item is hidden and a non-coordinator is redirected off the roster', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoCuidadora());
     await page.goto('/acs');
-    // Non-coordinator should be redirected away from /acs
-    await expect(page).not.toHaveURL(/\/acs/, { timeout: 3000 });
+
+    // Redirecionada para fora do roster.
+    await expect(page).not.toHaveURL(/\/acs/, { timeout: 4000 });
+    await expect(page.locator('[data-testid="roster-row"]')).toHaveCount(0);
+
+    // E o item "Equipe" não aparece na barra lateral desta sessão.
+    await expect(page.getByRole('link', { name: /^Equipe$/ })).toHaveCount(0);
   });
 
   // ── Scenario 26: Coverage modal dismissal keeps caregiver active ──────────
@@ -574,9 +737,7 @@ test.describe('Cuidadores roster — list, coverage, invite and deactivate', () 
   // BDD: "The roster error banner has role=alert and is announced by screen readers"
   // P9 — Validates ARIA role on error state banner.
   test('The roster error banner has role=alert and is announced by screen readers', async ({ page }) => {
-    await page.addInitScript(() => {
-      localStorage.setItem('__ACS_E2E_LIST_FAIL__', 'true');
-    });
+    await page.addInitScript(scriptLigarBandeirasAcs(ACS_E2E_FLAGS.falhaListar));
     await page.goto('/acs');
     // Error banner appears after mock timer fires and adapter throws
     await expect(page.getByTestId('roster-error')).toBeVisible({ timeout: 5000 });

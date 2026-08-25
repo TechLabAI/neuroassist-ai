@@ -11,7 +11,7 @@ import { RouterLink } from '@angular/router';
 import { NgComponentOutlet } from '@angular/common';
 import { AcsTenantFacade, AcsCaregiverFacade } from '@neuroassist/acs';
 import { EdgeShellIntegrationService } from '@neuroassist/edge';
-import { PacPacienteFacade } from '@neuroassist/pac';
+import { PacPacienteFacade, PatientRegisterComponent } from '@neuroassist/pac';
 
 // =============================================================================
 // OnboardingWizardPageComponent — scope:web wizard shell (ACS owns this page)
@@ -19,7 +19,15 @@ import { PacPacienteFacade } from '@neuroassist/pac';
 // ACS owns the wizard orchestration; each step composites a module's step feature.
 //
 // Step 1: Tenant setup        → AcsTenantFacade.create()
-// Step 2: Patient register    → PacComandoFacade.patient (PAC-owned)
+// Step 2: Patient register    → PatientRegisterComponent (PAC-owned, composto aqui)
+//
+// nx-boundary do passo 2: importado do BARRIL @neuroassist/pac, que é a mesma
+// porta por onde `PacPacienteFacade` já entrava nesta página. Não usa
+// NgComponentOutlet como o passo 3 porque o PAC não publica um resolvedor de
+// slot (não há `resolvePatientRegisterSlot()`), e sem resolvedor o outlet teria
+// de importar o tipo do componente do mesmo jeito — só que perdendo a checagem
+// de template. O barril do PAC declara este componente como sendo justamente
+// para o wizard do ACS.
 // Step 3: Edge device pairing → EdgeShellIntegrationService.resolvePairingSlot()
 //                               (rendered via NgComponentOutlet — INT-FE-EDGE-003)
 // Step 4: First command       → link to /pac (PAC catalog)
@@ -38,7 +46,7 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
 @Component({
   selector: 'app-onboarding-wizard-page',
   standalone: true,
-  imports: [RouterLink, NgComponentOutlet],
+  imports: [RouterLink, NgComponentOutlet, PatientRegisterComponent],
   template: `
     <div class="mx-auto max-w-6xl p-8">
       <header class="mb-7">
@@ -84,17 +92,25 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
             }
           </div>
 
-          <!-- Step 2: Paciente (PAC) -->
-          <div class="rounded-2xl border border-line bg-surface p-5">
-            <div class="mb-3 flex items-center gap-2">
-              <span class="grid size-6 place-items-center rounded-full bg-brand-subtle text-xs font-bold text-brand">2</span>
-              <h2 class="font-display text-sm font-semibold text-ink">Paciente</h2>
-            </div>
-            <p class="text-sm text-ink-soft">
-              O registro do paciente é gerido pelo módulo PAC.
-              <a routerLink="/pac" class="font-medium text-brand hover:underline">Ir ao catálogo</a>
-            </p>
-          </div>
+          <!-- Step 2: Paciente (PAC) — PatientRegisterComponent composto em lugar
+               do parágrafo estático que havia aqui.
+
+               O parágrafo dizia "O registro do paciente é gerido pelo módulo PAC"
+               com um link para /pac, e isso FECHAVA UM CICLO SEM SAÍDA: sem
+               paciente registrado, /pac cai no pacTenantPatientGuard, que manda
+               para /onboarding, que manda de volta para /pac. Não havia
+               superfície nenhuma no produto por onde cadastrar o primeiro
+               paciente — o componente que faz isso existe desde sempre, está no
+               barril do PAC e não era montado em lugar algum. O item "Paciente
+               registrado" da lista de progresso lê pacFacade.hasPatient(), que
+               por ação de quem usa nunca podia virar verdadeiro.
+
+               O componente traz o próprio cartão, o próprio número do passo e o
+               próprio h2 "Paciente" — por isso substitui o bloco inteiro em vez
+               de ser aninhado nele. Não tem h1, então não repete o título da
+               página como o passo 3 repetia (é o que a entrada "composto" do
+               pareamento existe para evitar). -->
+          <pac-patient-register />
 
           <!-- Step 3: Dispositivo edge (EDGE) — INT-FE-EDGE-003 -->
           <!-- DevicePairingPageComponent mounted via NgComponentOutlet (no direct import, nx-boundary preserved) -->
