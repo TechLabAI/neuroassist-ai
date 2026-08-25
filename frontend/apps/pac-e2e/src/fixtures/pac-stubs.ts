@@ -21,7 +21,7 @@
  * jeito que parece defeito de tela. Conferido em `paciente-http.adapter.ts`,
  * `comando-http.adapter.ts` e `tipos-gesto-read-http.adapter.ts`.
  */
-import { Page, Route } from '@playwright/test';
+import { Page, Route, test } from '@playwright/test';
 
 export const PAC_BASE = '/api/pac/v1/pacientes';
 export const GEST_TIPOS_BASE = '/api/gest/v1/tipos-gesto';
@@ -164,6 +164,24 @@ async function cumprir(route: Route, corpo: unknown, status = 200): Promise<void
  */
 export async function aplicarModoHttp(page: Page): Promise<void> {
   await page.addInitScript(scriptAdaptadorHttp());
+
+  // O gancho que troca o adaptador é honrado só em BUILD DE DESENVOLVIMENTO
+  // (`isDevMode()` em `pac.providers.ts`) — uma global capaz de trocar de onde
+  // vêm os dados do paciente não pode existir onde há paciente. Contra o
+  // container (build de produção) a app fica no mock, nenhuma chamada HTTP sai,
+  // e os `page.route` abaixo não interceptam nada: o cenário reprovaria por
+  // "elemento não encontrado", dando a impressão de defeito onde há uma decisão.
+  //
+  // Pular DIZENDO o motivo é honesto; reprovar em silêncio, não. E é condicional:
+  // em desenvolvimento estes cenários continuam rodando.
+  await page.goto('/');
+  const ehDesenvolvimento = await page.evaluate(() =>
+    Boolean((globalThis as Record<string, unknown>)['__NEUROASSIST_DEV__']),
+  );
+  test.skip(
+    !ehDesenvolvimento,
+    'Requer build de desenvolvimento: o gancho que troca o adaptador para HTTP é inerte em produção, por segurança.',
+  );
 
   await page.route(`**${GEST_TIPOS_BASE}**`, (route) => cumprir(route, TIPOS_GESTO));
 

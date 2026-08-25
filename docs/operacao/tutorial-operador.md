@@ -132,6 +132,38 @@ alta para ser ouvido.
 > **A sensibilidade é por paciente e por gesto.** Mudar a sensibilidade de um paciente não afeta
 > nenhum outro, e a mudança chega ao dispositivo dele sozinha — não é preciso reiniciar nada.
 
+#### Criar o comando não basta: ele precisa ser publicado
+
+Um comando recém-criado fica em **rascunho**. Nesse estado ele existe na sua tela e **não faz nada
+no dispositivo do paciente** — o gesto pode ser feito e nada acontece.
+
+São três passos, e cada um tem um botão na tela do comando:
+
+| Estado | O que significa | O que fazer |
+|---|---|---|
+| **Rascunho** | Escrito, ainda sem valer | **Validar** |
+| **Validado** | Conferido, ainda sem valer | **Publicar** |
+| **Publicado** | Valendo no dispositivo | **Recalibrar**, quando precisar ajustar |
+| **Aposentado** | Fora de uso, guardado no histórico | nada — é definitivo |
+
+Só o estado **publicado** faz o gesto virar pedido de ajuda. Se um paciente diz que fez o gesto e
+nada chegou, **confira antes de tudo se o comando está publicado** — é o motivo mais comum, e o
+mais fácil de resolver.
+
+> **Publicar um comando de EMERGÊNCIA pede confirmação.** É proposital: a partir dali aquele gesto
+> passa a disparar o alarme em tela cheia e a exigir atendimento imediato. Publicar um comando de
+> rotina não pede — se pedisse nas duas, todo mundo aprenderia a clicar "sim" sem ler, e aí a
+> confirmação que importa não protegeria mais nada.
+
+> **Aposentar é definitivo.** O comando sai do catálogo ativo e não volta; ele permanece no
+> histórico, porque o registro do que já aconteceu não se apaga. Para mudar um comando publicado,
+> use **Recalibrar** — aposentar é para quando aquele pedido deixou de fazer sentido.
+
+**Se um gesto não é reconhecível pela câmera, o sistema recusa publicá-lo como emergência.** Aparece
+uma caixa explicando, e ela não fecha por engano. Não é implicância: um pedido de socorro apoiado
+num gesto que o sistema não enxerga seria um pedido que nunca chega. A saída que a caixa oferece é
+mudar a urgência para rotina — ou voltar e escolher um gesto que a câmera reconheça.
+
 ### Quando alguma coisa dá errado
 
 O sistema fala de três jeitos, e a diferença entre eles é proposital:
@@ -221,7 +253,10 @@ no sistema; a tela ainda não foi construída.)*
 
 Honestidade sobre o estado atual, para ninguém contar com o que não está pronto:
 
-- **Não há tela para criar clínica.** É feito pela equipe técnica.
+- **Não há como criar clínica pela tela.** O passo aparece na configuração inicial, com o botão
+  desabilitado — de propósito: criar clínica é da equipe técnica, e a tela diz isso em vez de
+  oferecer um botão que falharia. Se a clínica ainda estiver sendo preparada, o passo mostra
+  "provisionando" e um botão de tentar novamente.
 - **Não há tela dos pacientes sem cuidadora.** A informação existe, a tela não; o item aparece no
   menu marcado como *em breve* e leva à tela mais próxima.
 - **Não há uma lista de todos os pacientes da clínica.** A coordenadora vê os pacientes pelos
