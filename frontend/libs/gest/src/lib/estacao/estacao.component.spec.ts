@@ -9,8 +9,12 @@ import { DetectionProfileStore } from './detection-profile.store';
 import { DetectionProfileHttpAdapter } from './detection-profile-http.adapter';
 import { ReportIngressHttpAdapter } from './report-ingress-http.adapter';
 import { DeviceAuthHttpAdapter } from './device-auth-http.adapter';
+import { HeartbeatService } from './heartbeat.service';
+import { WakeLockService } from './wake-lock.service';
+import { ReportQueueService } from './report-queue.service';
 import type { PrimitivoResolvido } from './detection-profile.store';
 import type { EngineFeatureRef } from '@neuroassist/shared/contracts';
+import type { ReportRequest } from './report-ingress.port';
 
 // =============================================================================
 // EstacaoComponent — unit tests (GEST-FE-030)
@@ -81,6 +85,38 @@ const mockReportAdapter = {
   submit: (req: unknown) => mockSubmitFn(req as Record<string, unknown>),
 };
 
+// ---------------------------------------------------------------------------
+// Stubs P5 — HeartbeatService, WakeLockService, ReportQueueService
+// ---------------------------------------------------------------------------
+
+const mockHeartbeatService = {
+  start: jest.fn(),
+  stop: jest.fn(),
+  emit: jest.fn().mockResolvedValue(undefined),
+};
+
+const mockWakeLockService = {
+  acquire: jest.fn().mockResolvedValue(undefined),
+  release: jest.fn(),
+  reacquire: jest.fn().mockResolvedValue(undefined),
+  ativo: signal(false).asReadonly(),
+  apiIndisponivel: signal(false).asReadonly(),
+  isSupported: true,
+};
+
+let mockEnqueuedReports: ReportRequest[] = [];
+const mockReportQueueService = {
+  enqueue: jest.fn((req: ReportRequest) => { mockEnqueuedReports.push(req); }),
+  processQueue: jest.fn().mockResolvedValue(undefined),
+  recordParadaStart: jest.fn(),
+  clearParadaRecord: jest.fn(),
+  pendingCount: signal(0).asReadonly(),
+  overflowDiscardCount: signal(0).asReadonly(),
+  nonRetryableDiscardCount: signal(0).asReadonly(),
+  totalDiscardCount: signal(0).asReadonly(),
+  lastParadaSince: signal<string | null>(null).asReadonly(),
+};
+
 function configureTestBed(): void {
   TestBed.configureTestingModule({
     providers: [
@@ -99,6 +135,11 @@ function configureTestBed(): void {
   TestBed.overrideProvider(DeviceSessionStore, { useValue: mockDeviceStore });
   TestBed.overrideProvider(DetectionProfileStore, { useValue: mockProfileStore });
   TestBed.overrideProvider(ReportIngressHttpAdapter, { useValue: mockReportAdapter });
+
+  // P5: sobrescrever os serviços de heartbeat, wake lock e fila offline
+  TestBed.overrideProvider(HeartbeatService, { useValue: mockHeartbeatService });
+  TestBed.overrideProvider(WakeLockService, { useValue: mockWakeLockService });
+  TestBed.overrideProvider(ReportQueueService, { useValue: mockReportQueueService });
 }
 
 function createComponent(): EstacaoComponent {
@@ -115,6 +156,18 @@ describe('EstacaoComponent', () => {
     mockProfileVersion.set(7);
     mockLoadProfile = async () => Promise.resolve();
     mockSubmitFn = async () => ({ status: 'created' });
+
+    // Reset P5 mocks
+    mockEnqueuedReports = [];
+    mockHeartbeatService.start.mockClear();
+    mockHeartbeatService.stop.mockClear();
+    mockWakeLockService.acquire.mockClear();
+    mockWakeLockService.release.mockClear();
+    mockWakeLockService.reacquire.mockClear();
+    mockReportQueueService.enqueue.mockClear();
+    mockReportQueueService.processQueue.mockClear();
+    mockReportQueueService.recordParadaStart.mockClear();
+    mockReportQueueService.clearParadaRecord.mockClear();
 
     configureTestBed();
   });
@@ -270,6 +323,131 @@ describe('EstacaoComponent', () => {
       await comp.inicializarLoop();
 
       expect(comp.estado()).toBe('degradada');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // P5 — heartbeat, wake lock, fila offline
+  // ---------------------------------------------------------------------------
+
+  describe('P5 — HeartbeatService', () => {
+    it('heartbeatService.start() é chamado em ngOnInit (quando sessão não é terminal)', async () => {
+      // Usar semVinculo = true para que inicializarLoop retorne antes de tentar criar
+      // GestureDetector + câmera (que dependem de hardware real e travariam o teste).
+      mockSemVinculo.set(true);
+      const comp = createComponent();
+      await comp.ngOnInit();
+      expect(mockHeartbeatService.start).toHaveBeenCalledTimes(1);
+    });
+
+    it('heartbeatService.stop() é chamado em ngOnDestroy', () => {
+      // stop() é síncrono e não depende de ngOnInit — testar diretamente.
+      const comp = createComponent();
+      comp.ngOnDestroy();
+      expect(mockHeartbeatService.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('heartbeat NAO é iniciado quando sessão é credencial-invalida', async () => {
+      // Fornecer um store com estado terminal (credencial-invalida) antes de criar o componente.
+      // ngOnInit retorna cedo sem chamar heartbeatService.start().
+      const terminalStore = {
+        ...mockDeviceStore,
+        estado: () => 'credencial-invalida' as const,
+      };
+      TestBed.overrideProvider(DeviceSessionStore, { useValue: terminalStore });
+
+      const comp = createComponent();
+      await comp.ngOnInit();
+      expect(mockHeartbeatService.start).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('P5 — WakeLockService', () => {
+    it('wakeLock.release() é chamado em ngOnDestroy', async () => {
+      const comp = createComponent();
+      comp.ngOnDestroy();
+      expect(mockWakeLockService.release).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('P5 — fila offline (handleGesture)', () => {
+    it('falha de rede → relato enfileirado via reportQueue.enqueue()', async () => {
+      mockPrimitivos.set([PRIMITIVO_PISCAR]);
+      mockSubmitFn = async () => { throw new Error('network error'); };
+
+      const comp = createComponent();
+      await comp.handleGesture('blink_double_v1' as EngineFeatureRef, 0.91);
+
+      expect(mockReportQueueService.enqueue).toHaveBeenCalledTimes(1);
+    });
+
+    it('sucesso → reportQueue.enqueue() NAO é chamado', async () => {
+      mockPrimitivos.set([PRIMITIVO_PISCAR]);
+      mockSubmitFn = async () => ({ status: 'created' });
+
+      const comp = createComponent();
+      await comp.handleGesture('blink_double_v1' as EngineFeatureRef, 0.91);
+
+      expect(mockReportQueueService.enqueue).not.toHaveBeenCalled();
+    });
+  });
+  // ---------------------------------------------------------------------------
+  // I3 — o heartbeat continua batendo quando a estação para
+  // ---------------------------------------------------------------------------
+
+  describe('[I3] heartbeat NÃO para quando a aba oculta', () => {
+    // POR QUE ESTE TESTE EXISTE
+    //
+    // A invariante estava afirmada em três comentários do código e verificada por
+    // NENHUM. É o mesmo padrão que já mordeu este repositório: o detector tinha um
+    // comentário dizendo "estes ids devem casar com o catálogo do PAC", e eles não
+    // casavam com nada — o comentário afirmava, o código não conferia.
+    //
+    // O risco aqui é concreto e tem cara de melhoria: alguém acrescenta
+    // `if (estado === 'parada') return;` para "poupar requisição". A partir daí uma
+    // estação parada fica indistinguível de uma estação MORTA para o servidor — que
+    // é exatamente o que o heartbeat existe para diferenciar, e o pior modo de falha
+    // deste produto segundo a ADR-007.
+
+    function ocultarAba(): void {
+      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    }
+
+    afterEach(() => {
+      Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+    });
+
+    it('ocultar a aba leva a "parada" e NÃO chama heartbeatService.stop()', () => {
+      const comp = createComponent();
+      // ngOnInit NÃO é aguardado de propósito: o registro do listener e o
+      // `heartbeatService.start()` acontecem de forma SÍNCRONA, antes do
+      // `await inicializarLoop()`. E esse loop não resolve em jsdom — ele espera
+      // câmera e o WASM do MediaPipe, que não existem aqui.
+      //
+      // Aguardar travaria o teste em 5 s de timeout sem medir nada. O alvo aqui é a
+      // fiação, não o laço.
+      void comp.ngOnInit();
+      mockHeartbeatService.stop.mockClear();
+
+      ocultarAba();
+
+      expect(comp.estado()).toBe('parada');
+      expect(mockHeartbeatService.stop).not.toHaveBeenCalled();
+
+      comp.ngOnDestroy(); // remove o listener — senão vaza para os testes seguintes
+    });
+
+    it('o heartbeat começa no ngOnInit e não recebe o estado da estação', () => {
+      // Independência por construção: se um dia `start()` passar a receber estado,
+      // esta asserção cai e obriga a uma decisão consciente em vez de uma mudança
+      // silenciosa.
+      const comp = createComponent();
+      void comp.ngOnInit(); // ver a nota acima sobre não aguardar
+
+      expect(mockHeartbeatService.start).toHaveBeenCalledWith();
+
+      comp.ngOnDestroy();
     });
   });
 });

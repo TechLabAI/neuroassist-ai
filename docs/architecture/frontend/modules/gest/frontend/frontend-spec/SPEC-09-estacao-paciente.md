@@ -95,8 +95,14 @@ como degradada, nunca em silêncio.
 **Campo não declarado no corpo ⇒ erro** (invariante de privacidade nº 6, imposta por
 `@JsonAnySetter`). Não acrescente telemetria aqui.
 
-Resposta traz `status`, `serverTime`, `currentProfileVersion` e `profileDrift` — é assim que a
-estação descobre que há perfil novo a buscar.
+Resposta traz `status`, `serverTime`, `currentProfileVersion`, `profileDrift` e
+`stalenessThresholdSeconds` — é assim que a estação descobre que há perfil novo a buscar, e em
+quanto tempo de silêncio o servidor a considerará offline.
+
+**A cadência não é constante do cliente.** O enroll devolve `recommendedHeartbeatSeconds` e o
+heartbeat devolve `stalenessThresholdSeconds`. Hoje o servidor configura 30 s de intervalo e fator
+3 (limiar 90 s), mas a estação **lê esses valores** em vez de fixá-los — muda por configuração, num
+lugar só.
 
 ---
 

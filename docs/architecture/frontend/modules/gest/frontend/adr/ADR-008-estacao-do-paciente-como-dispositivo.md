@@ -152,9 +152,16 @@ visível**, e que são inegociáveis.
 1. **Wake Lock** (`navigator.wakeLock`) enquanto a estação roda — evita o sleep de tela.
 2. **`visibilitychange`** → estado explícito `detecção parada` na tela, e no servidor pela
    ausência de heartbeat.
-3. **Heartbeat a cada 15 s** com `agentVersion` e `runningProfileVersion`. O `edge-service` já
-   deriva conectividade do frescor (limiar de 45 s), então **três batidas perdidas viram
-   "dispositivo offline"** no painel da cuidadora — sem código novo no backend.
+3. **Heartbeat na cadência que o SERVIDOR manda**, com `agentVersion` e `runningProfileVersion`.
+
+   > **Correção de 2026-08-25.** Esta linha dizia "a cada 15 s … limiar de 45 s". Os dois números
+   > eram meus, não do sistema. O edge-service publica ambos: `neuroassist.edge.heartbeat.
+   > interval-seconds: 30` e `staleness-factor: 3` — cadência **30 s**, limiar **90 s**.
+   >
+   > E não é preciso copiá-los: o enroll devolve `recommendedHeartbeatSeconds` e toda resposta de
+   > heartbeat/liveness devolve `stalenessThresholdSeconds`. **A estação lê do servidor em vez de
+   > fixar constante** — assim a cadência muda por configuração, num lugar só, e o cliente não
+   > precisa ser reimplantado para acompanhar.
 4. **Watchdog visível**: um indicador que prova que o motor processou um quadro recentemente.
    Detecção parada em silêncio é o pior modo de falha deste produto.
 

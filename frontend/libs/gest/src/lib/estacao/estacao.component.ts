@@ -8,12 +8,16 @@ import {
   inject,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { GestureDetector, DEFAULT_ASSET_PATHS } from '../detection/gesture-detector';
 import type { EngineFeatureRef } from '@neuroassist/shared/contracts';
 import { DeviceSessionStore } from './device-session.store';
 import { DetectionProfileStore } from './detection-profile.store';
 import { ReportIngressHttpAdapter } from './report-ingress-http.adapter';
 import type { ReportRequest } from './report-ingress.port';
+import { HeartbeatService } from './heartbeat.service';
+import { WakeLockService } from './wake-lock.service';
+import { ReportQueueService, isNonRetryable } from './report-queue.service';
 
 // =============================================================================
 // EstacaoComponent — rota /estacao, laço always-on (GEST-FE-030 — ADR-008/SPEC-09)
@@ -41,8 +45,9 @@ import type { ReportRequest } from './report-ingress.port';
 //   Derivado de deviceId + engineFeatureRef + instante do reconhecimento.
 //   Reenvio manda o mesmo id (backend responde 200); pedido novo manda id novo.
 //
-// P5 (GEST-FE-031/032): HeartbeatService, WakeLockService e fila offline são
-//   implementados em P5 e acoplados externamente — este componente não os importa.
+// P5 (GEST-FE-031/032): HeartbeatService (heartbeat sempre ativo), WakeLockService
+//   (tela acesa durante vigília) e ReportQueueService (fila offline de relatos)
+//   foram integrados nesta prioridade.
 // =============================================================================
 
 export type EstacaoEstado =
@@ -112,6 +117,25 @@ export type EstacaoEstado =
       color: #555;
     }
 
+    .status-bar {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      font-size: 0.9rem;
+      opacity: 0.7;
+      color: inherit;
+    }
+
+    .status-bar .pendentes {
+      color: #fbbf24;
+      font-weight: 600;
+    }
+
+    .status-bar .gap {
+      color: #f87171;
+      margin-top: 0.25rem;
+    }
+
     h1 {
       font-size: clamp(2.5rem, 8vw, 6rem);
       font-weight: 700;
@@ -154,6 +178,11 @@ export type EstacaoEstado =
           @if (ultimoComandoLabel()) {
             <p class="ultimo-comando">{{ ultimoComandoLabel() }}</p>
           }
+          @if (pendingReportsCount() > 0) {
+            <div class="status-bar">
+              <div class="pendentes">⚠ {{ pendingReportsCount() }} relato(s) aguardando envio</div>
+            </div>
+          }
         </div>
       }
 
@@ -186,6 +215,11 @@ export type EstacaoEstado =
           <h1>PARADA</h1>
           <p>A estação está pausada (aba oculta).</p>
           <p>Retorne a esta aba para retomar a vigilância.</p>
+          @if (observacaoGapLabel()) {
+            <div class="status-bar">
+              <div class="gap">⚠ Janela sem observação: {{ observacaoGapLabel() }}</div>
+            </div>
+          }
         </div>
       }
     }
@@ -195,6 +229,11 @@ export class EstacaoComponent implements OnInit, OnDestroy {
   private readonly deviceStore = inject(DeviceSessionStore);
   private readonly profileStore = inject(DetectionProfileStore);
   private readonly reportAdapter = inject(ReportIngressHttpAdapter);
+
+  // P5 services
+  private readonly heartbeatService = inject(HeartbeatService);
+  private readonly wakeLock = inject(WakeLockService);
+  private readonly reportQueue = inject(ReportQueueService);
 
   // ---------------------------------------------------------------------------
   // Estado visível — signals
@@ -206,6 +245,28 @@ export class EstacaoComponent implements OnInit, OnDestroy {
   readonly estado = this._estado.asReadonly();
   readonly ultimoComandoLabel = this._ultimoComandoLabel.asReadonly();
 
+  /** Relatos aguardando reenvio — exibir na tela de estação (não em banner de canto). */
+  readonly pendingReportsCount = this.reportQueue.pendingCount;
+
+  /**
+   * Duração da janela sem observação (estado 'parada').
+   * null quando não há registro de parada ativa.
+   *
+   * ATENÇÃO: aba fechada NÃO é detecção enfileirada — é detecção que não aconteceu.
+   * Nenhuma fila recupera um pedido de ajuda que ninguém observou.
+   * Esta label deixa isso explícito na UI.
+   */
+  readonly observacaoGapLabel = computed((): string | null => {
+    const since = this.reportQueue.lastParadaSince();
+    if (!since) return null;
+    const elapsedMs = Date.now() - new Date(since).getTime();
+    const seconds = Math.floor(elapsedMs / 1000);
+    if (seconds < 60) return `${seconds} s`;
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${minutes} min ${secs} s`;
+  });
+
   // ---------------------------------------------------------------------------
   // Interno — detector e câmera
   // ---------------------------------------------------------------------------
@@ -216,14 +277,25 @@ export class EstacaoComponent implements OnInit, OnDestroy {
 
   /** Janela de cooldown por engineFeatureRef — evita relatos duplicados. */
 
-  /** Listener de visibilidade — atualiza estado 'parada'. */
+  /**
+   * Listener de visibilidade — atualiza estado 'parada' e gerencia Wake Lock.
+   * O heartbeat CONTINUA em 'parada' — é como o servidor distingue parada de morta.
+   * Não chamar heartbeatService.stop() aqui: esse seria o pior modo de falha (ADR-007).
+   */
   private readonly onVisibilityChange = () => {
     if (document.hidden) {
       this.detector?.stop();
+      this.wakeLock.release(); // browser já libera, mas explicitamos
+      this.reportQueue.recordParadaStart();
       this._estado.set('parada');
     } else if (this._estado() === 'parada') {
+      this.reportQueue.clearParadaRecord();
       this.detector?.start(this.videoEl!);
       this._estado.set('vigiando');
+      // Wake Lock foi liberado pelo browser ao ocultar; readquirir ao retornar
+      void this.wakeLock.reacquire();
+      // Tentar reenviar relatos enfileirados quando a aba voltou ao foco
+      void this.reportQueue.processQueue();
     }
   };
 
@@ -240,11 +312,17 @@ export class EstacaoComponent implements OnInit, OnDestroy {
 
     document.addEventListener('visibilitychange', this.onVisibilityChange);
 
+    // Iniciar heartbeat — continua em QUALQUER estado (parada, degradada, vigiando).
+    // Isso é o que torna a estação distinguível de "morta" pelo servidor.
+    this.heartbeatService.start();
+
     await this.inicializarLoop();
   }
 
   ngOnDestroy(): void {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    this.heartbeatService.stop();
+    this.wakeLock.release();
     this.encerrarSessao();
   }
 
@@ -325,6 +403,10 @@ export class EstacaoComponent implements OnInit, OnDestroy {
     // 5. Iniciar detecção contínua
     this.detector.start(video);
     this._estado.set('vigiando');
+
+    // Solicitar Wake Lock para manter a tela acesa durante a vigília.
+    // Ausência da API é degradação declarada — não altera o estado.
+    await this.wakeLock.acquire();
   }
 
   // ---------------------------------------------------------------------------
@@ -397,9 +479,15 @@ export class EstacaoComponent implements OnInit, OnDestroy {
     try {
       await this.reportAdapter.submit(request);
       this._ultimoComandoLabel.set(primitivo.nome);
-    } catch {
-      // Falha de rede → P5 enfileirará. Por ora apenas registra silenciosamente.
+    } catch (err) {
+      if (isNonRetryable(err)) {
+        // 4xx semântico (ex.: 422 campo inválido, 400 body malformado) → não retentar.
+        // O relato nunca vai passar; manter na fila entuperia sem resolver o problema.
+        return;
+      }
+      // Falha de rede / 5xx / 408 / 429 → enfileirar para reenvio quando a rede voltar.
       // Não alterar o estado da estação — continuar vigiando.
+      this.reportQueue.enqueue(request);
     }
   }
 

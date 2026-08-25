@@ -78,3 +78,11 @@ export { estacaoDeviceGuard } from './lib/estacao/estacao.guard';
 export { ReportIngressHttpAdapter } from './lib/estacao/report-ingress-http.adapter';
 export { ReportIngressPort } from './lib/estacao/report-ingress.port';
 export type { ReportRequest, ReportResponse } from './lib/estacao/report-ingress.port';
+
+// Estação do paciente — P5 / GEST-FE-031/032 / ADR-008
+// Heartbeat, Wake Lock e fila offline de relatos.
+export { HeartbeatService, AGENT_VERSION } from './lib/estacao/heartbeat.service';
+export type { HeartbeatResponse } from './lib/estacao/heartbeat.service';
+export { WakeLockService } from './lib/estacao/wake-lock.service';
+export { ReportQueueService, isNonRetryable } from './lib/estacao/report-queue.service';
+export type { QueuedReport, DiscardReason } from './lib/estacao/report-queue.service';
