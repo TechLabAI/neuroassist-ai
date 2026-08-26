@@ -1,24 +1,31 @@
 # Plano FE — GEST (neuroassist-ai-web)
 
 > Gerado por: `/fe-planner` (replanejamento) | 2026-08-25
-> Baseline score: **51/100 — Parcial** | Gates: lint OK · test OK (144/144, 8 suítes) · build OK · e2e OK (14/14)
-> Tipo de planejamento: **REPLANEJAMENTO** — estado anterior (P1 build targets + P2 unit tests) concluído;
-> W10 (estação do paciente, ADR-008 + SPEC-09) arquitetada em 2026-08-25 e inteiramente não implementada;
-> multi-empresa FAILED no validator.
+> **Encerrado em 2026-08-26** — score final: **98/100 — Maduro**
+> Gates finais (validator Modo 3, rodada 2, independente): `nx e2e gest-e2e` 26/26 · `nx test gest` 292/292 ·
+> lint 0 erros · build OK. Mutações E1/E2/E6 executadas de fato (quebrar → vermelho → reverter → verde).
+> 41/41 issues DONE, P1-P9 completas. Multi-empresa enforcement OK.
+> Tech-debt menor anotado (não bloqueante): `empresa-context` DI ainda não totalmente wired em todos os pontos.
+> Fechamento final: commit `042273a` (4 pontos abertos do P6 — heartbeat reschedule, providers explícitos,
+> 2 specs e2e) + commit `c4c76c5` (mesmo escopo, revalidado 2026-08-26).
+>
+> Baseline original (histórico): score 51/100 — Parcial | Gates: lint OK · test OK (144/144, 8 suítes) ·
+> build OK · e2e OK (14/14). W10 (estação do paciente, ADR-008 + SPEC-09) arquitetada em 2026-08-25 e
+> inteiramente não implementada; multi-empresa FAILED no validator naquele ponto.
 
 ---
 
 ## Status das prioridades
 
-- **P1** — Multi-empresa wiring + TODO[GEST-FE-009] (BLOQUEADOR IMEDIATO) — pendente
-- **P2** — Estação W10/Fase-1: Identidade do dispositivo (GEST-FE-027) — pendente
-- **P3** — Estação W10/Fase-2: Perfil + limiares + guarda de drift (GEST-FE-028, 029, INT-008) — pendente
-- **P4** — Estação W10/Fase-3: Rota /estacao + laço always-on + relato (GEST-FE-030) — pendente
-- **P5** — Estação W10/Fase-4: Sobrevivência — heartbeat, wake lock, fila (GEST-FE-031, 032) — pendente
-- **P6** — Foundation restante + integration cleanup (INT-002, INT-006, INT-007) — pendente
-- **P7** — UX polish + observability + navigation (FE-018, 019, 020, 021) — pendente
-- **P8** — E2E calibração — 5 cenários Playwright (FE-022..026) — pendente
-- **P9** — E2E estação — 8 cenários SPEC-09 §5 (FE-033) + cierre do módulo — pendente
+- **P1** — Multi-empresa wiring + TODO[GEST-FE-009] (BLOQUEADOR IMEDIATO) — ✅ concluída
+- **P2** — Estação W10/Fase-1: Identidade do dispositivo (GEST-FE-027) — ✅ concluída
+- **P3** — Estação W10/Fase-2: Perfil + limiares + guarda de drift (GEST-FE-028, 029, INT-008) — ✅ concluída
+- **P4** — Estação W10/Fase-3: Rota /estacao + laço always-on + relato (GEST-FE-030) — ✅ concluída
+- **P5** — Estação W10/Fase-4: Sobrevivência — heartbeat, wake lock, fila (GEST-FE-031, 032) — ✅ concluída
+- **P6** — Foundation restante + integration cleanup (INT-002, INT-006, INT-007) — ✅ concluída (4 pontos residuais fechados em 2026-08-26)
+- **P7** — UX polish + observability + navigation (FE-018, 019, 020, 021) — ✅ concluída
+- **P8** — E2E calibração — 5 cenários Playwright (FE-022..026) — ✅ concluída
+- **P9** — E2E estação — 8 cenários SPEC-09 §5 (FE-033) + cierre do módulo — ✅ concluída — **módulo GEST encerrado**
 
 ---
 
@@ -144,7 +151,7 @@ avisos explícitos. Uso em produção geral está bloqueado pela ADR-008 P1 (pen
 
 ### Prioridade 1 — Multi-empresa wiring + TODO[GEST-FE-009]
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-009 (completion parcial)
 Categoria: WIRING
 
@@ -236,7 +243,7 @@ erro de tipo; rodar `npx nx build gest` depois dos testes.
 
 ### Prioridade 2 — Estacao W10/Fase-1: Identidade do dispositivo
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-027
 Categoria: FUNCIONAL
 
@@ -342,7 +349,7 @@ SPEC-09 §2.1 e na issue GEST-FE-027. Criar os arquivos em `libs/gest/src/lib/es
 
 ### Prioridade 3 — Estacao W10/Fase-2: Perfil + limiares + guarda de drift
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-028, GEST-FE-029, GEST-INT-008
 Categoria: FUNCIONAL
 
@@ -468,7 +475,7 @@ que o guarda realmente falha quando os números divergem (testar com um valor er
 
 ### Prioridade 4 — Estacao W10/Fase-3: Rota /estacao + laco always-on + relato
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-030
 Categoria: FUNCIONAL
 
@@ -568,7 +575,7 @@ flag `isMock: true` no store e um sinal de aviso na tela.
 
 ### Prioridade 5 — Estacao W10/Fase-4: Heartbeat, Wake Lock, fila offline
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-031, GEST-FE-032
 Categoria: FUNCIONAL
 
@@ -666,7 +673,7 @@ npx nx build gest       # exit 0
 
 ### Prioridade 6 — Foundation restante + integration cleanup
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-INT-002, GEST-INT-006, GEST-INT-007
 Categoria: ESTRUTURAL + WIRING
 
@@ -724,7 +731,7 @@ npx nx build neuroassist-ai-web   # rota /onboarding/gesto compilando
 
 ### Prioridade 7 — UX polish + observability + navigation
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-018, GEST-FE-019, GEST-FE-020, GEST-FE-021
 Categoria: FUNCIONAL
 
@@ -762,7 +769,7 @@ npx nx build gest       # exit 0
 
 ### Prioridade 8 — E2E calibracao — 5 cenarios Playwright
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-022, GEST-FE-023, GEST-FE-024, GEST-FE-025, GEST-FE-026
 Categoria: VALIDACAO
 
@@ -790,7 +797,7 @@ npx nx e2e gest-e2e     # 5 spec files passando; GEST-FE-026 verde
 
 ### Prioridade 9 — E2E estacao — 8 cenarios SPEC-09 §5 + fechamento do modulo
 
-Status: pendente
+Status: concluída
 Issues cobertas: GEST-FE-033
 Categoria: VALIDACAO
 

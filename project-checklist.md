@@ -110,8 +110,8 @@
 
 #### GEST — Detecção de Gesto (Edge) (`gest`)
 - [x] **Arquitetura** — `/fe-architect-vision GEST` → specs → specs-validate → backlog → promote
-- [x] **Ciclo de desenvolvimento** — `/fe-autopilot GEST` (2026-08-15)
-- **Status atual:** score 80/100 (Maduro). P1-P6 DONE (26/33 issues) — foundation, unit tests (122), ADR-006 interim-detector safeguards, multi-empresa seam, full e2e (14/14 Playwright, incl. mandatory gate GEST-FE-026). Remaining (non-blocking): P7 UX polish (breadcrumb, loading/error states), P8 observability sink, P9 lib-split refactor, P10 auth bridge (joint decision with EDGE, mTLS vs OAuth2 pending). PR #4 (merged).
+- [x] **Ciclo de desenvolvimento** — `/fe-autopilot GEST` (2026-08-15, replanejado 2026-08-25, encerrado 2026-08-26)
+- **Status atual:** score 98/100 (Maduro) — **módulo encerrado**. P1-P9 DONE (41/41 issues): wiring multi-empresa, onda W10 "estação do paciente" completa (identidade de dispositivo, perfil/limiares, rota `/estacao` always-on, heartbeat/wake-lock/fila offline), UX polish, e2e de calibração e de estação (`nx e2e gest-e2e` 26/26, `nx test gest` 292/292, lint 0 erros, build OK). Validator Modo 3 (rodada 2) confirmou de forma independente, incl. mutações E1/E2/E6 executadas de fato. Tech-debt menor não bloqueante: `empresa-context` DI ainda não totalmente wired em todos os pontos. Pendência real remanescente: **P10 auth bridge** (decisão conjunta com EDGE, mTLS vs OAuth2, ainda em aberto — ver ADR-007).
 
 #### EVNT — Eventos e Alarmes (`evnt`)
 - [x] **Arquitetura** — `/fe-architect-vision EVNT` → specs → specs-validate → backlog → promote
