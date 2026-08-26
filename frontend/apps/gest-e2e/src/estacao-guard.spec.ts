@@ -35,7 +35,7 @@ test.describe('estacao-guard', () => {
     await page.waitForURL((url) => !url.pathname.startsWith('/estacao'), { timeout: 5_000 });
 
     // Confirmar que o componente da estação NÃO montou.
-    await expect(page.locator('na-estacao')).not.toBeVisible({ timeout: 2_000 });
+    await expect(page.locator('gest-estacao')).not.toBeVisible({ timeout: 2_000 });
   });
 
   // ── E7b — Sessão de USUÁRIO (sem device session) ──────────────────────────
@@ -50,7 +50,7 @@ test.describe('estacao-guard', () => {
     // Redireciona para /.
     await page.waitForURL((url) => !url.pathname.startsWith('/estacao'), { timeout: 5_000 });
 
-    await expect(page.locator('na-estacao')).not.toBeVisible({ timeout: 2_000 });
+    await expect(page.locator('gest-estacao')).not.toBeVisible({ timeout: 2_000 });
   });
 
   // ── E7c — Sessão de dispositivo válida → acesso concedido ─────────────────
@@ -89,7 +89,7 @@ test.describe('estacao-guard', () => {
     await page.goto('/estacao');
 
     // O guard concede acesso — o componente monta.
-    await expect(page.locator('na-estacao')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('gest-estacao')).toBeVisible({ timeout: 8_000 });
     // URL permanece em /estacao.
     expect(page.url()).toContain('/estacao');
   });

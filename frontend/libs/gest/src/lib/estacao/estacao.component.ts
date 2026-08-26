@@ -61,7 +61,7 @@ export type EstacaoEstado =
 
 
 @Component({
-  selector: 'na-estacao',
+  selector: 'gest-estacao',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule],

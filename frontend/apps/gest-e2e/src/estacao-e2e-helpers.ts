@@ -223,12 +223,12 @@ export async function mockReports(
  * Navega para /estacao e aguarda o componente estabilizar no estado esperado.
  *
  * Presume que TODOS os addInitScript e mocks de rota já foram configurados antes
- * desta chamada. O seletor `na-estacao` é o host element do EstacaoComponent.
+ * desta chamada. O seletor `gest-estacao` é o host element do EstacaoComponent.
  */
 export async function gotoEstacao(page: Page): Promise<void> {
   await page.goto('/estacao');
   // Aguardar o host element — prova que o componente montou.
-  await page.waitForSelector('na-estacao', { timeout: 10_000 });
+  await page.waitForSelector('gest-estacao', { timeout: 10_000 });
 }
 
 /**
@@ -236,7 +236,7 @@ export async function gotoEstacao(page: Page): Promise<void> {
  * Timeout generoso porque o laço de inicialização é assíncrono.
  */
 export async function aguardarEstado(page: Page, texto: string, timeout = 8_000): Promise<void> {
-  await page.locator('na-estacao').locator(`text=${texto}`).waitFor({ timeout });
+  await page.locator('gest-estacao').locator(`text=${texto}`).waitFor({ timeout });
 }
 
 // ---------------------------------------------------------------------------

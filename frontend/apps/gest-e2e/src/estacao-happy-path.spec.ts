@@ -53,7 +53,7 @@ test.describe('estacao-happy-path', () => {
     await gotoEstacao(page);
 
     // Verificar estado 'vigiando': texto "VIGILANDO" ocupa a tela
-    await expect(page.locator('na-estacao').locator('text=VIGILANDO')).toBeVisible({ timeout: 8_000 });
+    await expect(page.locator('gest-estacao').locator('text=VIGILANDO')).toBeVisible({ timeout: 8_000 });
 
     // Nenhum estado de erro deve estar presente
     await expect(page.locator('text=PARADA')).not.toBeVisible();
