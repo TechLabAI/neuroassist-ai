@@ -73,3 +73,33 @@
   *dispositivo da estação do paciente* (browser, `clientSecret`, ADR-008 no FE) é um problema
   diferente e continua com pendência própria (P1, armazenamento seguro de credencial).
 
+### 13:00:00 UTC — [FIX] EVNT-011 — FK/CHECK constraints ausentes desde V0500 fechadas em V0503
+
+- **Ator:** Claude Code (revisão do EVNT a pedido do usuário)
+- Ao reconciliar EVNT-011 mais cedo hoje, ficou registrada uma divergência não-bloqueante: a
+  migration `V0500` criava `report_idempotency` e `notification_dispatch` sem `FOREIGN KEY` para
+  `evento(id)` e sem `CHECK` em `tier`/`status`, apesar dos critérios de aceite originais pedirem
+  isso. O usuário pediu para tratar especificamente esse ponto.
+- Antes de escrever a migration, li os valores reais do código (não suposição):
+  `Tier.java` (`full_screen_alarm`, `discreet`), `DispatchStatuses.java` (`QUEUED`, `DELIVERED`,
+  `NO_SESSION`, `ACKNOWLEDGED`, `ESCALATED`, `FAILED`), `Feedback.java` (`NAO_AVALIADO`, `REAL`,
+  `FALSO_POSITIVO`), e confirmei em `EventConfirmationService` que `feedback`/`confirmado_por`/
+  `confirmado_at` são sempre escritos juntos na mesma transação.
+- Verifiquei os 5 schemas de tenant do dev (`t_emp_dev` + 4 outros) antes de aplicar: zero linhas
+  violando as novas constraints.
+- Criada `V0503__evnt_referential_and_value_constraints.sql`: FK `report_idempotency.evento_id` e
+  `notification_dispatch.evento_id` → `evento(id) ON DELETE CASCADE`; `CHECK` em `evento.feedback`;
+  `CHECK` composto garantindo que `confirmado_por`/`confirmado_at` andam junto com o feedback;
+  `CHECK` em `notification_dispatch.tier` e `.status`.
+- **Achado ao rodar a suíte com a nova migration:** `NotificationDispatchSweepOrderingIT` (4
+  métodos) inseria `notification_dispatch` com `eventoId(UUID.randomUUID())` sem `evento`
+  correspondente — violava a FK nova. Não era um bug de produção (o teste nunca precisou de um
+  evento real porque não havia FK), mas expôs um teste que não refletia a invariante real do
+  schema. Corrigido: o teste agora cria um `Evento` de verdade por linha de dispatch
+  (`criarEvento()`), e o `@BeforeEach` limpa `notification_dispatch` antes de `evento`.
+- Aplicado ao dev local via `docker compose up migrations-global migrations-empresa` (rebuild do
+  jar antes — `gradlew :services:neuroassist-ai-migrations:bootJar`): os 6 schemas convergiram para
+  v0503/0800 sem erro.
+- Reverificado: `./gradlew :services:evnt-service:test` → 126/126 (era 126/126 antes também, mas
+  agora com a constraint realmente testada), `architectureCheck` verde.
+

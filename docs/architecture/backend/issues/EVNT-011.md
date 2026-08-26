@@ -15,12 +15,25 @@
 > BDD contra Testcontainers PostgreSQL real com estas migrations aplicadas) e
 > `architectureCheck` verde. Fechando a issue como DONE em vez de reescrever os scripts.
 >
-> **Divergência real encontrada (não bloqueante, registrar como tech-debt):** os critérios de
-> aceite originais abaixo pediam `FOREIGN KEY ... ON DELETE CASCADE` de `report_idempotency` e
+> **Divergência real encontrada — resolvida em `V0503` (2026-08-26):** os critérios de aceite
+> originais abaixo pediam `FOREIGN KEY ... ON DELETE CASCADE` de `report_idempotency` e
 > `notification_dispatch` para `evento(id)`, e `CHECK` nos valores de `tier`/`status`. A migration
-> real (`V0500`) não tem essas constraints — a integridade referencial e de valores é garantida
-> apenas na camada de aplicação. Se isso for intencional, vale documentar a decisão; se não for,
-> é candidato a uma migration nova (`V0503`) antes de haver dados de produção.
+> `V0500` não tinha essas constraints. Adicionadas em
+> `V0503__evnt_referential_and_value_constraints.sql`: FK de `report_idempotency.evento_id` e
+> `notification_dispatch.evento_id` para `evento(id) ON DELETE CASCADE`, `CHECK` em `tier`
+> (`full_screen_alarm`, `discreet` — valores lidos de `Tier.java`), `CHECK` em `status`
+> (`QUEUED`, `DELIVERED`, `NO_SESSION`, `ACKNOWLEDGED`, `ESCALATED`, `FAILED` — lidos de
+> `DispatchStatuses.java`), `CHECK` em `evento.feedback` e um `CHECK` composto garantindo que
+> `confirmado_por`/`confirmado_at` andam sempre juntos com o feedback (ambos nulos em
+> `NAO_AVALIADO`, ambos preenchidos senão — invariante já mantida por `EventConfirmationService`).
+>
+> Verificado antes de aplicar: nenhuma linha nos 5 schemas de tenant do dev violava as novas
+> constraints. Um teste de integração (`NotificationDispatchSweepOrderingIT`) inseria
+> `notification_dispatch` com `eventoId` fabricado (`UUID.randomUUID()`) sem `evento` correspondente
+> — corrigido para criar um `Evento` real por linha. Aplicado ao dev via
+> `docker compose up migrations-global migrations-empresa` (6 schemas convergiram para v0503/0800
+> sem erro) e reverificado: `./gradlew :services:evnt-service:test` 126/126, `architectureCheck`
+> verde.
 
 ## Contexto
 Materializes the four Flyway migration scripts (V1..V4) that MIG applies to each tenant schema.

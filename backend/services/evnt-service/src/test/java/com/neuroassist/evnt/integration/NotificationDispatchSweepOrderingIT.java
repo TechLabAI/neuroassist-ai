@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.neuroassist.evnt.application.port.out.NotificationDispatchRepositoryPort;
 import com.neuroassist.evnt.domain.model.DispatchStatuses;
 import com.neuroassist.evnt.domain.model.EscalationGrade;
+import com.neuroassist.evnt.domain.model.Feedback;
 import com.neuroassist.evnt.domain.model.NotificationDispatch;
 import com.neuroassist.evnt.domain.model.Tier;
+import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
+import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
 import com.neuroassist.evnt.infrastructure.persistence.repository.NotificationDispatchJpaRepository;
 import com.neuroassist.evnt.infrastructure.security.TenantContextHolder;
 import java.time.Duration;
@@ -40,12 +43,16 @@ class NotificationDispatchSweepOrderingIT extends BaseIntegrationTest {
 
     @Autowired private NotificationDispatchRepositoryPort port;
     @Autowired private NotificationDispatchJpaRepository jpaRepository;
+    @Autowired private EventoJpaRepository eventoJpaRepository;
     @Autowired private TransactionTemplate transactionTemplate;
 
     @BeforeEach
     void setUp() {
         TenantContextHolder.set(TENANT);
+        // Ordem importa: notification_dispatch tem FK para evento (V0503) — apagar o pai primeiro
+        // quebraria a limpeza se a FK não fosse ON DELETE CASCADE; aqui zeramos os dois de propósito.
         transactionTemplate.executeWithoutResult(s -> jpaRepository.deleteAll());
+        transactionTemplate.executeWithoutResult(s -> eventoJpaRepository.deleteAll());
     }
 
     @AfterEach
@@ -125,10 +132,11 @@ class NotificationDispatchSweepOrderingIT extends BaseIntegrationTest {
     void colunasDaEscadaPersistem() {
         Instant agora = Instant.now();
         UUID id = UUID.randomUUID();
+        UUID eventoId = criarEvento();
         NotificationDispatch original =
                 new NotificationDispatch(
                         id,
-                        UUID.randomUUID(),
+                        eventoId,
                         Tier.full_screen_alarm.name(),
                         "cg-a",
                         DispatchStatuses.ESCALATED,
@@ -155,12 +163,13 @@ class NotificationDispatchSweepOrderingIT extends BaseIntegrationTest {
 
     private UUID inserir(String status, int round, Instant lastAttemptAt, Instant nextAttemptAt) {
         UUID id = UUID.randomUUID();
+        UUID eventoId = criarEvento();
         transactionTemplate.executeWithoutResult(
                 s ->
                         jpaRepository.save(
                                 NotificationDispatchJpaEntity.builder()
                                         .id(id)
-                                        .eventoId(UUID.randomUUID())
+                                        .eventoId(eventoId)
                                         .tier(Tier.full_screen_alarm.name())
                                         .targetCaregiverId("cg-a")
                                         .status(status)
@@ -169,6 +178,31 @@ class NotificationDispatchSweepOrderingIT extends BaseIntegrationTest {
                                         .escalationOrder(0)
                                         .escalationRound(round)
                                         .nextAttemptAt(nextAttemptAt)
+                                        .build()));
+        return id;
+    }
+
+    /**
+     * notification_dispatch.evento_id tem FK para evento (V0503) — este teste avalia só o sweep de
+     * dispatch, então o evento em si é um detalhe irrelevante; cada linha ganha o seu próprio para
+     * satisfazer a constraint sem acoplar os testes a um evento compartilhado.
+     */
+    private UUID criarEvento() {
+        UUID id = UUID.randomUUID();
+        Instant agora = Instant.now();
+        transactionTemplate.executeWithoutResult(
+                s ->
+                        eventoJpaRepository.save(
+                                EventoJpaEntity.builder()
+                                        .id(id)
+                                        .pacienteId("pac-sweep-test")
+                                        .comandoRef("cmd-sweep-test")
+                                        .commandLabelSnapshot("Sweep Test Command")
+                                        .urgenciaSnapshot("emergencia")
+                                        .feedback(Feedback.NAO_AVALIADO.name())
+                                        .recognizedAt(agora)
+                                        .createdAt(agora)
+                                        .tenantId(TENANT)
                                         .build()));
         return id;
     }
