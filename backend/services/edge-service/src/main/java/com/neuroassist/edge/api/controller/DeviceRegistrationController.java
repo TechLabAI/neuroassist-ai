@@ -9,6 +9,7 @@ import com.neuroassist.edge.api.dto.EnrollResponse;
 import com.neuroassist.edge.application.port.in.DeviceListUseCase;
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
+import com.neuroassist.edge.application.service.DeviceEnrollmentService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -43,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DeviceRegistrationController {
 
     private final DeviceRegistrationUseCase deviceRegistrationUseCase;
+    private final DeviceEnrollmentService deviceEnrollmentService;
     private final LivenessUseCase livenessUseCase;
     private final DeviceListUseCase deviceListUseCase;
 
@@ -97,8 +99,10 @@ public class DeviceRegistrationController {
      */
     @PostMapping("/enroll")
     public ResponseEntity<EnrollResponse> enroll(@Valid @RequestBody EnrollRequest req) {
+        // Via DeviceEnrollmentService: resolve o tenant pelo índice global ANTES da transação
+        // (o enroll é anônimo, então não há claim de tenant — C-21).
         DeviceRegistrationUseCase.EnrollResult result =
-                deviceRegistrationUseCase.enroll(req.enrollmentToken(), req.agentVersion());
+                deviceEnrollmentService.enroll(req.enrollmentToken(), req.agentVersion());
         EnrollResponse body =
                 new EnrollResponse(
                         result.deviceId(),

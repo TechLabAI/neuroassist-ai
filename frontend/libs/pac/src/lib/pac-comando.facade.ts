@@ -15,6 +15,12 @@ import {
 import { TipoGesto } from './api/tipos-gesto-read.port';
 import { EdgeDeviceAckStubAdapter } from './api/edge-device-ack-stub.adapter';
 import { PacTelemetryService } from './telemetry/pac-telemetry.service';
+import type { AppError } from '@neuroassist/shared/error-model';
+import { PacErrorHandler } from './error-surface/pac-error.handler';
+import {
+  mapProblemDetailToAppError,
+  type ProblemDetail,
+} from './error-surface/pac-problem-detail.mapper';
 
 /** Crypto-safe idempotency key (browser-native). */
 function generateIdempotencyKey(): string {
@@ -33,6 +39,29 @@ export interface ComandoRowVM {
   readonly urgencia: ComandoUrgencia;
   readonly primitivoPrincipalNome: string;
   readonly primitivoSecundarioNome: string | null;
+  /**
+   * Ids dos primitivos, separados dos nomes de exibição.
+   *
+   * <p>Existiam só os campos `…Nome`, e o `openEdit()` copiava o NOME para o
+   * campo de ID do editor. Hoje isso é inócuo porque `_toRowVM()` guarda o id
+   * nos dois — o nome ainda não é resolvido pelo catálogo de tipos. Assim que
+   * for (o `_toRowVM` já tem o TODO), o editor passaria a mandar
+   * "Levantar sobrancelha" onde o backend espera "tg-sobrancelha". Com o botão
+   * de recalibrar ligado, esse envio deixa de ser hipotético.
+   */
+  readonly primitivoPrincipalId: string;
+  readonly primitivoSecundarioId: string | null;
+  /**
+   * Janela de tempo do gesto, vinda do backend.
+   *
+   * <p>Não aparece na linha do catálogo — está aqui porque o `openEdit()`
+   * precisa dela e a linha é a única fonte que ele recebe. Antes o editor
+   * FABRICAVA 400/1500 fixos, e `recalibrate()` manda esses dois campos no
+   * corpo: recalibrar um comando de 250/900 o reescreveria para 400/1500 sem
+   * que ninguém tivesse pedido.
+   */
+  readonly tempoMinimoGestoMs: number;
+  readonly tempoMaximoGestoMs: number;
   readonly sensibilidade: ComandoSensibilidade;
   readonly estado: ComandoEstado;
   /** ADR-005: never 'active-on-device' until EDGE ack (stub always returns 'pending-sync') */
@@ -94,6 +123,7 @@ export class PacComandoFacade {
   private readonly ackStub = inject(EdgeDeviceAckStubAdapter);
   private readonly destroyRef = inject(DestroyRef);
   private readonly telemetry = inject(PacTelemetryService);
+  private readonly errorHandler = inject(PacErrorHandler);
 
   private readonly _catalog = signal<ComandoRowVM[]>([]);
   private readonly _loadState = signal<CatalogLoadState>('idle');
@@ -148,11 +178,13 @@ export class PacComandoFacade {
       cid: row.id,
       rotulo: row.rotulo,
       urgencia: row.urgencia,
-      primitivoPrincipal: row.primitivoPrincipalNome,
-      primitivoSecundario: row.primitivoSecundarioNome,
+      // Ids, não nomes — ver a nota em ComandoRowVM.primitivoPrincipalId.
+      primitivoPrincipal: row.primitivoPrincipalId,
+      primitivoSecundario: row.primitivoSecundarioId,
       sensibilidade: row.sensibilidade,
-      tempoMinimoGestoMs: 400,
-      tempoMaximoGestoMs: 1500,
+      // Vindos do backend. Antes eram 400/1500 literais aqui dentro.
+      tempoMinimoGestoMs: row.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: row.tempoMaximoGestoMs,
       estado: row.estado,
       etag: row.etag,
       dirty: false,
@@ -233,10 +265,96 @@ export class PacComandoFacade {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Ciclo de vida (ADR-006): drafted → validated → published → (recalibrated ↻)
+  //                                                          → retired
+  //
+  // POR QUE O ESTADO FINAL É 'idle' E NÃO 'saved-pending-sync'
+  //
+  // 'saved-pending-sync' é o gatilho do efeito de save-then-navigate do
+  // CommandEditorComponent: ao vê-lo, a tela volta ao catálogo. É o que se quer
+  // ao SALVAR — e é exatamente o que não se quer numa transição, porque a
+  // sequência natural é validar e então publicar, no mesmo editor. Devolver ao
+  // catálogo entre as duas obrigaria a reabrir o comando para dar o passo
+  // seguinte.
+  //
+  // POR QUE CADA UMA GUARDA O ESTADO DE ORIGEM
+  //
+  // A habilitação dos botões já deriva de `estado`, mas a guarda no facade não é
+  // redundante: quem chama o facade não é só o template (há o catálogo, e haverá
+  // testes e atalhos). Um :publish sobre um comando 'drafted' devolve 422
+  // invalid-lifecycle-transition — e um erro que dá para não provocar não deve
+  // ser provocado.
+  // -------------------------------------------------------------------------
+
+  /** Validar: drafted → validated. */
+  validate(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado !== 'drafted') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.validate(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('validated', ed.cid!);
+          this.load(ed.pid);
+        },
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
+  /**
+   * Publicar: validated → published.
+   *
+   * <p>É aqui que o portão de emergência do backend dispara (SPEC-07 §4): um
+   * comando de urgência 'emergencia' cujo gesto o motor de visão não detecta
+   * volta 422 emergency-not-detectable. O `_handleSaveError` já sabe montar o
+   * modal bloqueante — o que faltava era alguém chamá-lo neste caminho. Até
+   * agora o portão só era exercido no `create`, que é onde o backend NÃO o
+   * aplica; a rigor, o gate estava desligado no produto.
+   */
+  publish(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado !== 'validated') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.publish(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('published', ed.cid!);
+          this.load(ed.pid);
+        },
+        // SPEC-07: "leave the emergency comando validated" — o `estado` do editor
+        // não é tocado no erro, então continua 'validated'.
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
   /** Recalibrate: for published commands, adjusts tuning without going back to drafted */
   recalibrate(tuning: ComandoTuning): void {
     const ed = this._editor();
-    if (!ed.cid) return;
+    if (!ed.cid || ed.estado !== 'published') return;
+    // Faltava o 'saving': sem ele os botões continuavam clicáveis durante a
+    // chamada e um duplo clique mandava dois :recalibrate com o MESMO If-Match —
+    // o segundo volta 409 conflict-precondition sobre uma operação que deu certo.
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
     from(lastValueFrom(this.port.recalibrate(ed.pid, ed.cid, tuning, ed.etag)))
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
@@ -244,10 +362,54 @@ export class PacComandoFacade {
           this._editor.update((e) => ({
             ...e,
             sensibilidade: updated.sensibilidade,
+            tempoMinimoGestoMs: updated.tempoMinimoGestoMs,
+            tempoMaximoGestoMs: updated.tempoMaximoGestoMs,
+            estado: updated.estado,
             etag: updated.etag,
-            saveState: 'saved-pending-sync',
+            saveState: 'idle',
+            dirty: false,
           }));
           this.telemetry.trackLifecycleTransition('recalibrated', ed.cid!);
+          this.load(ed.pid);
+        },
+        error: (err: unknown) => this._handleSaveError(err, ed.cid),
+      });
+  }
+
+  /** Recalibrar a partir do editor aberto, com o tuning que está na tela. */
+  recalibrateCurrent(): void {
+    const ed = this._editor();
+    this.recalibrate({
+      sensibilidade: ed.sensibilidade,
+      tempoMinimoGestoMs: ed.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: ed.tempoMaximoGestoMs,
+    });
+  }
+
+  /**
+   * Aposentar a partir do editor aberto.
+   *
+   * <p>O `retire(pid, row)` abaixo serve o catálogo, que tem a linha em mãos. A
+   * tela do editor não tem linha nenhuma — tem o `EditorVM` —, e era por isso
+   * que não havia caminho para aposentar de dentro do editor.
+   */
+  retireCurrent(): void {
+    const ed = this._editor();
+    if (!ed.pid || !ed.cid || ed.estado === 'retired') return;
+    this._editor.update((e) => ({ ...e, saveState: 'saving', emergencyGateError: null }));
+
+    from(lastValueFrom(this.port.retire(ed.pid, ed.cid, ed.etag)))
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (updated) => {
+          this._editor.update((e) => ({
+            ...e,
+            estado: updated.estado,
+            etag: updated.etag,
+            saveState: 'idle',
+            dirty: false,
+          }));
+          this.telemetry.trackLifecycleTransition('retired', ed.cid!);
           this.load(ed.pid);
         },
         error: (err: unknown) => this._handleSaveError(err, ed.cid),
@@ -290,6 +452,10 @@ export class PacComandoFacade {
       // For the mock, we store the id as the name until TipoGesto names are resolved
       primitivoPrincipalNome: c.primitivoPrincipal,
       primitivoSecundarioNome: c.primitivoSecundario,
+      primitivoPrincipalId: c.primitivoPrincipal,
+      primitivoSecundarioId: c.primitivoSecundario,
+      tempoMinimoGestoMs: c.tempoMinimoGestoMs,
+      tempoMaximoGestoMs: c.tempoMaximoGestoMs,
       sensibilidade: c.sensibilidade,
       estado: c.estado,
       syncState: 'pending-sync',  // ADR-005: always pending until EDGE ack
@@ -298,29 +464,75 @@ export class PacComandoFacade {
     };
   }
 
+  /**
+   * Encaminha a falha de gravação para a superfície certa.
+   *
+   * <p><b>O que havia aqui antes.</b> A classificação era feita procurando
+   * substring na mensagem do erro — {@code msg.includes('emergency-not-detectable')} —
+   * com o status como segunda tentativa. Frágil por três motivos: a mensagem é
+   * texto para humanos e muda; {@code status === 422} atribuía o portão de
+   * emergência a QUALQUER 422, inclusive os que não são; e nove dos doze tipos de
+   * erro do SPEC-07 caíam todos no mesmo balde genérico.
+   *
+   * <p>Enquanto isso, o {@code mapProblemDetailToAppError} e o
+   * {@code PacErrorHandler} existiam, com testes, e ninguém os chamava — o
+   * handler era exportado no barrel e não tinha um único ponto de invocação no
+   * repositório. Agora tem este.
+   */
   private _handleSaveError(err: unknown, cid?: string | null): void {
-    // Emergency gate (422) surfaces a blocking modal (PAC-FE-021)
-    const msg = err instanceof Error ? err.message : 'Erro ao salvar comando';
-    const status = (err && typeof err === 'object' && 'status' in err)
-      ? (err as { status: number }).status
-      : null;
+    const appError = this._paraAppError(err);
 
-    const isEmergencyGate = msg.includes('emergency-not-detectable') || status === 422;
-    const isConflict = msg.includes('conflict-precondition') || status === 409;
-
-    if (isEmergencyGate) {
+    // Telemetria antes de decidir a superfície: o que aconteceu não depende de
+    // como será mostrado.
+    if (appError.code === 'emergency-not-detectable') {
       this.telemetry.trackEmergencyGateBlocked(cid ?? 'unknown');
+    } else if (appError.code === 'conflict-precondition') {
+      this.telemetry.trackConflictPrecondition(cid ?? 'unknown');
+    }
+
+    // 'handled' = o handler já pôs na tela (aviso, faixa ou modal). 'inline' = o
+    // erro pertence a esta tela e é ela quem o desenha.
+    const superficie = this.errorHandler.handle(appError, 'editor');
+
+    if (appError.code === 'emergency-not-detectable') {
+      // O modal bloqueante é do editor, porque só ele oferece "Alterar para
+      // Rotina" — a saída. Ver a justificativa no PacErrorHandler.
       this._editor.update((e) => ({
         ...e,
         saveState: 'error',
-        emergencyGateError: 'Este comando de emergência requer um gesto reconhecível pelo motor de detecção. Verifique o catálogo de gestos com a equipe técnica.',
+        emergencyGateError:
+          'Este comando de emergência requer um gesto reconhecível pelo motor de detecção. Verifique o catálogo de gestos com a equipe técnica.',
       }));
-    } else {
-      if (isConflict) {
-        this.telemetry.trackConflictPrecondition(cid ?? 'unknown');
-      }
-      this._editor.update((e) => ({ ...e, saveState: 'error', emergencyGateError: null }));
-      this._error.set(msg);
+      return;
     }
+
+    this._editor.update((e) => ({ ...e, saveState: 'error', emergencyGateError: null }));
+
+    // Erro já mostrado pelo handler não é repetido aqui: a mesma frase em dois
+    // lugares faz procurar dois problemas.
+    if (superficie === 'inline') {
+      this._error.set(appError.message);
+    }
+  }
+
+  /**
+   * Extrai o ProblemDetail do erro do HttpClient.
+   *
+   * <p>O corpo vem em {@code HttpErrorResponse.error}. Sem {@code type} não há
+   * ProblemDetail — é falha de rede, corpo vazio ou erro que não veio do nosso
+   * backend —, e aí o código é {@code 'unknown'}, que o handler trata como
+   * consultivo. Nunca devolver o erro cru: {@code String(HttpErrorResponse)} é
+   * {@code "[object Object]"}, e foi assim que a tela do EDGE passou a exibir
+   * isso a uma cuidadora.
+   */
+  private _paraAppError(err: unknown): AppError {
+    const corpo = (err as { error?: unknown } | null)?.error;
+    if (corpo && typeof corpo === 'object' && 'type' in corpo) {
+      return mapProblemDetailToAppError(corpo as ProblemDetail);
+    }
+    return {
+      code: 'unknown',
+      message: err instanceof Error ? err.message : 'Erro ao salvar comando',
+    };
   }
 }

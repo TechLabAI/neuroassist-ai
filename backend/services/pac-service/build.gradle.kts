@@ -61,6 +61,10 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    // E2E-022 — os testes aplicam as migrations REAIS antes de o Spring subir, em vez de deixar o
+    // Hibernate desenhar o schema. Ver SchemaMigrations.
+    testImplementation("org.flywaydb:flyway-core")
+    testImplementation("org.flywaydb:flyway-database-postgresql")
     // ActiveMQ: Artemis embedded (spring.artemis.mode=embedded) — sem testcontainers:activemq
     testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 

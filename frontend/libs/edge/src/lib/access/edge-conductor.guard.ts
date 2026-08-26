@@ -5,7 +5,7 @@ import { EDGE_ACCESS_DECISION } from './edge-access-tokens';
 // ---------------------------------------------------------------------------
 // edgeConductorGuard — SPEC-01 §3 / SPEC-05 §3 (FE-EDGE-015)
 //
-// Requires the conductor entitlement (edge.device.manage) for
+// Requires the conductor entitlement (edge.manage) for
 // register/pair/unpair/retire operations.
 // On failure: redirects to /edge/device (read-only detail).
 // Never produces a blank page (SPEC-01 §3).
@@ -27,7 +27,7 @@ export const edgeConductorGuard: CanActivateFn = () => {
   }
 
   // RBAC check: conductor permission required for manage operations.
-  if (!access.can('edge.device.manage')) {
+  if (!access.can('edge.manage')) {
     return inject(Router).createUrlTree(['/edge', 'device']);
   }
 

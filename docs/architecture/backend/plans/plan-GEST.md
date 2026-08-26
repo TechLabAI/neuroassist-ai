@@ -565,7 +565,7 @@ Agendar sessão com time EDGE; registrar decisão em `docs/architecture/backend/
 - Feign client falha (EDGE down) → `EdgeUnavailableException` → 503
 
 #### Riscos
-- **R5 (alto):** INT-GEST-007 aberta — transport auth pode mudar SecurityConfig. Isolar no adapter para trocar sem impacto.
+- **R5 (fechado 2026-08-26):** INT-GEST-007 decidida — OAuth2 `client_credentials` finalizado como definitivo (ADR-007), não mais provisório. `EdgePairingAdapter` já isola a auth; nenhuma mudança de código necessária.
 
 ---
 
@@ -707,7 +707,7 @@ Resilience4j CircuitBreaker no `EdgePairingClient`; LGPD audit consolidado.
 | R2: TenantContextHolder mockar em P2 é trabalhoso | MÉDIO | Usar `MockedStatic<TenantContextHolder>` do Mockito; padronizar nos testes |
 | R3: Hibernate Schema Validator não reconhece índice parcial | MÉDIO | Validar com `psql \d tipo_gesto` antes de rodar `validate` |
 | R4: nextVersion() com lock pessimístico sob carga | BAIXO | Aceitável para MVP; P9 pode revisar se necessário |
-| R5: INT-GEST-007 aberta pode invalidar SecurityConfig de P5 | ALTO | Isolar transport auth no adapter; SecurityConfig usa `client_credentials` como padrão |
+| R5: INT-GEST-007 (fechado 2026-08-26) — `client_credentials` finalizado via ADR-007 | RESOLVIDO | Isolado no adapter; nenhuma mudança de SecurityConfig necessária |
 | R6: bddGate DEFERRED sem P1..P6 concluídos | ALTO | Não iniciar P8 antes de P6 DONE |
 | R7: Listener com TransactionalEventListener não dispara em teste | BAIXO | Usar `@Transactional` no teste + `@Rollback(false)` para forçar commit; ou `@TestTransaction` |
 

@@ -2,6 +2,8 @@ package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
 import com.neuroassist.evnt.application.port.out.CommandLookupPort;
 import com.neuroassist.evnt.application.port.out.GestValidationPort;
+import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
@@ -55,14 +58,19 @@ public class ReportIngressIdempotencySteps {
             "a tenant \"empresa_demo\" with patient \"pac-1\" and command \"cmd-emergency\" of urgency \"emergencia\"")
     public void givenATenantEmpresademoWithPatientPac1AndCommand() {
         ctx.setTenantId("empresa_demo");
-        ctx.setPacienteId("pac-1");
+        ctx.setPacienteId(BddIds.PACIENTE);
         ctx.setCommandRef("cmd-emergency");
         ctx.setUrgencia("emergencia");
-        when(commandLookupPort.lookup("cmd-emergency"))
+        when(commandLookupPort.lookup(anyString(), eq("cmd-emergency")))
                 .thenReturn(
                         new CommandLookupPort.CommandSnapshot(
                                 "cmd-emergency", "Emergency Command", "emergencia"));
-        when(caregiverRoutingPort.resolveCaregiver(any())).thenReturn("cg-1");
+        when(caregiverRoutingPort.responsibleFor(any()))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(any())).thenReturn(true);
     }
 
     @And("GEST will validate any well-formed report for a known profile")

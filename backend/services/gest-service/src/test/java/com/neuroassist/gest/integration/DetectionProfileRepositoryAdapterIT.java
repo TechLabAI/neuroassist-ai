@@ -8,12 +8,13 @@ import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.model.DetectabilityState;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.DetectionThresholdTable;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfileJpaRepository;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfilePrimitiveJpaRepository;
 import com.neuroassist.gest.infrastructure.security.TenantContextHolder;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestConstructor;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -47,6 +49,27 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     private final DetectionProfilePrimitiveJpaRepository primitiveJpaRepository;
 
+    /**
+     * O tenant precisa estar ligado ANTES de a transação começar.
+     *
+     * <p>{@code @BeforeEach} do JUnit roda <b>depois</b> de o Spring abrir a transação do teste, e
+     * o Hibernate fixa o identificador de tenant da Session no instante em que ela é criada — no
+     * começo da transação. Nos testes sem {@code @Transactional} isso não aparece, porque cada
+     * chamada de porta abre a própria Session já com o contexto ligado. No teste transacional a
+     * Session nascia com o fallback {@code neuroassist_global}, onde as tabelas do GEST não
+     * existem, e a falha vinha como {@code relation "tipo_gesto" does not exist} — ausência de
+     * roteamento disfarçada de schema quebrado.
+     *
+     * <p>É a mesma armadilha registrada no CLAUDE.md ("nunca resolva o tenant dentro de um método
+     * {@code @Transactional}"), do lado do teste. {@code @BeforeTransaction} é o único gancho que
+     * roda antes do início da transação.
+     */
+    @BeforeTransaction
+    void setTenantContextBeforeTransaction() {
+        TenantContextHolder.set(TEST_TENANT);
+    }
+
+    /** Para os testes não transacionais, onde {@code @BeforeTransaction} não é invocado. */
     @BeforeEach
     void setTenantContext() {
         TenantContextHolder.set(TEST_TENANT);
@@ -66,7 +89,7 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
 
     @Test
     void save_thenFindActive_returnsActiveProfile() {
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.85, "minWindowMs", 100);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
 
         // Given: one supported primitive
         TipoGesto supported = createSupportedPrimitive("Piscar Olho IT", "ref/piscar-olho-v1");
@@ -83,7 +106,9 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
         assertThat(found.get().version()).isEqualTo(1L);
         assertThat(found.get().active()).isTrue();
         assertThat(found.get().contractVersion()).isEqualTo("v1.0.0");
-        assertThat(found.get().classificationParams()).containsEntry("confidenceThreshold", 0.85);
+        assertThat(found.get().thresholds()).isEqualTo(DetectionThresholdTable.defaults());
+        // A faixa media reproduz, valor por valor, o que o agente usava como constante.
+        assertThat(found.get().thresholds().media().earClose()).isEqualTo(0.22);
     }
 
     // deactivateCurrent() is a bare @Modifying query with no @Transactional of its own by design
@@ -92,7 +117,7 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
     @Test
     @Transactional
     void deactivateCurrent_thenSaveNew_onlyOneActiveProfile() {
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.9);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
         TipoGesto supported =
                 createSupportedPrimitive("Levantar Sobrancelha IT", "ref/sobrancelha-v1");
 
@@ -115,18 +140,59 @@ class DetectionProfileRepositoryAdapterIT extends BaseIntegrationTest {
         assertThat(active.get().version()).isEqualTo(11L);
     }
 
+    /**
+     * A leitura por versão tem de achar o perfil <b>desativado</b> — é para isso que ela existe. Um
+     * relatório de gesto cita a versão com que foi detectado, e a essa altura ela quase sempre já
+     * não é a ativa.
+     */
+    @Test
+    @Transactional
+    void findByVersion_findsDeactivatedProfile() {
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
+        TipoGesto supported = createSupportedPrimitive("Piscar Duplo IT", "ref/piscar-duplo-v1");
+
+        DetectionProfile antigo =
+                DetectionProfile.publish(
+                        30L, "v1.1.0", params, List.of(supported), TEST_TENANT, "actor");
+        profilePort.save(antigo);
+        profilePort.deactivateCurrent();
+
+        DetectionProfile atual =
+                DetectionProfile.publish(
+                        31L, "v1.1.0", params, List.of(supported), TEST_TENANT, "actor");
+        profilePort.save(atual);
+
+        Optional<DetectionProfile> found = profilePort.findByVersion(30L);
+
+        assertThat(found).isPresent();
+        assertThat(found.get().version()).isEqualTo(30L);
+        assertThat(found.get().active()).isFalse();
+        assertThat(found.get().thresholds()).isEqualTo(DetectionThresholdTable.defaults());
+        // E a versão ativa continua sendo a outra — a consulta não confunde as duas.
+        assertThat(profilePort.findByVersion(31L))
+                .get()
+                .extracting(DetectionProfile::active)
+                .isEqualTo(true);
+    }
+
+    @Test
+    void findByVersion_unknownVersion_returnsEmpty() {
+        assertThat(profilePort.findByVersion(9_999L)).isEmpty();
+    }
+
     @Test
     void saveAll_primitives_thenFindByProfileId() {
         TipoGesto supported = createSupportedPrimitive("Sorrir IT", "ref/sorrir-v1");
 
-        Map<String, Object> params = Map.of("confidenceThreshold", 0.8);
+        DetectionThresholdTable params = DetectionThresholdTable.defaults();
         DetectionProfile profile =
                 DetectionProfile.publish(
                         20L, "v1.0.0", params, List.of(supported), TEST_TENANT, "actor");
         DetectionProfile savedProfile = profilePort.save(profile);
 
         DetectionProfilePrimitive primitive =
-                DetectionProfilePrimitive.fromSupported(savedProfile.id(), supported);
+                DetectionProfilePrimitive.fromSupported(
+                        savedProfile.id(), supported, Sensibilidade.alta);
         List<DetectionProfilePrimitive> savedPrimitives = primitivePort.saveAll(List.of(primitive));
 
         List<DetectionProfilePrimitive> found = primitivePort.findByProfileId(savedProfile.id());

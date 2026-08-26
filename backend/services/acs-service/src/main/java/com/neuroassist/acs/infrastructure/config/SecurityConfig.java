@@ -83,6 +83,10 @@ public class SecurityConfig {
                                                 // Service identity: authenticated inside the
                                                 // service against the configured BCrypt hash
                                                 "/oauth2/token/service",
+                                                // Device identity: the device authenticates by
+                                                // its body; the secret is verified by edge-service
+                                                // (service-identity.md §7)
+                                                "/oauth2/token/device",
                                                 "/.well-known/jwks.json",
                                                 "/oauth2/jwks",
                                                 "/actuator/health",

@@ -50,4 +50,15 @@ public record RecordAuditFactRequest(
          * Optional: client-supplied tenant identifier. When present, must match the {@code
          * tenant_id} claim from the JWT — mismatch results in HTTP 403 tenant-mismatch.
          */
-        String empresaId) {}
+        String empresaId,
+
+        /**
+         * Patient this fact concerns, for caregiver scoping (C-16). Optional: when {@code subject}
+         * already is a patient, hist-service derives it from the subject.
+         *
+         * <p>Producers whose subject is <i>not</i> a patient — pac-service, whose command facts
+         * have {@code subject.type = comando} — must supply it, otherwise the fact is readable only
+         * with {@code hist:read:all}. The patient id cannot be recovered from the payload at query
+         * time because the payload is encrypted at rest.
+         */
+        UUID scopePacienteId) {}

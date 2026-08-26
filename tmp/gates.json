@@ -1,4 +1,5 @@
 {
-  "lint": "pass",
-  "test": "pass"
+  "test": "pass",
+  "build": "pass",
+  "lint": "pass"
 }

@@ -3,6 +3,7 @@ package com.neuroassist.hist.api.controller;
 import com.neuroassist.hist.api.dto.ChainVerificationResponse;
 import com.neuroassist.hist.application.port.in.ChainVerificationUseCase;
 import com.neuroassist.hist.domain.model.ChainVerificationResult;
+import com.neuroassist.hist.domain.model.MissingTenantClaimException;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -68,14 +69,23 @@ public class ChainVerificationController {
 
     // ---- helper ----
 
+    /**
+     * Reads the tenant from the JWT, failing loudly when it is absent.
+     *
+     * <p>This used to fall back to the literal {@code "stub-tenant"} (C-35). A request whose token
+     * carried no tenant was therefore not rejected — it was answered against a tenant that does not
+     * exist, which is the quiet kind of wrong: an empty result set looks exactly like "this tenant
+     * has no facts". acs-service emits the claim on every token it issues, so its absence is a
+     * misconfiguration, not a case to accommodate.
+     */
     private String extractTenantId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            String tenant = jwtAuth.getToken().getClaimAsString("tenant");
+            String tenant = jwtAuth.getToken().getClaimAsString("tenant_id");
             if (tenant != null && !tenant.isBlank()) {
                 return tenant;
             }
         }
-        return "stub-tenant";
+        throw new MissingTenantClaimException();
     }
 
     private ChainVerificationResponse toResponse(ChainVerificationResult result) {

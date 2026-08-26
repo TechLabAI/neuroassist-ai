@@ -50,23 +50,23 @@ public class ServiceTokenService {
     @Transactional(readOnly = true)
     public AutenticacaoResponse issueToken(ServiceTokenRequest request) {
         ServiceClientProperties.ServiceClient client =
-                serviceClientProperties.getServiceClients().get(request.clientId());
+                authenticateClient(request.clientId(), request.clientSecret());
 
-        if (client == null) {
-            return reject("unknown client: {}", request.clientId());
+        // E2E-029 — the client that creates tenants has no tenant to scope to.
+        //
+        // Rejected through the same opaque 401 as every other failure: whether a client is allowed
+        // to go tenant-less is configuration, and the endpoint must not become a way to probe it.
+        if (request.tenantId() == null) {
+            if (!client.isTenantless()) {
+                throw reject("client is not allowed a tenant-less token: {}", request.clientId());
+            }
+            return issueTenantlessToken(request.clientId(), request.clientSecret());
         }
-        if (!client.isEnabled()) {
-            return reject("client disabled: {}", request.clientId());
-        }
-        // Fail closed: a blank hash means the secret env var was not provided
-        if (client.getSecretHash() == null || client.getSecretHash().isBlank()) {
-            return reject("client has no secret configured: {}", request.clientId());
-        }
-        if (!passwordEncoder.matches(request.clientSecret(), client.getSecretHash())) {
-            return reject("invalid secret for client: {}", request.clientId());
-        }
-        if (client.getAuthorities().isEmpty()) {
-            return reject("client grants no authorities: {}", request.clientId());
+        if (client.isTenantless()) {
+            // A tenant-less client asking for a tenant-scoped token is a misconfiguration on the
+            // caller's side, not a privilege to grant quietly.
+            throw reject(
+                    "tenant-less client requested a tenant-scoped token: {}", request.clientId());
         }
 
         boolean tenantActive =
@@ -75,7 +75,7 @@ public class ServiceTokenService {
                         .filter(t -> t.status() == TenantStatus.ACTIVE)
                         .isPresent();
         if (!tenantActive) {
-            return reject("tenant not found or not active: {}", request.tenantId().toString());
+            throw reject("tenant not found or not active: {}", request.tenantId().toString());
         }
 
         meterRegistry
@@ -91,10 +91,71 @@ public class ServiceTokenService {
                 request.clientId(), request.tenantId(), client.getAuthorities());
     }
 
-    /** Logs the real reason at debug level and returns the same opaque 401 to the caller. */
-    private AutenticacaoResponse reject(String reason, String detail) {
+    /**
+     * Issues a <b>tenant-less</b> service token for an internal call whose target resolves the
+     * tenant on its own (E2E-005). Not reachable over HTTP: {@code ServiceTokenRequest} requires a
+     * tenant, so this variant exists only for in-process callers inside acs-service.
+     *
+     * <p>Today the single caller is {@code EdgeInternalTokenProvider}, which needs an {@code
+     * edge.internal} identity to ask edge-service whether a device credential is valid — a question
+     * asked <i>before</i> the device's tenant is known. Credential checks are exactly the same as
+     * {@link #issueToken}; only the tenant validation is skipped, because there is no tenant to
+     * validate rather than because any tenant would do.
+     *
+     * @param clientId the acs-service client id registered in {@code acs.service-clients}
+     * @param clientSecret its plaintext secret, matched against the configured BCrypt hash
+     * @throws InvalidCredentialsException for every rejection reason
+     */
+    public AutenticacaoResponse issueTenantlessToken(String clientId, String clientSecret) {
+        ServiceClientProperties.ServiceClient client = authenticateClient(clientId, clientSecret);
+
+        meterRegistry
+                .counter(METRIC_SERVICE_TOKEN, "status", "success", "client", clientId)
+                .increment();
+        log.debug(
+                "Tenant-less service token issued client={} authorities={}",
+                clientId,
+                client.getAuthorities());
+
+        return tokenIssuer.issueServiceToken(clientId, null, client.getAuthorities());
+    }
+
+    /**
+     * Validates clientId + secret against {@code acs.service-clients}, returning the matching
+     * client. Every failure raises the same opaque 401; the real reason is logged at debug.
+     */
+    private ServiceClientProperties.ServiceClient authenticateClient(
+            String clientId, String clientSecret) {
+        ServiceClientProperties.ServiceClient client =
+                serviceClientProperties.getServiceClients().get(clientId);
+
+        if (client == null) {
+            throw reject("unknown client: {}", clientId);
+        }
+        if (!client.isEnabled()) {
+            throw reject("client disabled: {}", clientId);
+        }
+        // Fail closed: a blank hash means the secret env var was not provided
+        if (client.getSecretHash() == null || client.getSecretHash().isBlank()) {
+            throw reject("client has no secret configured: {}", clientId);
+        }
+        if (!passwordEncoder.matches(clientSecret, client.getSecretHash())) {
+            throw reject("invalid secret for client: {}", clientId);
+        }
+        if (client.getAuthorities().isEmpty()) {
+            throw reject("client grants no authorities: {}", clientId);
+        }
+        return client;
+    }
+
+    /**
+     * Logs the real reason at debug level and builds the same opaque 401 for every rejection.
+     * Returns the exception (rather than throwing it) so call sites read {@code throw reject(...)}
+     * and the compiler sees the branch terminating.
+     */
+    private InvalidCredentialsException reject(String reason, String detail) {
         log.debug("Service token rejected — " + reason, detail);
         meterRegistry.counter(METRIC_SERVICE_TOKEN, "status", "failure").increment();
-        throw new InvalidCredentialsException();
+        return new InvalidCredentialsException();
     }
 }

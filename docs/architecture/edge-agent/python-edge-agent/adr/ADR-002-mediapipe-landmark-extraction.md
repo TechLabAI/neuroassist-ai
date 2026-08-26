@@ -1,5 +1,8 @@
 # ADR-002 — MediaPipe FaceMesh for landmark extraction
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> A extração de landmarks passa a ser MediaPipe Tasks Vision no browser (WASM).
+
 ## Status
 Aceita
 

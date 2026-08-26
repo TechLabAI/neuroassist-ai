@@ -1,5 +1,8 @@
 # ADR-005 — HTTP (not HTTPS) for co-located service communication
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> Não há mais processo local com quem colocar HTTP: o detector vive no browser.
+
 ## Status
 Aceita
 

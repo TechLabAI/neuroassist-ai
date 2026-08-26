@@ -76,7 +76,7 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
             <!-- InlineError -->
             <div
               role="alert"
-              class="rounded-2xl border border-error-line bg-error-surface p-4 text-sm text-error-ink">
+              class="rounded-2xl border border-error bg-error-bg p-4 text-sm text-error-ink">
               <p class="font-semibold">Erro ao carregar histórico</p>
               @if (vm().error?.correlationId) {
                 <p class="mt-1 text-xs text-error-ink/70">
@@ -85,7 +85,7 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
               }
               <button
                 (click)="retry()"
-                class="mt-3 rounded-lg border border-error-line px-3 py-1.5 text-xs font-semibold text-error-ink transition-colors hover:bg-error-surface-2">
+                class="mt-3 rounded-lg border border-error px-3 py-1.5 text-xs font-semibold text-error-ink transition-colors hover:bg-error-bg">
                 Tentar novamente
               </button>
             </div>
@@ -150,19 +150,19 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
                     } @else if (item.verdict === 'real' || markingState(item.id) === 'marked') {
                       <span
                         data-testid="feedback-marcado-real"
-                        class="inline-flex items-center rounded-full bg-ok-surface px-2.5 py-1 text-xs font-semibold text-ok-ink">
+                        class="inline-flex items-center rounded-full bg-success-bg px-2.5 py-1 text-xs font-semibold text-success-ink">
                         ✓ Marcado real
                       </span>
                     } @else if (item.verdict === 'falso_positivo') {
                       <span
-                        class="inline-flex items-center rounded-full bg-mu-surface px-2.5 py-1 text-xs font-semibold text-mu-ink">
+                        class="inline-flex items-center rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-soft">
                         Falso positivo
                       </span>
                     } @else if (markingState(item.id) === 'mark-error') {
                       <button
                         data-testid="feedback-error-retry-btn"
                         (click)="marcar(item.id, 'real')"
-                        class="flex-shrink-0 rounded-lg border-[1.5px] border-error-line px-3 py-1.5 text-xs font-semibold text-error-ink transition-colors hover:bg-error-surface">
+                        class="flex-shrink-0 rounded-lg border-[1.5px] border-error px-3 py-1.5 text-xs font-semibold text-error-ink transition-colors hover:bg-error-bg">
                         Erro. Tentar de novo?
                       </button>
                     }
@@ -226,9 +226,9 @@ const PERIODO_LABEL: PeriodLabel = { hoje: 'Hoje', semana: 'Semana', mes: 'Mês'
           @if (showChainBadge()) {
             <div
               data-testid="chain-badge"
-              class="rounded-2xl border border-ok-line bg-ok-surface p-4 shadow-card">
-              <p class="text-xs font-semibold text-ok-ink">Cadeia de auditoria: íntegra</p>
-              <p class="mt-1 text-xs text-ok-ink/70">Todos os registros verificados</p>
+              class="rounded-2xl border border-success bg-success-bg p-4 shadow-card">
+              <p class="text-xs font-semibold text-success-ink">Cadeia de auditoria: íntegra</p>
+              <p class="mt-1 text-xs text-success-ink/70">Todos os registros verificados</p>
             </div>
           }
         </div>
@@ -289,9 +289,9 @@ export class HistoryTimelineComponent implements OnInit {
 
   protected urgencyClass(urgency: string): string {
     switch (urgency) {
-      case 'critico':   return 'bg-er-surface text-er-ink';
-      case 'atencao':   return 'bg-warning-surface text-warning-ink';
-      default:          return 'bg-nf-surface text-nf-ink';
+      case 'critico':   return 'bg-error-bg text-error-ink';
+      case 'atencao':   return 'bg-warning-bg text-warning-ink';
+      default:          return 'bg-surface-2 text-ink-soft';
     }
   }
 

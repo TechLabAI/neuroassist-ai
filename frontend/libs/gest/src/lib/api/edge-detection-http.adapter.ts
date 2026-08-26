@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
+import { ComandoDraft, DetectorType, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
 import { EdgeDetectionMockAdapter } from './edge-detection-mock.adapter';
 import { EDGE_BRIDGE_WS_URL } from './gest-service.config';
@@ -44,7 +44,7 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
   private readonly fallback = new EdgeDetectionMockAdapter();
   private activeSocket: WebSocket | null = null;
 
-  private readonly _detectorType = signal<'ear_bri' | 'onnx' | null>(null);
+  private readonly _detectorType = signal<DetectorType | null>(null);
   /** ADR-006: current detector type as reported in the WS handshake. null before
    * handshake is received or after close(). Drives the interim banner in the component. */
   readonly detectorType = this._detectorType.asReadonly();
@@ -157,6 +157,13 @@ export class EdgeDetectionHttpAdapter implements EdgeDetectionPort {
     this.activeSocket?.close();
     this.activeSocket = null;
     this._detectorType.set(null); // ADR-006: reset on close so the banner clears next session
+  }
+
+  /** Sem malha: este adaptador não tem landmarks — quem detecta é outro processo
+   * (ou ninguém, no caso do mock). Ignorar em silêncio é o comportamento certo;
+   * o componente não precisa saber qual motor está ligado para montar o canvas. */
+  attachOverlay(): void {
+    // no-op
   }
 
   /** Honest fallback: emit a single degraded signal and complete — never a

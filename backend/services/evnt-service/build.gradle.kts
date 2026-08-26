@@ -79,6 +79,10 @@ dependencies {
     // WireMock — contract tests (INT-EVNT-002..005, P9)
     testImplementation("org.springframework.cloud:spring-cloud-contract-wiremock")
 
+    // E2E-022 — Flyway applies the REAL migrations in Testcontainers before ddl-auto=validate.
+    testImplementation("org.flywaydb:flyway-core")
+    testImplementation("org.flywaydb:flyway-database-postgresql")
+
 }
 
 tasks.withType<Test> {

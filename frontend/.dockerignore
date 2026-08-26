@@ -1,0 +1,12 @@
+node_modules
+dist
+tmp
+.nx
+.angular
+coverage
+playwright-report
+test-results
+**/*.log
+.git
+Dockerfile
+.dockerignore

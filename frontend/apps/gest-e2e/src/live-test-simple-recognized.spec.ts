@@ -16,7 +16,7 @@
  *   getUserMedia is mocked via addInitScript (no real webcam needed).
  */
 import { test, expect } from '@playwright/test';
-import { gotoGest, mockCameraSuccess } from './gest-e2e-helpers';
+import { gotoGest, mockCameraSuccess, usarMotorSimulado } from './gest-e2e-helpers';
 
 test.describe('live-test-simple-recognized', () => {
 
@@ -24,6 +24,10 @@ test.describe('live-test-simple-recognized', () => {
   // BDD: "A simple gesture test reaches the recognized state"
   // Expectation: badge shows "Gesto reconhecido com sucesso!" with green styling.
   test('simple gesture test reaches recognized state and shows success message', async ({ page }) => {
+    // O motor do produto (MediaPipe, ADR-007) não reconhece gesto nenhum contra
+    // uma webcam falsa: este cenário mede a máquina de estados do facade, então
+    // precisa do motor simulado — e é ELE que lê __GEST_E2E_MOCK_RECOGNIZED.
+    await usarMotorSimulado(page);
     // Enable the mock recognition path in EdgeDetectionMockAdapter
     await page.addInitScript(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,9 +40,7 @@ test.describe('live-test-simple-recognized', () => {
     // Click "Testar gesto" to start the live test
     await page.getByRole('button', { name: 'Testar gesto' }).click();
 
-    // Wait for the recognized signal (600ms from mock) + Angular re-render buffer
-    await page.waitForTimeout(900);
-
+    // Sinal 'recognized' aos 600ms — esperado por condição, não por relógio.
     // Badge must show "Gesto reconhecido com sucesso!"
     await expect(
       page.getByText('Gesto reconhecido com sucesso!'),
@@ -57,6 +59,7 @@ test.describe('live-test-simple-recognized', () => {
   // BDD: "After recognition the outcome JSON is shown in the dev host"
   // GestDevHostComponent renders the outcome as JSON below the live-test.
   test('dev host displays the gesture outcome JSON after recognition', async ({ page }) => {
+    await usarMotorSimulado(page);
     await page.addInitScript(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (window as any).__GEST_E2E_MOCK_RECOGNIZED = true;
@@ -66,7 +69,6 @@ test.describe('live-test-simple-recognized', () => {
     await gotoGest(page);
 
     await page.getByRole('button', { name: 'Testar gesto' }).click();
-    await page.waitForTimeout(900);
 
     // Outcome is rendered as <pre> JSON below gest-gesture-live-test
     const outcomeBlock = page.locator('pre');

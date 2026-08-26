@@ -11,6 +11,8 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -242,26 +244,23 @@ public class SharedSteps {
      * Resolves a path that may contain literal strings like "/api/pac/v1/pacientes/pac-001" by
      * substituting known aliases with their UUIDs.
      */
+    /**
+     * Substitui na URL qualquer alias registrado no cenario.
+     *
+     * <p>Era uma lista fixa de onze nomes. Um alias novo nao era substituido, a URL seguia com o
+     * literal, e o servico respondia {@code 400 Failed to convert 'id'} — uma mensagem que nao diz
+     * "voce esqueceu de cadastrar o alias na lista". Resolver a partir do que o cenario realmente
+     * registrou elimina a lista e o modo de falha junto (E2E-028).
+     *
+     * <p>Ordena por tamanho decrescente para que {@code pac-001} nao seja parcialmente casado por
+     * um alias que seja seu prefixo.
+     */
     private String resolvePath(String path) {
-        // Try to resolve common alias patterns in the path
-        for (String alias :
-                new String[] {
-                    "pac-001",
-                    "pac-002",
-                    "pac-valid",
-                    "cmd-pub",
-                    "cmd-draft",
-                    "cmd-val",
-                    "cmd-ret",
-                    "cmd-emg",
-                    "cmd-rot",
-                    "cmd-composite",
-                    "cmd-001"
-                }) {
-            UUID id = ctx.getAlias(alias);
-            if (id != null) {
-                path = path.replace("/" + alias, "/" + id);
-            }
+        List<Map.Entry<String, UUID>> aliases =
+                new java.util.ArrayList<>(ctx.registeredAliases().entrySet());
+        aliases.sort((a, b) -> Integer.compare(b.getKey().length(), a.getKey().length()));
+        for (Map.Entry<String, UUID> alias : aliases) {
+            path = path.replace("/" + alias.getKey(), "/" + alias.getValue());
         }
         return path;
     }

@@ -73,7 +73,14 @@ public class ArchitectureTest {
     // (CLAUDE.md)
     //   Not enforceable purely via ArchUnit — verified by:
     //     (a) code review of every @Service in application.service,
-    //     (b) integration tests asserting MDC/TenantContextHolder set during processing.
+    //     (b) MultiTenantIsolationIT (src/test/.../integration/MultiTenantIsolationIT.java):
+    //         — proves that a device registered under tenant A is invisible from tenant B
+    //           via DeviceListUseCase / DeviceRegistrationUseCase (not direct SQL);
+    //         — proves that UUID→schema_nome catalogue routing is used (not identifier-as-
+    //           schema fallback): both tenant UUIDs differ from their schema names, so a
+    //           broken provider would throw instead of routing correctly;
+    //         — proves that listDevices() and register() throw IllegalStateException
+    //           (RULE-07) when no tenant is bound, rather than silently accessing global data.
     //   See SPEC-06 §"Tenant isolation" and CLIO-014.
 
     // RULE-08: spring.jpa.open-in-view=false mandatory in application.yml (CLAUDE.md)

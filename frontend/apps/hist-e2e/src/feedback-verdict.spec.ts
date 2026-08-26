@@ -24,6 +24,25 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
+
 // ── Navigation helper ─────────────────────────────────────────────────────────
 
 /**

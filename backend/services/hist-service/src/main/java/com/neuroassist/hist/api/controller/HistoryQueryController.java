@@ -8,6 +8,8 @@ import com.neuroassist.hist.application.port.in.HistoryQueryUseCase;
 import com.neuroassist.hist.domain.model.AuditRecord;
 import com.neuroassist.hist.domain.model.IncompleteSubjectFilterException;
 import com.neuroassist.hist.domain.model.InvalidTimeWindowException;
+import com.neuroassist.hist.domain.model.MissingTenantClaimException;
+import com.neuroassist.hist.domain.model.UnscopableCallerException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -114,30 +116,48 @@ public class HistoryQueryController {
 
     // ---- helpers ----
 
+    /**
+     * Reads the tenant from the JWT, failing loudly when it is absent.
+     *
+     * <p>This used to fall back to the literal {@code "stub-tenant"} (C-35). A request whose token
+     * carried no tenant was therefore not rejected — it was answered against a tenant that does not
+     * exist, which is the quiet kind of wrong: an empty result set looks exactly like "this tenant
+     * has no facts". acs-service emits the claim on every token it issues, so its absence is a
+     * misconfiguration, not a case to accommodate.
+     */
     private String extractTenantId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
-            String tenant = jwt.getClaimAsString("tenant");
+            String tenant = jwt.getClaimAsString("tenant_id");
             if (tenant != null && !tenant.isBlank()) {
                 return tenant;
             }
         }
-        // P4 stub — TenantContextFilter (P5, HIST-015) replaces this
-        return "stub-tenant";
+        throw new MissingTenantClaimException();
     }
 
+    /**
+     * Resolves the caregiver whose patient scope restricts this read.
+     *
+     * <p><b>Fails closed.</b> The previous version returned {@code null} when the subject was not a
+     * parseable UUID, and {@code null} downstream means "no restriction" — so a token whose {@code
+     * sub} happened not to be a UUID silently escalated a {@code hist:read} caller to a full-tenant
+     * read (C-36). The one path that exists to restrict the query was also the one that could open
+     * it. A caller holding {@code hist:read} without a usable identity cannot be scoped, and what
+     * cannot be scoped must be refused.
+     */
     private UUID extractCaregiverId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
             String sub = jwtAuth.getToken().getSubject();
             if (sub != null && !sub.isBlank()) {
                 try {
                     return UUID.fromString(sub);
-                } catch (IllegalArgumentException ignored) {
-                    // subject is not a UUID (e.g. Keycloak username) — no restriction
+                } catch (IllegalArgumentException e) {
+                    throw new UnscopableCallerException(sub);
                 }
             }
         }
-        return null;
+        throw new UnscopableCallerException(null);
     }
 
     private RecordAuditFactResponse toResponse(AuditRecord record) {

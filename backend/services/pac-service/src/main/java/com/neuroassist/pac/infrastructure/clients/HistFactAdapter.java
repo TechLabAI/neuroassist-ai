@@ -135,7 +135,9 @@ public class HistFactAdapter implements HistFactPort {
                 payload,
                 fact.occurredAt(),
                 null,
-                fact.tenantId());
+                fact.tenantId(),
+                // The command's patient — hist-service scopes caregiver reads by it (C-16).
+                fact.pacienteId());
     }
 
     /**

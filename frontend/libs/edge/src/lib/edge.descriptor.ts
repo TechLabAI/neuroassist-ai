@@ -22,7 +22,7 @@ export const MODULE_MENU_METADATA = {
 
 export const MODULE_PERMISSION_MAP = {
   'edge.device.read': ['CUIDADORA_FAMILIAR', 'CONDUCTOR'],
-  'edge.device.manage': ['CONDUCTOR'],
+  'edge.manage': ['CONDUCTOR'],
 } as const;
 
 export const MODULE_FEATURE_FLAGS = {

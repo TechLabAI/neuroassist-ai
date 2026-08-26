@@ -6,7 +6,6 @@ import com.neuroassist.hist.application.port.out.AuditRecordRepositoryPort;
 import com.neuroassist.hist.application.port.out.AuditRecordRepositoryPort.AuditRecordFilter;
 import com.neuroassist.hist.application.port.out.AuditRecordRepositoryPort.FilteredPage;
 import com.neuroassist.hist.domain.model.ActorDirectoryUnavailableException;
-import com.neuroassist.hist.domain.model.AuditRecord;
 import com.neuroassist.hist.infrastructure.config.HistMetrics;
 import java.util.List;
 import java.util.UUID;
@@ -25,8 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>{@code hist:read:all} — {@code actorCaregiverId} is null; no ACS call; all tenant records
  *       returned.
  *   <li>{@code hist:read} (caregiver-scoped) — {@code actorCaregiverId} is set; ACS is called to
- *       resolve the allowed patient UUID list; results are filtered in-memory. If ACS is
- *       unavailable, {@code ActorDirectoryUnavailableException} propagates (fail-closed, HTTP 503).
+ *       resolve the allowed patient UUID list, which becomes a {@code scope_paciente_id IN (...)}
+ *       predicate <b>in SQL</b> — so pagination and the total count both respect it (C-16). If ACS
+ *       is unavailable, {@code ActorDirectoryUnavailableException} propagates (fail-closed, 503).
  * </ul>
  *
  * <p>TenantContextHolder (P5): schema-pinning enforcement is added in P5. For P4 the tenantId comes
@@ -46,27 +46,12 @@ public class HistoryQueryService implements HistoryQueryUseCase {
     @Override
     @Transactional(readOnly = true)
     public HistoryPage queryTimeline(Query query) {
-        AuditRecordFilter filter =
-                new AuditRecordFilter(
-                        query.subjectType(),
-                        query.subjectId(),
-                        query.factType(),
-                        query.actorCaregiverId(),
-                        query.from(),
-                        query.to(),
-                        query.order(),
-                        query.page(),
-                        query.size());
-
-        FilteredPage page = auditRecordRepositoryPort.findFiltered(filter, query.tenantId());
-        List<AuditRecord> items = page.items();
-
+        // Resolve the scope BEFORE querying, so it can go into the WHERE clause. Fail-closed:
+        // ActorDirectoryUnavailableException propagates to the caller -> HTTP 503 (DIR-03).
+        List<UUID> allowedPacientes = null;
         if (query.actorCaregiverId() != null) {
-            // hist:read scope — apply ACS caregiver→patient scope restriction (fail-closed).
-            // ActorDirectoryUnavailableException propagates to the caller → HTTP 503.
-            List<UUID> allowedPatients;
             try {
-                allowedPatients =
+                allowedPacientes =
                         actorDirectoryPort.resolvePatientScope(
                                 query.tenantId(), query.actorCaregiverId());
                 histMetrics.incrementAcsScopeResolutionTotal(query.tenantId(), "ok");
@@ -74,13 +59,29 @@ public class HistoryQueryService implements HistoryQueryUseCase {
                 histMetrics.incrementAcsScopeResolutionTotal(query.tenantId(), "unavailable");
                 throw ex;
             }
-            items = items.stream().filter(r -> allowedPatients.contains(r.subject().id())).toList();
+        }
+
+        AuditRecordFilter filter =
+                new AuditRecordFilter(
+                        query.subjectType(),
+                        query.subjectId(),
+                        query.factType(),
+                        allowedPacientes,
+                        query.from(),
+                        query.to(),
+                        query.order(),
+                        query.page(),
+                        query.size());
+
+        FilteredPage page = auditRecordRepositoryPort.findFiltered(filter, query.tenantId());
+
+        if (allowedPacientes != null) {
             log.info(
                     "History query [hist:read]: tenant={} caregiver={} allowedPatients={} page={}"
                             + " total={}",
                     query.tenantId(),
                     query.actorCaregiverId(),
-                    allowedPatients.size(),
+                    allowedPacientes.size(),
                     query.page(),
                     page.total());
         } else {
@@ -94,6 +95,7 @@ public class HistoryQueryService implements HistoryQueryUseCase {
                     page.total());
         }
 
-        return new HistoryPage(items, query.page(), query.size(), page.total());
+        // total is now the scoped count — no in-memory filtering, so page/size/total agree.
+        return new HistoryPage(page.items(), query.page(), query.size(), page.total());
     }
 }

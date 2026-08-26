@@ -46,10 +46,14 @@ management:
       enabled: true
     readinessState:
       enabled: true
+    # `registerHealthIndicator: true` no resilience4j apenas REGISTRA o indicador; sem esta
+    # chave o actuator não o expõe, e o estado do breaker fica inobservável — o que torna
+    # DIR-05 impossível de verificar por qualquer meio que não seja ler o log (C-37).
+    circuitbreakers:
+      enabled: true
   metrics:
     tags:
       application: ${spring.application.name}
-
 feign:
   client:
     config:
@@ -64,6 +68,11 @@ resilience4j:
       acs-directory:
         slidingWindowType: COUNT_BASED
         slidingWindowSize: 10
+        # Sem isto o breaker NUNCA abre: o default do Resilience4j e 100, e a janela
+        # COUNT_BASED so registra 10 chamadas — a condicao 100 <= 10 jamais e satisfeita,
+        # entao o estado permanece CLOSED por mais que o ACS falhe (C-37). O valor tem
+        # de ser <= slidingWindowSize para a janela conseguir alimenta-lo.
+        minimumNumberOfCalls: 5
         failureRateThreshold: 50
         waitDurationInOpenState: 30s
         permittedNumberOfCallsInHalfOpenState: 3
@@ -74,6 +83,16 @@ hist:
   # Add types here without recompilation; changes take effect on next JVM restart.
   fact-types:
     allowed:
+      # evento.criado é emitido pelo EVNT quando um report de gesto vira Evento (AUD-06).
+      # Faltava aqui, então todo fact de criação de evento respondia 422 — feature ausente,
+      # não falha de integração (plan-e2e-integration.md §11, Sessão 4).
+      # autenticacao.* e emitido pelo ACS (E2E-019 / AUD-01, AUD-02). Ate aqui o ACS nao produzia
+      # fato nenhum — HistAuditAdapter era um no-op com TODO —, entao "quem entrou e quando" nao
+      # existia na trilha. Para dado de saude sob LGPD, e o primeiro registro que uma auditoria
+      # pede. Sem estar nesta lista o fato responde 422, como aconteceu com evento.criado.
+      - autenticacao.realizada
+      - autenticacao.falhou
+      - evento.criado
       - evento.confirmado
       - evento.descartado
       - evento.feedback.registrado

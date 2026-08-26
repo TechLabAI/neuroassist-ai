@@ -32,14 +32,33 @@ export type { PacComandoPort, Comando, ComandoEstado, SyncState } from './lib/ap
 export { TIPOS_GESTO_READ_PORT } from './lib/api/tipos-gesto-read.port';
 export type { TiposGestoReadPort, TipoGesto } from './lib/api/tipos-gesto-read.port';
 
+// Integration service — a porta do PAC para o shell.
+// É por aqui que o assistente de configuração inicial obtém o passo do paciente;
+// o shell NÃO importa mais `PatientRegisterComponent` para montá-lo.
+export { PacShellIntegrationService } from './lib/integration/pac-shell-integration.service';
+
 // Feature components exported for direct embedding (scope:acs onboarding wizard)
+// `PatientRegisterComponent` continua exportado porque é o tipo devolvido por
+// `resolvePatientRegisterSlot()` e porque os testes do próprio PAC o montam
+// diretamente — mas o shell chega nele pelo slot, não por este export.
 export { PatientRegisterComponent } from './lib/feature-patient-register/patient-register.component';
+// Passo "Primeiro comando" do assistente — exportado pelo mesmo motivo: é o tipo
+// devolvido por `resolveFirstCommandSlot()`. O shell chega nele pelo slot.
+export { FirstCommandStepComponent } from './lib/feature-first-command/first-command-step.component';
 export { CommandCatalogComponent } from './lib/feature-command-catalog/command-catalog.component';
 export { CommandEditorComponent } from './lib/feature-command-editor/command-editor.component';
 
 // Route guards — exported so scope:web can compose its own route definitions
 // around CommandEditorComponent (e.g. the [slot=live-test] host wrapper) while
 // still enforcing the same access rules PAC_ROUTES applies internally.
+// Tokens de acesso — app.config.ts (scope:web) providencia os dois; sem isso os
+// guards abaixo deixam passar por falta de quem consultar. Ver pac-access-tokens.ts.
+export { PAC_AUTH_SESSION, PAC_ACCESS_DECISION } from './lib/access/pac-access-tokens';
+export type { PacAuthSession, PacAccessDecision } from './lib/access/pac-access-tokens';
+// PAC_PERMISSION_MAP — a tradução chave de tela → authority do acs-service.
+// Exportado porque quem traduz é o provider em app.config.ts, não a lib.
+export { PAC_PERMISSION_MAP } from './lib/pac.descriptor';
+
 export { pacAuthGuard } from './lib/access/pac-auth.guard';
 export { pacTenantPatientGuard } from './lib/access/pac-tenant-patient.guard';
 export { pacCommandWriteGuard } from './lib/access/pac-command-write.guard';

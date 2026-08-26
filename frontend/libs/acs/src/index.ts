@@ -32,7 +32,6 @@ export type {
   AcsBreadcrumbItem,
   AcsBreadcrumbPort,
   AcsShellRegistry,
-  OnboardingWizardStep,
 } from './lib/integration/acs-shell-integration.service';
 
 // Empresa context — ACS is the sole writer; scope:web and peers read via this service
@@ -62,5 +61,14 @@ export type { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto } from './lib/api/
 export type { AcsLinkPort, CaregiverLinkDto } from './lib/api/acs-link.port';
 
 // Composed step components (scope:web onboarding wizard mounts these)
-export { TenantSetupComponent } from './lib/feature-tenant-setup/tenant-setup.component';
 export { CaregiverEditorComponent } from './lib/feature-caregiver-editor/caregiver-editor.component';
+
+// Guards de acesso — exportados para que rotas FORA do módulo ACS possam usar a
+// mesma tranca. A `/onboarding` vive em `apps/neuroassist-ai-web` e exercita a
+// capacidade de cadastrar cuidadora; sem esta exportação ela só sabia exigir
+// sessão, e sessão qualquer pessoa autenticada tem.
+export {
+  acsCoordinatorGuard,
+  acsCaregiverWriteGuard,
+  acsLinkWriteGuard,
+} from './lib/access/acs.guard';

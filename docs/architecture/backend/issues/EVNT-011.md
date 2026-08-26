@@ -1,8 +1,39 @@
 # EVNT-011 -- Create Flyway migration scripts V1..V4 (extensions, evento, notification_dispatch, report_idempotency)
 
-**Status:** INTACT -- gerado 2026-07-28
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/2 itens
+**Status:** DONE -- reconciliado 2026-08-26
+**Maturidade:** 3 -- Concluído
+**Done/Total:** 2/2 itens
+
+> **Nota de reconciliação (2026-08-26):** esta issue e `plan-EVNT.md` continuavam marcando estas
+> migrations como ausentes ("Flyway V1..V4 ausentes"), mas o trabalho já havia sido feito sob a
+> convenção de faixa por serviço (`V0500..V0599`, ver CLAUDE.md) em vez da numeração V1..V4
+> originalmente prevista aqui. As três tabelas (`evento`, `report_idempotency`,
+> `notification_dispatch`) existem em
+> `backend/services/neuroassist-ai-migrations/src/main/resources/db/migration/empresa/V0500__evnt_initial_schema.sql`,
+> e `pgcrypto` já foi instalado globalmente por `V0100__acs_global_schema.sql` (ACS). Verificado
+> nesta sessão: `./gradlew :services:evnt-service:test` — 126/126 (inclui `CucumberIT` 23/23 cenários
+> BDD contra Testcontainers PostgreSQL real com estas migrations aplicadas) e
+> `architectureCheck` verde. Fechando a issue como DONE em vez de reescrever os scripts.
+>
+> **Divergência real encontrada — resolvida em `V0503` (2026-08-26):** os critérios de aceite
+> originais abaixo pediam `FOREIGN KEY ... ON DELETE CASCADE` de `report_idempotency` e
+> `notification_dispatch` para `evento(id)`, e `CHECK` nos valores de `tier`/`status`. A migration
+> `V0500` não tinha essas constraints. Adicionadas em
+> `V0503__evnt_referential_and_value_constraints.sql`: FK de `report_idempotency.evento_id` e
+> `notification_dispatch.evento_id` para `evento(id) ON DELETE CASCADE`, `CHECK` em `tier`
+> (`full_screen_alarm`, `discreet` — valores lidos de `Tier.java`), `CHECK` em `status`
+> (`QUEUED`, `DELIVERED`, `NO_SESSION`, `ACKNOWLEDGED`, `ESCALATED`, `FAILED` — lidos de
+> `DispatchStatuses.java`), `CHECK` em `evento.feedback` e um `CHECK` composto garantindo que
+> `confirmado_por`/`confirmado_at` andam sempre juntos com o feedback (ambos nulos em
+> `NAO_AVALIADO`, ambos preenchidos senão — invariante já mantida por `EventConfirmationService`).
+>
+> Verificado antes de aplicar: nenhuma linha nos 5 schemas de tenant do dev violava as novas
+> constraints. Um teste de integração (`NotificationDispatchSweepOrderingIT`) inseria
+> `notification_dispatch` com `eventoId` fabricado (`UUID.randomUUID()`) sem `evento` correspondente
+> — corrigido para criar um `Evento` real por linha. Aplicado ao dev via
+> `docker compose up migrations-global migrations-empresa` (6 schemas convergiram para v0503/0800
+> sem erro) e reverificado: `./gradlew :services:evnt-service:test` 126/126, `architectureCheck`
+> verde.
 
 ## Contexto
 Materializes the four Flyway migration scripts (V1..V4) that MIG applies to each tenant schema.

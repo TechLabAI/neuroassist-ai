@@ -26,6 +26,11 @@ public class DispositivoCredentialRepositoryAdapter implements DispositivoCreden
     @Override
     public DispositivoCredential save(DispositivoCredential domain) {
         DispositivoCredentialJpaEntity entity = toEntity(domain);
+        // O mapper sempre constrói uma instância nova; só o repositório sabe se a
+        // linha já existe. Sem isto, um update viraria INSERT (C-20).
+        if (entity.getId() != null && repository.existsById(entity.getId())) {
+            entity.markExisting();
+        }
         DispositivoCredentialJpaEntity saved = repository.save(entity);
         return toDomain(saved);
     }
@@ -46,6 +51,13 @@ public class DispositivoCredentialRepositoryAdapter implements DispositivoCreden
     public Optional<DispositivoCredential> findActiveByDispositivoEdgeId(UUID deviceId) {
         return repository
                 .findByDispositivoEdgeIdAndStatus(deviceId, CredentialStatus.active)
+                .map(DispositivoCredentialRepositoryAdapter::toDomain);
+    }
+
+    @Override
+    public Optional<DispositivoCredential> findActiveByClientId(String clientId) {
+        return repository
+                .findByClientIdAndStatus(clientId, CredentialStatus.active)
                 .map(DispositivoCredentialRepositoryAdapter::toDomain);
     }
 

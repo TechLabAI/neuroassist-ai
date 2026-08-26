@@ -1,5 +1,8 @@
 # ADR-003 — ONNX as gesture classifier model format
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> Pendente de equivalente no browser: `onnxruntime-web` ou blendshapes do MediaPipe (follow-up 6 da ADR-007).
+
 ## Status
 Aceita
 

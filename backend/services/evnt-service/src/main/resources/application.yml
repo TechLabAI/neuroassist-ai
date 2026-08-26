@@ -51,6 +51,89 @@ evnt:
   sse:
     keepalive-seconds: 15
     emitter-timeout-ms: 180000
+  # Reenvio de notificacoes nao entregues (C-45).
+  # Ate a Sessao 6 o retrySweep lancava UnsupportedOperationException e nao havia scheduler:
+  # um dispatch QUEUED (DASH fora do ar) ou NO_SESSION (cuidadora sem painel aberto) ficava
+  # assim para sempre — o alarme era duravel e nunca chegava a ninguem.
+  dispatch-retry:
+    enabled: true
+    batch-size: 50
+    # Tentativas por DEGRAU da escada (ADR-011 §1). Esgotado o degrau, o alarme NAO vira FAILED:
+    # ele sobe para a proxima cuidadora vinculada ao paciente. Antes deste ADR, este contador era
+    # quem decidia que um pedido de ajuda tinha acabado — uma decisao clinica tomada por um int.
+    max-attempts: 10
+    initial-delay-ms: 30000
+    # Curto de proposito: este intervalo e quanto tempo uma cuidadora que se ausentou espera
+    # por um alarme que nao encontrou sessao aberta.
+    interval-ms: 30000
+
+  # Escalonamento entre cuidadoras (ADR-011 §1 e §2 — E2E-020).
+  escalation:
+    # Espera entre uma passada completa da escada e a seguinte. So a RODADA espera: a proxima
+    # cuidadora da mesma rodada e acionada imediatamente.
+    #
+    # E este intervalo que impede o "nunca desistir" de virar reentrega em loop apertado. Ele
+    # tambem e o mecanismo de justica do sweep: um alarme em backoff sai do conjunto de
+    # candidatos, entao um alarme antigo que ja deu voltas na escada nao ocupa o batch inteiro
+    # em detrimento de um recem-chegado.
+    round-backoff-ms: 120000
+
+  # Expiracao por relevancia clinica (ADR-011 §3 — E2E-020).
+  alarm-expiry:
+    # VAZIO DE PROPOSITO. O ADR-011 exige um dono explicito por tipo de necessidade antes de
+    # qualquer alarme poder envelhecer; enquanto nao houver, o default seguro e NAO EXPIRAR.
+    # Quando houver dono, e por urgencia — nunca por contagem de tentativas:
+    #
+    # ttl:
+    #   rotina: 2h
+    ttl: {}
+    # Um pedido de ajuda nao expira, tenha ou nao a urgencia dele uma janela configurada.
+    # Estes termos sao o que identifica um pedido de ajuda no comando_ref ou no rotulo congelado.
+    help-terms:
+      - ajuda
+      - socorro
+      - help
+
+  # Reentrega de fatos de auditoria presos no outbox (E2E-017).
+  # O AuditTrailFeignAdapter e fail-open — um alarme nao pode falhar porque o HIST caiu
+  # (AUD-10) — mas ate aqui era fail-open SEM durabilidade: o adapter registrava
+  # "was NOT recorded and is lost" e seguia. Sao os fatos de um alarme, o registro que
+  # mais importa numa auditoria clinica.
+  hist-outbox:
+    batch-size: 50          # entradas por tick — evita replay de um backlog inteiro numa transacao
+    max-retries: 10         # depois disso a entrada vai para 'failed' COM o motivo registrado
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do hist-service subir junto no compose
+      # Mais longo que o de notificacao de proposito: um fato de auditoria atrasado um minuto
+      # nao machuca ninguem; um alarme atrasado, sim.
+      interval-ms: 60000
+
+  # Base URLs of the downstream services. The defaults are the docker-compose service names —
+  # a `localhost` default resolves to the evnt-service container itself, which is how four of
+  # these clients silently pointed at nothing (and two at the wrong service entirely).
+  gest:
+    baseurl: ${GEST_SERVICE_URL:http://gest-service:8084}
+  acs:
+    baseurl: ${ACS_SERVICE_URL:http://acs-service:8088}
+  pac:
+    baseurl: ${PAC_SERVICE_URL:http://pac-service:8082}
+  dash:
+    baseurl: ${DASH_SERVICE_URL:http://dash-service:8090}
+  hist:
+    baseurl: ${HIST_SERVICE_URL:http://hist-service:8089}
+
+# Service identity (standards/service-identity.md). Every outbound call of evnt-service is the
+# service acting on its own behalf — the device token that authenticated a report carries only
+# `edge.device`, and propagating it downstream would be a guaranteed 403 (defect C-19).
+neuroassist:
+  service-identity:
+    token-uri: ${ACS_SERVICE_URL:http://acs-service:8088}/oauth2/token/service
+    client-id: ${EVNT_CLIENT_ID:evnt-service}
+    client-secret: ${EVNT_CLIENT_SECRET:dev-service-secret}
+    refresh-margin-seconds: 60
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
 
 resilience4j:
   circuitbreaker:

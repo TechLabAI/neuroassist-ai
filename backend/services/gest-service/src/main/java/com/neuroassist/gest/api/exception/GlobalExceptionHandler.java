@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -119,6 +120,38 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /** Spring Security method-level access denied (e.g. wrong scope in @PreAuthorize) → 403. */
+    /**
+     * Corpo que o Jackson conseguiu ler mas o domínio recusou.
+     *
+     * <p>Um record com validação no construtor compacto — {@code DetectionThresholds}, {@code
+     * DetectionThresholdTable} — lança durante a desserialização, e o Spring embrulha tudo num
+     * {@code HttpMessageNotReadableException} cujo {@code detail} padrão é "Failed to read
+     * request". A coordenadora recebia 400 sem a menor ideia do que estava errado, enquanto a
+     * mensagem útil ("earClose deveria crescer de baixa para alta") ficava enterrada na causa.
+     *
+     * <p>Só a causa {@link IllegalArgumentException} é exposta: ela vem do nosso próprio código e é
+     * escrita para ser lida. JSON malformado continua com a mensagem genérica — o texto do parser
+     * não ajuda quem chamou e pode vazar estrutura interna.
+     */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request) {
+        Throwable cause = ex.getMostSpecificCause();
+        if (!(cause instanceof IllegalArgumentException)) {
+            return super.handleHttpMessageNotReadable(ex, headers, status, request);
+        }
+        log.debug("Corpo recusado pelo dominio: {}", cause.getMessage());
+        ProblemDetail pd =
+                ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, cause.getMessage());
+        pd.setTitle("Bad Request");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(pd);
+    }
+
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAuthorizationDenied(
             AuthorizationDeniedException ex, HttpServletRequest req) {

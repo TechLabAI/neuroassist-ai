@@ -6,10 +6,21 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timer, Subscription, switchMap, of, catchError, retry, defer } from 'rxjs';
+import {
+  timer,
+  Subscription,
+  switchMap,
+  of,
+  catchError,
+  retry,
+  defer,
+  throwError,
+  Observable,
+} from 'rxjs';
 import { PAIRING_PORT } from './api/pairing.port';
 import { DEVICE_PORT } from './api/device.port';
 import { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './edge-toast.token';
+import { EdgeActivePatientService } from './integration/edge-active-patient.service';
 import {
   PairingVM,
   PairingPhase,
@@ -18,6 +29,7 @@ import {
   DispositivoEdgeView,
 } from '@neuroassist/shared/contracts';
 import { MODULE_FEATURE_FLAGS } from './edge.facade';
+import { edgeErrorMessage, isEdgeTransient, deveAvisarPorToast } from './edge-error-messages';
 import { ObservabilityService } from '@neuroassist/shared/observability';
 
 // ---------------------------------------------------------------------------
@@ -25,6 +37,18 @@ import { ObservabilityService } from '@neuroassist/shared/observability';
 // Owns the pairing flow state machine.
 // Signals-first; components read .asReadonly() signals, never mutate state.
 // ---------------------------------------------------------------------------
+
+/**
+ * Delay de `retry` que só deixa repetir falha transiente (ver DeviceFacade).
+ * Um 400 de validação repetido três vezes continua sendo um 400 de validação.
+ */
+function throwIfNotTransient(err: unknown): Observable<unknown> {
+  // `of` e não `timer(0)`: o retry tem de continuar SÍNCRONO. Qualquer
+  // agendamento aqui adia a transição para a fase de erro em um tique, e a tela
+  // fica um instante mostrando 'registrando…' sobre uma operação já perdida.
+  if (isEdgeTransient(err)) return of(err);
+  return throwError(() => err);
+}
 
 function idleVm(): PairingVM {
   return {
@@ -60,6 +84,7 @@ export class PairingFacade {
   private readonly devicePort = inject(DEVICE_PORT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly toast = inject(EDGE_TOAST_TOKEN, { optional: true });
+  private readonly pacienteAtivo = inject(EdgeActivePatientService);
   private readonly observability = inject(ObservabilityService);
 
   private readonly _vm = signal<PairingVM>(idleVm());
@@ -75,6 +100,9 @@ export class PairingFacade {
   private readonly _lastOutcome = signal<PairedDeviceOutcome | null>(null);
   readonly lastOutcome = this._lastOutcome.asReadonly();
 
+  /** Rótulo do último `register()` — necessário para reemitir um código expirado. */
+  private lastLabel = 'Dispositivo NeuroAssist';
+
   private claimPollSub: Subscription | null = null;
   private ttlCheckSub: Subscription | null = null;
 
@@ -88,12 +116,13 @@ export class PairingFacade {
    * (SPEC-04 §2 — claim detection via liveness poll).
    */
   register(label: string, pacienteHint?: string): void {
+    this.lastLabel = label;
     this._vm.update((vm) => ({ ...vm, phase: 'registering', errorMessage: null }));
 
     // defer() ensures each retry invokes the port factory again (new HTTP request).
     defer(() => this.pairingPort.register({ label, pacienteHint }))
       .pipe(
-        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        retry({ count: 2, delay: (err) => throwIfNotTransient(err) }), // G6
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
@@ -111,16 +140,34 @@ export class PairingFacade {
           this.startClaimPoll(result.deviceId);
           this.startTtlWatch(result.enrollmentExpiresAt);
         },
-        error: (_err: unknown) => {
+        error: (err: unknown) => {
+          // A cópia genérica escondia a causa: um 400 `/errors/validation` e uma
+          // queda de rede produziam a MESMA frase, e a única sugestão possível
+          // era "tente novamente" — que para um erro de validação nunca resolve.
+          // A tabela de cópia do SPEC-07 já tinha a frase certa para cada tipo;
+          // faltava alguém consultá-la.
           this._vm.update((vm) => ({
             ...vm,
             phase: 'error',
-            errorMessage: 'Não foi possível registrar o dispositivo. Tente novamente.',
+            errorMessage: edgeErrorMessage(
+              err,
+              'Não foi possível registrar o dispositivo. Tente novamente.',
+            ),
           }));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.register(label, pacienteHint),
-          });
+          // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+          // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+          // Tente novamente." com botão de repetir — inclusive um 403, que não é
+          // temporário e não melhora com insistência. O aviso mentia sobre a
+          // causa e oferecia uma saída que não existe; quem perdeu permissão
+          // ficava clicando.
+          if (isEdgeTransient(err)) {
+            this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+              label: 'Tentar novamente',
+              callback: () => this.register(label, pacienteHint),
+            });
+          } else if (deveAvisarPorToast(err)) {
+            this.toast?.show(edgeErrorMessage(err));
+          }
         },
       });
   }
@@ -142,28 +189,53 @@ export class PairingFacade {
     // defer() ensures each retry invokes the port factory again (new HTTP request).
     defer(() => this.pairingPort.pairToPatient(deviceId, { pacienteId }))
       .pipe(
-        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        retry({ count: 2, delay: (err) => throwIfNotTransient(err) }), // G6
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: (dev) => this.handleFirstHeartbeat(dev),
-        error: (_err: unknown) => {
+        error: (err: unknown) => {
           this._vm.update((vm) => ({
             ...vm,
             phase: 'error',
-            errorMessage: 'Falha ao parear com o paciente. Tente novamente.',
+            errorMessage: edgeErrorMessage(
+              err,
+              'Falha ao parear com o paciente. Tente novamente.',
+            ),
           }));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.pairToPatient(pacienteId),
-          });
+          // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+          // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+          // Tente novamente." com botão de repetir — inclusive um 403, que não é
+          // temporário e não melhora com insistência. O aviso mentia sobre a
+          // causa e oferecia uma saída que não existe; quem perdeu permissão
+          // ficava clicando.
+          if (isEdgeTransient(err)) {
+            this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
+              label: 'Tentar novamente',
+              callback: () => this.pairToPatient(pacienteId),
+            });
+          } else if (deveAvisarPorToast(err)) {
+            this.toast?.show(edgeErrorMessage(err));
+          }
         },
       });
   }
 
   /** Re-issue the last failed step. */
   retry(): void {
-    const { deviceId, pacienteId } = this._vm();
+    const { deviceId, pacienteId, phase } = this._vm();
+
+    // Código expirado: o botão diz "Novo código", então tem de SAIR um código
+    // novo. Antes isto apenas voltava a fase para 'idle' e a pessoa tinha de
+    // descobrir sozinha que precisava clicar "Solicitar código" outra vez — o
+    // rótulo prometia uma ação que a tela não executava. Um token expirado não
+    // se recupera: só se substitui.
+    if (phase === 'expired') {
+      this.stopPolling();
+      this.register(this.lastLabel, pacienteId ?? undefined);
+      return;
+    }
+
     if (!deviceId) {
       this._vm.set(idleVm());
       return;
@@ -220,7 +292,15 @@ export class PairingFacade {
         const phase = this._vm().phase;
         if (phase === 'awaiting-claim' && dev.ultimaSincronizacao) {
           // Agent has claimed and reported first heartbeat
-          const pacienteId = this._vm().pacienteId;
+          //
+          // O paciente é relido AGORA, e não só o que ficou guardado no registro.
+          // Se a pessoa clicou "Solicitar código" antes de o shell terminar de
+          // resolver o paciente ativo, o registro nasceu sem paciente — e o
+          // dispositivo terminava pareado a ninguém. A falha era intermitente
+          // (dependia de quem chegasse primeiro), e "às vezes vincula" é o pior
+          // resultado possível aqui: cada câmera olha uma pessoa, e um alarme
+          // atribuído a ninguém não chega a lugar nenhum.
+          const pacienteId = this._vm().pacienteId ?? this.pacienteAtivo.pacienteAtivo();
           if (pacienteId) {
             this.pairToPatient(pacienteId);
           } else {

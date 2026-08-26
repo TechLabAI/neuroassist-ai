@@ -178,7 +178,10 @@ def build_fp_table(fp_csvs: list[Path]) -> tuple[str, str]:
 def _agent_ear_close() -> str:
     """Read EAR_CLOSE from the edge agent source without importing MediaPipe."""
     import re
-    src = (Path(__file__).parent.parent.parent / "poc-edge-agent-webcam.py").read_text(encoding="utf-8")
+    # Aparato congelado em docs/paper/artifacts/ (ver README de la). Nome preservado: a secao
+    # de avaliacao do paper cita o arquivo nominalmente.
+    artifacts = Path(__file__).parent.parent.parent.parent / "docs" / "paper" / "artifacts"
+    src = (artifacts / "poc-edge-agent-webcam.py").read_text(encoding="utf-8")
     m = re.search(r"EAR_CLOSE\s*=\s*([\d.]+)", src)
     return m.group(1) if m else "0.22"
 

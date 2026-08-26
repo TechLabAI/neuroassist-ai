@@ -56,7 +56,7 @@ const PHASE_ORDER: PairingPhase[] = [
             [class.ring-brand]="isActive($index)"
             [attr.aria-current]="isActive($index) ? 'step' : null">
             @if (isCompleted($index)) {
-              <span class="material-symbols-outlined text-[12px]">check</span>
+              <span aria-hidden="true" class="material-symbols-outlined text-[12px]">check</span>
             } @else {
               {{ $index + 1 }}
             }

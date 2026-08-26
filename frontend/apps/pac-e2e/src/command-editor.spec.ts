@@ -10,40 +10,55 @@
  *   are deferred to the next iteration because they require lifecycle buttons not yet in the editor
  *   template (validar/publicar/recalibrar/retirar) or cross-module GEST integration.
  *
- * INFRASTRUCTURE BLOCKERS (as of 2026-08-14 — must be resolved before execution):
+ * ── ESTADO DOS BLOQUEIOS (revisto em 2026-08-25) ─────────────────────────────
  *
- *   BLOCKER-1 [CRITICAL]: neuroassist-ai-web missing bootstrap files (main.ts, app.config.ts,
- *     project.json, index.html). `npx nx serve neuroassist-ai-web` fails. All scenarios blocked.
+ *   BLOCKER-1 [dev server]: CADUCADO — a app serve normalmente.
  *
- *   BLOCKER-2 [GUARD]: pacTenantPatientGuard is synchronous (TODO[PAC-FE-014]).
- *     Routes /pac/comandos/novo and /pac/comandos/:id/editar use the same guard chain.
- *     WORKAROUND: navigate to /pac first to prime the patient signal, then navigate to editor.
+ *   BLOCKER-2 [guard síncrono]: CADUCADO — `pacTenantPatientGuard` já é assíncrono
+ *     e espera o carregamento do paciente assentar. A gambiarra do `openEditor`
+ *     (navegar para /pac, esperar 600ms, navegar de novo) foi removida: ela
+ *     escondia justamente a regressão que o guard passou a não ter.
  *
- *   BLOCKER-4 [HTTP-ADAPTER]: Emergency gate scenario REQUIRES HTTP adapter mode.
- *     In mock-adapter mode, ComandoMockAdapter.publish() always succeeds — 422 is never returned.
- *     FIX: run app with HTTP adapter + use page.route() to intercept POST and return 422.
- *     FIX ALTERNATIVE: add a mock toggle (e.g., window.__PAC_E2E_FORCE_422=true) to
- *     ComandoMockAdapter.save() so the emergency gate can be triggered without HTTP adapter.
+ *   BLOCKER-4 [adaptador HTTP]: RESOLVIDO — `providePac()` lê
+ *     `window.__PAC_E2E_ADAPTER` atrás de `isDevMode()`. Ver fixtures/pac-stubs.ts.
  *
- *   BLOCKER-6 [LIFECYCLE-BUTTONS]: The CommandEditorComponent template (command-editor.component.ts)
- *     does NOT include validar / publicar / recalibrar / retirar lifecycle action buttons.
- *     Only "Salvar comando" and "Cancelar" are present.
- *     Lifecycle-related scenarios (drafted enables validar, validated enables publicar, etc.)
- *     are ALL marked test.fixme() until the lifecycle buttons are added to the template.
+ *   BLOCKER-5 [RBAC]: RESOLVIDO — `pacCommandWriteGuard` consulta
+ *     `PAC_ACCESS_DECISION`, providenciado em app.config.ts e traduzido pelo
+ *     `PAC_PERMISSION_MAP`.
  *
- * SCENARIOS IMPLEMENTED IN THIS REDUCED SCOPE:
- *   1. Novo comando route renders editor with blank draft in editing state
- *   2. Editar comando route renders editor pre-filled from that comando
- *   3. Blank rotulo keeps the salvar comando action disabled
- *   4. Sensibilidade rendered as baixa/media/alta labels (never raw threshold)
- *   5. Saving a new comando posts the draft with the save flow (ADR-005 pending-sync after save)
- *   SAFETY-CRITICAL: Emergency-not-detectable on publicar blocks publish with blocking modal
- *
- * CRITICAL SCENARIO (safety-critical, ADR-005 / SPEC-07):
- *   "Emergency-not-detectable on publicar blocks publish with a blocking modal and leaves
- *    comando validated" — verified at line ~160.
+ *   BLOCKER-6 [botões de ciclo de vida]: RESOLVIDO — o `CommandEditorComponent`
+ *     ganhou o cartão "Ciclo de vida" com validar / publicar / recalibrar /
+ *     aposentar, habilitados a partir de `editor().estado` (SPEC-03) e da
+ *     permissão (SPEC-05), e o `PacComandoFacade` passou a expor validate() e
+ *     publish(). Os quatro cenários abaixo eram vermelhos por falta de produto;
+ *     agora medem o produto.
  */
+
 import { test, expect, Page } from '@playwright/test';
+
+import {
+  scriptSemearSessao,
+  scriptSemearSessaoApoio,
+} from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+
+import { aplicarModoHttp, rotaComandos, COMANDOS_3 } from './fixtures/pac-stubs';
+
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
 
 // ── Shared mock data ─────────────────────────────────────────────────────────
 
@@ -70,46 +85,46 @@ const EMERGENCY_NOT_DETECTABLE_PROBLEM = {
   title: 'Emergency gate: gesture not detectable',
   status: 422,
   detail: 'The selected gesture type is not detectable by the current gesture engine. Choose a different gesture or change urgência to Rotina.',
-  instance: '/api/v1/pacientes/pac-marcio/comandos/cmd-ajuda/publish',
+  instance: '/api/pac/v1/pacientes/pac-marcio/comandos/cmd-ajuda/publish',
   errorCode: 'emergency-not-detectable',
 };
 
 // ── Navigation helpers ───────────────────────────────────────────────────────
 
 /**
- * Prime the PacPacienteFacade by navigating to /pac first (triggers loadCurrent via guard).
- * After 600ms the mock adapter delay (400ms) has settled and hasPatient() is true.
- * Then navigate to the editor route.
- * WORKAROUND for BLOCKER-2; remove once guard is made async (TODO[PAC-FE-014]).
+ * Navega direto para a rota do editor.
+ *
+ * <p>A gambiarra do BLOCKER-2 — ir a /pac primeiro para "aquecer" o paciente e
+ * esperar 600ms — foi removida: o `pacTenantPatientGuard` é assíncrono e resolve
+ * a rota do editor sozinho. Manter a gambiarra faria este arquivo continuar
+ * passando mesmo que o guard voltasse a decidir cedo demais, que é o defeito que
+ * ela existia para contornar.
+ *
+ * <p>A normalização da barra inicial fica: um `/${path}` sobre um caminho que já
+ * começa com barra vira `//pac/...`, que o browser resolve como protocolo-relativo
+ * (host "pac") e falha com net::ERR_NAME_NOT_RESOLVED.
  */
 async function openEditor(page: Page, path: '/pac/comandos/novo' | `${'pac/comandos/'}${string}${'/editar'}`): Promise<void> {
-  // Step 1: prime patient state
-  await page.goto('/pac');
-  await page.waitForTimeout(600);
-
-  // Step 2: navigate to editor (normalize: call sites pass the path with or
-  // without a leading slash — a bare template `/${path}` double-slashes the
-  // former and Playwright/the browser then resolves it as protocol-relative,
-  // i.e. `//pac/...` -> host "pac" -> net::ERR_NAME_NOT_RESOLVED)
   await page.goto(path.startsWith('/') ? path : `/${path}`);
-
-  // Wait for the editor component to mount
   await page.waitForSelector('pac-command-editor, h1', { timeout: 8000 });
 }
 
 /**
- * Wire HTTP API mocks for pac-service endpoints.
- * ONLY effective when the app runs with HTTP adapter (BLOCKER-4).
- * In mock-adapter mode no HTTP calls are made and these handlers are not invoked.
+ * Stubs HTTP dos endpoints do pac-service.
+ *
+ * <p>O caminho é `/api/pac/v1/...` — prefixo do módulo, roteado pelo GWY. Os
+ * padrões anteriores (`/api/v1/pacientes`) não correspondiam a endereço nenhum
+ * que o produto chama; conferido em `paciente-http.adapter.ts` e
+ * `comando-http.adapter.ts`.
  */
 async function routePacApiPacientes(page: Page, response: unknown, status = 200) {
-  await page.route('**/api/v1/pacientes*', (route) =>
+  await page.route('**/api/pac/v1/pacientes*', (route) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(response) }),
   );
 }
 
 async function routePacApiComandos(page: Page, response: unknown, status = 200) {
-  await page.route('**/api/v1/pacientes/**/comandos*', (route) =>
+  await page.route('**/api/pac/v1/pacientes/**/comandos*', (route) =>
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(response) }),
   );
 }
@@ -120,7 +135,7 @@ async function routePacApiComandos(page: Page, response: unknown, status = 200) 
  * BLOCKER-4: no-op in mock-adapter mode.
  */
 async function routePublishEmergencyGate(page: Page): Promise<void> {
-  await page.route('**/api/v1/pacientes/**/comandos/**/publish', (route) =>
+  await page.route('**/api/pac/v1/pacientes/**/comandos/**/publish', (route) =>
     route.fulfill({
       status: 422,
       contentType: 'application/json',
@@ -129,7 +144,7 @@ async function routePublishEmergencyGate(page: Page): Promise<void> {
   );
   // The save() path also sends POST to /comandos — intercept that too, since in the current
   // editor the save() method can trigger emergency gate for urgencia=emergencia (SPEC-07).
-  await page.route('**/api/v1/pacientes/**/comandos', async (route) => {
+  await page.route('**/api/pac/v1/pacientes/**/comandos', async (route) => {
     const req = route.request();
     if (req.method() === 'POST') {
       const body = JSON.parse(req.postData() ?? '{}') as { urgencia?: string };
@@ -249,7 +264,7 @@ test.describe('Calibração — command editor and lifecycle', () => {
     // Capture outgoing API requests (only visible in HTTP adapter mode — BLOCKER-4)
     const capturedRequests: { method: string; url: string; headers: Record<string, string>; body: string }[] = [];
     page.on('request', (req) => {
-      if (req.url().includes('/api/v1/pacientes')) {
+      if (req.url().includes('/api/pac/v1/pacientes')) {
         capturedRequests.push({
           method: req.method(),
           url: req.url(),
@@ -381,63 +396,117 @@ test.describe('Calibração — command editor and lifecycle', () => {
     await expect(page.locator('button', { hasText: 'Rotina' })).toHaveClass(/border-brand|bg-brand-subtle/);
   });
 
-  // ── Lifecycle scenarios (deferred — lifecycle buttons not in template) ─────
 
-  test.fixme(
-    'Drafted editor comando enables validar and keeps publicar disabled',
-    async ({ page }) => {
-      // BLOCKER-6: CommandEditorComponent template has no validar/publicar buttons.
-      // Add lifecycle action buttons to the editor template before implementing this scenario.
-      void page;
-    },
-  );
+  // ═══ CENÁRIOS DE CICLO DE VIDA (BLOCKER-6 — RESOLVIDO) ════════════════════
+  //
+  // Estes quatro não eram destraváveis por infraestrutura de teste: faltava
+  // produto. O registro do que faltava fica abaixo, porque é o que explica por
+  // que eles existiam vermelhos — e o que eles passam a proteger.
+  //
+  // O QUE EXISTIA ANTES, conferido linha a linha:
+  //   - `PacComandoPort` (api/comando.port.ts) declara validate(), publish(),
+  //     recalibrate() e retire(), e o `ComandoMockAdapter` implementa os quatro;
+  //   - `PacComandoFacade` expõe recalibrate() e retire(). NÃO expõe validate()
+  //     nem publish() — o porto tem os métodos e ninguém os chama;
+  //   - `CommandEditorComponent` renderiza exatamente dois botões de ação:
+  //     "Salvar comando" e "Cancelar". Nenhum de ciclo de vida, e portanto
+  //     nenhuma regra de habilitação por `estado` para exercitar.
+  //
+  // Ou seja: o ciclo de vida drafted → validated → published → recalibrated /
+  // retired do ADR-006 está contratado no porto, implementado no adaptador e
+  // INALCANÇÁVEL pela pessoa que usa o produto. A calibração de um comando novo
+  // termina em `drafted` e não há tela que a leve adiante.
+  //
+  // O QUE FOI FEITO, na ordem: expor validate()/publish() no facade →
+  // acrescentar os quatro botões ao template com habilitação derivada de
+  // `editor().estado` e da permissão → ligar o gate de emergência ao publish
+  // (antes ele só era exercido no create, que é onde o backend NÃO o aplica).
+  //
+  // Cada cenário abaixo afirma a AFORDÂNCIA, não a transição — e continua sendo
+  // o lugar certo para isso: a asserção `toBeDisabled()` só é verificável sobre
+  // o build AOT. No unitário o `[disabled]` do `pac-ds-button` é uma entrada
+  // `input()`, que o JIT do ts-jest não enxerga (ver a nota em
+  // `libs/pac/src/lib/feature-command-editor/command-editor.component.spec.ts`).
 
-  test.fixme(
-    'Validated editor comando enables publicar',
-    async ({ page }) => {
-      // BLOCKER-6: lifecycle buttons not in template.
-      void page;
-    },
-  );
+  /** Abre o editor de um comando semeado no estado pedido, via modo HTTP. */
+  async function abrirEditorComEstado(page: Page, estado: string): Promise<void> {
+    await aplicarModoHttp(page);
+    await rotaComandos(page, [{ ...COMANDOS_3[0], estado }]);
+    await openEditor(page, 'pac/comandos/cmd-ajuda/editar');
+    await expect(page.locator('h1')).toContainText('Editar comando');
+  }
 
-  test.fixme(
-    'Published editor comando enables recalibrar and keeps validar disabled',
-    async ({ page }) => {
-      // BLOCKER-6: lifecycle buttons not in template.
-      void page;
-    },
-  );
+  /** Botão de ação do editor, procurado pelo rótulo visível. */
+  function acao(page: Page, rotulo: RegExp) {
+    return page.locator('pac-ds-button').filter({ hasText: rotulo }).locator('button');
+  }
 
-  test.fixme(
-    'Retired editor comando keeps every lifecycle action disabled',
-    async ({ page }) => {
-      // BLOCKER-6: lifecycle buttons not in template.
-      void page;
-    },
-  );
+  test('Drafted editor comando enables validar and keeps publicar disabled', async ({ page }) => {
+    await abrirEditorComEstado(page, 'drafted');
+    // Um comando em rascunho pode ser validado; publicar só depois de validado.
+    await expect(acao(page, /Validar/i)).toBeEnabled();
+    await expect(acao(page, /Publicar/i)).toBeDisabled();
+  });
 
-  test.fixme(
-    'Editar route with unknown comandoId redirects to the not-found view',
-    async ({ page }) => {
-      // REQUIRES: BLOCKER-1, BLOCKER-4 resolved; HTTP adapter returns 404 for unknown ID.
-      await routePacApiPacientes(page, MOCK_PACIENTE_PAGE);
-      await page.route('**/api/v1/pacientes/**/comandos/cmd-unknown**', (route) =>
-        route.fulfill({ status: 404, contentType: 'application/json',
-          body: JSON.stringify({ type: 'not-found', status: 404 }) }),
-      );
-      await openEditor(page, 'pac/comandos/cmd-unknown/editar');
-      // Should redirect to /pac (catch-all route: path: '**', redirectTo: '')
-      await expect(page).toHaveURL(/\/pac$/, { timeout: 5000 });
-      void page;
-    },
-  );
+  test('Validated editor comando enables publicar', async ({ page }) => {
+    await abrirEditorComEstado(page, 'validated');
+    await expect(acao(page, /Publicar/i)).toBeEnabled();
+  });
 
-  test.fixme(
-    'Caller lacking comando write permission has the command editor route blocked and editor hidden',
-    async ({ page }) => {
-      // BLOCKER-5: pacCommandWriteGuard currently returns true (dev default).
-      void page;
-    },
-  );
+  test('Published editor comando enables recalibrar and keeps validar disabled', async ({ page }) => {
+    await abrirEditorComEstado(page, 'published');
+    // Recalibrar é ajuste de tuning sobre um comando já publicado (ADR-006);
+    // validar de novo não faz sentido e tem de estar desabilitado.
+    await expect(acao(page, /Recalibrar/i)).toBeEnabled();
+    await expect(acao(page, /Validar/i)).toBeDisabled();
+  });
+
+  test('Retired editor comando keeps every lifecycle action disabled', async ({ page }) => {
+    await abrirEditorComEstado(page, 'retired');
+    // Aposentado é terminal (ADR-006 — não há DELETE, e não há volta).
+    await expect(acao(page, /Validar/i)).toBeDisabled();
+    await expect(acao(page, /Publicar/i)).toBeDisabled();
+    await expect(acao(page, /Recalibrar/i)).toBeDisabled();
+    await expect(acao(page, /Aposentar/i)).toBeDisabled();
+  });
+
+  // ── Editar com comandoId inexistente ───────────────────────────────────────
+  //
+  // BLOCKER-4 resolvido, e o defeito que ele escondia foi corrigido em
+  // `CommandEditorComponent`: o efeito que abre o comando só casava quando a
+  // linha existia, e com um id inválido a tela ficava para sempre em "Editar
+  // comando" com o formulário em branco — indistinguível de um carregamento
+  // lento. Agora, depois que o catálogo termina de carregar sem achar o id, o
+  // editor devolve a pessoa ao catálogo.
+  test('Editar route with unknown comandoId redirects to the not-found view', async ({ page }) => {
+    await aplicarModoHttp(page);
+    await rotaComandos(page, COMANDOS_3); // 'cmd-unknown' não está na lista
+
+    await page.goto('/pac/comandos/cmd-unknown/editar');
+
+    await expect(page).toHaveURL(/\/pac$/, { timeout: 10_000 });
+    await expect(page.locator('pac-command-catalog')).toBeVisible();
+  });
+
+  // ── RBAC: editor bloqueado para quem não escreve comando ───────────────────
+  //
+  // BLOCKER-5 resolvido: `pacCommandWriteGuard` consulta `PAC_ACCESS_DECISION`,
+  // que traduz 'commandWrite' pelo `PAC_PERMISSION_MAP` (→
+  // `pac.comando-authoring.criar`) e compara com as authorities do token.
+  //
+  // A sessão é de APOIO AO PACIENTE, e não de cuidadora: a cuidadora TEM
+  // `pac.comando-authoring.criar` (conferido no RoleAuthorityPolicy do
+  // acs-service), então semeá-la aqui produziria um verde que prova o contrário
+  // do que o cenário afirma.
+  test('Caller lacking comando write permission has the command editor route blocked and editor hidden', async ({ page }) => {
+    await page.addInitScript(scriptSemearSessaoApoio());
+
+    await page.goto('/pac/comandos/novo');
+
+    // O guard devolve ao catálogo, que o apoio ainda alcança…
+    await expect(page).toHaveURL(/\/pac$/, { timeout: 10_000 });
+    // …e o editor não é montado.
+    await expect(page.locator('pac-command-editor')).toHaveCount(0);
+  });
 
 });

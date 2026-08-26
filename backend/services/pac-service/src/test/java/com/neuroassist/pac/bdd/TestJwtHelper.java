@@ -41,9 +41,31 @@ import java.util.List;
  */
 public final class TestJwtHelper {
 
-    /** All PAC scopes — used for "superuser" test tokens. */
+    /** All PAC scopes — used for "superuser" test tokens. Espelha a COORDENADORA. */
     public static final String[] ALL_SCOPES = {
         "pac.paciente.criar",
+        "pac.paciente.read",
+        "pac.paciente.editar",
+        // Mudar QUEM cuida do paciente e capacidade separada de editar o paciente: as duas chegam
+        // pelo mesmo PUT, e sem esta authority a cuidadora ganharia o poder de vinculo de carona
+        // num campo do corpo. So a coordenadora a tem — e este token de teste a representa.
+        "pac.paciente.vincular",
+        "pac.comando-authoring.criar",
+        "pac.comando-authoring.editar",
+        "pac.comando-lifecycle.read",
+        "pac.comando-lifecycle.publicar",
+        "pac.comando-lifecycle.aposentar",
+        "pac.comando-lifecycle.recalibrar",
+        "pac.catalogo-ativo.read"
+    };
+
+    /**
+     * O que uma CUIDADORA tem: edita o paciente, mas nao muda quem cuida dele.
+     *
+     * <p>Existe para que os cenarios de recusa de vinculo tenham um token que represente alguem
+     * real do sistema, e nao um token mutilado a mao.
+     */
+    public static final String[] CUIDADORA_SCOPES = {
         "pac.paciente.read",
         "pac.paciente.editar",
         "pac.comando-authoring.criar",
@@ -137,7 +159,10 @@ public final class TestJwtHelper {
                     new JWTClaimsSet.Builder()
                             .issuer(ISSUER)
                             .subject(CAREGIVER_SUB)
-                            .claim("empresaId", empresaId)
+                            // E2E-021 — o ACS emite so tenant_id; a suite forjava o
+                            // alias "empresaId", entao ela testava um token que o
+                            // sistema nao emite mais.
+                            .claim("tenant_id", empresaId)
                             .claim("nome", CAREGIVER_DISPLAY_NAME)
                             .claim("scope", scopeString)
                             .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))

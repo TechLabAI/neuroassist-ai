@@ -1,16 +1,17 @@
 package com.neuroassist.edge.application.service;
 
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
-import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
+import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.domain.event.DispositivoFicouOffline;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
+import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import com.neuroassist.edge.shared.error.CodedException;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,9 +33,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class LivenessService implements LivenessUseCase {
 
     private final DispositivoEdgeRepositoryPort deviceRepo;
-    private final DetectionProfilePort detectionProfilePort;
+    private final ProfilePointerUseCase profilePointerUseCase;
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
+    private final DispositivoEdgeTransitionRepositoryPort transitionRepo;
 
     @Value("${neuroassist.edge.heartbeat.interval-seconds:30}")
     private long heartbeatIntervalSeconds;
@@ -43,6 +45,7 @@ public class LivenessService implements LivenessUseCase {
     private long stalenessFactor;
 
     @Override
+    @Transactional // override class-level readOnly — transition write requires writable transaction
     public LivenessResult evaluate(UUID deviceId) {
         String tenantId = TenantContextHolder.require();
         DispositivoEdge device =
@@ -53,10 +56,13 @@ public class LivenessService implements LivenessUseCase {
                                         new CodedException(
                                                 "edge.device-not-found",
                                                 "Device not found: " + deviceId));
-        return buildLivenessResult(device);
+        LivenessResult result = buildLivenessResult(device);
+        writeOnlineToOfflineTransitionIfNeeded(device, result.status());
+        return result;
     }
 
     @Override
+    @Transactional // override class-level readOnly — transition write requires writable transaction
     public LivenessResult evaluateForPatient(UUID pacienteId) {
         String tenantId = TenantContextHolder.require();
         DispositivoEdge device =
@@ -69,7 +75,9 @@ public class LivenessService implements LivenessUseCase {
                                                 "edge.patient-not-paired",
                                                 "No active paired device for patient: "
                                                         + pacienteId));
-        return buildLivenessResult(device);
+        LivenessResult result = buildLivenessResult(device);
+        writeOnlineToOfflineTransitionIfNeeded(device, result.status());
+        return result;
     }
 
     @Override
@@ -121,6 +129,38 @@ public class LivenessService implements LivenessUseCase {
 
     // ---- Private helpers ----
 
+    /**
+     * Writes an online→offline liveness transition row when the device is detected as offline and
+     * the transition has not yet been recorded for this staleness epoch. Idempotency: the check
+     * {@link DispositivoEdgeTransitionRepositoryPort#existsLivenessTransitionToOfflineAfter}
+     * prevents duplicate rows when liveness is polled multiple times during the same offline
+     * period.
+     *
+     * <p>Coherent with ADR-006: liveness STATUS is never stored as a column (it is derived at read
+     * time from {@code ultima_sincronizacao}). This method records only the TRANSITION audit row,
+     * not the current status — the same pattern HeartbeatService uses for offline→online crossings.
+     *
+     * <p>Precondition: called inside a writable transaction (evaluate / evaluateForPatient both
+     * have {@code @Transactional} without readOnly).
+     */
+    private void writeOnlineToOfflineTransitionIfNeeded(DispositivoEdge device, String status) {
+        if (!"offline".equals(status) || device.ultimaSincronizacao() == null) {
+            // Only write when device is offline AND has been online before (non-null last
+            // heartbeat).
+            return;
+        }
+        boolean alreadyRecorded =
+                transitionRepo.existsLivenessTransitionToOfflineAfter(
+                        device.id(), device.ultimaSincronizacao());
+        if (!alreadyRecorded) {
+            DispositivoEdgeTransition transition =
+                    DispositivoEdgeTransition.liveness(
+                            device.id(), device.tenantId(), "online", "offline");
+            transitionRepo.save(transition);
+            log.info("Liveness transition online→offline for deviceId='{}'", device.id());
+        }
+    }
+
     private long stalenessThresholdSeconds() {
         return heartbeatIntervalSeconds * stalenessFactor;
     }
@@ -167,19 +207,14 @@ public class LivenessService implements LivenessUseCase {
         long threshold = stalenessThresholdSeconds();
         String status = domainService.deriveLivenessStatus(device, serverNow, threshold);
 
-        // Detection profile drift (stub returns empty in P2; GEST in P4)
-        Optional<Long> currentProfileOpt = Optional.empty();
-        try {
-            currentProfileOpt = detectionProfilePort.currentProfileVersion(device.id(), tenantId);
-        } catch (Exception e) {
-            log.warn("GEST unavailable resolving device profile deviceId='{}'", device.id());
-        }
+        // Detection profile pointer, with the three-state semantics delegated to the
+        // ProfilePointerService collaborator (c4-component.puml:58).
+        ProfilePointerUseCase.ProfileDriftResult driftResult =
+                profilePointerUseCase.resolveProfileDrift(
+                        device.id(), tenantId, device.runningProfileVersion());
 
-        Long currentProfileVersion = currentProfileOpt.orElse(null);
-        Boolean profileDrift =
-                (currentProfileVersion != null && device.runningProfileVersion() != null)
-                        ? !currentProfileVersion.equals(device.runningProfileVersion())
-                        : null;
+        Long currentProfileVersion = driftResult.activeProfileVersion();
+        Boolean profileDrift = driftResult.profileDrift();
 
         return new DeviceResult(
                 device.id(),

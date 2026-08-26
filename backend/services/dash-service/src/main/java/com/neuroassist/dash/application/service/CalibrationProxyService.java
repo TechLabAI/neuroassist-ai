@@ -47,12 +47,12 @@ public class CalibrationProxyService implements CalibrationProxyUseCase {
         }
 
         // Delega ao PAC — hard dependency: erro e propagado (503)
-        CalibrationResult result = commandCatalogPort.calibrate(patientId, commandId, params);
+        CalibrationResult result = commandCatalogPort.recalibrate(patientId, commandId, params);
         log.info(
-                "calibrate result commandId={} state={} success={}",
-                result.commandId(),
-                result.newCalibrationState(),
-                result.success());
+                "recalibrate result comandoId={} estado={} calibracaoVersao={}",
+                result.comandoId(),
+                result.estado(),
+                result.calibracaoVersao());
         return result;
     }
 }

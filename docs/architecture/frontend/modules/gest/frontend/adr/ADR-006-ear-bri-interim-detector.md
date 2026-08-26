@@ -1,5 +1,8 @@
 # ADR-006 — EAR/BRI Interim Detector for Live-Test Bridge (pre-PEA period)
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> Sem objeto: ela ratificava o detector interino da ponte Python, que deixa de existir.
+
 - **Status:** accepted (2026-08-12) — amends ADR-005 to ratify interim detector algorithm
 - **Scope:** local (module GEST) + edge-agent runtime
 

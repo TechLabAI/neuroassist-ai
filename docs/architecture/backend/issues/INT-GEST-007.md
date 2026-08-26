@@ -1,8 +1,22 @@
 # INT-GEST-007 -- Bridge transport auth joint decision with EDGE team (mTLS vs OAuth2 client_credentials — open item SPEC-06 §3.2)
 
-**Status:** INTACT -- gerado 2026-07-27
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/3 itens
+**Status:** DONE -- fechada 2026-08-26
+**Maturidade:** 3 -- Concluído
+**Done/Total:** 3/3 itens
+
+> **Nota de fechamento (2026-08-26):** a decisão foi registrada em
+> `docs/architecture/backend/adr/ADR-007-edge-device-auth.md`, finalizada nesta data como **OAuth2
+> `client_credentials` definitivo** (não mais provisório) — decisão do usuário, sem necessidade de
+> mTLS enquanto o projeto for pessoal/pré-produção e ambos os serviços compartilharem o mesmo realm
+> Keycloak. Gatilho de revisão documentado no próprio ADR.
+>
+> **Correção de direção:** o contexto original abaixo descreve o edge `GestureDetectionEngine`
+> chamando GEST diretamente. O que foi de fato implementado (e é o que `EdgePairingAdapter` isola) é
+> a direção oposta: `gest-service` chama `edge-service` via Feign (`GET
+> /api/v1/edge/devices/{deviceId}/tenant`). Não há evidência no código de um caminho de auth para
+> edge→gest além do que já é coberto pelo fluxo de report ingestion existente. Se esse caminho
+> inverso ainda for necessário, deve virar uma issue nova — esta issue está sendo fechada pelo que
+> foi de fato construído.
 
 ## Contexto
 O formato de credencial de dispositivo usado quando o edge `GestureDetectionEngine` chama GEST diretamente (profile pull e report validation) ainda nao esta congelado. A decisao entre mTLS (certificado de cliente por dispositivo) e OAuth2 `client_credentials` (um par de credenciais por dispositivo registrado) impacta o esquema de autenticacao do `SecurityConfig` (GEST-017) e o contrato do pareamento em EDGE. O payload de `RecognizedCommandReport` e `EdgeRecognitionSignal` ja esta congelado (v1.0.0) — apenas o transporte de auth e aberto.

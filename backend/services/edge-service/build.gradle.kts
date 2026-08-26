@@ -62,6 +62,10 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    // E2E-022 — os testes aplicam as migrations REAIS antes de o Spring subir, no lugar dos
+    // CREATE TABLE escritos a mao em init-schema.sql. Ver testing-conventions.md §4.1.
+    testImplementation("org.flywaydb:flyway-core")
+    testImplementation("org.flywaydb:flyway-database-postgresql")
     // ActiveMQ: Artemis embedded (spring.artemis.mode=embedded) — sem testcontainers:activemq
     testImplementation("org.apache.activemq:artemis-jakarta-server:2.31.2")
 
@@ -76,6 +80,17 @@ dependencies {
     testImplementation("org.junit.platform:junit-platform-suite-api")
     testImplementation("org.junit.platform:junit-platform-suite-engine")
 
+}
+
+// E2E-023: place the global permission-catalogue.arch.json on the test classpath so
+// CrossAspectArchTest can read it without keeping an inline copy.
+// rootProject.projectDir == backend/; arch/decisions is one level up at repo root.
+sourceSets {
+    test {
+        resources {
+            srcDir(rootProject.projectDir.resolve("../arch/decisions"))
+        }
+    }
 }
 
 tasks.withType<Test> {

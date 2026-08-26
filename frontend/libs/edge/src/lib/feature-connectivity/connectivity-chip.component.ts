@@ -21,7 +21,7 @@ import { DeviceFacade } from '../edge.facade';
 function toneClass(tone: ConnectivityTone): string {
   switch (tone) {
     case 'ok': return 'bg-success-bg text-success-ink';
-    case 'warn': return 'bg-warn-bg text-warn-ink';
+    case 'warn': return 'bg-warning-bg text-warning-ink';
     case 'er': return 'bg-danger-bg text-danger-ink';
     default: return 'bg-surface-2 text-ink-soft';
   }
@@ -50,12 +50,12 @@ function toneIcon(tone: ConnectivityTone): string {
         [attr.aria-label]="connectivity.label"
         [attr.title]="connectivity.lastSyncRelative ? ('Última sincronização ' + connectivity.lastSyncRelative) : connectivity.label"
       >
-        <span class="material-symbols-outlined text-[16px]">{{ toneIcon(connectivity.tone) }}</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[16px]">{{ toneIcon(connectivity.tone) }}</span>
         <span class="hidden sm:inline">{{ connectivity.label }}</span>
       </a>
     } @else {
       <span class="flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold text-ink-soft">
-        <span class="material-symbols-outlined text-[16px]">device_unknown</span>
+        <span aria-hidden="true" class="material-symbols-outlined text-[16px]">device_unknown</span>
         <span class="hidden sm:inline">Sem dispositivo</span>
       </span>
     }

@@ -1,5 +1,23 @@
 # Profile 'test' — sem datasource/messaging (serviço de infra, não persiste estado).
+#
+# POR QUE O CLIENT DO EUREKA FICA LIGADO AQUI
+#
+# Este arquivo dizia `eureka.client.enabled: false`, e o contexto NÃO SUBIA:
+#
+#   NoSuchBeanDefinitionException: No qualifying bean of type
+#   'com.netflix.appinfo.ApplicationInfoManager'
+#   ...ao criar 'EurekaServerAutoConfiguration'
+#
+# `enabled: false` desliga a AUTOCONFIGURAÇÃO do client, e é ela que publica o
+# `ApplicationInfoManager` — que o autoconfig do SERVIDOR injeta. Desligar o
+# client, portanto, derruba o servidor: exatamente o contrário do que a intenção
+# ("é só um registry, não precisa de client") sugere.
+#
+# O jeito canônico de rodar um Eureka sozinho é manter o client ligado e apenas
+# dizer que ele não se registra em ninguém nem busca registro de ninguém. É o que
+# o `application.yml` de produção já fazia (linhas 9-11) — o perfil de teste é
+# que divergia, e por isso o defeito só aparecia no teste.
 eureka:
   client:
-    enabled: false
-
+    register-with-eureka: false
+    fetch-registry: false

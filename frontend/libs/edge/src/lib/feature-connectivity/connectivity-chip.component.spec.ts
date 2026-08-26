@@ -5,7 +5,7 @@
 //
 // States covered:
 //   1. online  → anchor, bg-success-bg / text-success-ink, icon: wifi
-//   2. stale   → anchor, bg-warn-bg / text-warn-ink, icon: wifi_find
+//   2. stale   → anchor, bg-warning-bg / text-warning-ink, icon: wifi_find
 //   3. offline → anchor, bg-danger-bg / text-danger-ink, icon: wifi_off
 //   4. unknown → anchor, bg-surface-2 / text-ink-soft, icon: device_unknown
 //   5. not-paired (null vm) → span fallback "Sem dispositivo"
@@ -119,8 +119,8 @@ describe('ConnectivityChipComponent', () => {
       const vm = makeVM('stale', 'warn', 'Sinal fraco — verificando…');
       await createChip(vm);
       const anchor = fixture.nativeElement.querySelector('a');
-      expect(anchor?.className).toContain('bg-warn-bg');
-      expect(anchor?.className).toContain('text-warn-ink');
+      expect(anchor?.className).toContain('bg-warning-bg');
+      expect(anchor?.className).toContain('text-warning-ink');
     });
 
     it('renders wifi_find icon for stale state', async () => {
@@ -212,7 +212,7 @@ describe('ConnectivityChipComponent', () => {
       const facadeVm = makeVM('stale', 'warn', 'Sinal fraco — verificando…');
       await createChip(facadeVm);
       const anchor = fixture.nativeElement.querySelector('a');
-      expect(anchor?.className).toContain('bg-warn-bg');
+      expect(anchor?.className).toContain('bg-warning-bg');
     });
   });
 

@@ -2,10 +2,12 @@ package com.neuroassist.acs.api.controller;
 
 import com.neuroassist.acs.api.dto.AutenticacaoRequest;
 import com.neuroassist.acs.api.dto.AutenticacaoResponse;
-import com.neuroassist.acs.api.dto.ServiceTokenRequest;
-import com.neuroassist.acs.application.service.ServiceTokenService;
+import com.neuroassist.acs.api.dto.DeviceTokenRequest;
 import com.neuroassist.acs.api.dto.RefreshTokenRequest;
+import com.neuroassist.acs.api.dto.ServiceTokenRequest;
 import com.neuroassist.acs.application.port.in.AutenticacaoUseCase;
+import com.neuroassist.acs.application.service.DeviceTokenService;
+import com.neuroassist.acs.application.service.ServiceTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +34,7 @@ public class AutenticacaoController {
 
     private final AutenticacaoUseCase autenticacaoUseCase;
     private final ServiceTokenService serviceTokenService;
+    private final DeviceTokenService deviceTokenService;
 
     /**
      * Issues a JWT access token for valid caregiver credentials. Supports grant_type=password only
@@ -66,6 +69,27 @@ public class AutenticacaoController {
                 request.clientId(),
                 request.tenantId());
         return ResponseEntity.ok(serviceTokenService.issueToken(request));
+    }
+
+    /**
+     * Issues a device-identity token for an edge device (E2E-005, {@code
+     * standards/service-identity.md} §7).
+     *
+     * <p>PUBLIC endpoint: the device authenticates by the body itself, exactly like {@code
+     * /oauth2/token}. acs-service does not check the secret — it asks edge-service, which owns the
+     * credential — and then signs a token whose tenant is the one edge-service reported.
+     *
+     * <p>Every rejection (unknown client, wrong secret, retired device, edge-service unavailable)
+     * is the same 401, and the {@code clientSecret} is never logged.
+     *
+     * @param request clientId + clientSecret handed to the device at enroll
+     * @return 200 AutenticacaoResponse (no refreshToken) | 400 validation | 401 invalid-credentials
+     */
+    @PostMapping("/token/device")
+    public ResponseEntity<AutenticacaoResponse> deviceToken(
+            @Valid @RequestBody DeviceTokenRequest request) {
+        log.debug("POST /oauth2/token/device clientId={}", request.clientId());
+        return ResponseEntity.ok(deviceTokenService.issueToken(request));
     }
 
     /**

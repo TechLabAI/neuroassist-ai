@@ -94,13 +94,16 @@ describe.each([
     let result: TipoGesto | undefined;
     let error: unknown;
 
-    adapter.get('tg-sobrancelha').subscribe({
+    // 'tg-piscar-rapido' — precisa existir no fixture do TiposGestoReadMockAdapter;
+    // o lado 'http' não olha para o fixture (a resposta é STUB_TIPO), mas o lado
+    // 'mock' lança se o id não estiver na lista.
+    adapter.get('tg-piscar-rapido').subscribe({
       next: r => { result = r; },
       error: e => { error = e; },
     });
 
     if (label === 'http') {
-      const req = controller.expectOne('/api/v1/gest/tipo-gesto/tg-sobrancelha');
+      const req = controller.expectOne('/api/v1/gest/tipo-gesto/tg-piscar-rapido');
       expect(req.request.method).toBe('GET');
       req.flush(STUB_TIPO);
     } else {

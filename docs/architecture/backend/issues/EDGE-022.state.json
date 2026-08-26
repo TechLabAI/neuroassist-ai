@@ -1,0 +1,128 @@
+{
+  "issue": "EDGE-022",
+  "layer": "be",
+  "computedAt": "2026-08-25T17:09:27",
+  "checklist": {
+    "total": 13,
+    "done": 13,
+    "partial": 0,
+    "missing": 0,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "`GET /api/v1/edge/profile` no edge-service, guardado por `@PreAuthorize(\"hasAuthority('edge.device')\")`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "**`deviceId` extraído do claim `sub` do JWT** — nunca de path, query ou corpo. Mesmo padrão do",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Verificar o pareamento antes de responder — dispositivo não pareado devolve o mesmo",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Ampliar `GestDetectionProfileView`, que hoje é `record GestDetectionProfileView(long version)`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "**Repassar o GET condicional de ponta a ponta**: `If-None-Match` do dispositivo vira",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Reusar o `DetectionProfileClient` existente (identidade de serviço já configurada). **Não**",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Teste de integração: token de dispositivo pareado recebe 200 com perfil; **token de usuário",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Token `edge.device` pareado → 200 com o perfil completo",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Token de **usuário** (cuidadora/coordenadora) → **403**. A estação é um dispositivo; este",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`deviceId` não é aceito como parâmetro em forma nenhuma — a identidade vem só do `sub`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Dispositivo não pareado → 403 `device-not-paired`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "`If-None-Match` igual ao ETag corrente → 304 sem corpo",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "gest-service indisponível → resposta degradada explícita, jamais um perfil vazio que a estação",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "unknown",
+    "lint": "unknown",
+    "test": "unknown",
+    "e2e": "unknown"
+  },
+  "score": {
+    "total": 30,
+    "provisional": true,
+    "range": [
+      30,
+      40
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 30,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 0,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "max": 10,
+        "value": null,
+        "basis": "agent",
+        "needsAgentConfirm": true
+      }
+    },
+    "band": "Inicial",
+    "statusTag": "NEAR-CLOSED"
+  },
+  "agentTodo": [
+    "Confirmar functionality 30/30 -- a funcionalidade alvo funciona?",
+    "Avaliar soft 0-10 -- a11y + observability + multi-tenancy enforcement"
+  ]
+}

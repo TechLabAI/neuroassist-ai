@@ -63,11 +63,25 @@ class ProducerContractTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+
+        // E2E-022 — esta classe sobe o SEU PRÓPRIO container, independente de
+        // BaseIntegrationTest, e por isso precisa aplicar as migrations por conta. Sem isto o
+        // `ddl-auto=validate` do profile de teste derruba o contexto com "missing table".
+        SchemaMigrations.applyTo(
+                POSTGRES, java.util.List.of("t_emp_test", "t_emp_other", "empresa_a", "empresa_b"));
+    }
+
+    /** Ver {@code BaseIntegrationTest.jdbcUrlWithSearchPath} — mesma razão, container próprio. */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     @DynamicPropertySource
     static void configureDataSource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", ProducerContractTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
     }
@@ -121,7 +135,8 @@ class ProducerContractTest {
                                             "0000000000000000000000000000000000000000000000000000000000000000",
                                             "aaaa1111bbbb2222cccc3333dddd4444eeee5555ffff6666aaaa1111bbbb2222",
                                             null,
-                                            false);
+                                            false,
+                                            null);
                             return new RecordAuditFactUseCase.AppendResult(echoed, true);
                         });
     }
@@ -161,7 +176,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
+                                                .jwt(j -> j.claim("tenant_id", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("evnt.alarm.raised"));
@@ -202,7 +217,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
+                                                .jwt(j -> j.claim("tenant_id", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("pac.command.created"));
@@ -243,7 +258,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
+                                                .jwt(j -> j.claim("tenant_id", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("acs.caregiver.onboarded"));
@@ -288,7 +303,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
+                                                .jwt(j -> j.claim("tenant_id", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.factType").value("edge.session.started"));
@@ -328,7 +343,7 @@ class ProducerContractTest {
                                 .content(body)
                                 .with(
                                         SecurityMockMvcRequestPostProcessors.jwt()
-                                                .jwt(j -> j.claim("tenant", "t_emp_test"))
+                                                .jwt(j -> j.claim("tenant_id", "t_emp_test"))
                                                 .authorities(() -> "SCOPE_hist:write")))
                 .andExpect(status().isUnprocessableEntity());
     }

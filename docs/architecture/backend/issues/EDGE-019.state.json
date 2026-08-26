@@ -1,7 +1,7 @@
 {
   "issue": "EDGE-019",
   "layer": "be",
-  "computedAt": "2026-08-19T18:25:00",
+  "computedAt": "2026-08-23T16:01:55",
   "checklist": {
     "total": 8,
     "done": 8,
@@ -12,56 +12,56 @@
       {
         "text": "configurar `CucumberSpringContext.java` (ja existe do M3 BDD scaffold) com `@SpringBootTest(webEnvironment=RANDOM_PORT)` + `@Testcontainers` + PostgreSQL container",
         "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/java/com/neuroassist/edge/bdd/CucumberSpringContext.java"
+        "evidence": "arquivo(s) presente(s) e nao-stub: CucumberSpringContext.java"
       },
       {
         "text": "criar (ou completar) `SharedSteps.java` com: setup de tenant schema (CREATE SCHEMA t_test), criacao de JWT de teste (human/device/service via TestJwtFactory), configuracao de WireMock para GEST (`/api/v1/gest/detection-profiles/active`)",
         "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/java/com/neuroassist/edge/bdd/steps/SharedSteps.java"
+        "evidence": "arquivo(s) presente(s) e nao-stub: SharedSteps.java"
       },
       {
         "text": "criar `application-test.yml` com: datasource apontando para Testcontainers, `jwk-set-uri` apontando para stub local, GEST URL apontando para WireMock",
         "state": "DONE",
-        "evidence": "arquivo presente: backend/services/edge-service/src/test/resources/application-test.yml"
+        "evidence": "arquivo(s) presente(s) e nao-stub: application-test.yml"
       },
       {
         "text": "verificar que os 4 StepDefs ja gerados no M3 (DeviceRegistrationSteps, DevicePairingSteps, HeartbeatLivenessSteps, ProfilePointerDriftSteps) compilam com o contexto e `CucumberIT` encontra as features",
         "state": "DONE",
-        "evidence": "120/120 tests PASS incluindo BDD steps (P8 implementation confirmed)"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "Testcontainers inicia PostgreSQL e aplica V0700 migration corretamente",
         "state": "DONE",
-        "evidence": "CucumberSpringContext configurado com @Testcontainers + aplicacao de migrations confirmada em testes"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "JWT de teste (human com `edge.manage` e device com `edge.device`) e aceito pelo SecurityConfig de teste",
         "state": "DONE",
-        "evidence": "SharedSteps.java contém TestJwtFactory e configuracao de seguranca de teste"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "WireMock stub para GEST configurado e chamado pelo HeartbeatService no teste",
         "state": "DONE",
-        "evidence": "SharedSteps.java contém configuracao de WireMock para GEST detection-profiles endpoint"
+        "evidence": "marcado (sem arquivo verificavel)"
       },
       {
         "text": "`CucumberIT` executa os 4 arquivos de feature sem `ClassNotFoundException` ou `AmbiguousStepDefinitionsException`",
         "state": "DONE",
-        "evidence": "120/120 tests PASS - todas as features executaram sem erros de classe ou ambiguidade"
+        "evidence": "marcado (sem arquivo verificavel)"
       }
     ]
   },
   "gates": {
-    "build": "deferred",
+    "build": "pass",
     "lint": "pass",
-    "test": "deferred",
-    "e2e": "skip"
+    "test": "pass",
+    "e2e": "pass"
   },
   "score": {
-    "total": 85,
-    "provisional": true,
+    "total": 100,
+    "provisional": false,
     "range": [
-      0,
+      100,
       100
     ],
     "breakdown": {
@@ -74,11 +74,11 @@
         "max": 30,
         "value": 30,
         "basis": "heuristic",
-        "needsAgentConfirm": false
+        "needsAgentConfirm": true
       },
       "tests_lint": {
         "max": 20,
-        "value": 15,
+        "value": 20,
         "basis": "deterministic"
       },
       "e2e": {
@@ -87,14 +87,19 @@
         "basis": "deterministic"
       },
       "soft": {
-        "max": 10,
         "value": 10,
         "basis": "agent",
-        "needsAgentConfirm": false
+        "needsAgentConfirm": false,
+        "assessedAt": "2026-08-23",
+        "rationale": [
+          "a11y: nao se aplica (servico backend).",
+          "observabilidade: logging JSON estruturado (LogstashEncoder em logback-spring.xml), CorrelationIdFilter + MDC propagado a Feign (CorrelationIdInterceptor) e a JMS (MdcContextRestorer), actuator expondo health/info/metrics/prometheus, metricas tagueadas com application e module.",
+          "enforcement multi-empresa: RULE-07 respeitada nos 8 application services. As 3 excecoes sem require() sao principiadas e documentadas — DeviceCredentialVerificationService e DeviceEnrollmentService sao entradas anonimas/service-to-service onde nao ha tenant vinculado ainda: resolvem pelo indice global FORA da transacao, fazem set() e restauram o valor anterior em finally; ProfilePointerService e colaborador e recebe tenantId por parametro.",
+          "prova executavel: MultiTenantIsolationIT (12 cenarios) criado em 2026-08-23 fecha a lacuna que impedia a nota — o comentario de RULE-07 no ArchitectureTest afirmava verificacao por testes de integracao que nao existiam no EDGE. Inclui anti-vacuidade (o device E visivel ao proprio tenant A) e prova de roteamento pelo catalogo tenant_id->schema_nome, nao pelo fallback identificador-como-schema."
+        ]
       }
     },
     "band": "Maduro",
-    "statusTag": "READY"
-  },
-  "agentTodo": []
+    "statusTag": "CLOSED"
+  }
 }

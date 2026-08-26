@@ -1,0 +1,24 @@
+-- PAC migration — empresa schema — faixa V0200..V0299 — owner: pac-service
+-- =============================================================================
+-- Migration: V0210__pac_drop_tipo_gesto_ref.sql
+-- Service:   pac-service
+-- Schema:    <empresa>
+-- Issue:     E2E-024 (metade PAC)
+--
+-- `tipo_gesto_ref` foi criada em V0203 como projeção read-only do TipoGesto do GEST
+-- ("display cache"). A projeção nunca foi populada: o adapter correspondente tinha os
+-- três métodos lançando `UnsupportedOperationException("not implemented")`, e nenhum
+-- application.service referenciava o port.
+--
+-- Verificado antes de remover:
+--   * zero linhas na tabela no ambiente de dev;
+--   * o único código que a mencionava era o próprio cluster de scaffolding do PAC
+--     (port, domain model, domain service vazio, adapter, entity, repository);
+--   * nenhum outro serviço a referencia, apesar de o schema do tenant ser compartilhado.
+--
+-- O PAC continua consultando o GEST por Feign (GestDetectabilityPort) quando precisa
+-- saber de uma primitiva — que é o caminho autoritativo, e o único que existiu de fato.
+-- A tabela era a promessa de um cache que nunca foi escrito.
+-- =============================================================================
+
+DROP TABLE IF EXISTS tipo_gesto_ref;

@@ -2,11 +2,11 @@
   "_schema_version": 1,
   "techlab_architecture": {
     "version": "1.1.0",
-    "source_sha": "7a4efc5"
+    "source_sha": "84eda83"
   },
   "architecture": {
     "version": "1.0.0",
-    "applied_at": "2026-07-26T23:52:52Z"
+    "applied_at": "2026-08-26T11:27:56Z"
   },
   "aspects": {
     "arch/decisions/entity-scope.arch.json": {
@@ -53,69 +53,69 @@
     },
     "arch/decisions/_schema/entity-scope.schema.json": {
       "source": "templates/architecture/decisions/_schema/entity-scope.schema.json",
-      "source_sha": "0abd681ea0b019cb92d0e331ce19157b83bd3f311335009d52cff6bbf19aaf98",
+      "source_sha": "6d65f2eed67c9479c35bd28e185a2571139fce344c74bed93252cd121d8d70c5",
       "output": "arch/decisions/_schema/entity-scope.schema.json",
-      "output_sha": "0abd681ea0b019cb92d0e331ce19157b83bd3f311335009d52cff6bbf19aaf98"
+      "output_sha": "6d65f2eed67c9479c35bd28e185a2571139fce344c74bed93252cd121d8d70c5"
     },
     "arch/decisions/_schema/error-model.schema.json": {
       "source": "templates/architecture/decisions/_schema/error-model.schema.json",
-      "source_sha": "e8b8d87384135729dd709723f238c307500aad7f9d2be57b8b6d2630183d0879",
+      "source_sha": "d1cd5ef2ff88315071eb1cb9ce9612ed3c6a4ced1dbe54f36cede9cd362de5a2",
       "output": "arch/decisions/_schema/error-model.schema.json",
-      "output_sha": "e8b8d87384135729dd709723f238c307500aad7f9d2be57b8b6d2630183d0879"
+      "output_sha": "d1cd5ef2ff88315071eb1cb9ce9612ed3c6a4ced1dbe54f36cede9cd362de5a2"
     },
     "arch/decisions/_schema/events.schema.json": {
       "source": "templates/architecture/decisions/_schema/events.schema.json",
-      "source_sha": "78d336fa2fc49b13ef083add7d2feb40e40d61ed5daafebf5754b5d75f4ba9e1",
+      "source_sha": "33b46f0a4ed740d0af8567b3efda0870db55b14b118df6b32faf1ff6c28ee208",
       "output": "arch/decisions/_schema/events.schema.json",
-      "output_sha": "78d336fa2fc49b13ef083add7d2feb40e40d61ed5daafebf5754b5d75f4ba9e1"
+      "output_sha": "33b46f0a4ed740d0af8567b3efda0870db55b14b118df6b32faf1ff6c28ee208"
     },
     "arch/decisions/_schema/multi-tenancy.schema.json": {
       "source": "templates/architecture/decisions/_schema/multi-tenancy.schema.json",
-      "source_sha": "39aa226649488a313856f851202b3c2ef588eed798c1abcc5a19de57d5841944",
+      "source_sha": "7ec7a6190c99c22ded1f2cba71cebf38d9634ded1e06f436b61bd8afb3787c17",
       "output": "arch/decisions/_schema/multi-tenancy.schema.json",
-      "output_sha": "39aa226649488a313856f851202b3c2ef588eed798c1abcc5a19de57d5841944"
+      "output_sha": "7ec7a6190c99c22ded1f2cba71cebf38d9634ded1e06f436b61bd8afb3787c17"
     },
     "arch/decisions/_schema/permission-catalogue.schema.json": {
       "source": "templates/architecture/decisions/_schema/permission-catalogue.schema.json",
-      "source_sha": "357e290db138e24255697c929fddcd48135d878947ac0f67abc5b2a2b3321b10",
+      "source_sha": "3cb1f368cc5321d9805fcb074e9f800b81996c567e2f45982ebc2d3e106bed00",
       "output": "arch/decisions/_schema/permission-catalogue.schema.json",
-      "output_sha": "357e290db138e24255697c929fddcd48135d878947ac0f67abc5b2a2b3321b10"
+      "output_sha": "3cb1f368cc5321d9805fcb074e9f800b81996c567e2f45982ebc2d3e106bed00"
     },
     "arch/decisions/_schema/persistence.schema.json": {
       "source": "templates/architecture/decisions/_schema/persistence.schema.json",
-      "source_sha": "1d8abefb95e1bbe767fa534195dd192b9a2901ce673814824009835fad311fbd",
+      "source_sha": "cf5e3662362b24a58d350115008124b5a6aad87bde120a5778213da7cfad88a3",
       "output": "arch/decisions/_schema/persistence.schema.json",
-      "output_sha": "1d8abefb95e1bbe767fa534195dd192b9a2901ce673814824009835fad311fbd"
+      "output_sha": "cf5e3662362b24a58d350115008124b5a6aad87bde120a5778213da7cfad88a3"
     },
     "arch/decisions/_schema/rbac.schema.json": {
       "source": "templates/architecture/decisions/_schema/rbac.schema.json",
-      "source_sha": "10516e156b6b21a7912cb48daea524acc1774fa76419f970d2af190a2ca3097c",
+      "source_sha": "8d115b525e062b4c6b6ea5aab180cbe17572999746ed27d7548d76630b21aeaa",
       "output": "arch/decisions/_schema/rbac.schema.json",
-      "output_sha": "10516e156b6b21a7912cb48daea524acc1774fa76419f970d2af190a2ca3097c"
+      "output_sha": "8d115b525e062b4c6b6ea5aab180cbe17572999746ed27d7548d76630b21aeaa"
     },
     "docs/architecture/backend/standards/hexagonal-patterns.md": {
       "source": "templates/architecture/backend/standards/hexagonal-patterns.md.j2",
-      "source_sha": "32df2e19b8cfcf6a6373c79eb8d9eb464ce796e9e3b9de08e82bcb482f9f0a3c",
+      "source_sha": "f65e04b9482563630a7ef8e1ff54e9394a06718c54f5be7c50fb2fd3680c7dd0",
       "output": "docs/architecture/backend/standards/hexagonal-patterns.md",
-      "output_sha": "2542ea5429682541f3b7ab8938c7130df36eb9c6551da71f9f36a429e3d9b983"
+      "output_sha": "1d7411e642d09382f66a41035eb44f8f72bbad7d3b76f278a64a38adf389c5db"
     },
     "docs/architecture/backend/standards/java-conventions.md": {
       "source": "templates/architecture/backend/standards/java-conventions.md.j2",
-      "source_sha": "cbfedfdea6be1f68959a32c0293a773f9de49f7ef0e87a7c30fd1dedaa69e3da",
+      "source_sha": "b96c638c4148c98e2175c1e119596a05380a9f4425d7788b172754b80ace3df2",
       "output": "docs/architecture/backend/standards/java-conventions.md",
-      "output_sha": "c1713b4746639bdb7350a758176fca8c34807d5b87734cc93dccfd0b1cd7faae"
+      "output_sha": "c1957b77e74dcedae1fc65b0cd35334a73d7f72c7cc142e86fd76b5fe9fe6d3c"
     },
     "docs/architecture/backend/standards/snippets.md": {
       "source": "templates/architecture/backend/standards/snippets.md.j2",
-      "source_sha": "f673d091aa1d8e9adb1d8f9ff671a596f48217e6f259520dffbf00ffcc879a7b",
+      "source_sha": "050f67dacdbe3bf4b2dbb494f313c991b35d33beaf2bfd64f71e4d7407ff44fa",
       "output": "docs/architecture/backend/standards/snippets.md",
-      "output_sha": "298a8f3edff01071a25d988c7164c4c819a5acf3304092a5f6b915fd98d344a1"
+      "output_sha": "088d0da1bbf2c1b893ff7903bd6105d9cf5acd84d7aa0749a5db950a1a9248bf"
     },
     "docs/architecture/backend/standards/platform-patterns.md": {
       "source": "templates/architecture/backend/standards/platform-patterns.md.j2",
-      "source_sha": "6feb9aef5e5225d4b0361cd4b7bd5bf3e422f876f8b93222d1f0ccb0dfcabcd1",
+      "source_sha": "2e5afb0b1ca7fa96d0c9bea5dd335be4c72c0e886d5579b7e80dd7a216fc9532",
       "output": "docs/architecture/backend/standards/platform-patterns.md",
-      "output_sha": "f09b19a42618853bcb3dd6ab8ab4789dd57605e947664c33138fb6d7ebceb0a8"
+      "output_sha": "a15e94fbd9df3dc84464c8ef0200efc39425e39df99d3bd11ce97aeeb9e86856"
     },
     "docs/architecture/backend/standards/testing-conventions.md": {
       "source": "templates/architecture/backend/standards/testing-conventions.md.j2",
@@ -131,21 +131,21 @@
     },
     "docs/architecture/backend/standards/service-spec-authoring.md": {
       "source": "templates/architecture/backend/standards/service-spec-authoring.md.j2",
-      "source_sha": "3ab26cc84b35d116c48f3fb3be3e7ea569b1d701d65fd17bd09b0bad4868af41",
+      "source_sha": "d18a8ca3bbf4ee97b6328e4361b031b0f82cb3e76ac9c63aa164640a35d89ca3",
       "output": "docs/architecture/backend/standards/service-spec-authoring.md",
-      "output_sha": "dd8c944fa1cc6aa9bd892f67c05250e4f7a2cd602885274cdef6f133be47afaf"
+      "output_sha": "ce5d3d5f4115c5b2a5ebea1b4511945487f218737363bf3060172b03c6dd40a7"
     },
     "docs/architecture/backend/standards/api-mock-convention.md": {
       "source": "templates/architecture/backend/standards/api-mock-convention.md.j2",
-      "source_sha": "ee79c3f356f619d1c724689d0bb030e58081d66d775d74a5b1d1907cf4ddba4d",
+      "source_sha": "4237f0ec2a661517ff0fa42ce7c7ac91766a68f26498d92c2507801634a1b3e4",
       "output": "docs/architecture/backend/standards/api-mock-convention.md",
-      "output_sha": "874a35c694e8057b0d86e3c87f2492407f97e5e4c153ebf5b6f400a2fcebd5e9"
+      "output_sha": "9d5f7fc1d4c7edd2f21099933d188b61946ce86a4002199def9901ce89fd0178"
     },
     "docs/architecture/backend/standards/ears-notation.md": {
       "source": "templates/architecture/backend/standards/ears-notation.md.j2",
-      "source_sha": "22f1a34d5a45319e8be0a4c030f842f684495e1e0277139295b251e6678d15e0",
+      "source_sha": "421b0556d24aab8bc16d24244cf0059ce7a203b5b0cdd29b26abc0956fee486e",
       "output": "docs/architecture/backend/standards/ears-notation.md",
-      "output_sha": "97182976e1977814d375564d2cb7d257727ac8d5521af6a0c4d67e4c9ef58283"
+      "output_sha": "0887070577dcd6e76ad8c19a65e8e2e6ef9905c8faf6ca529c4f2a57c07c16e1"
     },
     "docs/architecture/shared/README.md": {
       "source": "templates/architecture/shared/README.md.j2",
@@ -209,9 +209,9 @@
     },
     "docs/architecture/shared/modelo-dados/README.md": {
       "source": "templates/architecture/shared/modelo-dados/README.md.j2",
-      "source_sha": "19230cf106154ff6cc02907fa89ac3a7970547efdabb540498e660ed9c990797",
+      "source_sha": "9606e64002764f1c6cfac2a28f9fad4b8536092b37e86a53744326ba5f946179",
       "output": "docs/architecture/shared/modelo-dados/README.md",
-      "output_sha": "9be23155b3a52ab55750021319cbac9021e1eae7055e3bca3df7e3e0b660cfc5"
+      "output_sha": "8a4756fc92753a457df4dbd2c46ca5cb31cac062b0542c1a9b9cbf475da81fbd"
     },
     "docs/architecture/shared/modelo-dados/persistence-conventions.md": {
       "source": "templates/architecture/shared/modelo-dados/persistence-conventions.md.j2",
@@ -305,21 +305,21 @@
     },
     "docs/architecture/frontend/standards/bootstrap-flow.md": {
       "source": "templates/architecture/frontend/standards/bootstrap-flow.md.j2",
-      "source_sha": "9fc4641fb766639c328920da1b9839cdd69437e46d62660730880af6d2c0dddb",
+      "source_sha": "d8b67fde2111cb04696cfc5e65712f721858fffc0fb44d5408b93f59fca4f664",
       "output": "docs/architecture/frontend/standards/bootstrap-flow.md",
-      "output_sha": "cce568a5e54d085d8f7022e2fd12e80da37e9ce3eb4a126a6d0ba4c351c56101"
+      "output_sha": "975c993d755f737822507cd03b7680f0bef75ba9c3779d5e806456b97e1bcfd8"
     },
     "docs/architecture/frontend/standards/feature-architect-workflow.md": {
       "source": "templates/architecture/frontend/standards/feature-architect-workflow.md.j2",
-      "source_sha": "0a3ecfada286dabea5a4ea69f927d7de56449c567c71bda82b84483f0ce4fd4d",
+      "source_sha": "aab4569e1f6d86f83b9a5e8330283aa94b18d5b2aa9bacfb5d05fb990992ddef",
       "output": "docs/architecture/frontend/standards/feature-architect-workflow.md",
-      "output_sha": "bd6138c0dd58fa8abb9c1e9cfd31b9073f5cc7245f24fe25a0c30bdbffa7f6c7"
+      "output_sha": "beea02b7e051ac7693a4cd97d1600073c87d13710e35e8745ba7403b83585a19"
     },
     "docs/architecture/frontend/standards/design-system-tokens.md": {
       "source": "templates/architecture/frontend/standards/design-system-tokens.md.j2",
-      "source_sha": "1b70fbc6598031bc027b2244daeb8113ab38729b489a142c2006c2ca055e3d01",
+      "source_sha": "e45dcdb915d5eb4b18e703e868ad5d171b8708998f0bd4361fde2197484c1fa2",
       "output": "docs/architecture/frontend/standards/design-system-tokens.md",
-      "output_sha": "f2e0450c1c57bc3d11eaa9babcad89e8f65f125ad631087e9659b305f1d42c5f"
+      "output_sha": "edbcc3f9365e3b14dcb90afc84ca1e4c5465260e067398437272620782d1132e"
     },
     "docs/architecture/frontend/standards/data-model-driven-ui.md": {
       "source": "templates/architecture/frontend/standards/data-model-driven-ui.md.j2",
@@ -335,9 +335,9 @@
     },
     "docs/architecture/frontend/standards/ears-notation.md": {
       "source": "templates/architecture/frontend/standards/ears-notation.md.j2",
-      "source_sha": "aab49531ab771b88b97d87b2db1ba2e528611395cc0a0ff2cd44cf9384def4ee",
+      "source_sha": "95b63c503e002f14935f5e62312dc6d443866e0cea0fd742ce5ea25dd11dba08",
       "output": "docs/architecture/frontend/standards/ears-notation.md",
-      "output_sha": "526f563d057cbf4e47b25b7edd2c15faf1f2d45aef28eb97e49077d5bbab7eca"
+      "output_sha": "7c7e8dbcf8408c20eb07dd4146481695ea9608df2385ca4ace4d26b5d3e3e3e1"
     },
     "docs/architecture/frontend/adr/ADR-006-module-entry-as-library.md": {
       "source": "templates/architecture/frontend/adr/ADR-006-module-entry-as-library.md.j2",
@@ -350,6 +350,90 @@
       "source_sha": "f6492fe38e0d101f0829a32f4eada06d3176c1a9b43d1502f1f6480103adef7d",
       "output": "docs/architecture/constitution.md",
       "output_sha": "50f404a2a146ed69d11e058a3dab418026e710bc6e7ff2979bb5c8599baf9b35"
+    },
+    ".claude/commands/be-autopilot.md": {
+      "source": "templates/operational/claude-folder/commands/be-autopilot.md.j2",
+      "source_sha": "ec6d1d5f3667ef89f975a662606be75d83ae7ae3924661879358403643ed448e",
+      "output": ".claude/commands/be-autopilot.md",
+      "output_sha": "c62970d7cf93947de2c717c122fc4990892ee6bf327081806c192143bd92ffa7"
+    },
+    ".claude/commands/be-implement.md": {
+      "source": "templates/operational/claude-folder/commands/be-implement.md.j2",
+      "source_sha": "32078845973f75af41c307e2452ae0c79a4ba42e640382f2cfea45e1d671dbaf",
+      "output": ".claude/commands/be-implement.md",
+      "output_sha": "c38b1afbd0866a0700ac0665023ae0d3035a9151b3dddbeb208a68d08e2d8e7b"
+    },
+    ".claude/commands/be-planner.md": {
+      "source": "templates/operational/claude-folder/commands/be-planner.md.j2",
+      "source_sha": "344afa3a622c9cc508488266cedb278c3cead18bd095a49163420a1cfa4d3b5b",
+      "output": ".claude/commands/be-planner.md",
+      "output_sha": "616deb1593713536fbdfacd65ed510f37b6760a5465ddc33a0c78032201b4b6a"
+    },
+    ".claude/commands/be-validator.md": {
+      "source": "templates/operational/claude-folder/commands/be-validator.md.j2",
+      "source_sha": "4afddfcea1b34e017e16debd275e03e52e6349fb625aded274b3f67acbe5c35e",
+      "output": ".claude/commands/be-validator.md",
+      "output_sha": "f0380935589e9e697c78f0acd815564a6cb0fe4195262b96060c79817eee7a7b"
+    },
+    ".claude/commands/fe-autopilot.md": {
+      "source": "templates/operational/claude-folder/commands/fe-autopilot.md.j2",
+      "source_sha": "e0e95ddaa5d2ad73af8e0c06a4d740552f9ecf92f822b431ae425a1a995d8f91",
+      "output": ".claude/commands/fe-autopilot.md",
+      "output_sha": "4bfe2cf4b2844bc6887c47128bb5cf7ea29552b73857ca74039b1caac67e2d37"
+    },
+    ".claude/commands/fe-implement.md": {
+      "source": "templates/operational/claude-folder/commands/fe-implement.md.j2",
+      "source_sha": "3b2b240dc2d5c082a21fdbd703506007ea3f3bac5841a78ad3909707da7ff677",
+      "output": ".claude/commands/fe-implement.md",
+      "output_sha": "4601f818392f2746dc3f866240563a371eaa69f35a5425ab4b8940593971f3fc"
+    },
+    ".claude/commands/fe-planner.md": {
+      "source": "templates/operational/claude-folder/commands/fe-planner.md.j2",
+      "source_sha": "f0a1ad2c077bf0167e1937e622fa134fde5979e2ae2b348cab6a823b6520c79f",
+      "output": ".claude/commands/fe-planner.md",
+      "output_sha": "f6389ed8b4f7d42ad654be5338e5d0173389decec60e51e7e81fbd9b03636875"
+    },
+    ".claude/commands/fe-validator.md": {
+      "source": "templates/operational/claude-folder/commands/fe-validator.md.j2",
+      "source_sha": "b20bcacda55555c5cb7ad3ed56690b219dae3560e58db63783f066b1c2104cf6",
+      "output": ".claude/commands/fe-validator.md",
+      "output_sha": "0243921276761e0aac9ec808f6f60584cb665dc6a0a924164410808978c76a35"
+    },
+    ".claude/agents/fe-implementer-agent.md": {
+      "source": "templates/operational/claude-folder/agents/fe-implementer-agent.md.j2",
+      "source_sha": "566035ef99aa4c33e6eb28ca659248eac69bdb2678c895f1015871795c8dc56d",
+      "output": ".claude/agents/fe-implementer-agent.md",
+      "output_sha": "afa632d1724c93e048e2742766ed4949c94ccfb6a93596efa72fd2776e410057"
+    },
+    ".claude/agents/fe-planner-agent.md": {
+      "source": "templates/operational/claude-folder/agents/fe-planner-agent.md.j2",
+      "source_sha": "87ad4b1284211a12d698a163bd18167cd4d51bd436c09db77928a9bd1b0772bc",
+      "output": ".claude/agents/fe-planner-agent.md",
+      "output_sha": "68ded4133e185128ab640f9789e30b73984408810c2d6ffee5abe21d37c27fac"
+    },
+    ".claude/agents/fe-validator-agent.md": {
+      "source": "templates/operational/claude-folder/agents/fe-validator-agent.md.j2",
+      "source_sha": "6e7cc5077dc8d05a6c987a53ce962e4a9cc2e94b97aa66d8571dc8407df32c09",
+      "output": ".claude/agents/fe-validator-agent.md",
+      "output_sha": "62114e6e7fc1c8be230826d8544aa731af270344be5f966701be0fa8b9982302"
+    },
+    ".claude/agents/implementer-agent.md": {
+      "source": "templates/operational/claude-folder/agents/implementer-agent.md.j2",
+      "source_sha": "b2be4801dccb6614b2a2779dd510e3568b00ff6d7529119aa9fd2c3d9c4d8f27",
+      "output": ".claude/agents/implementer-agent.md",
+      "output_sha": "ce8fb4eec02a2e739d610c40feeb9c9961ac560f5f13880e3435bec79980e442"
+    },
+    ".claude/agents/planner-agent.md": {
+      "source": "templates/operational/claude-folder/agents/planner-agent.md.j2",
+      "source_sha": "d21cc9a4250cb2e4503e5392e428f977564cc412a04f1c1190c41304e1210758",
+      "output": ".claude/agents/planner-agent.md",
+      "output_sha": "e8cba12be39be219ca9f406d3c662f03149377c283c8118bf8334e9d4798e29f"
+    },
+    ".claude/agents/validator-agent.md": {
+      "source": "templates/operational/claude-folder/agents/validator-agent.md.j2",
+      "source_sha": "f8f4bed549f0341017e95a5dfc77018f5e1d8c3746fe5484ec97dd0507927098",
+      "output": ".claude/agents/validator-agent.md",
+      "output_sha": "c83c9fa10fdc57afa7aa7900d7c9411fb8f063ea92cd3e34e3263d4007de120e"
     }
   }
 }

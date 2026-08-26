@@ -20,6 +20,16 @@
 import { test, expect } from '@playwright/test';
 import { navigateToEvntNoEmergency, SEL } from './evnt-e2e-helpers';
 
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+
+// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
+// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
+// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
+// depois do goto seria tarde demais.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+});
+
 test.describe('Notificação de Rotina — discreta e dismissível (FE-EVNT-029)', () => {
 
   // ── Scenario 1: Notificação discreta não full-bleed ───────────────────────

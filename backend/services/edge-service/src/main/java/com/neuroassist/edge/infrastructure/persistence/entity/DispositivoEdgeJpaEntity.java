@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.*;
+import org.springframework.data.domain.Persistable;
 
 /**
  * JPA entity for {@code dispositivo_edge} — EDGE aggregate root. Schema is tenant-routed via {@link
@@ -19,10 +20,19 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DispositivoEdgeJpaEntity {
+public class DispositivoEdgeJpaEntity implements Persistable<UUID> {
 
+    /**
+     * Assigned by the application ({@code DeviceRegistrationService} mints the UUID), not by the
+     * provider — so there is no {@code @GeneratedValue}. Declaring one while also pre-assigning the
+     * id made Spring Data treat every new device as detached: {@code isNew()} is id-based when the
+     * {@code @Version} attribute is a primitive, so {@code save()} issued {@code merge()} → UPDATE
+     * on a non-existent row → OptimisticLockException. Device registration never inserted a single
+     * row against the real schema (E2E Sessão 3).
+     *
+     * <p>{@link #isNew()} below makes the decision explicit instead of inferred.
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
@@ -53,6 +63,15 @@ public class DispositivoEdgeJpaEntity {
     @Column(name = "row_version", nullable = false)
     private long rowVersion;
 
+    /**
+     * Transient marker telling Spring Data whether this instance is an INSERT or an UPDATE.
+     *
+     * <p>Defaults to {@code true} so an entity built by the mapper (always from a domain object
+     * that owns its id) inserts; {@link #markNotNew()} is invoked by the JPA lifecycle after load
+     * or persist, so a re-saved entity updates.
+     */
+    @Transient @Builder.Default private boolean isNew = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -64,4 +83,34 @@ public class DispositivoEdgeJpaEntity {
 
     @Column(name = "updated_by", length = 120)
     private String updatedBy;
+
+    // -------------------------------------------------------------------------
+    // Persistable — decide INSERT vs UPDATE explicitamente
+    // -------------------------------------------------------------------------
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    /** After load or persist the row exists, so subsequent saves must UPDATE. */
+    @PostLoad
+    @PostPersist
+    void markNotNew() {
+        this.isNew = false;
+    }
+
+    /**
+     * Told by the repository adapter when the row already exists, so {@code save()} performs an
+     * UPDATE (merge) instead of an INSERT (persist). The mapper always builds a fresh instance from
+     * the domain object, so the entity cannot know this on its own.
+     */
+    public void markExisting() {
+        this.isNew = false;
+    }
 }

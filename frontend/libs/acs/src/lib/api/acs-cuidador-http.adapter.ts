@@ -2,7 +2,12 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { ACCESS_HTTP_BASE } from '@neuroassist/shared/access-http-base';
-import { AcsCuidadorPort, CuidadorDto, CuidadorCreateDto } from './acs-cuidador.port';
+import {
+  AcsCuidadorPort,
+  CuidadorDto,
+  CuidadorCreateDto,
+  CuidadorEditDto,
+} from './acs-cuidador.port';
 
 // =============================================================================
 // AcsCuidadorHttpAdapter — production adapter (stub compilable)
@@ -26,6 +31,15 @@ export class AcsCuidadorHttpAdapter implements AcsCuidadorPort {
 
   create(dto: CuidadorCreateDto): Observable<CuidadorDto> {
     return this.http.post<CuidadorDto>(this.base, dto);
+  }
+
+  edit(id: string, dto: CuidadorEditDto): Observable<CuidadorDto> {
+    // Caminho e verbo lidos do produtor (`CaregiverController.edit`), não
+    // deduzidos do nome do método — é a regra desta casa, e o `deactivate` logo
+    // abaixo é o contraexemplo vivo: ele faz `POST /{id}/deactivation` enquanto o
+    // backend expõe `PATCH /{id}/status`. Divergência já relatada, não corrigida
+    // aqui para não misturar assuntos.
+    return this.http.put<CuidadorDto>(`${this.base}/${id}`, dto);
   }
 
   deactivate(id: string): Observable<CuidadorDto> {

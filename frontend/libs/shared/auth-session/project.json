@@ -10,15 +10,19 @@
   "targets": {
     "test": {
       "executor": "@nx/jest:jest",
-      "outputs": ["{workspaceRoot}/coverage/libs/shared/auth-session"],
+      "outputs": [
+        "{workspaceRoot}/coverage/libs/shared/auth-session"
+      ],
       "options": {
         "jestConfig": "libs/shared/auth-session/jest.config.js",
-        "passWithNoTests": true
+        "passWithNoTests": false
       }
     },
     "lint": {
       "executor": "@nx/eslint:lint",
-      "outputs": ["{options.outputFile}"],
+      "outputs": [
+        "{options.outputFile}"
+      ],
       "options": {
         "lintFilePatterns": [
           "libs/shared/auth-session/**/*.ts"

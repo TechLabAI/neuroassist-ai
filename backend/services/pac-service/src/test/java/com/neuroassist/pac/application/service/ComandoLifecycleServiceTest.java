@@ -113,7 +113,8 @@ class ComandoLifecycleServiceTest {
                         1,
                         0,
                         Instant.now(),
-                        Instant.now());
+                        Instant.now(),
+                        null);
         when(pacienteRepository.findByIdAndTenantId(PACIENTE_ID, TENANT_ID))
                 .thenReturn(Optional.of(fakePaciente));
     }

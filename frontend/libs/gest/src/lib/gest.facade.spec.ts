@@ -68,6 +68,19 @@ async function flushCameraChain(): Promise<void> {
 // Tests
 // ---------------------------------------------------------------------------
 
+
+function ackSignal(commandDraftRef: string): EdgeRecognitionSignal {
+  return {
+    contractVersion: '1.0.0',
+    signalKind: 'preview_frame_ack',
+    commandDraftRef,
+    primitives: [],
+    timingWindow: { startMs: 0, endMs: 0, durationMs: 0 },
+    degraded: false,
+    emittedAt: new Date(0).toISOString(),
+  };
+}
+
 describe('GestureTestFacade', () => {
   let facade: GestureTestFacade;
   let mockPort: jest.Mocked<EdgeDetectionPort>;
@@ -614,6 +627,86 @@ describe('GestureTestFacade', () => {
 
       expect(facade.state().detectorType).toBeNull();
       expect(facade.detectorType()).toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Watchdog — ADR-007 follow-up 3
+  // Sem supervisor de processo, detecção parada em silêncio é o pior modo de
+  // falha do produto: a cuidadora acha que o canal está de pé e não está.
+  //
+  // Todos usam um draft de janela longa (60 s) de propósito: com o simpleDraft
+  // (tempoMaximoGestoMs 5 s) o timeout da própria sessão dispara junto e zera as
+  // flags, e o teste passaria sem provar nada sobre o watchdog.
+  // ---------------------------------------------------------------------------
+  describe('watchdog de detecção', () => {
+    const watchdogDraft: ComandoDraft = { ...simpleDraft, tempoMaximoGestoMs: 60_000 };
+
+    it('começa morto e vive ao primeiro sinal do motor', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+      expect(facade.detectionAlive()).toBe(false);
+
+      signalSource.next(ackSignal(watchdogDraft.commandDraftRef));
+
+      expect(facade.detectionAlive()).toBe(true);
+    });
+
+    it('declara parado após 4 s sem batimento', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+      signalSource.next(ackSignal(watchdogDraft.commandDraftRef));
+      expect(facade.detectionAlive()).toBe(true);
+
+      jest.advanceTimersByTime(6000);
+
+      expect(facade.detectionAlive()).toBe(false);
+    });
+
+    it('segue vivo enquanto os batimentos chegam', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+
+      for (let i = 0; i < 8; i++) {
+        signalSource.next(ackSignal(watchdogDraft.commandDraftRef));
+        jest.advanceTimersByTime(2000);
+      }
+
+      expect(facade.detectionAlive()).toBe(true);
+    });
+
+    // Instanciar o WASM do MediaPipe leva segundos: sem esta distinção a UI
+    // acusaria "parada" durante a inicialização normal.
+    it('não marca como iniciada antes do primeiro sinal, mesmo com o tempo passando', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+
+      jest.advanceTimersByTime(10_000);
+
+      expect(facade.detectionStarted()).toBe(false);
+      expect(facade.detectionAlive()).toBe(false);
+    });
+
+    it('permanece iniciada quando os batimentos param — a sessão continua', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+      signalSource.next(ackSignal(watchdogDraft.commandDraftRef));
+
+      jest.advanceTimersByTime(6000);
+
+      expect(facade.detectionStarted()).toBe(true);
+      expect(facade.detectionAlive()).toBe(false);
+    });
+
+    it('para junto com o teste', async () => {
+      facade.startTest(watchdogDraft);
+      await flushCameraChain();
+      signalSource.next(ackSignal(watchdogDraft.commandDraftRef));
+
+      facade.stopTest();
+
+      expect(facade.detectionAlive()).toBe(false);
+      expect(facade.detectionStarted()).toBe(false);
     });
   });
 });

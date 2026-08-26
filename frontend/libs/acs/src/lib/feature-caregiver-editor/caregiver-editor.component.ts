@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnInit, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, Input, OnInit, inject, output, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
@@ -17,15 +17,22 @@ import type { CuidadorPapel } from '../acs.types';
   standalone: true,
   imports: [ReactiveFormsModule],
   template: `
-    <div class="mx-auto max-w-xl p-8">
-      <header class="mb-6">
-        <h1 class="font-display text-xl font-bold text-ink">
-          {{ isEdit() ? 'Editar cuidador' : 'Convidar cuidador' }}
-        </h1>
-      </header>
+    <!-- 'composto' = esta superficie e um PEDACO de outra pagina (o passo de
+         convite do assistente de configuracao inicial), nao a pagina inteira.
+         Mesma entrada, e pelo mesmo motivo, que o pareamento do EDGE, o vinculo
+         do ACS e o cadastro do PAC ja tinham: sem ela o assistente ganha um
+         segundo <h1> e o contenedor de largura proprio deste formulario. -->
+    <div [class]="estaComposto() ? '' : 'mx-auto max-w-xl p-8'">
+      @if (!estaComposto()) {
+        <header class="mb-6">
+          <h1 class="font-display text-xl font-bold text-ink">
+            {{ isEdit() ? 'Editar cuidador' : 'Convidar cuidador' }}
+          </h1>
+        </header>
+      }
 
       @if (facade.error()) {
-        <p class="mb-4 rounded-lg bg-error-subtle px-4 py-3 text-sm text-error-ink" role="alert">
+        <p class="mb-4 rounded-lg bg-error-bg px-4 py-3 text-sm text-error-ink" role="alert">
           {{ facade.error() }}
         </p>
       }
@@ -41,7 +48,7 @@ import type { CuidadorPapel } from '../acs.types';
             type="text"
             formControlName="nome"
             class="w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-            [class]="draftForm.get('nome')?.invalid && draftForm.get('nome')?.touched ? 'border-error' : 'border-border'"
+            [class]="draftForm.get('nome')?.invalid && draftForm.get('nome')?.touched ? 'border-error' : 'border-line'"
             placeholder="Nome completo"
             data-testid="editor-nome"
           />
@@ -63,7 +70,7 @@ import type { CuidadorPapel } from '../acs.types';
             type="email"
             formControlName="email"
             class="w-full rounded-lg border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-            [class]="draftForm.get('email')?.invalid && draftForm.get('email')?.touched ? 'border-error' : 'border-border'"
+            [class]="draftForm.get('email')?.invalid && draftForm.get('email')?.touched ? 'border-error' : 'border-line'"
             placeholder="email@exemplo.com"
             data-testid="editor-email"
           />
@@ -83,7 +90,7 @@ import type { CuidadorPapel } from '../acs.types';
           <select
             id="editor-papel"
             formControlName="papel"
-            class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+            class="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
             data-testid="editor-papel"
           >
             <option value="cuidadora">Cuidadora</option>
@@ -101,13 +108,26 @@ import type { CuidadorPapel } from '../acs.types';
           >
             {{ facade.saving() ? 'Salvando…' : (isEdit() ? 'Salvar' : 'Convidar') }}
           </button>
-          <button
-            type="button"
-            class="rounded-xl border border-border px-5 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
-            (click)="cancel()"
-            data-testid="editor-cancel"
-          >Cancelar</button>
+          <!-- "Cancelar" e navegacao de PAGINA: leva a /acs. Composto no
+               assistente nao ha para onde cancelar — o botao levaria a pessoa
+               para fora da configuracao, que e justamente o que este passo
+               existe para evitar. -->
+          @if (!estaComposto()) {
+            <button
+              type="button"
+              class="rounded-xl border border-line px-5 py-2.5 text-sm font-semibold text-ink hover:bg-surface-2"
+              (click)="cancel()"
+              data-testid="editor-cancel"
+            >Cancelar</button>
+          }
         </div>
+
+        @if (estaComposto() && convidadaNesteFluxo()) {
+          <p class="flex items-center gap-1.5 text-sm font-medium text-success-ink" data-testid="editor-convidada">
+            <span class="material-symbols-outlined text-[18px]">check_circle</span>
+            Convite enviado — a cuidadora aparece no elenco e pode ser vinculada abaixo.
+          </p>
+        }
       </form>
     </div>
   `,
@@ -115,6 +135,30 @@ import type { CuidadorPapel } from '../acs.types';
 })
 export class CaregiverEditorComponent implements OnInit {
   readonly facade = inject(AcsCaregiverFacade);
+
+  /**
+   * Renderizado como PEDACO de outra pagina.
+   *
+   * <p>Setter para signal, e nao `input()`, porque quem passa este valor e o
+   * `NgComponentOutlet` do assistente via `setInput()`.
+   */
+  @Input() set composto(valor: boolean) {
+    this._composto.set(valor);
+  }
+  private readonly _composto = signal(false);
+  readonly estaComposto = this._composto.asReadonly();
+
+  /**
+   * O convite foi aceito pelo backend.
+   *
+   * <p>Existe porque, COMPOSTO, este formulario nao pode navegar — ver a nota em
+   * {@link save}. Quem compoe e quem sabe se ha um "depois", entao o componente
+   * ANUNCIA e nao decide.
+   */
+  readonly convidada = output<{ cuidadorId: string; nome: string; email: string }>();
+
+  /** Uma cuidadora ja foi convidada por este formulario nesta montagem. */
+  readonly convidadaNesteFluxo = signal(false);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
@@ -168,9 +212,51 @@ export class CaregiverEditorComponent implements OnInit {
 
     if (!this.isEdit()) {
       const vm = await this.facade.invite(dto);
-      if (vm) void this.router.navigate(['/acs']);
+      if (!vm) return;
+
+      this.convidada.emit({ cuidadorId: vm.id, nome: dto.nome, email: dto.email });
+
+      // NAVEGAR E COMPORTAMENTO DE PAGINA, e composto ele nao e pagina.
+      //
+      // Enquanto isto era incondicional, compor o formulario no assistente
+      // EJETAVA a pessoa para /acs no meio da configuracao — depois de uma acao
+      // BEM-SUCEDIDA e sem aviso. Ela perdia o assistente, o progresso visivel e
+      // o passo seguinte. Seria trocar um passo que aponta para fora ("va ao
+      // catalogo", que acabamos de eliminar) por um passo que EMPURRA para fora.
+      //
+      // Quem compoe e quem sabe se ha um "depois": o componente anuncia por
+      // `convidada` e para por aqui.
+      if (this.estaComposto()) {
+        this.convidadaNesteFluxo.set(true);
+        this.draftForm.reset({ nome: '', email: '', papel: 'cuidadora' });
+        return;
+      }
+      void this.router.navigate(['/acs']);
+      return;
     }
-    // TODO[FE-ACS-012]: edit mode — update endpoint not yet in MVP api-contract; uses invite for now.
+    // EDICAO — o ramo que era NO-OP SILENCIOSO.
+    //
+    // Ate aqui este `if` cobria so a criacao e nao havia `else`: quem corrigia um
+    // nome clicava "Salvar", nada acontecia, e a tela nao dizia nem sucesso nem
+    // erro. A causa era mais funda que a tela — NAO EXISTIA endpoint de edicao, e
+    // a matriz de perfis nao listava a capacidade. Ela foi definida
+    // (`acs.cuidador.editar`, so para a coordenadora) porque a alternativa
+    // disponivel, desativar a pessoa e criar outra, QUEBRA O HISTORICO: a
+    // confirmacao de alarme guarda o id da cuidadora.
+    //
+    // Manda so nome e login: o endpoint nao aceita papel, senha nem status, e
+    // cada exclusao tem razao propria (status tem endpoint proprio, e ele carrega
+    // a invariante D-204). Enviar o papel daqui faria a tela oferecer um campo
+    // que o servidor ignoraria em silencio.
+    const id = this.editingId();
+    if (!id) return;
+
+    const atualizada = await this.facade.edit(id, { nome: dto.nome, email: dto.email });
+    if (!atualizada) return; // a facade ja publicou o erro; a tela o desenha
+
+    // Mesma regra do convite: navegar e comportamento de PAGINA.
+    if (this.estaComposto()) return;
+    void this.router.navigate(['/acs']);
   }
 
   cancel(): void {

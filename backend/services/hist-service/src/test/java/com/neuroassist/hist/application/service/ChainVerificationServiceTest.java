@@ -188,6 +188,7 @@ class ChainVerificationServiceTest {
                 prevHash,
                 recordHash,
                 null,
-                false);
+                false,
+                SUBJECT_ID);
     }
 }

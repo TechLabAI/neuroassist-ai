@@ -1,12 +1,47 @@
 import { Routes } from '@angular/router';
 import { AppShellComponent } from './shell/app-shell.component';
 import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neuroassist/pac';
+import { AUTH_ROUTES, sessaoRequeridaGuard } from '@neuroassist/shared/auth-login';
+import { acsCaregiverWriteGuard } from '@neuroassist/acs';
+import { estacaoDeviceGuard } from '@neuroassist/gest';
 // DASH — promoted by /fe-architect-promote neuroassist-ai DASH (D-494)
 
 export const appRoutes: Routes = [
+  // Autenticação — FORA do shell e sem guard de sessão (o /login tem o guard
+  // inverso: quem já entrou não volta para o formulário).
+  // Precisa vir antes de qualquer rota que possa casar com 'login'.
+  ...AUTH_ROUTES,
+
+  // Estação do paciente — GEST-FE-030 / ADR-008 / SPEC-09
+  // Rota de topo-level: fora do AppShellComponent (como /login e /entrada).
+  // Tela cheia, sem menu/sidebar/breadcrumb — visível no quarto do paciente.
+  // Requer sessão de DISPOSITIVO (edge.device), não de usuário (estacaoDeviceGuard).
+  {
+    path: 'estacao',
+    canActivate: [estacaoDeviceGuard],
+    loadComponent: () =>
+      import('@neuroassist/gest').then((m) => m.EstacaoComponent),
+    title: 'Estação de Monitoramento',
+  },
+
   // Onboarding wizard — scope:web page (ACS-owned), outside shell layout
+  // Protegido: o wizard cadastra cuidadora e paciente, trabalho de coordenadora
+  // autenticada (docs/operacao/fluxo-e-perfis.md §2).
+  //
+  // O comentário acima já dizia "coordenadora", e a rota exigia apenas SESSÃO —
+  // e cuidadora tem sessão, e o apoio também. Qualquer pessoa autenticada
+  // alcançava o assistente que cria clínica, cuidadoras e pacientes. O menu não
+  // mostrava o caminho para quem não deve vê-lo, mas menu não é tranca: bastava
+  // digitar /onboarding.
+  //
+  // É o gêmeo do buraco que estava em /acs, e a correção é a mesma: além da
+  // sessão, a CAPACIDADE. `acsCaregiverWriteGuard` pede `acs.cuidador.write`,
+  // que o mapa traduz para `acs.cuidador.criar` — authority que só o
+  // COORDENADOR_CLINICA recebe (verificado no RoleAuthorityPolicy). É a
+  // capacidade que o próprio wizard exerce ao registrar a primeira cuidadora.
   {
     path: 'onboarding',
+    canActivate: [sessaoRequeridaGuard, acsCaregiverWriteGuard],
     loadComponent: () =>
       import('./pages/onboarding-wizard-page.component').then(
         (m) => m.OnboardingWizardPageComponent,
@@ -23,9 +58,13 @@ export const appRoutes: Routes = [
     title: 'Bem-vindo',
   },
 
+  // Tudo o que vive dentro do shell exige sessão. Um único `canActivate` aqui
+  // em vez de um por módulo: é a fronteira real — abaixo dela toda tela lê ou
+  // escreve dado de paciente, e nenhuma delas tem por que ser pública.
   {
     path: '',
     component: AppShellComponent,
+    canActivate: [sessaoRequeridaGuard],
     children: [
       // DASH — Dashboard e Notificações (default landing: /)
       // Replaces the previous redirectTo:'home' placeholder.

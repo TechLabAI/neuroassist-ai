@@ -2,6 +2,13 @@ import { Injectable, inject, signal, computed, DestroyRef } from '@angular/core'
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { from, lastValueFrom } from 'rxjs';
 import { TIPOS_GESTO_READ_PORT, TipoGesto } from './api/tipos-gesto-read.port';
+import {
+  ehDetectavel,
+  motivoIndisponivel,
+  guidanceDe,
+  type DetectabilityState,
+  type EngineFeatureRef,
+} from '@neuroassist/shared/contracts';
 
 // ---------------------------------------------------------------------------
 // TipoGestoVM — flat view model (same shape as TipoGesto for simplicity)
@@ -10,6 +17,14 @@ import { TIPOS_GESTO_READ_PORT, TipoGesto } from './api/tipos-gesto-read.port';
 export interface TipoGestoVM {
   readonly id: string;
   readonly nome: string;
+  readonly detectabilityState: DetectabilityState;
+  readonly engineFeatureRef: EngineFeatureRef | null;
+  /** `true` quando pode ser escolhido para um comando. */
+  readonly detectavel: boolean;
+  /** Por que não pode ser escolhido — `null` quando pode. */
+  readonly motivoIndisponivel: string | null;
+  /** Como executar o gesto. `null` para os que o motor não detecta. */
+  readonly comoFazer: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,8 +53,32 @@ export class TiposGestoReadFacade {
         this._tipos().find((t) => t.id === id)?.nome ?? id,
   );
 
-  /** First available tipo id (useful as default for new command form) */
-  readonly firstTipoId = computed(() => this._tipos()[0]?.id ?? '');
+  /**
+   * Primeiro tipo DETECTÁVEL — é o default do formulário de comando novo.
+   *
+   * <p>Era `this._tipos()[0]`, o primeiro da lista qualquer que fosse. Bastava o
+   * catálogo devolver um pedido sem motor na primeira posição para o formulário
+   * nascer apontando para algo indetectável, e o comando ser salvo assim.
+   */
+  readonly firstTipoId = computed(
+    () => this._tipos().find((t) => t.detectavel)?.id ?? this._tipos()[0]?.id ?? '',
+  );
+
+  /** Só os que podem ser escolhidos para um comando. */
+  readonly detectaveis = computed(() => this._tipos().filter((t) => t.detectavel));
+
+  /**
+   * Resolve id do CATÁLOGO para a referência que o MOTOR entende.
+   *
+   * <p>Esta é a tradução que faltava no projeto inteiro: o teste ao vivo
+   * comparava id de catálogo com emissão de motor, e nunca casava. Quem traduz é
+   * quem tem o catálogo — o PAC — e não o GEST, que por contrato não busca
+   * catálogo nenhum.
+   */
+  engineFeatureRefDe(id: string | null): EngineFeatureRef | null {
+    if (!id) return null;
+    return this._tipos().find((t) => t.id === id)?.engineFeatureRef ?? null;
+  }
 
   load(): void {
     this._loading.set(true);
@@ -48,7 +87,7 @@ export class TiposGestoReadFacade {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (tipos) => {
-          this._tipos.set(tipos);
+          this._tipos.set(tipos.map(paraVM));
           this._loading.set(false);
         },
         error: () => {
@@ -68,7 +107,7 @@ export class TiposGestoReadFacade {
         next: (novo) => {
           this._tipos.update((list) => {
             const already = list.find((t) => t.id === novo.id);
-            return already ? list : [...list, novo];
+            return already ? list : [...list, paraVM(novo)];
           });
         },
         error: () => {
@@ -85,4 +124,48 @@ export class TiposGestoReadFacade {
   getNameById(id: string): string {
     return this._tipos().find((t) => t.id === id)?.nome ?? id;
   }
+}
+
+/**
+ * Enriquece o tipo cru com o que a tela precisa decidir: pode escolher? por que
+ * não? como se faz?
+ *
+ * <p>Tudo derivado do vocabulário canônico — nenhuma dessas respostas é digitada
+ * uma segunda vez aqui, e é o que impede a tela de voltar a divergir do motor.
+ */
+function paraVM(t: TipoGesto): TipoGestoVM {
+  // FALHA FECHADA. Um tipo que chega sem estado — backend antigo, campo novo
+  // ainda não propagado, resposta truncada — é tratado como NÃO detectável.
+  //
+  // O inverso seria muito pior: um gesto sem motor apresentado como escolhível
+  // produz um comando que nunca dispara, e o paciente descobre isso no momento
+  // em que precisa pedir ajuda. Diante da dúvida, o custo certo é a cuidadora
+  // ver uma opção a menos, não o alarme não tocar.
+  //
+  // `engineFeatureRef` passa por `guidanceDe`, que valida contra o vocabulário:
+  // um valor desconhecido vira instrução nula em vez de texto inventado.
+  const estado: DetectabilityState = ehEstadoConhecido(t.detectabilityState)
+    ? t.detectabilityState
+    : 'registered';
+
+  return {
+    id: t.id,
+    nome: t.nome,
+    detectabilityState: estado,
+    engineFeatureRef: guidanceDe(t.engineFeatureRef)?.engineFeatureRef ?? null,
+    detectavel: ehDetectavel(estado),
+    motivoIndisponivel: motivoIndisponivel(estado),
+    comoFazer: guidanceDe(t.engineFeatureRef)?.comoFazer ?? null,
+  };
+}
+
+const ESTADOS: readonly DetectabilityState[] = [
+  'registered',
+  'pending_training',
+  'supported',
+  'deprecated',
+];
+
+function ehEstadoConhecido(v: unknown): v is DetectabilityState {
+  return typeof v === 'string' && (ESTADOS as readonly string[]).includes(v);
 }

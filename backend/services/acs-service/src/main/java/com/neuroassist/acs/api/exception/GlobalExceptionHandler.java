@@ -8,6 +8,7 @@ import com.neuroassist.acs.shared.error.InvalidTokenTypeException;
 import com.neuroassist.acs.shared.error.LastCaregiverLinkException;
 import com.neuroassist.acs.shared.error.LoginDuplicateException;
 import com.neuroassist.acs.shared.error.ProblemDetailFactory;
+import com.neuroassist.acs.shared.error.TenantAlreadySeededException;
 import com.neuroassist.acs.shared.error.TenantMismatchException;
 import com.neuroassist.acs.shared.error.TenantNotActiveException;
 import com.neuroassist.acs.shared.error.TenantNotFoundException;
@@ -157,6 +158,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ProblemDetail> handleLastCaregiverLink(
             LastCaregiverLinkException ex, HttpServletRequest req) {
         log.error("SAFETY-CRITICAL (D-204): last caregiver link revoke blocked: {}", ex.context());
+        ProblemDetail pd = ProblemDetailFactory.forCode(ex.code(), ex, req, ex.context());
+        pd.setStatus(HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(pd);
+    }
+
+    /**
+     * 409 — Tenant já semeado: o bootstrap do primeiro coordenador só roda uma vez por tenant.
+     *
+     * <p>Sem este handler a exceção caía no handler genérico e virava {@code 500 / internal_error}
+     * — um estado de negócio esperado reportado como bug do servidor.
+     */
+    @ExceptionHandler(TenantAlreadySeededException.class)
+    public ResponseEntity<ProblemDetail> handleTenantAlreadySeeded(
+            TenantAlreadySeededException ex, HttpServletRequest req) {
+        log.warn("Bootstrap blocked, tenant already seeded: {}", ex.context());
         ProblemDetail pd = ProblemDetailFactory.forCode(ex.code(), ex, req, ex.context());
         pd.setStatus(HttpStatus.CONFLICT.value());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(pd);

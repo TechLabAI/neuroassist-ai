@@ -4,9 +4,9 @@
 // Covers:
 //   1. Wave-0 bypass: EDGE_ACCESS_DECISION is null → guard returns true
 //      (mock/dev environment; auth enforcement deferred)
-//   2. User LACKS edge.device.manage → returns UrlTree to /edge/device
+//   2. User LACKS edge.manage → returns UrlTree to /edge/device
 //      (redirects to read-only detail; never produces blank page — SPEC-01 §3)
-//   3. User HAS edge.device.manage → returns true (access granted)
+//   3. User HAS edge.manage → returns true (access granted)
 // =============================================================================
 
 import { TestBed } from '@angular/core/testing';
@@ -54,7 +54,7 @@ describe('edgeConductorGuard — FE-EDGE-015', () => {
   });
 
   describe('with AccessDecision service provided', () => {
-    describe('when user LACKS edge.device.manage permission', () => {
+    describe('when user LACKS edge.manage permission', () => {
       beforeEach(() => {
         TestBed.configureTestingModule({
           providers: [
@@ -79,14 +79,14 @@ describe('edgeConductorGuard — FE-EDGE-015', () => {
       });
     });
 
-    describe('when user HAS edge.device.manage permission', () => {
+    describe('when user HAS edge.manage permission', () => {
       beforeEach(() => {
         TestBed.configureTestingModule({
           providers: [
             provideRouter([]),
             {
               provide: EDGE_ACCESS_DECISION,
-              useValue: { can: (perm: string) => perm === 'edge.device.manage' },
+              useValue: { can: (perm: string) => perm === 'edge.manage' },
             },
           ],
         });
@@ -97,8 +97,8 @@ describe('edgeConductorGuard — FE-EDGE-015', () => {
       });
     });
 
-    describe('permission specificity: only edge.device.manage grants access', () => {
-      it('returns UrlTree when a different permission is held (not edge.device.manage)', () => {
+    describe('permission specificity: only edge.manage grants access', () => {
+      it('returns UrlTree when a different permission is held (not edge.manage)', () => {
         TestBed.configureTestingModule({
           providers: [
             provideRouter([]),

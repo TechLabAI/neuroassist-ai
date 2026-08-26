@@ -1,9 +1,11 @@
 package com.neuroassist.acs.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,7 +33,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -256,6 +260,7 @@ class AutenticacaoServiceTest {
                 TENANT_ID,
                 CUIDADOR_ID,
                 CuidadorPapel.CUIDADORA.name(),
+                "Cuidadora de Teste",
                 List.of("acs.cuidador.read", "acs.directory.read"));
     }
 
@@ -268,5 +273,79 @@ class AutenticacaoServiceTest {
                 .expiresAt(Instant.now().plusSeconds(3600))
                 .issuedAt(Instant.now())
                 .build();
+    }
+
+    // ------------------------------------------------------------------------
+    // E2E-019 — fatos de autenticação (AUD-01 / AUD-02)
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("login bem-sucedido grava autenticacao.realizada")
+    void successfulLoginRecordsCanonicalFact() {
+        Cuidador cuidador = buildCuidador(passwordEncoder.encode(SENHA));
+        when(cuidadorRepository.findByLogin(LOGIN)).thenReturn(Optional.of(cuidador));
+        when(tokenIssuer.issue(cuidador)).thenReturn(buildResponse());
+
+        service.authenticate(new AutenticacaoRequest("password", LOGIN, SENHA));
+
+        ArgumentCaptor<HistAuditPort.AuditFact> fact =
+                ArgumentCaptor.forClass(HistAuditPort.AuditFact.class);
+        verify(histAuditPort).recordFact(fact.capture());
+        // Vocabulário controlado do hist-service. "LOGIN_SUCCESS" não pertencia a nenhum, e nunca
+        // foi rejeitado porque o adapter era um no-op.
+        assertThat(fact.getValue().fact()).isEqualTo("autenticacao.realizada");
+        assertThat(fact.getValue().empresaId()).isEqualTo(TENANT_ID);
+    }
+
+    @Test
+    @DisplayName("senha errada grava autenticacao.falhou, sem a senha no payload")
+    void wrongPasswordRecordsFailureFact() {
+        when(cuidadorRepository.findByLogin(LOGIN))
+                .thenReturn(Optional.of(buildCuidador(passwordEncoder.encode(SENHA))));
+
+        assertThatThrownBy(
+                        () ->
+                                service.authenticate(
+                                        new AutenticacaoRequest("password", LOGIN, "errada")))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        ArgumentCaptor<HistAuditPort.AuditFact> fact =
+                ArgumentCaptor.forClass(HistAuditPort.AuditFact.class);
+        verify(histAuditPort).recordFact(fact.capture());
+        assertThat(fact.getValue().fact()).isEqualTo("autenticacao.falhou");
+        assertThat(fact.getValue().payload()).containsEntry("motivo", "credencial-invalida");
+        assertThat(fact.getValue().payload().keySet())
+                .doesNotContain("senha", "password", "credentialHash");
+    }
+
+    @Test
+    @DisplayName("login inexistente NÃO gera fato — não há empresa a que atribuí-lo")
+    void unknownLoginRecordsNothing() {
+        when(cuidadorRepository.findByLogin("fantasma")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(
+                        () ->
+                                service.authenticate(
+                                        new AutenticacaoRequest("password", "fantasma", SENHA)))
+                .isInstanceOf(InvalidCredentialsException.class);
+
+        // Atribuir a um tenant arbitrário deixaria um desconhecido escrever na trilha de uma
+        // empresa qualquer só chutando logins.
+        verify(histAuditPort, never()).recordFact(any());
+    }
+
+    @Test
+    @DisplayName("falha ao auditar não impede a autenticação")
+    void auditFailureNeverBlocksLogin() {
+        Cuidador cuidador = buildCuidador(passwordEncoder.encode(SENHA));
+        when(cuidadorRepository.findByLogin(LOGIN)).thenReturn(Optional.of(cuidador));
+        when(tokenIssuer.issue(cuidador)).thenReturn(buildResponse());
+        doThrow(new RuntimeException("hist down")).when(histAuditPort).recordFact(any());
+
+        assertThatCode(
+                        () ->
+                                service.authenticate(
+                                        new AutenticacaoRequest("password", LOGIN, SENHA)))
+                .doesNotThrowAnyException();
     }
 }

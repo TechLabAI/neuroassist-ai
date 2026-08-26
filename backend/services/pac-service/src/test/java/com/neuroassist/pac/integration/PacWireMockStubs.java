@@ -2,6 +2,7 @@ package com.neuroassist.pac.integration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.any;
+import static com.github.tomakehurst.wiremock.client.WireMock.delete;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
@@ -24,7 +25,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
  *       (>500ms, triggers Feign read-timeout in test profile)
  *   <li><b>ACS</b>: {@code GET /api/v1/acs/directory/tenants/{id}} (resolveTenant), {@code GET
  *       /api/v1/acs/caregivers/{id}} (resolveCuidador, 404)
- *   <li><b>EDGE</b>: {@code GET /api/edge/v1/dispositivos/{id}} (resolveDispositivo, 404)
+ *   <li><b>EDGE</b>: {@code GET /api/v1/edge/devices/{id}} (resolveDispositivo, 404)
  *   <li><b>HIST</b>: {@code POST /api/v1/hist/audit-facts} — 200 success, 500 failure
  * </ul>
  */
@@ -249,7 +250,7 @@ public final class PacWireMockStubs {
     }
 
     // =========================================================================
-    // EDGE — GET /api/edge/v1/dispositivos/{id}  (resolveDispositivo)
+    // EDGE — GET /api/v1/edge/devices/{id}  (resolveDispositivo)
     // =========================================================================
 
     /**
@@ -261,13 +262,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo(
             WireMockServer edge, String deviceId, String empresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":null,"empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":null,"tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, empresaId))));
     }
@@ -279,13 +280,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo_Assigned(
             WireMockServer edge, String deviceId, String pacienteId, String empresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":"%s","empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":"%s","tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, pacienteId, empresaId))));
     }
@@ -293,7 +294,7 @@ public final class PacWireMockStubs {
     /** Stub: EDGE returns 404 for an unknown device. */
     public static void stubEdgeResolveDispositivo_NotFound(WireMockServer edge, String deviceId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(aResponse().withStatus(404)));
     }
 
@@ -305,13 +306,13 @@ public final class PacWireMockStubs {
     public static void stubEdgeResolveDispositivo_ForeignTenant(
             WireMockServer edge, String deviceId, String foreignEmpresaId) {
         edge.stubFor(
-                get(urlPathEqualTo("/api/edge/v1/dispositivos/" + deviceId))
+                get(urlPathEqualTo("/api/v1/edge/devices/" + deviceId))
                         .willReturn(
                                 ok().withHeader("Content-Type", APPLICATION_JSON)
                                         .withBody(
                                                 String.format(
                                                         """
-                                                        {"id":"%s","pacienteId":null,"empresaId":"%s"}
+                                                        {"deviceId":"%s","pacienteId":null,"tenantRef":"%s","pairingState":"PAIRED","status":"offline"}
                                                         """,
                                                         deviceId, foreignEmpresaId))));
     }
@@ -351,5 +352,42 @@ public final class PacWireMockStubs {
      */
     public static void stubHistAvailable(WireMockServer hist) {
         hist.stubFor(any(urlPathMatching(".*")).willReturn(aResponse().withStatus(200)));
+    }
+
+    // =========================================================================
+    // ACS — POST/DELETE /api/v1/acs/caregivers/{c}/patients/{p}/link  (E2E-015)
+    // =========================================================================
+
+    /**
+     * Path shape copied from {@code CaregiverPatientLinkController} in acs-service, not inferred.
+     *
+     * <p>A stub written from the consumer's assumption makes the test pass exactly when the
+     * assumption is wrong — that is how ten of the sixteen cross-service defects in this project
+     * survived their module gates (C-4, C-5, C-8, C-9, C-22).
+     */
+    private static final String ACS_LINK_PATH =
+            "/api/v1/acs/caregivers/[0-9a-f-]+/patients/[0-9a-f-]+/link";
+
+    /** Stub: ACS accepts the caregiver-patient link (201 for a new link). */
+    public static void stubAcsCreateLink_Created(WireMockServer acs) {
+        acs.stubFor(post(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(201)));
+    }
+
+    /** Stub: ACS is down — the outbox entry must stay pending, not be dropped. */
+    public static void stubAcsCreateLink_Unavailable(WireMockServer acs) {
+        acs.stubFor(post(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(503)));
+    }
+
+    /**
+     * Stub: ACS refuses the revocation because it is the patient's last active caregiver — the
+     * coverage invariant D-204. A refusal, not an outage: it will answer 409 every time.
+     */
+    public static void stubAcsRevokeLink_LastActiveLink(WireMockServer acs) {
+        acs.stubFor(delete(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(409)));
+    }
+
+    /** Stub: ACS accepts the revocation. */
+    public static void stubAcsRevokeLink_Ok(WireMockServer acs) {
+        acs.stubFor(delete(urlPathMatching(ACS_LINK_PATH)).willReturn(aResponse().withStatus(200)));
     }
 }

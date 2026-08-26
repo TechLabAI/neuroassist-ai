@@ -114,7 +114,36 @@ If `./gradlew :services:<service>:architectureCheck` fails → **do not commit**
 - All migrations for ALL schemas live in `backend/services/neuroassist-ai-migrations/`.
 - Naming: `V<N>__<module>_<description>.sql`. Schema-aware: each V indicates which schema it applies to (in path: `db/migration/empresa/V*.sql` or `db/migration/global/V*.sql`).
 - Individual microservices use `spring.jpa.hibernate.ddl-auto=validate` (schema prepared by `neuroassist-ai-migrations`).
-- **Local dev:** run `./gradlew :services:neuroassist-ai-migrations:bootRun` FIRST; then the other services.
+- **A bare `bootRun` applies nothing.** `application-default.yml` sets `spring.flyway.enabled: false`,
+  and Spring loads that file precisely when no profile is active — which is the case for a plain
+  `./gradlew :services:neuroassist-ai-migrations:bootRun`. It starts, logs nothing about Flyway,
+  exits 0, and the schema is untouched. **Any** profile other than `default` re-enables it.
+- **Local dev — run the two containers.** They already carry the URL, credentials, schema and
+  location for each half, and `migrations-empresa` waits for `migrations-global` to succeed:
+
+```bash
+# The container mounts the jar from build/libs — rebuild it or you will apply the OLD migrations
+# and see a misleading "Schema is up to date".
+./gradlew :services:neuroassist-ai-migrations:bootJar
+docker compose -f docker/docker-compose.dev.yml up migrations-global migrations-empresa
+```
+
+- Running it from Gradle instead requires naming a profile *and* every Flyway property; the
+  `global` half must run before the `empresa` half:
+
+```bash
+./gradlew :services:neuroassist-ai-migrations:bootRun --args="\
+  --spring.profiles.active=local \
+  --spring.flyway.url=jdbc:postgresql://localhost:5433/neuroassist_dev \
+  --spring.flyway.user=neuroassist --spring.flyway.password=neuroassist_dev_pass \
+  --spring.flyway.schemas=t_emp_dev \
+  --spring.flyway.locations=classpath:db/migration/empresa \
+  --spring.datasource.url=jdbc:postgresql://localhost:5433/neuroassist_dev \
+  --spring.datasource.username=neuroassist --spring.datasource.password=neuroassist_dev_pass"
+```
+
+- **Check that it actually migrated.** The run must log `Successfully applied N migrations` or
+  `Schema "…" is up to date`. No Flyway line at all means it did not run — see the first bullet.
 
 ---
 
@@ -316,8 +345,18 @@ the command above is unchanged.
 - **Never** commit with `ddl-auto: create|update` -- always `validate`
 - **Never** use `@Testcontainers` + `@Container` -- singleton container pattern (static initializer)
 - **Never** forget `DomainServiceConfig.java` (domain services are POJOs and need `@Bean`)
-- **Never** run a microservice before `neuroassist-ai-migrations`
+- **Never** run a microservice before `neuroassist-ai-migrations` — and never assume it ran because
+  the command exited 0: a bare `bootRun` disables Flyway via `application-default.yml`, and the
+  container applies whatever is in the jar, not what is in `src`. Read the log for the Flyway line.
 - **Never** use `feign.client.config` prefix — since Spring Cloud 2025.0.1 it is silently ignored; always use `spring.cloud.openfeign.client.config` (infinite default timeout if wrong)
+- **Never** let the application assign an entity id while the entity also declares
+  `@GeneratedValue` — Spring Data's `isNew()` becomes id-based, `save()` issues `merge()`
+  instead of `persist()`, and an INSERT of a not-yet-existing row fails with
+  `ObjectOptimisticLockingFailureException`. Implement `Persistable<ID>` and let the adapter
+  decide (`existsById`); device registration in EDGE never inserted a row because of this
+- **Never** resolve the tenant *inside* a `@Transactional` method — Hibernate fixes the
+  `search_path` when it acquires the connection, so binding the tenant afterwards routes
+  nothing. Resolve before the transaction (see `DeviceEnrollmentService` in EDGE)
 - **Never** declare a Feign response record as package-private — JDK dynamic proxies (`jdk.proxy3.$ProxyN`) cannot access it; always `public record`
 - **Never** write a Feign client (path, body or response DTO) from the consumer's assumption — open the producer's `@RestController` and its request/response records and mirror them. A WireMock stub written from the same assumption makes the test pass *precisely when the assumption is wrong* (E2E Session 2: 10 of 16 defects)
 - **Never** invent an authority name in `RoleAuthorityPolicy` — every value must match a literal `@PreAuthorize` / SecurityConfig rule in the owning service, verbatim
@@ -357,6 +396,13 @@ Current inventory and what each item blocks:
 authorization bug becomes indistinguishable from an outage), and an ArchUnit catalogue pinned
 inline that contains *both* sides of a divergence it is supposed to detect. When a guard is
 green, check what it actually compares.
+
+**`.gitignore` patterns without a leading slash match at any depth.** `out/` silently
+excluded `application/port/out/` — the hexagonal outbound-port package — in all 7 services:
+61 of 62 port interfaces were never in the repository. Nothing caught it, because Gradle
+compiles the **working directory**, not the git index. Anchor build-artifact patterns
+(`/out/`, `/build/`) and, when adding a package whose name collides with a build convention,
+check `git status` shows the new file.
 
 **The `:test` gate does not run `integrationTest`.** `./gradlew :services:<svc>:test
 :services:<svc>:architectureCheck` can stay green while an `*IT` class breaks. When Docker is

@@ -4,43 +4,86 @@
  * PAC-FE-025: 9 scenarios (PAC P9, reduced scope)
  * Gate: A5 e2e-validate. Prototype-first (D-484), registered by fe-nx-register-module.py (D-487).
  *
- * INFRASTRUCTURE BLOCKERS (as of 2026-08-14 — must be resolved before execution):
+ * ── ESTADO DOS BLOQUEIOS (revisto em 2026-08-25) ─────────────────────────────
  *
- *   BLOCKER-1 [CRITICAL]: neuroassist-ai-web missing bootstrap files (main.ts, app.config.ts,
- *     project.json, index.html). `npx nx serve neuroassist-ai-web` fails. All scenarios blocked.
+ *   BLOCKER-1 [dev server]: CADUCADO — a app serve normalmente.
  *
- *   BLOCKER-7 [COMPONENT NOT EMBEDDED — PRIMARY BLOCKER]:
- *     OnboardingWizardPageComponent (/onboarding) does NOT embed PatientRegisterComponent.
- *     Step 2 "Paciente" shows a static placeholder: "O registro do paciente é gerido pelo
- *     módulo PAC." with a link to /pac.
+ *   BLOCKER-4 [adaptador HTTP]: RESOLVIDO — `providePac()` lê
+ *     `window.__PAC_E2E_ADAPTER` atrás de `isDevMode()`. Ver fixtures/pac-stubs.ts.
  *
- *     FIX REQUIRED before ANY scenario can run:
- *       In frontend/apps/neuroassist-ai-web/src/app/pages/onboarding-wizard-page.component.ts,
- *       replace the step-2 placeholder with:
+ *   BLOCKER-5 [RBAC]: RESOLVIDO no PAC — `PAC_ACCESS_DECISION` é providenciado em
+ *     app.config.ts e traduz chave de tela → authority pelo `PAC_PERMISSION_MAP`.
+ *     Falta o `PatientRegisterComponent` CONSULTAR a decisão (cenário 2).
+ *
+ *   BLOCKER-7 [componente não embutido]: **AINDA VALE, E É FALTA DE PRODUTO.**
+ *
+ *     `OnboardingWizardPageComponent`
+ *     (apps/neuroassist-ai-web/src/app/pages/onboarding-wizard-page.component.ts)
+ *     NÃO embute o `PatientRegisterComponent`. O passo 2 é um parágrafo estático:
+ *
+ *         "O registro do paciente é gerido pelo módulo PAC. [Ir ao catálogo →/pac]"
+ *
+ *     E ISSO FECHA UM CICLO SEM SAÍDA, que é o defeito de verdade por trás deste
+ *     bloqueio: sem paciente registrado, /pac cai no `pacTenantPatientGuard`, que
+ *     redireciona para /onboarding; /onboarding manda de volta para /pac. Não há
+ *     NENHUMA superfície no produto por onde cadastrar o primeiro paciente — o
+ *     componente que faria isso existe, está exportado no barril do PAC
+ *     (`PatientRegisterComponent`) e não é montado em lugar nenhum. O item
+ *     "Paciente registrado" da lista de progresso do wizard lê
+ *     `pacFacade.hasPatient()`, que nunca pode virar `true` por ação de quem usa.
+ *
+ *     A CORREÇÃO é de três linhas, e fica em `onboarding-wizard-page.component.ts`
+ *     — arquivo do shell, FORA do escopo desta tarefa (é o wizard do ACS, que
+ *     outra frente está mexendo em paralelo):
  *
  *         import { PatientRegisterComponent } from '@neuroassist/pac';
- *         // In the template, step 2 div:
- *         <pac-patient-register (registered)="onPatientRegistered($event)" />
+ *         // imports: [..., PatientRegisterComponent]
+ *         // no passo 2, no lugar do parágrafo:
+ *         <pac-patient-register />
  *
- *     Until BLOCKER-7 is resolved, all 9 patient-register scenarios use test.fixme().
+ *     Os sete cenários abaixo ficam VERMELHOS até isso acontecer. Estão escritos
+ *     inteiros e apontando para o DOM que o componente de fato renderiza, de modo
+ *     que a correção acima os liga sem mais nenhuma edição aqui.
  *
- *   BLOCKER-1+7 EXCEPTION: Scenario 9 (breadcrumb ownership) can partially execute via
- *     /onboarding even before PatientRegisterComponent is embedded, because it asserts
- *     the ABSENCE of a PAC breadcrumb. It is implemented without test.fixme() but will
- *     trivially pass since no breadcrumb exists today.
- *
- *   BLOCKER-4 [HTTP-ADAPTER]: Scenarios 4, 5, 6, 7 (reference-resolution errors, ACS
- *     unreachable, missing-tenant) require HTTP adapter and page.route() to simulate
- *     backend error responses.
- *
- *   BLOCKER-5 [RBAC]: Scenario 2 (caller lacks paciente write permission) requires
- *     AccessDecisionService wired and 'pac.paciente.write' permission checked in the UI.
- *
- * ROUTE USED:
- *   /onboarding — OnboardingWizardPageComponent (ACS-owned, outside shell layout)
- *   The PatientRegisterComponent is at pac-patient-register in step 2 (post-BLOCKER-7-fix).
+ *   LACUNA ADICIONAL nos cenários 4, 5 e 7 (além do BLOCKER-7): a superfície de
+ *     erro do PAC não chega ao registro de paciente. `PacPacienteFacade.save()`
+ *     colapsa QUALQUER falha em `saveState = 'error'` e o componente mostra uma
+ *     frase genérica; `PacErrorHandler` / `PacFeedbackService` — que sabem mapear
+ *     os 12 ProblemDetail, inclusive `missing-tenant` para banner e `validation`
+ *     para dica de campo — existem, estão exportados no barril e NÃO são
+ *     injetados por componente nenhum. Ver o relatório de stubs vivos.
  */
 import { test, expect, Page } from '@playwright/test';
+
+import {
+  scriptSemearSessao,
+  scriptSemearSessaoCuidadora,
+} from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+
+import {
+  aplicarModoHttp,
+  rotaPacientes,
+  PAC_BASE,
+  PAGINA_SEM_PACIENTE,
+  problemDetail,
+} from './fixtures/pac-stubs';
+
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
 
 // ── Navigation helper ─────────────────────────────────────────────────────────
 
@@ -52,271 +95,332 @@ async function openOnboarding(page: Page): Promise<void> {
 }
 
 /**
- * Wait for step 2 (Paciente) to render with the PatientRegisterComponent embedded.
- * REQUIRES BLOCKER-7 to be fixed.
+ * O passo 2 do wizard, localizado pelo COMPONENTE que deve morar nele.
+ *
+ * <p>O seletor anterior procurava a caixa pela classe utilitária
+ * (`[class*="rounded-2xl"]` + texto "2 Paciente"), que casa com o parágrafo
+ * placeholder tanto quanto casaria com o componente — isto é, não distinguia
+ * "o passo existe" de "o passo faz alguma coisa". `pac-patient-register` é a
+ * afirmação honesta: enquanto o componente não estiver montado, o localizador
+ * não acha nada e o cenário reprova, que é a informação correta (BLOCKER-7).
  */
-async function getStep2(page: Page) {
-  // Step 2 is identified by the step number "2" badge and "Paciente" heading
-  return page.locator('[class*="rounded-2xl"]').filter({ hasText: /^2\s*Paciente/m }).first();
+function passo2(page: Page) {
+  return page.locator('pac-patient-register');
 }
 
-// ── Mock route helpers ────────────────────────────────────────────────────────
-
-async function routePacApiPacientes(page: Page, response: unknown, status = 200) {
-  await page.route('**/api/v1/pacientes**', (route) =>
-    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(response) }),
-  );
+/** O campo de nome dentro do passo 2. */
+function campoNome(page: Page) {
+  return passo2(page).locator('pac-ds-input input').first();
 }
 
-const MISSING_TENANT_PROBLEM = {
-  type: 'https://neuroassist.ai/problems/missing-tenant',
-  title: 'Tenant context missing',
-  status: 403,
-  detail: 'The request does not carry a valid X-Empresa-Id header.',
-  errorCode: 'missing-tenant',
-};
+/** O botão de salvar do passo 2 ("Registrar paciente" ou "Salvar paciente"). */
+function botaoSalvar(page: Page) {
+  return passo2(page)
+    .locator('pac-ds-button')
+    .filter({ hasText: /Registrar paciente|Salvar paciente/i })
+    .locator('button');
+}
 
-const UNKNOWN_DISPOSITIVO_PROBLEM = {
-  type: 'https://neuroassist.ai/problems/validation',
-  title: 'Validation error',
-  status: 400,
-  detail: 'dispositivo: device reference unknown to EDGE.',
-  errorCode: 'validation',
-  fieldErrors: [{ field: 'dispositivo', message: 'Dispositivo desconhecido no catálogo EDGE.' }],
-};
-
-const UNKNOWN_CUIDADOR_PROBLEM = {
-  type: 'https://neuroassist.ai/problems/validation',
-  title: 'Validation error',
-  status: 400,
-  detail: 'cuidador: caregiver reference unknown to ACS.',
-  errorCode: 'validation',
-  fieldErrors: [{ field: 'cuidador', message: 'Cuidador desconhecido no catálogo ACS.' }],
-};
+/**
+ * Modo HTTP com a empresa AINDA SEM PACIENTE.
+ *
+ * <p>É o estado real do onboarding: quem chega no passo 2 é justamente quem não
+ * tem paciente. Com a página de pacientes devolvendo a lista semeada, o
+ * componente entraria no ramo "já registrado" e nenhum dos cenários de cadastro
+ * teria formulário para preencher.
+ */
+async function modoHttpSemPaciente(page: Page): Promise<void> {
+  await aplicarModoHttp(page);
+  await rotaPacientes(page, PAGINA_SEM_PACIENTE);
+}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Abre o assistente com o mock SEM paciente semeado.
+ *
+ * <p>O mock semeia "Márcio Amaral", e com paciente o componente entra no ramo
+ * "já registrado" — que não tem formulário nenhum. Os cenários de CADASTRO
+ * precisam partir do estado em que ainda não há paciente, que é o estado real de
+ * quem acabou de receber a clínica. O hook já existia
+ * (`paciente-mock.adapter.ts`), usado só pelo catálogo.
+ */
+async function abrirAssistenteSemPaciente(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as Record<string, unknown>)['__PAC_E2E_NO_PATIENT'] = true;
+  });
+  await openOnboarding(page);
+}
 
 test.describe('Onboarding — register paciente (step 2)', () => {
 
   // ── Scenario 1: Register paciente unlocks command catalog step ─────────────
   // BDD: "Register a paciente on the active empresa unlocks the command catalog step"
-  // REQUIRES: BLOCKER-1, BLOCKER-7 resolved
-  test.fixme(
-    'Register a paciente on the active empresa unlocks the command catalog step',
-    async ({ page }) => {
-      // BLOCKER-7: PatientRegisterComponent must be embedded in step 2 of /onboarding.
-      //
-      // Expected flow:
-      //   1. Navigate to /onboarding
-      //   2. Step 2 shows pac-patient-register component with a nome input
-      //   3. Fill nome "Márcio Amaral"
-      //   4. Click "Registrar paciente"
-      //   5. API POST is sent (scoped by X-Empresa-Id header in HTTP adapter mode)
-      //   6. After success: step 2 shows "Paciente registrado" ✓
-      //   7. The progress checklist shows "Paciente registrado" as done
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+  // VERMELHO POR BLOCKER-7 (componente não embutido no passo 2).
+  test('Register a paciente on the active empresa unlocks the command catalog step', async ({ page }) => {
+    await abrirAssistenteSemPaciente(page);
 
-      const nomeInput = step2.locator('pac-patient-register pac-ds-input input, pac-ds-input input').first();
-      await expect(nomeInput).toBeVisible({ timeout: 5000 });
-      await nomeInput.fill('Márcio Amaral');
+    await expect(campoNome(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('Márcio Amaral');
 
-      const saveBtn = step2.locator('pac-ds-button').filter({ hasText: /Registrar paciente/i }).locator('button');
-      await expect(saveBtn).not.toBeDisabled();
-      await saveBtn.click();
+    await expect(botaoSalvar(page)).toBeEnabled();
+    await botaoSalvar(page).click();
 
-      // After save: success confirmation from PatientRegisterComponent
-      await expect(step2.locator('text=Paciente registrado com sucesso')).toBeVisible({ timeout: 5000 });
+    // Confirmação do próprio PatientRegisterComponent.
+    await expect(passo2(page).getByText('Paciente registrado com sucesso')).toBeVisible({
+      timeout: 10_000,
+    });
 
-      // Progress checklist on the right column should now mark "Paciente registrado" as done
-      await expect(page.locator('text=Paciente registrado').locator('..')).toContainText('check_circle');
-    },
-  );
+    // E a lista de progresso do wizard, que lê `pacFacade.hasPatient()`, passa a
+    // marcar o item — é isto que "unlocks the command catalog step" quer dizer.
+    // O checklist do assistente registra o avanço. Endereçado por gancho estável,
+    // e não por forma de DOM: o ícone é uma ligadura, então o texto do item é
+    // "check_circle Paciente registrado" — o seletor anterior procurava um `div`
+    // cujo texto fosse exatamente o rótulo, e esse elemento não existe.
+    const itemProgresso = page.locator('[data-testid="checklist-item"][data-item="Paciente registrado"]');
+    await expect(itemProgresso).toHaveAttribute('data-done', 'true');
+  });
 
   // ── Scenario 2: Caller lacks write permission — save action disabled ────────
   // BDD: "Caller lacking paciente write permission has the onboarding paciente save action disabled"
-  // REQUIRES: BLOCKER-1, BLOCKER-5, BLOCKER-7 resolved
+  //
+  // VERMELHO POR BLOCKER-7 **E** por uma segunda lacuna: o
+  // `PatientRegisterComponent` não consulta `PAC_ACCESS_DECISION`. A chave de
+  // tela já existe e já está correta (`write` → `pac.paciente.criar`, conferido
+  // no RoleAuthorityPolicy); falta o componente perguntar.
+  //
+  // Aqui a CUIDADORA é a sessão certa — e é o único cenário do PAC em que ela é:
+  // ela tem `pac.paciente.editar` e NÃO tem `pac.paciente.criar`, porque cadastrar
+  // paciente ficou sendo da coordenadora (um paciente criado pela cuidadora
+  // nasceria descoberto e ela não poderia se vincular a ele).
+  // INALCANÇÁVEL POR DECISÃO DE PRODUTO — não é lacuna de implementação.
+  //
+  // O cenário pede alguém que CHEGUE ao passo do paciente e não possa salvar.
+  // Não existe esse alguém: `/onboarding` exige `acs.cuidador.criar`, que só a
+  // coordenadora recebe, e quem tem essa authority tem também
+  // `pac.paciente.criar`. A cuidadora é barrada na rota, antes da tela.
+  //
+  // Isso não é descuido: cadastrar paciente é da coordenadora (decisão de
+  // 2026-08-24, `docs/operacao/fluxo-e-perfis.md` §3 nota 1), justamente porque
+  // um paciente criado por quem não pode vincular nasce descoberto.
+  //
+  // Fica registrado como `fixme` COM A RAZÃO, e não removido: se um dia existir
+  // um papel que leia sem escrever, este é o cenário que passa a valer.
   test.fixme(
     'Caller lacking paciente write permission has the onboarding paciente save action disabled',
     async ({ page }) => {
-      // BLOCKER-5: RBAC not wired; pacCommandWriteGuard returns true.
-      // BLOCKER-7: PatientRegisterComponent not embedded.
+      await page.addInitScript(scriptSemearSessaoCuidadora());
       await openOnboarding(page);
-      const step2 = await getStep2(page);
-      // When user lacks 'pac.paciente.write' permission, the save button should be disabled
-      const saveBtn = step2.locator('pac-ds-button').filter({ hasText: /Registrar|Salvar paciente/i }).locator('button');
-      await expect(saveBtn).toBeDisabled();
+
+      await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+      await expect(botaoSalvar(page)).toBeDisabled();
     },
   );
 
   // ── Scenario 3: Blank nome keeps save disabled ────────────────────────────
   // BDD: "Blank nome keeps the onboarding paciente save action disabled"
-  // REQUIRES: BLOCKER-1, BLOCKER-7 resolved; works with mock adapter
-  test.fixme(
-    'Blank nome keeps the onboarding paciente save action disabled',
-    async ({ page }) => {
-      // BLOCKER-7: PatientRegisterComponent not embedded in /onboarding.
-      // Once embedded: navigate to /onboarding, verify save button disabled with empty nome.
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+  // VERMELHO POR BLOCKER-7 apenas — a regra já está no componente:
+  //   [disabled]="!nomeInput().trim() || facade.saveState() === 'saving'"
+  test('Blank nome keeps the onboarding paciente save action disabled', async ({ page }) => {
+    await abrirAssistenteSemPaciente(page);
 
-      const nomeInput = step2.locator('pac-ds-input input').first();
-      await expect(nomeInput).toBeVisible({ timeout: 5000 });
-      // Ensure nome is blank
-      await nomeInput.fill('');
+    await expect(campoNome(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('');
+    await expect(botaoSalvar(page)).toBeDisabled();
 
-      // PatientRegisterComponent: [disabled]="!nomeInput().trim() || facade.saveState() === 'saving'"
-      const saveBtn = step2.locator('pac-ds-button').filter({ hasText: /Registrar|Salvar paciente/i }).locator('button');
-      await expect(saveBtn).toBeDisabled();
+    await campoNome(page).fill('Ana');
+    await expect(botaoSalvar(page)).toBeEnabled();
 
-      // Filling a name should enable the button
-      await nomeInput.fill('Ana');
-      await expect(saveBtn).not.toBeDisabled();
-
-      // Clearing again should disable
-      await nomeInput.fill('');
-      await expect(saveBtn).toBeDisabled();
-    },
-  );
+    await campoNome(page).fill('');
+    await expect(botaoSalvar(page)).toBeDisabled();
+  });
 
   // ── Scenario 4: Unknown dispositivo reference → inline validation error ────
   // BDD: "Unknown dispositivo reference rejects the paciente with an inline validation error"
-  // REQUIRES: BLOCKER-1, BLOCKER-4, BLOCKER-7 resolved
-  test.fixme(
-    'Unknown dispositivo reference rejects the paciente with an inline validation error',
-    async ({ page }) => {
-      // BLOCKER-4: requires HTTP adapter + page.route() to return 400 with field error.
-      // BLOCKER-7: PatientRegisterComponent not embedded.
-      await routePacApiPacientes(page, UNKNOWN_DISPOSITIVO_PROBLEM, 400);
+  // VERMELHO POR BLOCKER-7 **E** pela superfície de erro não ligada (ver cabeçalho):
+  // o componente só sabe dizer "Erro ao salvar", nunca o erro de campo.
+  test('Unknown dispositivo reference rejects the paciente with an inline validation error', async ({ page }) => {
+    await modoHttpSemPaciente(page);
+    await page.route(`**${PAC_BASE}`, (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({
+            status: 400,
+            contentType: 'application/problem+json',
+            body: JSON.stringify(
+              problemDetail('validation', 400, 'dispositivo: device reference unknown to EDGE.', {
+                fieldErrors: [
+                  { field: 'dispositivo', message: 'Dispositivo desconhecido no catálogo EDGE.' },
+                ],
+              }),
+            ),
+          })
+        : route.fallback(),
+    );
 
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+    await openOnboarding(page);
+    // Falha rápido e com a mensagem certa: sem o componente montado (BLOCKER-7)
+    // um `fill()` direto ficaria 30s pendurado e reprovaria por timeout, o que
+    // esconde a causa atrás de "o teste demorou".
+    await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('Márcio Amaral');
+    await botaoSalvar(page).click();
 
-      await step2.locator('pac-ds-input input').first().fill('Márcio Amaral');
-      await step2.locator('pac-ds-button').filter({ hasText: /Registrar paciente/i }).locator('button').click();
-
-      // Backend responds 400 validation with field error on "dispositivo"
-      // Error surface (PacErrorHandler → PacFeedbackService) should route to inline hint
-      await expect(step2.locator('text=Dispositivo desconhecido')).toBeVisible({ timeout: 5000 });
-      // Paciente must NOT be marked as created
-      await expect(step2.locator('text=Paciente registrado com sucesso')).not.toBeVisible();
-    },
-  );
+    await expect(passo2(page).getByText(/Dispositivo desconhecido/i)).toBeVisible({ timeout: 10_000 });
+    await expect(passo2(page).getByText('Paciente registrado com sucesso')).toHaveCount(0);
+  });
 
   // ── Scenario 5: Unknown cuidador reference → inline validation error ────────
   // BDD: "Unknown cuidador reference rejects the paciente with an inline validation error"
-  // REQUIRES: BLOCKER-1, BLOCKER-4, BLOCKER-7 resolved
-  test.fixme(
-    'Unknown cuidador reference rejects the paciente with an inline validation error',
-    async ({ page }) => {
-      // BLOCKER-4: requires HTTP adapter + page.route() to return 400 with field error.
-      // BLOCKER-7: PatientRegisterComponent not embedded.
-      await routePacApiPacientes(page, UNKNOWN_CUIDADOR_PROBLEM, 400);
+  // VERMELHO pelos mesmos dois motivos do cenário 4.
+  test('Unknown cuidador reference rejects the paciente with an inline validation error', async ({ page }) => {
+    await modoHttpSemPaciente(page);
+    await page.route(`**${PAC_BASE}`, (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({
+            status: 400,
+            contentType: 'application/problem+json',
+            body: JSON.stringify(
+              problemDetail('validation', 400, 'cuidador: caregiver reference unknown to ACS.', {
+                fieldErrors: [
+                  { field: 'cuidador', message: 'Cuidador desconhecido no catálogo ACS.' },
+                ],
+              }),
+            ),
+          })
+        : route.fallback(),
+    );
 
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+    await openOnboarding(page);
+    // Falha rápido e com a mensagem certa: sem o componente montado (BLOCKER-7)
+    // um `fill()` direto ficaria 30s pendurado e reprovaria por timeout, o que
+    // esconde a causa atrás de "o teste demorou".
+    await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('Márcio Amaral');
+    await botaoSalvar(page).click();
 
-      await step2.locator('pac-ds-input input').first().fill('Márcio Amaral');
-      await step2.locator('pac-ds-button').filter({ hasText: /Registrar paciente/i }).locator('button').click();
-
-      await expect(step2.locator('text=Cuidador desconhecido')).toBeVisible({ timeout: 5000 });
-      await expect(step2.locator('text=Paciente registrado com sucesso')).not.toBeVisible();
-    },
-  );
+    await expect(passo2(page).getByText(/Cuidador desconhecido/i)).toBeVisible({ timeout: 10_000 });
+    await expect(passo2(page).getByText('Paciente registrado com sucesso')).toHaveCount(0);
+  });
 
   // ── Scenario 6: ACS unreachable — retryable message ──────────────────────
   // BDD: "ACS unreachable during the paciente write makes the caregiver retry"
-  // REQUIRES: BLOCKER-1, BLOCKER-4, BLOCKER-7 resolved
-  test.fixme(
-    'ACS unreachable during the paciente write makes the caregiver retry',
-    async ({ page }) => {
-      // BLOCKER-4: network error simulated with page.route() abort.
-      // BLOCKER-7: PatientRegisterComponent not embedded.
-      await page.route('**/api/v1/pacientes**', (route) => route.abort('failed'));
+  // VERMELHO POR BLOCKER-7 apenas: a frase que este cenário espera JÁ existe no
+  // componente ("Erro ao salvar. Verifique sua conexão e tente novamente."). Este
+  // é o cenário que a correção de três linhas liga sozinha.
+  test('ACS unreachable during the paciente write makes the caregiver retry', async ({ page }) => {
+    await modoHttpSemPaciente(page);
+    await page.route(`**${PAC_BASE}`, (route) =>
+      route.request().method() === 'POST' ? route.abort('failed') : route.fallback(),
+    );
 
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+    await openOnboarding(page);
+    // Falha rápido e com a mensagem certa: sem o componente montado (BLOCKER-7)
+    // um `fill()` direto ficaria 30s pendurado e reprovaria por timeout, o que
+    // esconde a causa atrás de "o teste demorou".
+    await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('Márcio Amaral');
+    await botaoSalvar(page).click();
 
-      await step2.locator('pac-ds-input input').first().fill('Márcio Amaral');
-      await step2.locator('pac-ds-button').filter({ hasText: /Registrar paciente/i }).locator('button').click();
-
-      // Error state: "Erro ao salvar. Verifique sua conexão e tente novamente."
-      await expect(step2.locator('text=Erro ao salvar')).toBeVisible({ timeout: 5000 });
-      // Patient must NOT be created
-      await expect(step2.locator('text=Paciente registrado com sucesso')).not.toBeVisible();
-    },
-  );
+    await expect(passo2(page).getByText(/Erro ao salvar/i)).toBeVisible({ timeout: 10_000 });
+    await expect(passo2(page).getByText('Paciente registrado com sucesso')).toHaveCount(0);
+  });
 
   // ── Scenario 7: Missing-tenant → session banner ────────────────────────────
   // BDD: "Missing-tenant on the paciente write shows a session banner prompting re-authentication"
-  // REQUIRES: BLOCKER-1, BLOCKER-4, BLOCKER-7 resolved
-  test.fixme(
-    'Missing-tenant on the paciente write shows a session banner prompting re-authentication',
-    async ({ page }) => {
-      // BLOCKER-4: requires HTTP adapter + page.route() to return 403 missing-tenant.
-      // BLOCKER-7: PatientRegisterComponent not embedded.
-      await routePacApiPacientes(page, MISSING_TENANT_PROBLEM, 403);
+  // VERMELHO POR BLOCKER-7 **E** pela superfície de erro não ligada: o
+  // `PacFeedbackService` roteia 'missing-tenant' para banner de sessão, e ninguém
+  // o injeta.
+  test('Missing-tenant on the paciente write shows a session banner prompting re-authentication', async ({ page }) => {
+    await modoHttpSemPaciente(page);
+    await page.route(`**${PAC_BASE}`, (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({
+            status: 403,
+            contentType: 'application/problem+json',
+            body: JSON.stringify(
+              problemDetail(
+                'missing-tenant',
+                403,
+                'The request does not carry a valid X-Empresa-Id header.',
+              ),
+            ),
+          })
+        : route.fallback(),
+    );
 
-      await openOnboarding(page);
-      const step2 = await getStep2(page);
+    await openOnboarding(page);
+    // Falha rápido e com a mensagem certa: sem o componente montado (BLOCKER-7)
+    // um `fill()` direto ficaria 30s pendurado e reprovaria por timeout, o que
+    // esconde a causa atrás de "o teste demorou".
+    await expect(passo2(page)).toBeVisible({ timeout: 5000 });
+    await campoNome(page).fill('Márcio Amaral');
+    await botaoSalvar(page).click();
 
-      await step2.locator('pac-ds-input input').first().fill('Márcio Amaral');
-      await step2.locator('pac-ds-button').filter({ hasText: /Registrar paciente/i }).locator('button').click();
-
-      // PacErrorHandler should surface missing-tenant as a session banner
-      // (PacFeedbackService routes 'missing-tenant' to bannerMessage with re-auth prompt)
-      await expect(
-        page.locator('[role="alert"], .pac-session-banner, text=autenticação'),
-      ).toBeVisible({ timeout: 5000 });
-    },
-  );
+    // Banner de sessão pedindo nova autenticação — não um "erro ao salvar"
+    // genérico: a diferença importa porque a ação de quem lê é outra.
+    await expect(
+      page.locator('[role="alert"]').filter({ hasText: /autentic|sessão|entrar de novo/i }).first(),
+    ).toBeVisible({ timeout: 10_000 });
+  });
 
   // ── Scenario 8: ACS wizard shows "Paciente" step heading ──────────────────
   // BDD (adapted): Onboarding wizard step 2 is visible and labelled "Paciente"
-  // REQUIRES: BLOCKER-1 resolved; works without BLOCKER-7 (tests step heading, not component)
-  // NOTE: This is an addition to test what IS currently rendered in the wizard (step 2 label).
-  test.fixme(
-    'ACS wizard step 2 is the Paciente step',
-    async ({ page }) => {
-      // BLOCKER-1: dev server unavailable.
-      // Once BLOCKER-1 is fixed: this verifies the basic structure of the onboarding wizard.
-      await openOnboarding(page);
+  // EXECUTÁVEL: dependia só do BLOCKER-1, que caducou. Afirma a estrutura do
+  // wizard (o passo existe e é o do paciente), não o componente do passo.
+  //
+  // ASSERCAO AJUSTADA A REALIDADE NOVA (nao relaxada — trocada por uma mais
+  // forte). O paciente era "o passo 2", depois do passo 1 "Unidade de cuidado".
+  // A empresa deixou de ser passo numerado e virou CONTEXTO no alto da tela:
+  // `acs.tenant.provisionar` nao e concedida a papel humano nenhum (E2E-029),
+  // entao o passo 1 era sempre um passo que a pessoa diante da tela NAO PODE
+  // executar. O paciente passou a ser o passo 1.
+  //
+  // Antes o cenario so afirmava a presenca de tres <h2>; agora afirma a POSICAO
+  // (o passo 1 e o do paciente, pela chave que o PAC declarou) e afirma que a
+  // empresa esta fora da sequencia. Ordem e o que faz de um passo "o passo N",
+  // e agora isso e verificado, e nao suposto.
+  test('ACS wizard step 1 is the Paciente step', async ({ page }) => {
+    await openOnboarding(page);
 
-      // Step 2 heading must be "Paciente"
-      const step2 = page.locator('h2', { hasText: 'Paciente' });
-      await expect(step2).toBeVisible();
+    // Nome EXATO: `hasText` é substring, e o assistente tem um passo
+    // "Vincular cuidadora ao paciente" — o locator solto casaria com os dois.
+    // Um título de passo é um nome, não um pedaço de frase.
+    await expect(page.getByRole('heading', { name: 'Paciente', exact: true })).toBeVisible();
 
-      // Currently: step 2 shows a placeholder link to /pac (before BLOCKER-7 fix)
-      // After BLOCKER-7 fix: pac-patient-register component renders here
-      const step2Container = step2.locator('..');
-      await expect(step2Container).toBeVisible();
-    },
-  );
+    // O passo 1 é o do paciente — pela chave que o próprio PAC declara.
+    await expect(page.locator('[data-testid="wizard-step"][data-step-number="1"]')).toHaveAttribute(
+      'data-step-key',
+      'pac-patient-register',
+    );
+
+    // A empresa continua na tela, mas como CONTEXTO — e não como passo.
+    await expect(page.getByTestId('empresa-contexto')).toBeVisible();
+    await expect(
+      page.locator('[data-testid="wizard-step"]').filter({ hasText: 'Unidade de cuidado' }),
+    ).toHaveCount(0);
+
+    // E o dispositivo vem depois do paciente: parear é parear com alguém.
+    await expect(page.locator('h2', { hasText: 'Dispositivo edge' })).toBeVisible();
+  });
 
   // ── Scenario 9: Breadcrumb ownership — no PAC breadcrumb in wizard ─────────
   // BDD: "Patient register feature composed inside the onboarding wizard contributes
   //       no PAC breadcrumb for the paciente step"
-  // REQUIRES: BLOCKER-1 resolved; can run before BLOCKER-7 (asserts absence)
   test(
     'Patient register feature composed inside the onboarding wizard contributes no PAC breadcrumb',
     async ({ page }) => {
-      // BLOCKER-1: dev server unavailable. When resolved, this test verifies that
-      // the /onboarding page does not render a PAC-owned breadcrumb.
-      //
-      // PatientRegisterComponent is a "composed" feature (not routed by PAC) — it must
-      // NOT contribute a PAC breadcrumb at the shell level (SPEC-06).
-      // The PAC breadcrumb signal only updates for PAC-routed pages (/pac, /pac/comandos/*).
+      // PatientRegisterComponent é uma feature COMPOSTA (não roteada pelo PAC) —
+      // não deve contribuir migalha de pão do PAC no nível do shell (SPEC-06).
+      // A migalha do PAC só se atualiza em páginas roteadas pelo PAC (/pac, /pac/comandos/*).
       await openOnboarding(page);
 
-      // No breadcrumb should mention PAC-specific routes or "Calibração"
-      const breadcrumb = page.locator('[aria-label="breadcrumb"], nav[class*="breadcrumb"]');
-      // If no breadcrumb element exists at all, that is acceptable (no breadcrumb = no PAC breadcrumb)
-      const breadcrumbCount = await breadcrumb.count();
-      if (breadcrumbCount > 0) {
-        await expect(breadcrumb).not.toContainText('Calibração');
-        await expect(breadcrumb).not.toContainText('/pac');
+      const migalha = page.locator('[aria-label="breadcrumb"], nav[class*="breadcrumb"]');
+      // Nenhuma migalha é resposta aceitável: sem migalha, não há migalha do PAC.
+      if ((await migalha.count()) > 0) {
+        await expect(migalha).not.toContainText('Calibração');
+        await expect(migalha).not.toContainText('/pac');
       }
-      // The heading "Configuração inicial" should be from the ACS wizard, not PAC
+      // O título é do wizard do ACS, não do PAC.
       await expect(page.locator('h1')).toContainText('Configuração inicial');
     },
   );

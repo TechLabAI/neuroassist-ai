@@ -2,6 +2,7 @@ package com.neuroassist.dash.integration;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -72,6 +73,7 @@ public abstract class BaseIntegrationTest {
 
         // Serve JWKS no acsWireMock para validacao JWT pelo Spring Security
         stubJwks(acsWireMock);
+        stubServiceTokenEndpoint(acsWireMock);
     }
 
     @DynamicPropertySource
@@ -85,6 +87,11 @@ public abstract class BaseIntegrationTest {
         registry.add(
                 "spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
                 () -> "http://localhost:" + acsWireMock.port() + "/.well-known/jwks.json");
+        // dash-service calls evnt-service with its own service identity, so the ACS token
+        // endpoint has to be reachable too (standards/service-identity.md).
+        registry.add(
+                "neuroassist.service-identity.token-uri",
+                () -> "http://localhost:" + acsWireMock.port() + "/oauth2/token/service");
     }
 
     protected TestRestTemplate restTemplate;
@@ -114,9 +121,22 @@ public abstract class BaseIntegrationTest {
         histWireMock.resetAll();
         edgeWireMock.resetAll();
         stubJwks(acsWireMock);
+        stubServiceTokenEndpoint(acsWireMock);
     }
 
     // ---- helpers ----
+
+    /**
+     * {@code POST /oauth2/token/service} — dash-service's own identity when calling evnt-service.
+     */
+    private static void stubServiceTokenEndpoint(WireMockServer server) {
+        server.stubFor(
+                post("/oauth2/token/service")
+                        .willReturn(
+                                okJson(
+                                        "{\"accessToken\":\"dash-service-token\","
+                                                + "\"tokenType\":\"Bearer\",\"expiresIn\":300}")));
+    }
 
     private static void stubJwks(WireMockServer server) {
         try {

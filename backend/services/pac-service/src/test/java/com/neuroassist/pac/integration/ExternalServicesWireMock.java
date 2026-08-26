@@ -20,7 +20,7 @@ import com.neuroassist.pac.bdd.TestJwtHelper;
  * <ul>
  *   <li>GEST — {@code /gest-service/eligibility}
  *   <li>ACS — {@code /api/v1/acs/directory/tenants/{id}}, {@code /api/v1/acs/caregivers/{id}}
- *   <li>EDGE — {@code /api/edge/v1/dispositivos/{id}}
+ *   <li>EDGE — {@code /api/v1/edge/devices/{id}}
  *   <li>HIST — {@code /api/v1/hist/audit-facts}
  *   <li>JWK — {@code /.well-known/jwks.json} (RSA public key for OAuth2 JWT validation)
  * </ul>

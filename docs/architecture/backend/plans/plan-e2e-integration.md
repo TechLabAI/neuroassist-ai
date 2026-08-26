@@ -370,17 +370,45 @@ O módulo de integração E2E está DONE quando:
 | E2E-001 | ✅ DONE | 2026-08-20 |
 | E2E-002 | ✅ DONE (parcial — EVNT stub security; GEST corrigido) | 2026-08-21 |
 | E2E-014 | ✅ DONE — RWT-01..09; superfície pública normalizada no GWY | 2026-08-21 |
-| E2E-003 | 🟡 PARCIAL — DIR-01/DIR-04 DONE; DIR-02 feature ausente (EVNT stub); DIR-03/DIR-05 na Sessão 5 | 2026-08-21 |
-| E2E-004 | 🟡 PARCIAL — AUD-03/04/05 DONE; AUD-01/02 feature ausente (ACS não produz facts); AUD-06..10 na Sessão 4 | 2026-08-21 |
-| E2E-005 | OPEN | — |
-| E2E-006 | OPEN | — |
-| E2E-007 | OPEN | — |
-| E2E-008 | OPEN | — |
+| E2E-003 | ✅ DONE — DIR-01..05 | 2026-08-22 |
+| E2E-004 | ✅ DONE — AUD-03..10 em 2026-08-22; AUD-01/02 fechados por E2E-019 em 2026-08-23 | 2026-08-23 |
+| E2E-005 | ✅ DONE — HB-01..05 DONE (P11 removeu o `ProfilePointerController` — a superfície nunca esteve no api-contract; a lógica virou colaborador do heartbeat. P13 removeu o dry-run: 37 cenários Cucumber executam de fato) | 2026-08-23 |
+| E2E-006 | ✅ DONE — DEV-01..04 | 2026-08-22 |
+| E2E-007 | ✅ DONE — NTF-01..05 | 2026-08-22 |
+| E2E-008 | ✅ DONE — DSH-01..05 | 2026-08-22 |
 | E2E-009 | ✅ DONE (17/17 checks) | 2026-08-21 |
-| E2E-010 | OPEN | — |
-| E2E-011 | OPEN | — |
-| E2E-012 | OPEN | — |
-| E2E-013 | OPEN | — |
+| E2E-010 | ✅ DONE — Flow-02 11/11 | 2026-08-22 |
+| E2E-011 | ✅ DONE — Flow-03 25/25 | 2026-08-22 |
+| E2E-012 | ✅ DONE — Flow-04, erasure ponta a ponta | 2026-08-22 |
+| E2E-013 | Suíte E2E automatizada (REST Assured) | P2 | 🟡 PARCIAL — 37 cenários verdes contra o stack (2026-08-24) |
+
+### Issues abertas em 2026-08-23 — as dívidas de §11.2/§11.3 viram backlog rastreado
+
+Até aqui as dívidas conhecidas viviam só na prosa deste plano. Uma dívida sem issue é uma
+dívida que ninguém prioriza.
+
+| Issue | Título | Prio | Status |
+|---|---|---|---|
+| E2E-015 | Vínculo cuidador↔paciente não chega ao directory do ACS (C-30/C-42/C-43) | P1 | ✅ DONE — critério de aceite fechado no stack real (2026-08-23); C-42 segue aberto |
+| E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | ✅ DONE — validado no stack (2026-08-23) |
+| E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | ✅ DONE — validado no stack (2026-08-23) |
+| E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | ✅ DONE — validado com EDGE fora (2026-08-23) |
+| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | ⛔ REABERTA — workflows escritos e DESATIVADOS por decisão do dono (2026-08-25) |
+| E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | ✅ DONE — guarda no PAC, ACS segue dono (ADR-010, 2026-08-24) |
+| E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
+| E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
+| E2E-019 | ACS não produz audit fact de autenticação (AUD-01/02) | P2 | ✅ DONE — validado no stack (2026-08-23) |
+| E2E-031 | ACS perde fato de autenticação — fail-open sem outbox (C-52) | P2 | ✅ DONE — validado no stack (2026-08-23) |
+| E2E-020 | Alarme `NO_SESSION` vai a `FAILED` sem escalonamento (C-46) | P2 | OPEN |
+| E2E-022 | Nenhum teste valida o schema real (`create-drop` × Flyway) | P2 | ✅ DONE — 6 serviços (2026-08-23) |
+| E2E-023 | Catálogo de permissão do EDGE divergente + ArchUnit cego | P2 | ✅ DONE — catálogo coarse, guard lê o arquivo (2026-08-23) |
+| E2E-021 | Shim de tenant: 3 claims + 2 headers (C-3/C-28) | P3 | ✅ DONE — frota converge em `tenant_id` (2026-08-24) |
+| E2E-024 | Scaffolding morto: 5 adapters HIST + 1 PAC | P3 | ✅ DONE — drops aplicados no dev (2026-08-23) |
+| E2E-025 | Enums de domínio do EVNT divergem do persistido | P3 | ✅ DONE — zero divergência, teste de alinhamento (2026-08-23) |
+| E2E-026 | `detection-contract`: escrita guardada por authority de leitura | P3 | ✅ DONE — `gest.detection-contract.validar` (2026-08-23) |
+| E2E-032 | Limiares EAR/BRI duplicados em dois agentes de borda (C-53) | P2 | ✅ DONE — fonte única + guarda de drift no CI (2026-08-24) |
+| E2E-033 | Perfil publicado não carrega sensibilidade nenhuma (C-54) | P2 | ✅ DONE — validado no stack (2026-08-24) |
+| E2E-034 | Sensibilidade do paciente não chega ao dispositivo dele (C-55) | P1 | ✅ DONE — validado no stack (2026-08-24) |
 
 ---
 
@@ -535,7 +563,23 @@ Sessão 2. São **pré-requisitos da Sessão 3**, não parte do Flow-01.
 > o **edge-service propagar o header `Authorization`** nas chamadas Feign (o pac-service já
 > propaga via `feignAuthPropagationInterceptor`). Sem isso, o heartbeat da Sessão 3 quebra.
 
-### 11.1c EVNT — integrações de saída são fakes `@Primary`
+### 11.1c ~~EVNT — integrações de saída são fakes `@Primary`~~ — RESOLVIDO
+
+> **Verificado em 2026-08-23 (`/be-autopilot EVNT`).** Esta seção descreve um estado que não
+> existe mais e foi mantida por engano depois das Sessões 4 e 6. Os quatro adapters falsos
+> (`CaregiverRoutingHardcodedAdapter`, `AuditTrailNoOpAdapter`, `NotificationDispatchLogAdapter`,
+> `CommandLookupHardcodedAdapter`) foram removidos; `grep -rn "@Primary"` em
+> `evnt-service/src/main` não retorna nada. Os cinco adapters Feign reais vivem em
+> `infrastructure/clients/adapter/` (`AuditTrail`, `CaregiverRouting`, `CommandLookup`,
+> `GestValidation`, `NotificationDispatch`), e as portas default dos `@FeignClient` estão
+> corretas: HIST→8089, ACS→8088, PAC→8082, GEST→8084, DASH→8090 — não as portas erradas
+> descritas abaixo.
+>
+> **Consequência:** o bloqueio que esta seção atribuía a DIR-02, AUD-06/07 e NTF-01..05 não
+> se aplica mais. O que resta de stub no EVNT é outra coisa — `EventoDomainService` vazio e
+> DTOs órfãos em `api/dto` — registrado no ciclo de 2026-08-23.
+>
+> Texto original preservado abaixo como histórico:
 
 Descoberto ao investigar o DIR-02. **Não é só o `CaregiverRoutingClient`**: os quatro ports
 de saída do EVNT são implementados por adapters falsos em código de produção, e os
@@ -589,9 +633,306 @@ patient-scope); se é o serviço agindo por conta própria, usa identidade de se
 > O cenário mede wall-clock de **uma** chamada e a chama de p99 — decidir entre medir
 > percentil sobre N chamadas ou tirar o SLA do gate unitário.
 
+### 11.4 Sessão 3 — Device + Heartbeat (2026-08-22)
+
+**Flow-02 (E2E-010): 11/11.** Cadeia completa `registrar → enroll → parear → heartbeat`,
+com o dispositivo saindo de `offline`/`ultimaSincronizacao: null` para **`online`** —
+o `DSH-03` deixou de testar "o endpoint responde" e passou a testar o ciclo real.
+
+| Issue | Estado |
+|---|---|
+| E2E-010 (Flow-02) | ✅ completo |
+| E2E-006 (DEV-01..04) | ✅ completo |
+| E2E-005 (HB-01..05) | ✅ completo — todos os 4 cenários de drift/degraded/CB implementados via BDD (P13) |
+| DSH-03 (liveness) | ✅ |
+
+#### Defeitos corrigidos
+
+| # | Serviço | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-18** | ACS↔EDGE | `edge.device` sem emissor → heartbeat inalcançável | O enroll já emitia `clientId`/`clientSecret`, mas o `tokenEndpoint` apontava para um Keycloak inexistente | Nenhum teste exercitava o par ACS↔EDGE |
+| **C-20** | EDGE | `POST /devices` → 409 optimistic-lock; **`dispositivo_edge` com 0 linhas** | `@GeneratedValue` + id atribuído pela aplicação + `@Version` primitivo ⇒ `isNew()` id-based ⇒ `save()` vira `merge()` ⇒ UPDATE em linha inexistente | Suíte BDD do EDGE em **dry-run**; unitários mockam o repositório |
+| **C-21** | EDGE | `enroll` → `relation "dispositivo_enrollment" does not exist` | Endpoint anônimo por desenho (ADR-005) ⇒ sem JWT ⇒ sem tenant ⇒ `search_path` no schema global. Ovo-e-galinha: a tabela é por tenant | Mesma razão: os cenários de enroll não executam |
+| **C-22** | PAC→EDGE | Todo paciente com dispositivo pareado → 422 | Path **e** body divergentes (`/api/edge/v1/dispositivos/{id}` × `/api/v1/edge/devices/{id}`; `{id,empresaId}` × `{deviceId,tenantRef}`) | WireMock do PAC stubava o contrato imaginado pelo próprio PAC — **4ª ocorrência do padrão** |
+| **`.gitignore`** | repo | 61 dos 62 `application/port/out/*.java` fora do versionamento | `out/` sem barra inicial casa em qualquer profundidade | O Gradle compila o **diretório de trabalho**, não o índice do git; nenhum gate local detecta, e não há CI |
+
+#### Soluções estruturais introduzidas
+
+- **`Persistable` para id atribuído pela aplicação** (C-20): as 4 entidades do EDGE declaram
+  explicitamente INSERT vs UPDATE, com o adapter decidindo por `existsById`. O mapper sempre
+  constrói uma instância nova, então só o repositório sabe se a linha existe.
+- **Índices globais como quebra de ovo-e-galinha** (C-21, C-18): `enrollment_directory` e
+  `device_directory` no schema global, alcançáveis sem tenant vinculado. **Ponteiro apenas** —
+  o hash do segredo nunca sai do schema do tenant.
+- **Resolução de tenant fora da transação**: o Hibernate fixa o `search_path` ao adquirir a
+  conexão, então vincular o tenant dentro de um método `@Transactional` não re-roteia nada.
+  `DeviceEnrollmentService` e `DeviceCredentialVerificationService` existem por isso.
+- **`edge.internal` ganhou emissor e propósito**: era exigida por endpoints do EDGE e emitida
+  por ninguém; agora é a authority que autoriza o ACS a verificar credencial de dispositivo.
+
+#### Três "falhas" que eram do roteiro, não do sistema
+
+Registradas porque tratá-las como defeito teria gerado correção errada:
+
+1. **409 `pairing-conflict`** — pareamento exclusivo por paciente é invariante correto; faltava
+   isolamento entre execuções do script.
+2. **409 `already-enrolled`** — `isEnrolled()` é `pairingState != registered`, então parear
+   antes do enroll o invalida. **A ordem real da API é registrar → enroll → parear**, não a do
+   plano original (`register → claim → enroll`).
+3. **`HTTP 000000` no token endpoint** — o EDGE anuncia o hostname interno do container
+   (`acs-service:8088`), correto para o dispositivo real na malha docker; só o script, rodando
+   no host, precisava traduzir para a porta publicada.
+
+### 11.5 Sessão 4 — Alarm Flow + Notification + Audit (2026-08-22)
+
+**Flow-03 (E2E-011): 25/25.** Cadeia completa `report de gesto → Evento → dispatch → confirmação →
+trilha de auditoria`, com os dois fatos encadeados no HIST (`evento.criado` seq 0 com `prev_hash`
+zerado, `evento.confirmado` seq 1 com `prev_hash` = `record_hash` do anterior).
+
+| Issue | Estado |
+|---|---|
+| E2E-011 (Flow-03) | ✅ completo |
+| E2E-007 (NTF) | ✅ NTF-01..03 e NTF-05; **NTF-04** (DASH fora do ar) é disruptivo → Sessão 5 |
+| E2E-004 (AUD) | ✅ AUD-06/07/09; **AUD-10** (HIST fora do ar) é disruptivo → Sessão 5 |
+| E2E-003 (DIR-02) | ✅ o EVNT consome o directory do ACS de verdade |
+
+**Esta não foi uma sessão de validação.** O EVNT estava inteiro em modo PoC: nenhuma das suas 5
+integrações de saída funcionava, e o gate do módulo estava verde porque a lógica de negócio só
+conversava com fakes internos. O trabalho foi de implementação (P8-P10 do EVNT), e só depois a
+validação.
+
+#### O que o EVNT era
+
+| Port | Implementação única em produção |
+|---|---|
+| `CaregiverRoutingPort` → ACS | `return "cuidadora-jamilly-fixo"` |
+| `CommandLookupPort` → PAC | snapshot fixo `"Preciso de ajuda"` / `EMERGENCIA` |
+| `NotificationDispatchPort` → DASH | `log.info("[ALERTA PoC] …")` |
+| `AuditTrailPort` → HIST | no-op |
+| `GestValidationPort` → GEST | Feign real, para um path que o GEST não expõe |
+
+Os 4 primeiros eram adapters `@Primary` com os `@FeignClient` correspondentes vazios e com porta
+default errada. O quinto parecia o único adapter real — e era o mais perigoso, porque está na
+perna **fail-closed** do ingress.
+
+#### Defeitos corrigidos
+
+| # | Par | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-17** | EVNT | toda escrita HTTP endereçada a lugar nenhum | `SecurityConfig` `permitAll()` sem `oauth2ResourceServer` ⇒ JWT nunca decodificado ⇒ `TenantContextFilter` fixava `"poc"` ⇒ `search_path` num schema inexistente; o C-10 já aplicado ali ficava inerte | sob `permitAll()` nenhum cenário BDD pode exercitar 401/403 — mesmo buraco fechado antes no GEST |
+| **C-23** | EVNT/DASH | filtro de tenant nunca executa | `@Component` faz o Boot registrar o filtro **também** na cadeia de servlets, antes do Spring Security; sendo `OncePerRequestFilter`, essa passagem marca a request como filtrada e a instância de dentro da cadeia é pulada | o DASH lê o tenant de `Authentication#getDetails` no painel, então o holder vazio era invisível |
+| **C-24** | DASH | tenant lido de `SecurityContext` vazio | `addFilterBefore(filtro, UsernamePasswordAuthenticationFilter)` — a posição registrada desse filtro é **anterior** à do `BearerTokenAuthenticationFilter`. Parece equivalente e não é | nada no DASH dependia do tenant vinculado até a identidade de serviço |
+| **C-25** | EVNT→GEST | nenhum report vira Evento | `POST /api/v1/recognized-commands` não existe (real `/gest-service/**`); url default 8082 = PAC; shapes inventados | **5ª** ocorrência do padrão consumidor-testado-contra-o-próprio-mock |
+| **C-26** | DASH→EVNT | 6 endpoints chamados que o EVNT nunca expôs | `EvntClient` escrito a partir do que o DASH supunha; os testes stubavam a mesma suposição | **6ª** ocorrência, com a direção invertida |
+| **C-27** | ACS | `SVC_EVNT` sem emissor; `evnt-service`/`dash-service` ausentes de `acs.service-clients` | mesma família do C-18 (`edge.device` sem emissor) | nenhum teste exercita o par |
+| **C-28** | EVNT→PAC / ACS→PAC | 400 `missing-tenant` | o `TenantContextFilter` do PAC **rejeita** requisição autenticada sem `X-Empresa-Id`; só `X-Tenant-Id` era enviado | o erro chegava ao chamador como 500 genérico |
+| **C-29** | ACS→PAC | todo vínculo cuidador-paciente → 422 `acs.link.unknown-patient` | `GET /api/v1/pac/patients/{id}?tenantId=` (real: `/api/pac/v1/pacientes/{id}`, tenant vem do JWT) e DTO com campos que o PAC não devolve | **7ª** ocorrência; `PacPatientResolveAdapter` mapeia qualquer falha para `Optional.empty()`, indistinguível de "paciente não existe" |
+| **C-31** | EVNT→DASH | alarme que parecia enviado e não estava | dispatch **dentro** da transação: o DASH reporta o resultado de volta sincronamente e o callback, em transação própria, não enxerga a linha ainda não commitada → 404 → `QUEUED` para sempre | os testes do EVNT mockam o port de dispatch, então a reentrância nunca acontece |
+| **C-32** | EVNT→HIST | `evento.criado` → 400 | `ActorRefDto.caregiverId` é `@NotNull`: um fato produzido por dispositivo não tem ator humano | o adapter de auditoria é fail-open, então a perda era silenciosa |
+
+#### Soluções estruturais introduzidas
+
+- **Identidade de serviço para todo o outbound do EVNT.** Ao contrário do PAC — que propaga o JWT
+  do chamador e só troca por token de serviço nas chamadas ao HIST — as 5 saídas do EVNT são o
+  serviço agindo por conta própria: o token que autenticou o report é de **dispositivo** e carrega
+  apenas `edge.device`, então propagá-lo seria 403 garantido (a forma exata do C-19).
+- **`SVC_DASH` e a superfície de callback do EVNT.** O `/api/v1/notifications/**` espelha o
+  `EvntClient` do DASH verbatim em vez de propor uma forma "melhor" — desenhar outra coisa apenas
+  mudaria o descasamento de lugar. O cuidador viaja como parâmetro explícito; a autoridade da
+  chamada é o serviço.
+- **Entrega após o commit.** `TransactionSynchronization.afterCommit` resolve o C-31 sem abrir mão
+  do fail-open: Evento e dispatch já estão duráveis quando a entrega é tentada.
+- **O suite do EVNT ganhou identidade.** Com `permitAll()` o BDD postava anonimamente; agora um
+  `JwtDecoder` de teste permite que cada cenário seja alguém — e pela primeira vez o módulo pode
+  exercitar 401/403. Duas armadilhas no caminho: o charset *token68* do RFC 6750 não aceita
+  underscore (um tenant `empresa_demo` era rejeitado pelo resolver **antes** de qualquer decoder,
+  com 401 cuja mensagem não aponta para a causa — daí o payload em Base64), e as fixtures usavam
+  ids como `"pac-1"`, que o HIST rejeita por não serem UUID.
+- **Os 4 "contract tests" do EVNT eram auto-referenciais.** Stubavam paths imaginados
+  (`GET /api/v1/caregivers/{id}/on-duty`, `POST /api/v1/notifications` → 202) e o próprio javadoc
+  admitia que o client não tinha métodos: testavam o stub contra si mesmo, sem código de produção
+  no laço. O do GEST foi reescrito contra o contrato real, passando pelo adapter.
+
+#### Uma "falha" que era do roteiro, não do sistema
+
+O cenário `Directory endpoint responds within 100ms p99` do ACS falhou durante o gate e passou no
+rerun — exatamente a fragilidade já registrada em §11.1d: mede wall-clock de **uma** chamada e a
+chama de p99, e correlaciona com carga, não com código.
+
+### 11.6 Sessão 5 — Dashboard + Circuit Breakers + LGPD (2026-08-22)
+
+**32/32.** Fecha E2E-008, E2E-012, E2E-003 e E2E-007; do E2E-004 restam apenas AUD-01/02, que
+são feature ausente no ACS, não falha de integração.
+
+| Issue | Estado |
+|---|---|
+| E2E-008 (DSH-01..05) | ✅ completo |
+| E2E-003 (DIR-03/05) | ✅ completo |
+| E2E-007 (NTF-04) | ✅ completo |
+| E2E-004 (AUD-10) | ✅ completo |
+| E2E-012 (Flow-04) | ✅ erasure ponta a ponta, com cadeia verificável |
+
+Como nas duas sessões anteriores, a maior parte do trabalho foi implementação: **mais duas
+ocorrências** do padrão consumidor-testado-contra-o-próprio-mock (agora 9 no total), e o C-16 —
+que o plano registrava como dívida conhecida — revelou-se pior do que descrito.
+
+#### O que o C-16 realmente era
+
+O plano dizia "escopo filtrado em memória depois da paginação". A consulta efetiva para uma
+cuidadora era:
+
+```
+SQL:      facts WHERE caregiver_id = <ela>            ← AUTORIA, não escopo
+memória:  ... AND subject.id IN <pacientes dela>      ← depois do LIMIT/OFFSET
+```
+
+Três consequências, e a terceira não estava registrada:
+
+1. `total` não respeitava o escopo de paciente — vazamento de contagem.
+2. A cuidadora podia receber página 0 vazia tendo fatos na página 3.
+3. **Ela nunca via um fato produzido por outra pessoa ou por um dispositivo.** O `evento.criado`
+   do seu próprio paciente tem o dispositivo como ator, então o predicado por autoria o excluía.
+   O timeline dela mostrava apenas o que ela mesma havia feito — que é o oposto do que um
+   timeline de paciente serve para mostrar.
+
+**Correção.** Coluna `audit_record.scope_paciente_id` (V0008), preenchida pelos produtores; o
+escopo virou `scope_paciente_id IN (:escopo)` **em SQL**, e o predicado por autoria saiu. A coluna
+é denormalizada porque não há alternativa: o `subject` de um fato de comando é o comando, e o
+`pacienteId` que está no payload é ilegível para um WHERE — o payload é cifrado em repouso.
+Deliberadamente **fora** da canonicalização do hash, senão todo registro já gravado deixaria de
+verificar.
+
+#### Defeitos corrigidos
+
+| # | Par | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-16** | HIST | cuidadora via `items: []` com `total: 6`, e nunca via fato de dispositivo | escopo em memória pós-paginação + predicado por autoria confundido com escopo | os testes do HIST montam o filtro na mão; nenhum exercita "fato sobre meu paciente produzido por outro" |
+| **C-33** | DASH→HIST | `GET /panel/patients/{id}/history` → 404 em runtime | path `/api/v1/patients/{id}/history` inexistente (real `/api/v1/hist/history?subjectType=&subjectId=`) e DTO totalmente diverso | **8ª** ocorrência do padrão; o WireMock do DASH stubava o path imaginado |
+| **C-34** | DASH→EDGE | liveness inalcançável pelo painel | path `/api/v1/devices/patient/{id}/liveness` inexistente; DTO com campo `degraded` que o EDGE nunca devolveu | **9ª** ocorrência |
+| **C-35** | HIST | consulta roteada para um tenant inexistente | fallback literal `"stub-tenant"` quando o claim falta — resultado vazio indistinguível de "tenant sem fatos" | nenhum teste chama sem o claim |
+| **C-36** | HIST | escalação silenciosa de privilégio | se o `sub` do JWT não fosse UUID, `caregiverId` virava `null`, e `null` downstream significa **sem restrição** — o único caminho que restringe era o mesmo que abria tudo | idem |
+| **C-37** | HIST/DASH | breaker nunca abre | `minimumNumberOfCalls` ausente: default 100 > `slidingWindowSize` 10, condição jamais satisfeita. No DASH é pior — não existe um único `@CircuitBreaker` no código, a config inteira é decorativa | DIR-05 nunca havia sido executado |
+| **C-38** | PAC | erasure LGPD inexistente | zero `@DeleteMapping` no serviço; o erasure do HIST existia, funcionava e não era chamado por ninguém | E2E-012 nunca havia sido executado |
+| **C-39** | HIST | erasure não alcançava os fatos de comando | a chave de cifra era escolhida por `subject_id`: um fato de comando era cifrado sob a chave do **comando**, e apagar o paciente não o tocava — enquanto o payload dele carrega `pacienteId` | o teste de erasure do HIST usa fatos com subject de paciente |
+| **C-41** | HIST | estado do breaker inobservável | `registerHealthIndicator` apenas registra o indicador; sem `management.health.circuitbreakers.enabled` o actuator não o expõe | — |
+
+#### Soluções estruturais introduzidas
+
+- **Escopo no SQL, autoria fora dele.** Ator e escopo eram a mesma coisa no código e são coisas
+  diferentes no domínio: quem produziu o fato não determina quem pode lê-lo.
+- **Erasure em duas metades, com ordem.** O HIST é chamado primeiro; só se ele confirmar é que o
+  PAC anonimiza a própria linha. A ordem inversa deixaria a linha local anonimizada com os
+  payloads ainda legíveis — e sem o nome local, que é o que uma retentativa precisaria. Sem
+  outbox aqui de propósito: um fato de auditoria atrasado ainda é correto, um erasure atrasado é
+  uma cópia viva de dado pessoal que o titular foi informado que sumiu.
+- **A chave de cifra segue o paciente, não o subject.** Na leitura tenta a chave de escopo e cai
+  para a do subject — sem esse fallback, todo fato antigo passaria a ler como *erased*, que é
+  perda de dado disfarçada de conformidade.
+- **`erased_at` no PAC.** Distingue "paciente sem nome cadastrado" de "nome apagado a pedido";
+  sem a coluna as duas situações são indistinguíveis, e a segunda precisa ser auditável.
+
+#### Como testar DIR-03/DIR-05 — o roteiro do plano não funciona
+
+"Desligar o ACS → 503" é inalcançável: **o ACS também hospeda o JWKS**, então derrubá-lo faz o
+hist-service responder 401 a tudo, e a resolução de escopo nunca é atingida. O sintoma não tem
+relação com o cenário.
+
+O que funciona é isolar só a dependência sob teste — sobrescrever `ACS_SERVICE_URL` para uma
+porta morta mantendo `ACS_JWK_URI` válido. Aí sim: DIR-03 responde `503 scope-unavailable`,
+DIR-04 responde 200 (o coordenador não toca no ACS), e o breaker vai a `OPEN` depois de 5
+falhas.
+
+#### Três "falhas" que eram do roteiro, não do sistema
+
+1. **`caregiver_patient_link` existe em dois schemas.** A cópia em `t_emp_dev` está vazia e morta;
+   o ACS grava e lê a de `neuroassist_global`. Conferir a do tenant devolve zero e faz parecer que
+   nada está no escopo.
+2. **Comparar `subject.id` com id de paciente** — a asserção do teste repetia exatamente o erro que
+   o teste deveria pegar. O escopo é `scope_paciente_id`.
+3. **Ler o painel logo após recriar o container** — leituras vazias porque o serviço ainda subia.
+
+### 11.7 Sessão 6 — Retry e recuperação (2026-08-22)
+
+**Sessão fora do plano original**, aberta porque a triagem do que sobrava revelou que os dois
+mecanismos de retry do sistema **não existiam** — e que isso invalidava parcialmente conclusões
+das Sessões 4 e 5.
+
+#### A correção que motivou a sessão
+
+AUD-10 e NTF-02/NTF-04 passaram medindo a metade certa e concluindo demais:
+
+| Afirmado | Verdadeiro | Falso |
+|---|---|---|
+| "fato ficou pendente no outbox — não foi perdido" | a linha é durável e o produtor não é bloqueado | nada a reentregava quando o hist-service voltava |
+| "dispatch permanece QUEUED para retry" | a linha é durável e retentável por desenho | nada a reprocessava |
+
+Concretamente: **9 fatos de auditoria estavam parados** no `hist_outbox` no início desta sessão,
+e um alarme que encontrasse a cuidadora sem painel aberto (`no_open_session`) **nunca chegava a
+ela** — inclusive `full_screen_alarm`.
+
+A palavra "retry" existia apenas em comentário. Em `HistFactAdapter`: `// Step 4: Leave outbox
+entry as 'pending' — retry will handle it later`. Não havia retry.
+
+> **Correção de registro da Sessão 4.** Classifiquei o `NotificationOrchestrationController`
+> como *scaffolding morto* porque o dispatch acontece em `ReportIngressService`. Estava errado:
+> o `retrySweep` que ele expõe era a única coisa que reenviaria um alarme não entregue. Era
+> capacidade ausente, não scaffolding — a distinção que §11.3 existe para fazer, e que eu
+> mesmo errei.
+
+#### Defeitos corrigidos
+
+| # | Serviço | Sintoma | Causa raiz | Por que o gate não pegou |
+|---|---|---|---|---|
+| **C-44** | PAC | 9 fatos de auditoria parados indefinidamente | nada lia `hist_outbox.status = 'pending'` — sem `@Scheduled`, sem listener, sem endpoint | AUD-10 verifica que o produtor não é bloqueado e que a linha existe; não verifica que ela sai de lá |
+| **C-45** | EVNT | alarme não entregue nunca reenviado | `retrySweep` lançava `UnsupportedOperationException` e não havia scheduler | NTF-02/04 verificam que o dispatch fica retentável; não verificam que algo o retenta |
+
+#### Solução
+
+Os dois seguem a mesma forma, porque o problema é o mesmo: **trabalho de fundo não tem requisição
+de onde herdar o tenant**, e todas as tabelas envolvidas vivem em schema por tenant.
+
+- `TenantCatalogPort` lê os tenants ativos do catálogo global com JDBC puro e nome de tabela
+  qualificado. Com JPA a consulta seria roteada pelo `MultiTenantConnectionProvider` para o tenant
+  vinculado — e esta é justamente a consulta que decide qual vincular.
+- O scheduler vincula o tenant **antes** de abrir a transação. O Hibernate fixa o `search_path` ao
+  adquirir a conexão, então vincular dentro de um método `@Transactional` não roteia nada (a
+  armadilha registrada em CLAUDE.md e paga no EDGE). Sem isso o sweeper leria o schema global,
+  não acharia as tabelas, e reportaria sucesso.
+- Falha de um tenant nunca interrompe os outros.
+- Lote limitado por tick: um backlog acumulado numa indisponibilidade seria replayado numa única
+  transação, segurando conexão e martelando um serviço que acabou de voltar.
+- O dreno do PAC **para no primeiro erro do lote**: se o hist-service está fora, as entradas
+  seguintes falhariam igual, e gastar o orçamento de retry delas contra uma indisponibilidade
+  conhecida é como um problema transitório vira permanente.
+- Ambos têm estado terminal (`failed` / `FAILED`) após o máximo de tentativas, e ele é distinto de
+  "pendente" de propósito: um fato ou alarme que nunca será entregue não pode ser indistinguível
+  de uma fila apenas ocupada.
+
+#### Validação
+
+| Antes | Depois |
+|---|---|
+| `hist_outbox`: 9 `pending`, 25 `sent` | 0 `pending`, 34 `sent` — entregues no primeiro tick |
+| `notification_dispatch`: 8 `QUEUED`, 1 `NO_SESSION` | 9 `NO_SESSION` (ninguém com painel aberto) |
+| — | abrindo uma sessão SSE no painel: **9 `DELIVERED`** no sweep seguinte |
+
+O stream SSE recebeu os alarmes com tier e mensagem reais (`full_screen_alarm` / "Chamar
+cuidadora"), o que fecha NTF-02 no sentido pleno: "cuidadora sem sessão aberta → EVNT agenda
+retry" passou a ser verdade.
+
+#### Decisão de produto que ficou aberta
+
+Um alarme `NO_SESSION` vai para `FAILED` depois de `max-attempts` — cerca de 5 minutos no default —
+**sem escalonamento algum**. Se a cuidadora não abrir o painel nessa janela, um alarme de
+emergência morre em silêncio. É melhor do que antes (nunca era reenviado), mas a janela e o que
+acontece ao fim dela precisam ser uma escolha explícita: escalonar para outro cuidador do
+paciente, usar canal alternativo, ou nunca desistir de `full_screen_alarm`.
+
 ### 11.2 Dívidas conhecidas (não corrigidas nesta sessão)
 
-- **C-16 — escopo de cuidadora no HIST é filtrado em memória, depois da paginação.**
+- ~~**C-16 — escopo de cuidadora filtrado em memória**~~ — resolvido na Sessão 5 (§11.6), e era pior
+  do que aqui descrito. Texto original:
+  **C-16 — escopo de cuidadora no HIST é filtrado em memória, depois da paginação.**
   `HistoryQueryService` pagina primeiro no banco e só então aplica
   `items.filter(allowedPatients.contains(...))`. Três consequências, observadas no Flow-01
   (a cuidadora recebeu `items: []` com `total: 6`):
@@ -633,9 +974,17 @@ patient-scope); se é o serviço agindo por conta própria, usa identidade de se
   (`edge.manage`, `edge.read`, `edge.device`, `edge.internal`). O ArchUnit não detecta porque
   o `CrossAspectArchTest` do EDGE tem o catálogo **pinado inline contendo as duas famílias** —
   ou seja, o teste que deveria guardar a sincronia aceita ambos os lados da divergência.
-- **ACS não produz audit facts.** Não há produtor de `AutenticacaoRealizada` /
-  `AutenticacaoFalhou` — **AUD-01 e AUD-02 são features ausentes**, não falhas de integração.
-- **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
+- ~~**ACS não produz audit facts.**~~ — resolvido em 2026-08-23 (E2E-019). `autenticacao.realizada`
+  e `autenticacao.falhou` entraram no vocabulário do HIST, o `HistAuditClient`/`HistAuditAdapter`
+  deixaram de ser stub, e o ACS ganhou `hist:write` com token **escopado por tenant** (ao contrário
+  dos seus outros dois destinos de identidade de serviço, que são tenant-less). Um login com
+  usuário inexistente segue sem gerar fato de propósito: não pertence a empresa nenhuma, e
+  atribuí-lo a uma deixaria um desconhecido escrever na trilha alheia só chutando logins.
+  O outbox que faltava foi feito em seguida (E2E-031): `neuroassist_global.acs_hist_outbox`,
+  global em vez de por tenant, porque o ACS grava fatos de várias empresas e o dreno roda sem
+  tenant vinculado. Com ele fecham os três produtores de fato da plataforma — PAC, EVNT e ACS.
+- ~~**C-17 — EVNT em modo PoC**~~ — resolvido na Sessão 4 (§11.5). Texto original:
+  **C-17 — EVNT ainda em modo PoC: tenant hardcoded e sem resource server.**
   `infrastructure/security/TenantContextFilter` faz `TenantContextHolder.set("poc")` em
   **toda** requisição HTTP (javadoc: *"PoC stub … JWT-based tenant extraction disabled"*), e
   a `SecurityConfig` é `anyRequest().permitAll()` **sem** `oauth2ResourceServer` — o JWT nem
@@ -647,9 +996,11 @@ patient-scope); se é o serviço agindo por conta própria, usa identidade de se
 - **Gateway não injeta header de tenant.** `grep -i "tenant\|empresa"` no `src/main` do
   `neuroassist-ai-api-gateway` retorna zero: cada serviço precisa extrair o tenant do JWT
   por conta própria. Relevante para qualquer serviço que dependa de `X-Empresa-Id`.
-- **`edge.pairing.url` do GEST aponta para a porta 8090** (DASH), não 8087 (EDGE) —
-  `@FeignClient(name = "edge-pairing-client", url = "${edge.pairing.url:http://localhost:8090}")`.
-  Resolver na Sessão 3, junto com o heartbeat EDGE ↔ GEST.
+- ~~**`edge.pairing.url` do GEST aponta para a porta 8090**~~ — resolvido em 2026-08-23
+  (commit `f835f0d`). Passou a `${edge.pairing.url:${EDGE_SERVICE_URL:http://edge-service:8087}}`,
+  com `EDGE_SERVICE_URL` no `docker-compose.dev.yml`. Texto original: a URL default era
+  `http://localhost:8090` — errada duas vezes, porque 8090 é o dash-service e `localhost`
+  dentro do contêiner é o próprio gest-service; toda resolução device→tenant ia para o vazio.
 - **Divergência test/prod de schema.** A causa-raiz de C-12 não é o ENUM em si: as suítes
   rodam `ddl-auto=create-drop` (Hibernate desenha o schema) enquanto produção roda Flyway,
   então **nenhum teste valida o schema real**. Qualquer divergência entre migration e
@@ -667,22 +1018,300 @@ patient-scope); se é o serviço agindo por conta própria, usa identidade de se
   Correção proposta (decisão de arquitetura): EDGE→GEST deveria usar **identidade de serviço**
   (client credentials) em vez de propagar o JWT do chamador — mesma família da dívida
   `hist:write` em token de cuidadora.
-- **`fallback()` do `DetectionProfileFeignAdapter` engole 4xx.** O `@CircuitBreaker` sem
-  `ignoreExceptions` trata 403/404 como falha de infraestrutura, transformando erro de
-  autorização em "degradado". É o mecanismo que esconde o C-19 — e o mesmo padrão que fez o
-  C-9 aparecer como "ACS indisponível" em vez de "path errado".
+- ~~**`fallback()` do `DetectionProfileFeignAdapter` engole 4xx**~~ — resolvido em 2026-08-23.
+  O `@CircuitBreaker` ganhou `ignoreExceptions: [feign.FeignException$NotFound]`, e o
+  `DetectionProfilePort` passou a devolver `ProfilePointer(version, degraded)` com três estados
+  (`of`/`noActiveProfile`/`unknown`) em vez de `Optional<Long>` — "GEST respondeu que não há
+  perfil" deixou de ser indistinguível de "GEST caiu". Era o que travava HB-04.
 - **`POST /gest-service/detection-contract` é guardado por `gest.detection-contract.read`** —
   uma escrita protegida por authority de leitura. Funciona hoje (o ACS emite `.read` para
   ambos os papéis), mas o modelo está errado; corrigir exige mexer no catálogo e no ACS.
-- **EVNT → ACS directory não existe.** `CaregiverRoutingClient` é um stub vazio
+- ~~**EVNT → ACS directory não existe**~~ — resolvido na Sessão 4; DIR-02 passa. Texto original:
+  **EVNT → ACS directory não existe.** `CaregiverRoutingClient` é um stub vazio
   (`// TODO: add methods from techlab-ai-integration.md`) com `url` default apontando para a
   porta 8084 (GEST, não ACS). **DIR-02 é feature ausente** — a Sessão 2 valida o endpoint
   do ACS diretamente; o consumo pelo EVNT fica para a Sessão 4 (Flow-03).
 
+- ~~**O vínculo cuidador-paciente vive em duas tabelas do mesmo schema (C-30).**~~ — resolvido em
+  2026-08-23 (E2E-015). Decisão: o **ACS é o dono** do vínculo como fato de controle de acesso, e o
+  `paciente_cuidador` do PAC vira projeção tenant-local que **propaga**. A propagação é por outbox
+  (`directory_outbox`, gravado na mesma transação, drenado por `DirectoryOutboxScheduler` com
+  identidade de serviço), e não por chamada síncrona: antes do commit tornaria a criação de
+  paciente fail-closed sem necessidade; depois do commit reintroduziria a mesma divergência com
+  janela menor. Migration V0209 faz o backfill dos vínculos já existentes. Texto original: o PAC
+  gravava `paciente_cuidador` ao criar o paciente e o directory do ACS lia `caregiver_patient_link`;
+  nada sincronizava as duas, então todo paciente criado pelo PAC tinha directory vazio — e um
+  alarme sem destino. O Flow-03 contornava chamando o endpoint de link explicitamente.
+  **Validado no stack real em 2026-08-23:** migration V0209 aplicada (`Successfully applied 1
+  migration … v0209`), backfill enfileirou **9 vínculos que nunca haviam chegado ao ACS** e o dreno
+  os entregou no primeiro tick. Paciente criado só pelo PAC → `GET /api/v1/acs/directory/patients/
+  {id}/caregivers` respondeu `responsibleCaregivers: []` antes do tick e a cuidadora depois, sem
+  chamada extra. **Ainda em aberto:** `erasePersonalData` não enfileira UNLINK, e a validação
+  revelou o conflito de invariante registrado em E2E-028 (C-47).
+- **O HIST não tem tipo de ator para serviço ou dispositivo (C-32).** `subject_type` aceita
+  `dispositivo`, mas `ActorRefDto` só modela cuidador e exige `caregiverId`. O `evento.criado`
+  grava o `deviceId` nesse campo com `displayName = "dispositivo <id>"` — funciona e é rastreável,
+  mas abusa do nome do campo.
+- ~~**Tenant provisionado pela API congela na versão do template (C-50).**~~ — resolvido em
+  2026-08-23 (E2E-030). O modo `migrate-all` do `plan-MIG` P2 foi implementado: schema global
+  primeiro, depois todo schema de tenant do catálogo, falha isolada por schema e run report que
+  **nomeia** os divergentes. `migrations-empresa` deixou de migrar um schema fixo. Os 5 schemas do
+  ambiente de dev convergiram para 23 migrations. Texto original: Descoberto ao validar
+  E2E-017: a V0501 entrou e os 4 tenants criados pelas validações anteriores não a receberam — o
+  contêiner `migrations-empresa` migra um schema fixo (`FLYWAY_SCHEMAS: t_emp_dev`). O modo
+  `migrate-all` que o `api-contract` §2 descreve ("global + every existing tenant schema") nunca
+  foi implementado; ele só passou a ser necessário quando criar empresas deixou de ser um stub.
+  Ver E2E-030.
+
+- ~~**O EVNT não tem outbox de auditoria.**~~ — resolvido em 2026-08-23 (E2E-017). Texto original: O `AuditTrailFeignAdapter` é fail-open (correto para
+  AUD-10), mas sem durabilidade: um fato perdido numa indisponibilidade do HIST é perdido para
+  sempre. O PAC resolve isso com `hist_outbox` + `factId` cunhado uma vez (C-5) — e desde a
+  Sessão 6 esse outbox é de fato drenado (C-44), então o padrão a copiar existe inteiro.
+- **`X-Empresa-Id` × `X-Tenant-Id` (C-28).** O PAC exige o primeiro e rejeita 400 sem ele; os
+  demais serviços usam o segundo. Os dois carregam o mesmo valor — é o mesmo shim do claim de
+  tenant triplicado (C-3) e sai junto com ele.
+- **Enums de domínio do EVNT divergem do que é persistido.** `DispatchStatus`/`Feedback`/`Tier`
+  usam minúsculas e não são referenciados por nada; o código grava `QUEUED`/`NAO_AVALIADO`/`REAL`.
+  Introduzir os enums mudaria silenciosamente todo valor gravado.
+- **`NotificationOrchestrationController` (501) é scaffolding morto, não bloqueio de NTF.** O
+  inventário em §11.3 o listava como bloqueio de NTF-01..05; o dispatch real acontece no
+  `ReportIngressService`. Correção de registro.
+
+- **`caregiver_patient_link` duplicada em dois schemas (C-42).** A migration cria a tabela no
+  schema do tenant, mas o ACS grava e lê a cópia em `neuroassist_global`. A do tenant fica vazia
+  e morta. Consequência real: os vínculos de todos os tenants convivem numa tabela global, e o
+  isolamento passa a depender do filtro por `tenant_id` em vez do `search_path`.
+- **Os dois endpoints do directory leem fontes diferentes das que o PAC escreve (C-43).** Ver
+  também C-30: criar um paciente pelo PAC não popula o directory do ACS, e o vínculo precisa ser
+  criado por uma chamada explícita.
+- **C-51 — o dash-service nunca conseguiu falar com o acs-service.** Descoberto ao validar
+  E2E-018: `AcsClient` pedia `GET /api/v1/caregivers/{id}/patients` devolvendo `List<String>`; o
+  ACS expõe `GET /api/v1/acs/directory/caregivers/{id}/patient-scope` devolvendo
+  `PatientScopeResponse`. `GET /panel/summary` respondia 404 e nunca funcionou contra um ACS real.
+  17ª ocorrência do padrão de §11 — os stubs do BDD stubavam o path inventado, então o gate do
+  DASH ficou verde o tempo todo. Corrigido junto com E2E-018.
+
+- ~~**O DASH não tem circuit breaker nenhum (C-37).**~~ — resolvido em 2026-08-23 (E2E-018).
+  Além dos breakers, o DASH não tinha **timeout de Feign nenhum**: valia o default (10s/60s). Com
+  o EDGE fora, a primeira chamada ao painel levava 24s. Breaker limita o regime, timeout limita a
+  primeira chamada — 24,2s → 8,3s → 0,03s. O `timelimiter` do resilience4j segue decorativo
+  (exige retorno reativo) e deveria sair ou ganhar dono. Texto original: A configuração `resilience4j` do serviço —
+  breakers e time limiters — é inteiramente decorativa: `grep @CircuitBreaker` no `src/main` do
+  dash-service não retorna nada. As chamadas a ACS/PAC/EVNT/HIST/EDGE não têm proteção alguma.
+- ~~**Os limiares EAR/BRI viviam em dois arquivos que ninguém sincronizava (C-53).**~~ — resolvido
+  em 2026-08-24 (E2E-032). `edge-agent-ws.py` (ponte do laço de calibração) e
+  `poc-edge-agent-webcam.py` (detecção sempre-ligada, hoje aparato congelado) tinham cada um sua
+  cópia de 17 limiares/índices e das três funções de EAR/BRI. Não haviam divergido ainda — `_dist`
+  e `compute_ear` eram idênticas byte a byte, `compute_bri` diferia só em docstring — mas nada
+  impedia, e a divergência seria silenciosa: a cuidadora calibraria um gesto com limiares que o
+  caminho do alarme não usa. `backend/edge_agent_core.py` passou a ser a fonte; a ponte importa;
+  o artefato segue autocontido de propósito (reprodução do experimento) e é vigiado por
+  `check_edge_agent_drift.py`, que compara por AST normalizado e roda no `ci-backend.yml`.
+  `COOLDOWN_SECONDS` fica fora da fonte por decisão — 1,5 s na calibração contra 3,0 s no agente
+  sempre-ligado é divergência intencional. **Fica aberto o achado adjacente:** o perfil publicado
+  pelo GEST (`DetectionProfilePrimitive`) não carrega sensibilidade alguma — diz *quais* gestos
+  estão ativos, não *com que sensibilidade* detectá-los —, enquanto o PAC tem `sensibilidade` por
+  comando. Há um conceito de sensibilidade no sistema que nunca chega ao agente de borda, e ALS
+  afeta cada pessoa de forma diferente.
+
+- ~~**O perfil publicado pelo GEST não carregava sensibilidade nenhuma (C-54).**~~ — resolvido em
+  2026-08-24 (E2E-033). O `/active` dizia *quais* gestos estavam ativos, nunca *com que
+  sensibilidade*; os limiares eram constante de código, iguais para todo paciente, enquanto o PAC
+  guarda `comando.sensibilidade` por paciente desde a V0201. Existia transporte —
+  `classificationParams`, um `Map<String,Object>` cujo comentário de coluna prometia quatro chaves
+  — e ele nunca transportou nada: nenhuma das quatro é escrita ou lida em lugar nenhum do código.
+  Agora é uma `DetectionThresholdTable` tipada, com invariantes dentro da faixa e monotonicidade
+  entre faixas (um perfil onde "alta" detecta menos que "baixa" deixou de ser publicável). A faixa
+  `media` reproduz, valor por valor, as constantes históricas — adotar o perfil não muda
+  comportamento até alguém escolher outra faixa.
+
+  Junto saiu um defeito vivo: **`DetectionProfileResponse` não tinha campo `primitives`**. Eles
+  eram persistidos no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida
+  com "Perfil ativo não possui primitivos" contra qualquer GEST real.
+
+  **Continua por empresa.** `ux_profile_single_active` garante um perfil ativo por tenant,
+  enquanto a sensibilidade é por paciente — não foi esquecimento de fiação, o modelo não expressa
+  "o limiar deste paciente". Ligar a rota por paciente exige romper esse invariante e resolver
+  `device → paciente` (o GEST só resolve `device → tenant`). Issue própria.
+
+- ~~**`findForDevice(UUID)` devolve `Optional.empty()` sempre.**~~ — resolvido em 2026-08-24
+  (E2E-034). Passou a ser o caminho real da projeção por paciente. **`findByVersion(long)`
+  continua stub vivo**, marcado "P3": `GET /detection-profile/{version}` é 404 eterno, e não há
+  como auditar qual perfil estava ativo numa versão passada. Sinalizado no ES.
+
+- **4 falhas de `integrationTest` no gest-service, pré-existentes** (eram 7 até a E2E-034, que
+  corrigiu as três de pareamento). As que restam são `DetectionProfileRepositoryAdapterIT`,
+  `LGPDAuditIT` e `ObservabilityIT`, todas com `relation "tipo_gesto" does not exist`. Texto
+  original: 7 falhas de `integrationTest` no gest-service, pré-existentes. Confirmado rodando a suíte no
+  `HEAD` limpo: as mesmas 7, uma a uma. Duas causas — `relation "tipo_gesto" does not exist`
+  (schema não aplicado no contexto desses ITs) e Feign tentando resolver `http://edge-service:8087`,
+  um nome de container, a partir do host. O gate `:test` não as vê.
+
+- ~~**A sensibilidade calibrada para o paciente nunca chegava ao dispositivo dele (C-55).**~~ —
+  resolvido em 2026-08-24 (E2E-034). `comando.sensibilidade` existia por paciente desde a V0201 e
+  morria na fronteira do PAC; o dispositivo na casa do paciente detectava com a faixa da clínica.
+  A tubulação já existia — o javadoc do `CatalogoAtivoResponse` dizia *"GEST polls this endpoint
+  with If-None-Match"* —, mas o GEST não tinha **nenhum** cliente do PAC.
+
+  **A decisão foi projeção na leitura, não mudança de schema.** `ux_profile_single_active` não foi
+  rompido: o invariante estava certo. Sensibilidade não é propriedade do perfil — é do comando do
+  paciente. O perfil da empresa define o vocabulário (o que "alta" significa numericamente); o
+  catálogo do paciente diz qual faixa cada gesto dele usa; a junção acontece em
+  `GET /detection-profile/devices/{id}` — que era o stub vivo que o EDGE já chamava. Assim
+  recalibrar um paciente não exige republicar o perfil da clínica, e nenhuma cópia envelhece.
+
+  ETag combinado `perfil-catálogo`: só a versão do perfil faria a recalibração não invalidar o
+  cache do dispositivo — 304 com a faixa velha por tempo indeterminado. Degradação distinguível:
+  "o PAC não respondeu" nunca se confunde com "este paciente usa a faixa padrão mesmo".
+
+- **Cinco defeitos encontrados no caminho da E2E-034, nenhum visível num gate verde.**
+  (1) `TenantPairingResponse` declarava `{tenantId, paired}` e o EDGE envia `{deviceId, tenantRef}`
+  — **os dois campos errados**, então `paired` era sempre `false` e o guarda de pareamento do GEST
+  nunca funcionou, para dispositivo nenhum; o stub do WireMock repetia a mesma suposição. 18ª
+  ocorrência do padrão de §11. (2) O EDGE servia **todo 403 como 500**, faltando
+  `@ExceptionHandler(AuthorizationDeniedException.class)` — e um 5xx derruba o breaker do
+  consumidor, enquanto um 4xx seria ignorado: C-19 pelo lado do produtor, afetando a API inteira.
+  (3) Os interceptors Feign globais do GEST eram lambdas sem ordem, empatando com o de identidade
+  de serviço e **reanexando** o token do chamador. (4) O breaker `edgePairing` não tinha
+  `ignoreExceptions` e abria com três "não pareado" seguidos, passando a reportar "EDGE
+  indisponível" até para dispositivos pareados. (5) `EdgePairingClientIT` registrava
+  `gest.edge.url`, propriedade que não existe — o WireMock nunca era usado.
+
+- ~~**O mesmo valor de tenant viajava com três nomes no token e dois no header (C-3/C-28).**~~ —
+  resolvido em 2026-08-24 (E2E-021). O inventário achou mais do que a issue descrevia: **quatro
+  serviços liam apenas um alias e nenhum lia o canônico** — `gest` lia `tenant`, `pac` lia
+  `empresaId`, quatro controllers do `hist` liam `tenant`, e dois proxies do `dash` liam
+  `details.get("tenant")`. O passo "TokenIssuer para de emitir os aliases", que a própria issue
+  listava como passo 2, teria quebrado gest e pac inteiros.
+
+  **O achado que reenquadrou a issue: os 7 filtros falhavam ABERTO.** Todos tinham a forma `if
+  (tenantId != null) { liga }` e, sem claim, seguiam em frente sem nada ligado. Verifiquei até
+  onde isso vai: o resolver de todos cai em `neuroassist_global`, que **não tem** as tabelas de
+  negócio, então a requisição morre com `relation ... does not exist`. **Não é vazamento entre
+  empresas** — mas a segurança dependia dessa coincidência, o chamador recebia 500 em vez de saber
+  o que faltava, e era exatamente isso que tornava perigoso remover os aliases. Agora: token
+  autenticado sem `tenant_id` → **403 `tenant_claim_missing`**, com uma exceção deliberada para
+  `token_type=service`, que pode legitimamente não ter tenant (E2E-029 — um fail-closed cego teria
+  quebrado a criação de empresa).
+
+  **Decisão sobre o gateway: não injetar header de tenant.** O JWT é assinado e já o carrega; um
+  header injetado seria uma segunda fonte de verdade, e a única razão de hoje ser seguro é que
+  nenhum serviço confia no header — os sete o usam como conferência e respondem 403 se divergir.
+
+  Dois stubs vivos caíram junto: o `extractTenantId` dos proxies do DASH lia `auth.getDetails()`
+  como `Map` (que `JwtAuthenticationToken` nunca é) e devolvia **string vazia sempre**; e o
+  `AuditRecordQueryController` do HIST ainda caía no literal `"stub-tenant"` — os outros três
+  controllers já tinham sido corrigidos em C-35 e este ficou para trás.
+
+  `X-Empresa-Id` segue aceito no PAC por uma versão, com log de depreciação.
+
+- ~~**O PAC aceitava remover a última cuidadora e o ACS recusava (C-47).**~~ — resolvido em
+  2026-08-24 (E2E-028), decisão em [ADR-010](../adr/ADR-010-coverage-invariant-ownership.md):
+  **guarda no PAC, ACS segue dono.** O PAC recusa 422 na porta; o ACS mantém o 409. A alternativa
+  "PAC consulta o ACS antes" seria uma regra só, num lugar só, mas acoplaria a edição de paciente à
+  disponibilidade do ACS — inclusive edições que nada têm a ver com cobertura. O risco da regra
+  duplicada é assumido e mitigado pelo fato de o guarda decidir sobre o dado que vai escrever, não
+  sobre uma projeção: lista vazia é zero cobertura, exatamente, sem drift possível.
+
+  A entrada `failed` do outbox de dev foi triada: **os dois lados já concordam** (`PAC` e `ACS`
+  apontam a mesma cuidadora, `ACTIVE`). Reprocessar seria tentar o `UNLINK` de novo e levar 409 por
+  desenho. A linha fica como registro histórico.
+
+- ~~**Não existe suíte E2E automatizada (E2E-013).**~~ — parcialmente resolvido em 2026-08-24.
+  `backend/services/e2e-tests/` (REST Assured, Opção A), **37 cenários verdes** contra o stack,
+  segregados por `@Tag("e2e")` para não quebrarem `./gradlew build` de quem não tem Docker, com
+  preflight que pula com mensagem clara em vez de falhar com "conexão recusada". Cobre auth,
+  isolamento de tenant nos 7 serviços, a projeção de perfil por dispositivo e o ETag combinado da
+  recalibragem. **Fora**: fluxos que exigem uma fixture factory que ainda não existe (HB, NTF/DSH),
+  o fato de auditoria do HIST (assíncrono, sem correlação exposta na resposta) e o apagamento LGPD
+  (destrutivo num dev compartilhado).
+
+  **Foi essa suíte que encontrou o buraco abaixo** — o primeiro achado dela, no primeiro dia.
+
+- ~~**O `evnt-service` era o único que não conferia `X-Tenant-Id` contra o claim.**~~ — resolvido
+  em 2026-08-24. Header divergente era ignorado e a requisição respondia normalmente, enquanto os
+  outros seis respondem 403 `tenant_mismatch`. Não havia vazamento — o tenant sempre veio do claim
+  assinado —, mas a política divergia, e **passou pela minha auditoria da E2E-021**: verifiquei o
+  cruzamento em seis filtros e no EVNT olhei apenas a lista de claims.
+
+- **9 falhas de `integrationTest` no gest-service, resolvidas** (2026-08-24) — eram 9, não as 4 que
+  eu havia contado ao rodar só um subconjunto das classes. E **nenhuma era schema ausente**, que era
+  o meu palpite; foram três causas distintas: (1) `@Transactional` no teste abre a transação em
+  `beforeTestMethod`, antes do `@BeforeEach`, e o Hibernate fixa o tenant da Session ao nascer — a
+  armadilha do CLAUDE.md ("nunca resolva o tenant dentro de `@Transactional`") vista do lado do
+  teste; (2) o Spring Boot desliga todos os exportadores de métrica dentro de `@SpringBootTest`,
+  então `/actuator/prometheus` dava 404 e não 401; (3) um teste autenticava com HTTP Basic, que não
+  carrega claim de tenant, e auditava o corpo de um erro de infraestrutura achando que auditava um
+  not-found de domínio.
+
+  Junto saiu um defeito real: `deactivateCurrent()` é um UPDATE em massa JPQL que passa ao lado do
+  contexto de persistência — a linha virava `active=false` no banco e a entidade em cache seguia
+  dizendo `active=true`. Corrigido com `@Modifying(clearAutomatically, flushAutomatically)`.
+
+- **`findByVersion()` deixou de ser stub vivo** (2026-08-24). `GET /detection-profile/{version}`
+  respondia 404 eterno. A query derivada `findByVersion(Long)` **já existia** no repositório Spring
+  Data desde o P3 e nunca fora ligada a porta nenhuma — um método vivo, testável e morto.
+
+- **Dívida encontrada e NÃO corrigida no gest-service:** o `bddTest` está **54/54 vermelho**, antes
+  e depois deste trabalho — passos de setup rodam fora do caminho HTTP, sem tenant ligado. E há
+  **100 step definitions com corpo vazio** (`DetectionProfileSteps` 47, `ReportValidationSteps` 28,
+  `EligibilityCheckSteps` 25), gerados e nunca preenchidos: quando o problema do tenant for
+  resolvido, essas features ficarão **verdes sem testar nada**. O CLAUDE.md diz GEST "P1-P9 done";
+  a suíte BDD não sustenta isso.
+
+- **`requiresTenantClaim()` só cobre `JwtAuthenticationToken`.** Um chamador autenticado por HTTP
+  Basic segue sem tenant e recebe 500 do JDBC em vez de um erro que diga o que faltou — o mesmo
+  buraco que a E2E-021 fechou para JWT, ainda aberto para o caminho não-JWT. Fechá-lo viraria 403
+  em todo cenário BDD que usa Basic; é decisão de escopo próprio.
+
+- **O DASH não usa requisições condicionais no liveness.** O edge-service implementa
+  `If-None-Match` → 304 corretamente; o BFF não guarda o ETag porque é zero-state por desenho
+  (ADR-004). O ganho pertence a quem tem onde cachear — o navegador ou um proxy à frente do EDGE.
+- **`neuroassist-ai-migrations` não aplica migrations via `bootRun`.** O Flyway não roda quando o
+  módulo é executado pelo Gradle, mesmo com `spring.flyway.enabled: true` e as propriedades
+  passadas por `--args`. O caminho que funciona é o container (`docker compose up
+  migrations-empresa`), que monta o jar — e portanto exige `bootJar` antes. O comando em
+  CLAUDE.md ("rodar `:neuroassist-ai-migrations:bootRun` primeiro") não funciona como está.
+
+- ~~**Um tenant novo nasce vazio e ninguém consegue entrar nele (C-48).**~~ — resolvido em
+  2026-08-23 (E2E-029). O primeiro coordenador passou a fazer parte do payload de `POST /tenants`,
+  criado atomicamente, então "empresa sem ninguém dentro" deixou de ser um estado representável e
+  nenhum papel precisa de autoridade para criar gente em outra empresa. Junto saiu **C-49**:
+  `acs.tenant.provisionar/read/reprocessar` estavam no papel COORDENADOR_CLINICA — o coordenador
+  da clínica A podia criar e reprocessar a clínica B. As três foram para o cliente de serviço
+  `platform-ops`, que obtém token **sem tenant** (não há tenant antes de criá-lo), com a exceção
+  declarada por cliente para não afrouxar a regra para quem roteia por schema. Texto original: o
+  schema passava a ser criado e o tenant ficava ACTIVE, mas criar o primeiro cuidador respondia
+  403 acs.tenant.mismatch, e não havia ator capaz de agir dentro da empresa recém-criada.
+
+ Descoberto ao validar
+  E2E-016: o schema passa a ser criado de verdade e o tenant fica `ACTIVE`, mas criar o primeiro
+  cuidador dentro dele responde `403 acs.tenant.mismatch` — corretamente, porque quem chama
+  pertence a outro tenant. Como todo token pertence a um cuidador e todo cuidador a um tenant,
+  não existe ator capaz de agir dentro de uma empresa recém-criada. O seed resolve isso para
+  `t_emp_dev` inserindo linhas direto no banco, e é por isso que seis sessões de E2E nunca
+  esbarraram nisto. Ver E2E-029.
+
+- **O PAC aceita remover a última cuidadora e o ACS recusa (C-47).** Descoberto ao validar E2E-015
+  contra o stack real: `PUT /pacientes/{id}` com `cuidadorResponsavelIds: []` responde 200, o
+  UNLINK propagado leva 409 `acs.link.last-caregiver-link` (invariante de cobertura D-204), e os
+  dois lados ficam em desacordo — `paciente_cuidador` vazio, `caregiver_patient_link` ainda
+  `ACTIVE`. A propagação se comportou como projetada (recusa terminal, registrada com motivo, não
+  reentregue); o problema é a invariante existir em um lado só. Não foi introduzido pela
+  propagação — foi revelado por ela. Ver E2E-028.
+
+- **Um alarme `NO_SESSION` desiste em silêncio (C-46).** Após `max-attempts` o dispatch vai para
+  `FAILED` sem escalonamento — cerca de 5 minutos no default. Decisão de produto pendente; ver
+  §11.7.
+
 ### 11.3 Inventário de TODO / stub / fake (auditoria pós-Sessão 2)
 
-`grep -rn "TODO\|FIXME\|XXX\|HACK" backend/services/*/src/main` → **97 ocorrências**:
-hist 32 · evnt 27 · pac 10 · dash 9 · edge 9 · acs 8 · gest 2.
+`grep -rn "TODO\|FIXME\|XXX\|HACK" backend/services/*/src/main` → **79 ocorrências**
+(recontado em 2026-08-23; era 97 na auditoria pós-Sessão 2):
+hist 32 · evnt 18 · pac 10 · dash 9 · acs 8 · gest 2 · **edge 0**.
+
+> A contagem por si diz pouco — boa parte das ocorrências do EVNT é javadoc histórico
+> descrevendo o que já foi corrigido, não dívida. O EDGE zerou no ciclo de 2026-08-23.
 
 O que importa não é a contagem, é a distinção entre **stub vivo** (alcançável em runtime,
 mente sobre funcionar) e **scaffolding morto** (gerado, nunca chamado).
@@ -691,9 +1320,9 @@ mente sobre funcionar) e **scaffolding morto** (gerado, nunca chamado).
 
 | Serviço | Local | O que falta | Bloqueia |
 |---|---|---|---|
-| **EDGE** | `ProfilePointerController.currentPointerForTenant` + `ProfilePointerService` | Ambos lançam `UnsupportedOperationException` | **HB-01..05 (Sessão 3)** — o ponteiro de perfil do heartbeat EDGE↔GEST não existe |
-| **EVNT** | `NotificationOrchestrationController.{processar,reprocessar}` + service | Ambos lançam `UnsupportedOperationException` | **NTF-01..05 (Sessão 4)** |
-| **EVNT** | 4 adapters `@Primary` (`CaregiverRoutingHardcoded`, `AuditTrailNoOp`, `NotificationDispatchLog`, `CommandLookupHardcoded`) | Fakes em código de produção; os 4 `@FeignClient` vazios e com porta default errada | **DIR-02, AUD-06/07, NTF-01..05** |
+| ~~**EDGE**~~ | ~~`ProfilePointerController.currentPointerForTenant` + `ProfilePointerService`~~ | ✅ resolvido em 2026-08-23 (P11): o controller e seus DTOs foram removidos — o `api-contract.md` nunca declarou essa superfície — e o `ProfilePointerService` virou o colaborador do heartbeat que a spec pedia (`c4-component.puml:24,58`). Zero `UnsupportedOperationException` em `edge-service/src/main`. | — |
+| ~~**EVNT**~~ | ~~`NotificationOrchestrationController` + service~~ | ✅ resolvido na Sessão 6 (C-45): o retry sweep existe e é agendado | — |
+| ~~**EVNT**~~ | ~~4 adapters `@Primary` (`CaregiverRoutingHardcoded`, `AuditTrailNoOp`, `NotificationDispatchLog`, `CommandLookupHardcoded`)~~ | ✅ resolvido (verificado em 2026-08-23): as quatro classes não existem mais, `grep -rn "@Primary" evnt-service/src/main` não retorna nada, e os cinco adapters Feign reais estão em `infrastructure/clients/adapter/`. Ver §11.1c. | — |
 | **ACS** | `HistAuditClient` (vazio) + `HistAuditAdapter` (`// TODO: call histAuditClient.recordFact(...)`) | O ACS **nunca** envia audit fact ao HIST | **AUD-01 e AUD-02** — esta é a causa raiz de "ACS não produz audit facts" |
 | **ACS** | `MigProvisioningClient` (vazio) + `MigProvisioningAdapter` (`// TODO: call requestSchema/getSchemaStatus`) | Provisionar tenant **não chama as migrations** | **E2E-009 passo 1 real.** Na Sessão 2 usamos o tenant seedado, então esse caminho nunca foi exercitado |
 

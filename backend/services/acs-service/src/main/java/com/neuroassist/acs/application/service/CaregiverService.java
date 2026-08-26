@@ -14,6 +14,7 @@ import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
 import com.neuroassist.acs.shared.error.LastCaregiverLinkException;
 import com.neuroassist.acs.shared.error.LoginDuplicateException;
+import com.neuroassist.acs.shared.error.TenantAlreadySeededException;
 import com.neuroassist.acs.shared.error.TenantMismatchException;
 import com.neuroassist.acs.shared.error.TenantNotActiveException;
 import com.neuroassist.acs.shared.error.TenantNotFoundException;
@@ -41,6 +42,52 @@ public class CaregiverService implements CaregiverUseCase {
     private final TenantRepositoryPort tenantRepository;
     private final CaregiverPatientLinkRepositoryPort linkRepository;
     private final PasswordEncoder passwordEncoder;
+
+    /**
+     * Bootstrap path — see {@link CaregiverUseCase#seedFirstCoordinator}.
+     *
+     * <p>Two differences from {@link #create}, and only two: the tenant may still be PROVISIONING
+     * (the schema is being built; {@code cuidador} lives in the global schema and does not need
+     * it), and there is no JWT tenant comparison. Login still cannot be issued until the tenant is
+     * ACTIVE — {@code AutenticacaoService} checks that — so seeding early is safe and makes the
+     * company usable the moment provisioning finishes, including after a retry.
+     */
+    @Override
+    public CaregiverResponse seedFirstCoordinator(
+            UUID tenantId, String nome, String login, String senha) {
+
+        tenantRepository
+                .findById(tenantId)
+                .orElseThrow(() -> new TenantNotFoundException(tenantId));
+
+        // The invariant that replaces the JWT tenant check: this runs once per tenant, ever.
+        if (!cuidadorRepository.findByTenantId(tenantId).isEmpty()) {
+            throw new TenantAlreadySeededException(tenantId);
+        }
+
+        String normalizedLogin = login.toLowerCase();
+        if (cuidadorRepository.findByLogin(normalizedLogin).isPresent()) {
+            throw new LoginDuplicateException(normalizedLogin, tenantId);
+        }
+
+        log.info("Seeding first coordinator: login={} tenantId={}", normalizedLogin, tenantId);
+
+        Cuidador cuidador =
+                new Cuidador(
+                        null,
+                        tenantId,
+                        nome,
+                        normalizedLogin,
+                        passwordEncoder.encode(senha),
+                        CuidadorPapel.COORDENADOR_CLINICA,
+                        CuidadorStatus.ACTIVE,
+                        Instant.now(),
+                        null);
+
+        Cuidador saved = cuidadorRepository.save(cuidador);
+        log.info("First coordinator seeded: id={} tenantId={}", saved.id(), tenantId);
+        return toResponse(saved);
+    }
 
     @Override
     public CaregiverResponse create(CaregiverRequest request, UUID tenantId) {
@@ -161,6 +208,58 @@ public class CaregiverService implements CaregiverUseCase {
         Cuidador saved = cuidadorRepository.save(updated);
         log.info("Caregiver status updated: id={} status={}", saved.id(), saved.status());
         return toResponse(saved);
+    }
+
+    @Override
+    public CaregiverResponse edit(UUID cuidadorId, String nome, String login) {
+        // RULE-07: o tenant tem de estar resolvido antes de qualquer leitura — a multi-tenancy do
+        // Hibernate fixa o schema quando a conexão é adquirida.
+        TenantContextHolder.require();
+
+        Cuidador existing =
+                cuidadorRepository
+                        .findById(cuidadorId)
+                        .orElseThrow(() -> new CaregiverNotFoundException(cuidadorId));
+
+        // Mesma normalização do cadastro: login é identidade de acesso, e "Ana@X" e "ana@x" não
+        // podem ser duas pessoas. Sem isto, a checagem de duplicidade abaixo deixaria passar um
+        // duplicado só por diferença de caixa.
+        String normalizedLogin = login.toLowerCase();
+
+        // Duplicidade só importa se o login MUDOU: reenviar o mesmo login (o caso comum de quem
+        // corrige apenas o nome e devolve o objeto inteiro) não é conflito consigo mesmo.
+        if (!normalizedLogin.equals(existing.login())) {
+            cuidadorRepository
+                    .findByLogin(normalizedLogin)
+                    .ifPresent(
+                            outro -> {
+                                throw new LoginDuplicateException(
+                                        normalizedLogin, existing.tenantId());
+                            });
+        }
+
+        log.info(
+                "Editing caregiver: id={} loginChanged={}",
+                cuidadorId,
+                !normalizedLogin.equals(existing.login()));
+
+        Cuidador updated =
+                new Cuidador(
+                        existing.id(),
+                        existing.tenantId(),
+                        nome,
+                        normalizedLogin,
+                        // Credencial, papel e status NÃO são tocados: preservados do existente de
+                        // propósito. Trocar senha por este caminho daria a quem administra o poder
+                        // de assumir a conta de outra pessoa; e status tem endpoint próprio, que
+                        // carrega a invariante D-204.
+                        existing.credentialHash(),
+                        existing.papel(),
+                        existing.status(),
+                        existing.criadoEm(),
+                        Instant.now());
+
+        return toResponse(cuidadorRepository.save(updated));
     }
 
     // -----------------------------------------------------------------------

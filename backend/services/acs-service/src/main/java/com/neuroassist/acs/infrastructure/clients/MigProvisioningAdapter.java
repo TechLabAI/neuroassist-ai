@@ -8,13 +8,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Adapter implementing MigProvisioningPort via MigProvisioningClient (Feign).
+ * Adapter implementing {@link MigProvisioningPort} over {@link MigProvisioningClient} (E2E-016).
  *
- * <p>Fail-closed: any Feign failure propagates as UpstreamUnavailableException (502). Full Feign
- * method implementations deferred to ACS-009 (P3) when the MIG contract is stable. Circuit breaker
- * / retry configured externally via Resilience4j (ACS-012/P2 config).
+ * <p><b>What this replaced.</b> Both methods used to return literals — {@code PENDING} from the
+ * request, {@code READY} from the poll — with a {@code // TODO (ACS-009/P3)} where the call
+ * belonged. Provisioning a tenant created no schema at all: {@code TenantProvisioningService} saw
+ * READY, flipped the tenant to ACTIVE, and recorded a {@code schema_nome} pointing at nothing. All
+ * six E2E sessions ran against the seeded {@code t_emp_dev}, so the path was never exercised and
+ * the module gate stayed green throughout.
  *
- * <p>RULE-06: @FeignClient only in infrastructure.clients (MigProvisioningClient).
+ * <p><b>Fail-closed, and it must stay that way.</b> Every failure becomes {@code
+ * UpstreamUnavailableException}, which {@code TenantProvisioningService} turns into a tenant left
+ * in PROVISIONING for retry. The one thing this adapter must never do again is answer READY without
+ * having asked anybody.
  */
 @Slf4j
 @Component
@@ -23,37 +29,48 @@ public class MigProvisioningAdapter implements MigProvisioningPort {
 
     private final MigProvisioningClient migProvisioningClient;
 
-    /**
-     * Requests tenant schema creation from mig-service. Fail-closed: throws
-     * UpstreamUnavailableException if MIG is unavailable.
-     */
     @Override
     public MigSchemaResponse requestTenantSchema(UUID tenantId, String schemaName) {
         try {
-            // TODO (ACS-009/P3): call migProvisioningClient.requestSchema(tenantId, schemaName)
-            // Stub: return PENDING response for P2 (real Feign call in P3)
-            log.info("MIG schema request (stub): tenantId={} schemaName={}", tenantId, schemaName);
-            return new MigSchemaResponse(tenantId, schemaName, "PENDING");
+            MigProvisioningClient.ProvisionTenantResponse response =
+                    migProvisioningClient.requestSchema(
+                            tenantId, new MigProvisioningClient.ProvisionTenantRequest(schemaName));
+
+            log.info(
+                    "MIG provisioned tenant={} schema={} status={} applied={} version={}",
+                    tenantId,
+                    response.schema(),
+                    response.status(),
+                    response.appliedVersions() == null ? 0 : response.appliedVersions().size(),
+                    response.currentVersion());
+
+            // The schema name comes back from the response, not from the request: if MIG ever
+            // resolves a different one, the tenant row must record what actually exists rather
+            // than what was asked for.
+            return new MigSchemaResponse(tenantId, response.schema(), response.status());
+
         } catch (Exception e) {
             log.error(
-                    "MIG requestTenantSchema failed: tenantId={} error={}",
+                    "MIG requestTenantSchema failed: tenantId={} schema={} error={}",
                     tenantId,
+                    schemaName,
                     e.getMessage());
             throw new UpstreamUnavailableException("mig-service", e);
         }
     }
 
-    /**
-     * Polls the provisioning status of a tenant schema. Fail-closed: throws
-     * UpstreamUnavailableException if MIG is unavailable.
-     */
     @Override
     public MigSchemaStatusResponse getTenantSchemaStatus(UUID tenantId) {
         try {
-            // TODO (ACS-009/P3): call migProvisioningClient.getSchemaStatus(tenantId)
-            // Stub: return READY for P2 (real Feign call in P3)
-            log.debug("MIG schema status poll (stub): tenantId={} → READY", tenantId);
-            return new MigSchemaStatusResponse(tenantId, "READY", 100, null);
+            MigProvisioningClient.TenantSchemaStatusResponse response =
+                    migProvisioningClient.getSchemaStatus(tenantId);
+            log.debug("MIG schema status tenant={} status={}", tenantId, response.status());
+            return new MigSchemaStatusResponse(
+                    tenantId,
+                    response.status(),
+                    response.percentual(),
+                    response.estimatedSeconds());
+
         } catch (Exception e) {
             log.error(
                     "MIG getTenantSchemaStatus failed: tenantId={} error={}",

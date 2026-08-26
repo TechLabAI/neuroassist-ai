@@ -1,16 +1,16 @@
 # Backend Snippets (NeuroAssist AI)
 
-> Snippets opinados (6-12 linhas) + pseudocódigo para implementar ports/adapters/use-cases + testes.
-> Cheat-sheet. Para racional completo, ver `hexagonal-patterns.md`.
+> Opinionated snippets (6-12 lines) + pseudocode for implementing ports/adapters/use-cases + tests.
+> Cheat-sheet. For the full rationale, see `hexagonal-patterns.md`.
 
-**Formato:** Título → caminho-alvo → snippet → notas → refs
+**Format:** title → target path → snippet → notes → refs
 
 ---
 
 ## 1) Port -- Persistence (semantic repository)
 
-- Alvo: `backend/services/<service>/.../application/port/out/**`
-- Exemplo: `com.neuroassist.<module>.application.port.out.ClientePort`
+- Target: `backend/services/<service>/.../application/port/out/**`
+- Example: `com.neuroassist.<module>.application.port.out.ClientePort`
 
 ```java
 // application/port/out/ClientePort.java
@@ -20,13 +20,13 @@ public interface ClientePort {
 }
 ```
 
-- Notas: Port expõe intenção (`findByCpfCnpj`) -- evita API persistence-leaky como `findById(Long)` quando há business key clara.
+- Notes: the port exposes intent (`findByCpfCnpj`) -- it avoids a persistence-leaky API such as `findById(Long)` when there is a clear business key.
 
 ---
 
 ## 2) Port -- Use Case (input port)
 
-- Alvo: `backend/services/<service>/.../application/port/in/**`
+- Target: `backend/services/<service>/.../application/port/in/**`
 
 ```java
 // application/port/in/CriarClienteUseCase.java
@@ -35,13 +35,13 @@ public interface CriarClienteUseCase {
 }
 ```
 
-- Notas: Use-case interfaces são fronteira entre `api` e `application`. Controllers dependem destas, nunca de classes service concretas.
+- Notes: use-case interfaces are the boundary between `api` and `application`. Controllers depend on these, never on concrete service classes.
 
 ---
 
 ## 3) Port -- External Integration (adapter contract)
 
-- Alvo: `backend/services/<service>/.../application/port/out/**`
+- Target: `backend/services/<service>/.../application/port/out/**`
 
 ```java
 // application/port/out/SefazAdapterPort.java
@@ -50,13 +50,13 @@ public interface SefazAdapterPort {
 }
 ```
 
-- Notas: Adapter implementations traduzem HTTP/SOAP/XML para tipos de domínio e mapeiam erros para `ExternalServiceException`.
+- Notes: adapter implementations translate HTTP/SOAP/XML into domain types and map errors to `ExternalServiceException`.
 
 ---
 
 ## 4) Adapter -- JPA (persistence)
 
-- Alvo: `backend/services/<service>/.../infrastructure/persistence/adapter/**`
+- Target: `backend/services/<service>/.../infrastructure/persistence/adapter/**`
 
 ```java
 @Component
@@ -73,13 +73,13 @@ class ClienteJpaAdapter implements ClientePort {
 }
 ```
 
-- Notas: Mapeamento via MapStruct `ClienteMapper`. Adapter nunca abre sua própria transação.
+- Notes: mapping through the MapStruct `ClienteMapper`. The adapter never opens its own transaction.
 
 ---
 
 ## 5) Adapter -- Feign HTTP client (inter-service)
 
-- Alvo: `backend/services/<service>/.../infrastructure/clients/**`
+- Target: `backend/services/<service>/.../infrastructure/clients/**`
 
 ```java
 // infrastructure/clients/CadastrosClienteClient.java
@@ -91,7 +91,7 @@ public interface CadastrosClienteClient {
 }
 ```
 
-- Notas: Feign clients registrados via `@EnableFeignClients`. Aplicar Resilience4j no método do application service que chama.
+- Notes: Feign clients are registered through `@EnableFeignClients`. Apply Resilience4j on the application-service method that calls them.
 
 ---
 
@@ -115,13 +115,13 @@ class SefazAdapter implements SefazAdapterPort {
 }
 ```
 
-- Notas: Adapter lança exceções domain-específicas em falhas; Application Service decide compensação.
+- Notes: the adapter throws domain-specific exceptions on failure; the Application Service decides the compensation.
 
 ---
 
 ## 7) Application Service (transactional use-case)
 
-- Alvo: `backend/services/<service>/.../application/service/**`
+- Target: `backend/services/<service>/.../application/service/**`
 
 ```java
 @Service
@@ -131,7 +131,7 @@ class CriarClienteService implements CriarClienteUseCase {
     private final ClienteDomainService domainService;
     @Transactional
     public ClienteResult execute(CriarClienteCommand cmd) {
-        EmpresaContextHolder.require();         // RULE-07 -- obrigatório
+        EmpresaContextHolder.require();         // RULE-07 -- mandatory
         var cliente = Cliente.from(cmd);
         domainService.validar(cliente);
         return ClienteResult.from(clientePort.save(cliente));
@@ -139,20 +139,20 @@ class CriarClienteService implements CriarClienteUseCase {
 }
 ```
 
-- Notas: `@Transactional` só aqui (RULE-03). Adapters chamados dentro mas NÃO abrem suas próprias transações.
+- Notes: `@Transactional` only here (RULE-03). Adapters are called inside but do NOT open their own transactions.
 
 ---
 
-## 8) Anti-pattern -- @Transactional na camada errada
+## 8) Anti-pattern -- @Transactional in the wrong layer
 
 ```java
-// ❌ BAD: @Transactional em controller mistura concern web + DB transaction
+// ❌ BAD: @Transactional on a controller mixes the web concern with the DB transaction
 @RestController class ClienteController {
     @Transactional
     @PostMapping public ResponseEntity<?> create(...) { ... }
 }
 
-// ❌ BAD: @Transactional em adapter
+// ❌ BAD: @Transactional on an adapter
 @Component class ClienteJpaAdapter implements ClientePort {
     @Transactional
     public Cliente save(Cliente c) { ... }
@@ -163,7 +163,7 @@ class CriarClienteService implements CriarClienteUseCase {
 
 ## 9) EmpresaContextHolder + EmpresaFilter
 
-- Alvo: `backend/services/<service>/.../infrastructure/security/**`
+- Target: `backend/services/<service>/.../infrastructure/security/**`
 
 ```java
 public final class EmpresaContextHolder {
@@ -192,13 +192,13 @@ class EmpresaFilter extends OncePerRequestFilter {
 }
 ```
 
-- Notas: Para `@JmsListener`, passar empresa explicitamente do envelope do evento; nunca depender de ThreadLocal de thread web.
+- Notes: for `@JmsListener`, pass the tenant explicitly from the event envelope; never rely on the web thread's ThreadLocal.
 
 ---
 
 ## 10) JMS Producer (event publisher)
 
-- Alvo: `backend/services/<service>/.../infrastructure/messaging/producer/**`
+- Target: `backend/services/<service>/.../infrastructure/messaging/producer/**`
 
 ```java
 @Component
@@ -211,13 +211,13 @@ class VendaConfirmadaPublisher {
 }
 ```
 
-- Notas: Evento conforma ao envelope (`eventId`, `eventType`, `occurredAt`, `correlationId`, `version`, `empresaId`, `payload`). Ver `platform-patterns.md` §1.2.
+- Notes: the event conforms to the envelope (`eventId`, `eventType`, `occurredAt`, `correlationId`, `version`, `empresaId`, `payload`). See `platform-patterns.md` §1.2.
 
 ---
 
-## 11) JMS Consumer (idempotente)
+## 11) JMS Consumer (idempotent)
 
-- Alvo: `backend/services/<service>/.../infrastructure/messaging/consumer/**`
+- Target: `backend/services/<service>/.../infrastructure/messaging/consumer/**`
 
 ```java
 @Component
@@ -229,7 +229,7 @@ class VendaConfirmadaConsumer {
     @JmsListener(destination = "neuroassist-ai.<module>.<entity>.<event>")
     public void onVendaConfirmada(EventEnvelope envelope) {
         if (processedEvents.alreadyProcessed(envelope.eventId())) return;
-        EmpresaContextHolder.set(envelope.empresaId());       // propagação explícita
+        EmpresaContextHolder.set(envelope.empresaId());       // explicit propagation
         try {
             emitirNFe.execute(EmitirNFeCommand.from(envelope));
             processedEvents.markProcessed(envelope.eventId());
@@ -238,13 +238,13 @@ class VendaConfirmadaConsumer {
 }
 ```
 
-- Notas: Consumer DEVE ser idempotente -- check antes de agir.
+- Notes: the consumer MUST be idempotent -- check before acting.
 
 ---
 
 ## 12) Idempotency pattern
 
-- Alvo: `backend/services/<service>/.../application/service/**`
+- Target: `backend/services/<service>/.../application/service/**`
 
 ```java
 @Transactional
@@ -253,17 +253,17 @@ public NFeResult execute(EmitirNFeCommand cmd) {
     if (idempotencyPort.exists(cmd.empresaId(), cmd.idempotencyKey()))
         return idempotencyPort.previousResult(cmd.empresaId(), cmd.idempotencyKey());
     idempotencyPort.register(cmd.empresaId(), cmd.idempotencyKey(), Instant.now());
-    // ... processa
+    // ... process
 }
 ```
 
-- Notas: idempotency key composta por (empresaId, operationKey).
+- Notes: the idempotency key is composed of (empresaId, operationKey).
 
 ---
 
 ## 13) MapStruct Mapper
 
-- Alvo: `backend/services/<service>/.../infrastructure/persistence/**`
+- Target: `backend/services/<service>/.../infrastructure/persistence/**`
 
 ```java
 @Mapper(componentModel = "spring")
@@ -274,13 +274,13 @@ public interface ClienteMapper {
 }
 ```
 
-- Notas: Use `componentModel = "spring"` para injection via construtor. Adicione `annotationProcessor("org.mapstruct:mapstruct-processor:...")` em `build.gradle.kts`.
+- Notes: use `componentModel = "spring"` for constructor injection. Add `annotationProcessor("org.mapstruct:mapstruct-processor:...")` to `build.gradle.kts`.
 
 ---
 
-## 14) Controller (mínimo)
+## 14) Controller (minimal)
 
-- Alvo: `backend/services/<service>/.../api/controller/**`
+- Target: `backend/services/<service>/.../api/controller/**`
 
 ```java
 @RestController
@@ -301,7 +301,7 @@ class ClienteController {
 
 ## 15) GlobalExceptionHandler (ProblemDetail -- RFC 7807)
 
-- Alvo: `backend/services/<service>/.../api/exception/**`
+- Target: `backend/services/<service>/.../api/exception/**`
 
 ```java
 @RestControllerAdvice
@@ -323,9 +323,9 @@ class GlobalExceptionHandler {
 
 ---
 
-## 16) Unit Test -- Application Service (mock ports)
+## 16) Unit Test -- Application Service (mocked ports)
 
-- Alvo: `backend/services/<service>/src/test/**`
+- Target: `backend/services/<service>/src/test/**`
 
 ```java
 @Tag("unit")
@@ -335,7 +335,7 @@ class CriarClienteServiceTest {
     @Mock ClienteDomainService domainService;
     @InjectMocks CriarClienteService svc;
     @BeforeEach
-    void setUp() { EmpresaContextHolder.set("test"); }
+    void setUp() { EmpresaContextHolder.set("emp_test"); }
     @AfterEach
     void tearDown() { EmpresaContextHolder.clear(); }
     @Test
@@ -352,10 +352,10 @@ class CriarClienteServiceTest {
 
 ## 17) Integration Test -- Testcontainers (PostgreSQL, singleton pattern)
 
-- Alvo: `backend/services/<service>/src/test/**`
+- Target: `backend/services/<service>/src/test/**`
 
-> **IMPORTANTE:** use singleton container (static initializer), NUNCA `@Testcontainers` + `@Container`
-> -- race condition com `@DynamicPropertySource`.
+> **IMPORTANT:** use a singleton container (static initializer), NEVER `@Testcontainers` + `@Container`
+> -- it races with `@DynamicPropertySource`.
 
 ```java
 @SpringBootTest
@@ -380,11 +380,11 @@ public abstract class BaseIntegrationTest {
 }
 ```
 
-- Notas: NUNCA H2 para integration tests -- sempre Testcontainers com PostgreSQL real.
+- Notes: NEVER H2 for integration tests -- always Testcontainers with a real PostgreSQL.
 
 ---
 
-## 18) WireMock Stub -- serviço externo
+## 18) WireMock Stub -- external service
 
 ```java
 @RegisterExtension
@@ -399,7 +399,7 @@ wm.stubFor(post(urlEqualTo("/nfe/emitir"))
 
 ## 19) ArchUnit Rule Sample
 
-- Alvo: `backend/services/<service>/src/test/**`
+- Target: `backend/services/<service>/src/test/**`
 
 ```java
 @AnalyzeClasses(packages = "com.neuroassist.{module}")
@@ -420,7 +420,7 @@ class ArchitectureTest {
 
 ---
 
-## 20) Gradle `build.gradle.kts` -- dependências e ArchUnit task
+## 20) Gradle `build.gradle.kts` -- dependencies and the ArchUnit task
 
 ```kotlin
 dependencies {
@@ -434,7 +434,7 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:1.20.0")
     // WireMock
     testImplementation("org.wiremock:wiremock-standalone:3.9.1")
-    // Embedded Artemis broker para JMS em testes
+    // Embedded Artemis broker for JMS in tests
     testImplementation("org.apache.activemq:artemis-jakarta-server")
     // MapStruct processor
     annotationProcessor("org.mapstruct:mapstruct-processor:1.6.0")
@@ -444,16 +444,16 @@ dependencies {
 tasks.register("architectureCheck") { dependsOn(tasks.named("test")) }
 ```
 
-> **IMPORTANTE:** Nunca usar `org.testcontainers:activemq` (não existe para Artemis).
-> Use `org.apache.activemq:artemis-jakarta-server` com `spring.artemis.mode=embedded`.
+> **IMPORTANT:** never use `org.testcontainers:activemq` (it does not exist for Artemis).
+> Use `org.apache.activemq:artemis-jakarta-server` with `spring.artemis.mode=embedded`.
 
 ---
 
-## 21) DomainServiceConfig (obrigatório)
+## 21) DomainServiceConfig (mandatory)
 
-- Alvo: `backend/services/<service>/.../infrastructure/config/**`
+- Target: `backend/services/<service>/.../infrastructure/config/**`
 
-Domain services são POJOs puros (RULE-01: sem imports Spring). DEVEM ser registrados via `@Configuration`:
+Domain services are plain POJOs (RULE-01: no Spring imports). They MUST be registered through a `@Configuration`:
 
 ```java
 // infrastructure/config/DomainServiceConfig.java
@@ -470,13 +470,13 @@ public class DomainServiceConfig {
 }
 ```
 
-- Notas: Um bean method por domain service. Se o domain service tem parâmetros (outros domain services), wire aqui.
+- Notes: one bean method per domain service. If the domain service takes parameters (other domain services), wire them here.
 
 ---
 
 ## 22) TestSecurityConfig -- mock JwtDecoder
 
-- Alvo: `backend/services/<service>/src/test/**/config/**`
+- Target: `backend/services/<service>/src/test/**/config/**`
 
 ```java
 @Configuration
@@ -487,7 +487,7 @@ public class TestSecurityConfig {
         return token -> Jwt.withTokenValue(token)
                 .header("alg", "none")
                 .claim("sub", "test-user")
-                .claim("empresa_id", "test")
+                .claim("empresa_id", "emp_test")
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(3600))
                 .build();
@@ -495,17 +495,17 @@ public class TestSecurityConfig {
 }
 ```
 
-- Notas: Previne Spring de conectar ao OIDC issuer real durante testes.
+- Notes: it stops Spring from reaching the real OIDC issuer during tests.
 
 ---
 
-## 23) `application-test.yml` -- configuração compreensiva de testes
+## 23) `application-test.yml` -- comprehensive test configuration
 
-- Alvo: `backend/services/<service>/src/test/resources/**`
+- Target: `backend/services/<service>/src/test/resources/**`
 
 ```yaml
-# Profile 'test' -- Testcontainers provê o DB real.
-# Datasource properties são sobrescritos via @DynamicPropertySource.
+# Profile 'test' -- Testcontainers provides the real DB.
+# Datasource properties are overridden through @DynamicPropertySource.
 spring:
   jpa:
     hibernate:
@@ -552,78 +552,78 @@ eureka:
     enabled: false
 ```
 
-- Notas: Override em `@DynamicPropertySource` para datasource. `simple.instances` provê URLs dummy para Feign clients quando Eureka está desabilitado.
+- Notes: override the datasource in `@DynamicPropertySource`. `simple.instances` provides dummy URLs for the Feign clients when Eureka is disabled.
 
 ---
 
-## 24) `init-schema.sql` -- inicialização de schema de teste
+## 24) `init-schema.sql` -- test schema initialization
 
-- Alvo: `backend/services/<service>/src/test/resources/**`
+- Target: `backend/services/<service>/src/test/resources/**`
 
 ```sql
 -- Test schema initialization
 CREATE SCHEMA IF NOT EXISTS neuroassist_global;
-CREATE SCHEMA IF NOT EXISTS test;
+CREATE SCHEMA IF NOT EXISTS emp_test;
 ```
 
-- Notas: Necessário porque entidades JPA usam `@Table(schema = "neuroassist_global")` ou
-  `@Table(schema = "emp_<empresa>")` mas Testcontainers PostgreSQL só tem `public` por default.
-  Referenciado via `.withInitScript("init-schema.sql")` em `BaseIntegrationTest`.
+- Notes: required because JPA entities use `@Table(schema = "neuroassist_global")` or
+  `@Table(schema = "emp_<empresa>")` while the Testcontainers PostgreSQL only has `public` by default.
+  Referenced through `.withInitScript("init-schema.sql")` in `BaseIntegrationTest`.
 
 ---
 
-## 25) JPA Entity -- UUID assigned no domain (canônico)
+## 25) JPA Entity -- UUID assigned in the domain (canonical)
 
 ```java
-// ✅ CORRETO
+// ✅ CORRECT
 @Entity @Table(name = "cliente")
 @Getter @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor @Builder
 public class ClienteJpaEntity {
     @Id private UUID id;
-    @Version private Long version;   // nullable, sem @Builder.Default
+    @Version private Long version;   // nullable, no @Builder.Default
     // ...
 }
 
-// ❌ ERRADO -- as 3 permutações produzem falhas de CREATE
-@Id @UuidGenerator  // conflito 1: pre-set UUID + generator = "detached"
+// ❌ WRONG -- the 3 permutations below produce CREATE failures
+@Id @UuidGenerator  // conflict 1: pre-set UUID + generator = "detached"
 @Version private Long version;
 
-implements Persistable<UUID> {       // conflito 2: Persistable + @Version
+implements Persistable<UUID> {       // conflict 2: Persistable + @Version
     @Builder.Default boolean isNew = true;
 }
 
 // toEntity()...
-.builder().id(r.id()).version(0L).build()  // conflito 3: "detached entity passed to persist"
+.builder().id(r.id()).version(0L).build()  // conflict 3: "detached entity passed to persist"
 ```
 
-- Refs: `hexagonal-patterns.md` §4b (regra canônica).
+- Refs: `hexagonal-patterns.md` §4b (canonical rule).
 
 ---
 
 ## CI Recommendations
 
-- ArchUnit em test deps → `architectureCheck` bloqueante.
-- Testcontainers para todos integration jobs (PostgreSQL + Artemis embedded).
-- WireMock para stubs HTTP externos em integration e BDD.
-- MapStruct processor em `annotationProcessor`.
+- ArchUnit in the test deps → blocking `architectureCheck`.
+- Testcontainers for every integration job (PostgreSQL + embedded Artemis).
+- WireMock for external HTTP stubs in integration and BDD.
+- MapStruct processor in `annotationProcessor`.
 
 ## PR Checklist
 
-- [ ] Ports em `application/port/out` ou `application/port/in`.
-- [ ] Adapters em `infrastructure/persistence/adapter` ou `infrastructure/clients`.
-- [ ] Sem `@Transactional` em controllers ou adapters.
-- [ ] DTOs usados para API; entities nunca retornadas direto.
-- [ ] `EmpresaContextHolder.require()` chamado em application services.
-- [ ] ArchUnit tests verdes (`./gradlew :<service>:architectureCheck`).
-- [ ] Integration tests usam Testcontainers (não H2).
-- [ ] Artemis embedded em tests, não Testcontainers Artemis.
-- [ ] Pacote base `com.neuroassist.<module>` (RULE-09).
+- [ ] Ports in `application/port/out` or `application/port/in`.
+- [ ] Adapters in `infrastructure/persistence/adapter` or `infrastructure/clients`.
+- [ ] No `@Transactional` in controllers or adapters.
+- [ ] DTOs used for the API; entities never returned directly.
+- [ ] `EmpresaContextHolder.require()` called in application services.
+- [ ] ArchUnit tests green (`./gradlew :<service>:architectureCheck`).
+- [ ] Integration tests use Testcontainers (not H2).
+- [ ] Embedded Artemis in tests, not Testcontainers Artemis.
+- [ ] Base package `com.neuroassist.<module>` (RULE-09).
 
-## Referências
+## References
 
-- `hexagonal-patterns.md` -- racional completo
+- `hexagonal-patterns.md` -- full rationale
 - `platform-patterns.md` -- JMS envelope, Feign, multi-schema
-- `testing-conventions.md` -- pirâmide completa
-- `services-catalog.md` -- catálogo de microserviços
+- `testing-conventions.md` -- full pyramid
+- `services-catalog.md` -- microservice catalog

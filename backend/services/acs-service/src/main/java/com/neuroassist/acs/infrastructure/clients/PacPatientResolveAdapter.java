@@ -23,15 +23,15 @@ public class PacPatientResolveAdapter implements PacPatientResolvePort {
     @Override
     public Optional<PatientResolveResponse> resolvePatient(UUID pacienteId, UUID tenantId) {
         try {
-            PacPatientResolveClient.PatientResponse response =
-                    pacClient.getPatient(pacienteId, tenantId);
+            PacPatientResolveClient.PatientResponse response = pacClient.getPatient(pacienteId);
             if (response == null) {
                 return Optional.empty();
             }
-            String status = response.ativo() ? "ACTIVE" : "INACTIVE";
+            // pac-service has no "inactive patient" state and returns no tenantId — the row lives
+            // in the tenant's schema, so reaching it at all proves the tenant. The previous shape
+            // read both fields from a response that never carried them.
             return Optional.of(
-                    new PatientResolveResponse(
-                            response.id(), response.tenantId(), response.nome(), status));
+                    new PatientResolveResponse(response.id(), tenantId, response.nome(), "ACTIVE"));
         } catch (feign.FeignException.NotFound e) {
             log.debug(
                     "Patient not found in pac-service: pacienteId={} tenantId={}",

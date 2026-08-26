@@ -25,6 +25,11 @@ public class DispositivoEnrollmentRepositoryAdapter implements DispositivoEnroll
     @Override
     public DispositivoEnrollment save(DispositivoEnrollment domain) {
         DispositivoEnrollmentJpaEntity entity = toEntity(domain);
+        // O mapper sempre constrói uma instância nova; só o repositório sabe se a
+        // linha já existe. Sem isto, um update viraria INSERT (C-20).
+        if (entity.getId() != null && repository.existsById(entity.getId())) {
+            entity.markExisting();
+        }
         DispositivoEnrollmentJpaEntity saved = repository.save(entity);
         return toDomain(saved);
     }

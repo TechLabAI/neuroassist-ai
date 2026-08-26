@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable, of, timer } from 'rxjs';
 import { switchMap } from 'rxjs/operators';
 import { AcsLinkPort, CaregiverLinkDto } from './acs-link.port';
+import { ACS_E2E_FLAGS, ACS_E2E_CUIDADORA_OUTRA_EMPRESA } from './acs-e2e-flags';
 
 // =============================================================================
 // AcsLinkMockAdapter — dev/test (default adapter)
@@ -69,6 +70,26 @@ const _links = new Map<string, CaregiverLinkDto>([
 
 let _idSeq = 1;
 
+// ---------------------------------------------------------------------------
+// Consultas sobre a semente, expostas ao adaptador de CUIDADOR.
+//
+// Existem porque a regra D-204 ("não desative quem é o último a cobrir alguém")
+// é avaliada pelo acs-service dentro de `CaregiverService.updateStatus`, ou
+// seja: o lado do CUIDADOR precisa perguntar ao lado do VÍNCULO. A dependência
+// é de mão única — vínculo não importa cuidador — justamente para não criar
+// ciclo entre os dois módulos.
+// ---------------------------------------------------------------------------
+
+/** Vínculos ATIVOS de um cuidador. Espelha `linkRepository.findActiveByCuidadorId`. */
+export function vinculosAtivosDoCuidador(cuidadorId: string): readonly CaregiverLinkDto[] {
+  return Array.from(_links.values()).filter((l) => l.cuidadorId === cuidadorId && l.active);
+}
+
+/** Quantos cuidadores ativos cobrem um paciente. Espelha `linkRepository.countActiveByPacienteId`. */
+export function contarVinculosAtivosDoPaciente(pacienteId: string): number {
+  return Array.from(_links.values()).filter((l) => l.pacienteId === pacienteId && l.active).length;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AcsLinkMockAdapter implements AcsLinkPort {
   listForCaregiver(cuidadorId: string): Observable<CaregiverLinkDto[]> {
@@ -82,9 +103,30 @@ export class AcsLinkMockAdapter implements AcsLinkPort {
   link(cuidadorId: string, pacienteId: string): Observable<CaregiverLinkDto> {
     return timer(600).pipe(
       switchMap(() => {
+        // Erro de rede a pedido da suíte — o cenário que prova que a cobertura é
+        // RE-DERIVADA depois de um vínculo que falhou precisa de uma falha que não
+        // seja 404 nem 422, senão mede o caminho de erro errado.
+        if (
+          typeof localStorage !== 'undefined' &&
+          localStorage.getItem(ACS_E2E_FLAGS.falhaVincular) === 'true'
+        ) {
+          throw Object.assign(new Error('Falha ao comunicar com o serviço (E2E).'), { status: 500 });
+        }
+
         // Validate patient ID — enables e2e scenario 5 (unknown paciente reference).
         if (!_knownPatientIds.has(pacienteId)) {
           throw Object.assign(new Error('Paciente não encontrado.'), { status: 404 });
+        }
+
+        // Cross-empresa: espelha `CrossTenantLinkException` do acs-service, que o
+        // GlobalExceptionHandler converte em 422 — NÃO 409. Todos os pacientes da
+        // semente são de 'tenant-familia-amaral'; a única cuidadora de outra
+        // empresa é a semeada pela bandeira `crossEmpresa`.
+        if (cuidadorId === ACS_E2E_CUIDADORA_OUTRA_EMPRESA.id) {
+          throw Object.assign(
+            new Error('Cuidador e paciente pertencem a empresas diferentes.'),
+            { status: 422, type: '/errors/cross-tenant-link' },
+          );
         }
 
         const existing = Array.from(_links.values()).find(

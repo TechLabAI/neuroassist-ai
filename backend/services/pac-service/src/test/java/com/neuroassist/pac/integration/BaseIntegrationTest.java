@@ -43,6 +43,12 @@ public abstract class BaseIntegrationTest {
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
 
+        // E2E-022 — as migrations REAIS, aplicadas antes de o Spring subir, exatamente como no
+        // deploy. Com `ddl-auto=validate` no application-test.yml, uma divergência entre migration
+        // e mapeamento JPA passa a derrubar o contexto em vez de aparecer só em produção.
+        SchemaMigrations.applyTo(
+                POSTGRES, java.util.List.of("empresa-abc", "empresa-xyz", "t_emp_test"));
+
         // INT-PAC-006 (P8) — WireMock servers (singleton, dynamic ports, PASSO-0 fix).
         // startAll() is a no-op — servers are initialized in ExternalServicesWireMock's static
         // block which runs when this class is first loaded (before DynamicPropertySource).
@@ -57,10 +63,28 @@ public abstract class BaseIntegrationTest {
      * <p>DynamicPropertySource takes precedence over {@code application-test.yml}, so all fixed
      * URLs in the YML are overridden by the actual dynamic ports.
      */
+    /**
+     * A URL do Testcontainers já vem com query string ({@code ?loggerLevel=OFF}), então o separador
+     * precisa ser {@code &}. Concatenar um segundo {@code ?} produz uma URL que o driver aceita e
+     * ignora — o parâmetro some em silêncio e a validação falha por um motivo que não é o real.
+     */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
+    }
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         // DataSource (Testcontainers PostgreSQL)
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        // E2E-022 — `currentSchema` com um schema de tenant à frente do global.
+        //
+        // Com `ddl-auto=validate`, o Hibernate valida as entities contra a conexão de bootstrap,
+        // que não tem tenant vinculado. Sem o schema de tenant no search_path ele olharia só o
+        // global, não acharia `paciente` e derrubaria o contexto — reprovando por ausência de
+        // search_path, não por divergência de mapeamento, que é o que se quer medir.
+        registry.add("spring.datasource.url", BaseIntegrationTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
 

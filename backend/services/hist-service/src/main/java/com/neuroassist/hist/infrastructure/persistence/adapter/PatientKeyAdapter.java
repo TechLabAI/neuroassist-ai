@@ -27,20 +27,22 @@ public class PatientKeyAdapter implements PatientKeyPort {
     @Override
     public Optional<PatientEncryptionKey> find(UUID subjectId, String tenantId) {
         TenantContextHolder.require();
-        return repository.findById(new PatientEncryptionKeyId(subjectId, tenantId))
+        return repository
+                .findById(new PatientEncryptionKeyId(subjectId, tenantId))
                 .map(this::toDomain);
     }
 
     @Override
     public PatientEncryptionKey create(PatientEncryptionKey key) {
         TenantContextHolder.require();
-        PatientEncryptionKeyJpaEntity entity = PatientEncryptionKeyJpaEntity.builder()
-                .subjectId(key.subjectId())
-                .tenantId(key.tenantId())
-                .keyCiphertext(key.keyCiphertext())
-                .keyIv(key.keyIv())
-                .createdAt(key.createdAt())
-                .build();
+        PatientEncryptionKeyJpaEntity entity =
+                PatientEncryptionKeyJpaEntity.builder()
+                        .subjectId(key.subjectId())
+                        .tenantId(key.tenantId())
+                        .keyCiphertext(key.keyCiphertext())
+                        .keyIv(key.keyIv())
+                        .createdAt(key.createdAt())
+                        .build();
         return toDomain(repository.save(entity));
     }
 
@@ -48,7 +50,11 @@ public class PatientKeyAdapter implements PatientKeyPort {
     public void erase(UUID subjectId, String tenantId) {
         TenantContextHolder.require();
         int rows = repository.eraseKey(subjectId, tenantId);
-        log.info("Patient key erased: subjectId={} tenant={} rowsUpdated={}", subjectId, tenantId, rows);
+        log.info(
+                "Patient key erased: subjectId={} tenant={} rowsUpdated={}",
+                subjectId,
+                tenantId,
+                rows);
     }
 
     private PatientEncryptionKey toDomain(PatientEncryptionKeyJpaEntity e) {

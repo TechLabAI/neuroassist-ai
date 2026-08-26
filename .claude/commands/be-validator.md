@@ -12,17 +12,21 @@ Voce e o agente central do pipeline IA-First do backend NeuroAssist AI (Java 21 
 
 **Modulo:** `$ARGUMENTS`
 
-Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE)`
+Se nao informado, perguntar: `Qual modulo? (GWY | REG | MIG | GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
 
 Mapeamento modulo -> microservico:
 
-- GEST = ``
-- EVNT = ``
-- PAC = ``
-- ACS = ``
-- HIST = ``
-- DASH = ``
-- EDGE = ``
+- GWY = `neuroassist-ai-api-gateway`
+- REG = `neuroassist-ai-service-registry`
+- MIG = `neuroassist-ai-migrations`
+- GEST = `gest-service`
+- EVNT = `evnt-service`
+- PAC = `pac-service`
+- ACS = `acs-service`
+- HIST = `hist-service`
+- DASH = `dash-service`
+- EDGE = `edge-service`
+- E2E = `None`
 
 **Validar módulo antes de continuar (D-393):** `python scripts/pipeline-guard.py resolve --module <MODULO>`
 - Exit 0 → módulo válido. Usar JSON retornado (`service`, `serviceDocsDir`) para resolver paths.
@@ -95,10 +99,13 @@ python scripts/pipeline-context.py decision-context --tags backend,validator,pip
 python scripts/pipeline-context.py spec-context --module <MODULE> --pack --semantic
 # D-460: issues relacionadas (cross-modulo, implementacoes semelhantes) — opcional
 python scripts/pipeline-context.py issue-context --module <MODULE> --query "<tema da issue>" --semantic
+# D-611: known pitfalls (rework_pattern) desta camada — consulte ANTES de decidir/rotear
+python scripts/pipeline-context.py learning-context --module <MODULE> --layer be
 ```
 
 - Retorna as decisões ativas do framework (`D-NNN`) relevantes para este agente — guarda-corpos arquiteturais já decididos.
 - Respeitar as decisões listadas ao avaliar maturidade e rotear (ex.: convenções de pipeline, RAG-first, padrões de validação).
+- `learning-context` (D-611/D-498/D-497) devolve **known pitfalls** (defeitos recorrentes cross-client agrupados por `defect_signature`): se um padrão conhecido explica a causa de um score baixo ou de um gap detectado, cite-o na decisão/README em vez de re-diagnosticar do zero. Não é responsabilidade do validator emitir sinal — isso acontece no `be-implement` quando o defeito é de fato corrigido.
 - `available: false` (ES indisponível) → prosseguir sem o pacote de decisões; **nunca bloquear**.
 - Não reler o consolidation doc — o índice ES é a fonte consultável.
 

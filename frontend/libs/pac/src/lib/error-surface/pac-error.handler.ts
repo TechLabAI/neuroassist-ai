@@ -12,8 +12,9 @@ import { PacFeedbackService } from './pac-feedback.service';
 //   inline (field) < toast (transient) < banner (session-persistent) < modal (decisão)
 //
 // Safety-critical:
-//   'emergency-not-detectable' → blocking modal (fail-closed, MUST NOT be
-//   dismissed via ESC or outside click) per SPEC-07 §4 / ADR-005.
+//   'emergency-not-detectable' → modal bloqueante, DESENHADO PELO EDITOR
+//   (fail-closed, não fecha por ESC nem por clique fora) — SPEC-07 §4 / ADR-005.
+//   Este handler devolve 'inline' nesse caso: ver a justificativa no `case`.
 //
 // Usage:
 //   inject(PacErrorHandler).handle(appError, 'editor')
@@ -101,11 +102,19 @@ export class PacErrorHandler {
       // select a detectable gesto before the modal resolves.
       // -----------------------------------------------------------------------
       case 'emergency-not-detectable':
-        this.feedback.showModal({
-          blocking: true,
-          message: error.message,
-        });
-        return 'handled';
+        // DONO: o CommandEditorComponent, e não este handler.
+        //
+        // Ele já desenha o próprio modal bloqueante a partir de
+        // `editor().emergencyGateError`, e o dele tem o que importa: o botão
+        // "Alterar para Rotina", que É a saída. Um modal genérico aqui diria
+        // "Entendi" e devolveria a pessoa exatamente onde ela estava — a mesma
+        // tela, o mesmo comando recusado, nenhum caminho à frente. Pior: seriam
+        // DOIS modais sobre o mesmo fato, um deles sem serventia.
+        //
+        // O comentário do bloco acima diz que a pessoa "MUST change urgency or
+        // select a detectable gesto"; quem oferece essas duas coisas é o editor.
+        // Rotear para cá era mandar a decisão para quem não pode tomá-la.
+        return 'inline';
 
       // -----------------------------------------------------------------------
       // Default — advisory rotina warnings → dismissible banner

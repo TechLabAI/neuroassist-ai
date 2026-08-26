@@ -30,8 +30,35 @@ public interface PacienteUseCase {
      */
     Paciente findById(UUID id);
 
+    /**
+     * Erases the patient's personal data on request (LGPD / Flow-04).
+     *
+     * <p>Two halves, and both must happen: pac-service anonymises its own row, and hist-service
+     * destroys the per-patient encryption key so every audit payload about that patient becomes
+     * unreadable. The audit records themselves, and the hash chain over them, are preserved — the
+     * obligation is to remove the personal data, not to erase the fact that something happened.
+     *
+     * <p>Idempotent: erasing an already-erased patient is a no-op, not an error.
+     *
+     * @return the anonymised Paciente
+     */
+    Paciente erasePersonalData(UUID id);
+
     /** Returns all Pacientes for the current tenant. */
     List<Paciente> listAll();
+
+    /**
+     * Pacientes da empresa que estao <b>sem cuidadora ativa</b> (D-204 / ADR-010).
+     *
+     * <p>Por que precisa de endpoint proprio: o painel lista os pacientes de uma cuidadora
+     * consultando o directory do ACS. Um paciente sem vinculo nao esta na lista de ninguem — logo,
+     * um paciente descoberto e, por construcao, <b>invisivel</b> ao painel. Marca-lo como um campo
+     * na lista existente nao funcionaria: ele nunca chegaria la.
+     *
+     * <p>A E2E-028 fechou a porta da remocao; a criacao segue permitida por decisao de produto, e
+     * esta e a contrapartida: quem cria sem cuidadora tem de ficar visivel para alguem.
+     */
+    List<Paciente> listUncovered();
 
     /**
      * Updates a Paciente if the provided ETag version matches (optimistic locking).

@@ -2,6 +2,7 @@ package com.neuroassist.edge.infrastructure.persistence.repository;
 
 import com.neuroassist.edge.domain.model.TransitionKind;
 import com.neuroassist.edge.infrastructure.persistence.entity.DispositivoEdgeTransitionJpaEntity;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -26,4 +27,12 @@ public interface DispositivoEdgeTransitionJpaRepository
      */
     Optional<DispositivoEdgeTransitionJpaEntity> findFirstByDispositivoEdgeIdAndKindOrderByAtDesc(
             UUID dispositivoEdgeId, TransitionKind kind);
+
+    /**
+     * Idempotency guard: returns true if a liveness transition to 'offline' already exists for this
+     * device after {@code after}. Used by LivenessService to avoid duplicate online→offline rows
+     * per staleness epoch.
+     */
+    boolean existsByDispositivoEdgeIdAndKindAndToStateAndAtAfter(
+            UUID dispositivoEdgeId, TransitionKind kind, String toState, Instant after);
 }

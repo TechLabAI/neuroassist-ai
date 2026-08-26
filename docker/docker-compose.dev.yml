@@ -8,13 +8,17 @@
 #   docker compose -f docker/docker-compose.dev.yml logs -f <service>
 #   docker compose -f docker/docker-compose.dev.yml down -v
 #
+# FRONTEND: a imagem é construída pelo próprio compose (não precisa de npm local)
+#   docker compose -f docker/docker-compose.dev.yml up -d --build web  → http://localhost:14200
+#
 # NOTA DE PORTAS (conflitos com ambiente local):
 #   postgres   → host 5433 (5432 = techlab-framework-pgvector)
 #   registry   → host 18761 (8761 = Eureka local em execução)
+#   web        → host 14200 (4200 = `nx serve` local em execução)
 #
 # ORDEM DE STARTUP (gerenciada por depends_on + healthchecks):
 #   postgres + activemq → migrations-global → migrations-empresa →
-#   registry → acs-service → [gest, evnt, pac, edge, hist, dash] → gateway
+#   registry → acs-service → [gest, evnt, pac, edge, hist, dash] → gateway → web
 
 services:
 
@@ -83,10 +87,18 @@ services:
         condition: service_healthy
     restart: on-failure
 
+  # E2E-030 — migra o schema global E TODO schema de tenant do catalogo, nao um schema fixo.
+  #
+  # `FLYWAY_SCHEMAS: t_emp_dev` bastava enquanto existia um tenant so — e existia um so porque o
+  # provisionamento era um stub. Assim que criar empresas passou a funcionar (E2E-016), o job
+  # virou o gargalo: conhecia um schema e a plataforma tinha N. Quatro tenants ficaram sem
+  # `evnt_hist_outbox` no dia seguinte a migration que a cria.
+  #
+  # Exit code 2 = frota em versoes mistas: NAO fazer rollout dos servicos de negocio.
   migrations-empresa:
     image: eclipse-temurin:21-jre-alpine
     container_name: neuroassist-migrations-empresa
-    command: java -jar /app/app.jar
+    command: java -jar /app/app.jar --neuroassist.mig.mode=migrate-all
     volumes:
       - ../backend/services/neuroassist-ai-migrations/build/libs/neuroassist-ai-migrations-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
     environment:
@@ -94,13 +106,65 @@ services:
       FLYWAY_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
       FLYWAY_USER: neuroassist
       FLYWAY_PASSWORD: neuroassist_dev_pass
+      # O leque le as locations por `neuroassist.mig.*`; as FLYWAY_* abaixo continuam servindo
+      # a auto-configuracao do Spring, que neste modo nao migra nada (JobModeFlywayConfig).
       FLYWAY_LOCATIONS: classpath:db/migration/empresa
       FLYWAY_SCHEMAS: t_emp_dev
       FLYWAY_BASELINE_ON_MIGRATE: "false"
+      MIG_GLOBAL_SCHEMA: neuroassist_global
+      MIG_GLOBAL_LOCATIONS: classpath:db/migration/global
+      MIG_TENANT_LOCATIONS: classpath:db/migration/empresa
+      HIST_SERVICE_ROLE: neuroassist
     depends_on:
       migrations-global:
         condition: service_completed_successfully
     restart: on-failure
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # MIG API — face HTTP interna do neuroassist-ai-migrations :8091 (E2E-016)
+  #
+  # Mesmo jar dos dois conteineres acima, outra face. Aqueles rodam ate o fim e
+  # SAEM (o `depends_on: service_completed_successfully` conta com isso); este
+  # fica de pe para o acs-service chamar no onboarding de empresa. O que separa
+  # os dois e o profile `api`, que promove o processo a servlet e desliga o
+  # Flyway de startup.
+  #
+  # Nao e roteado pelo gateway e nao fica sob /api/**: e superficie interna
+  # (api-contract §1). A porta e publicada so para diagnostico local.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  migrations-api:
+    image: eclipse-temurin:21-jre-jammy
+    container_name: neuroassist-migrations-api
+    command: java -jar /app/app.jar
+    volumes:
+      - ../backend/services/neuroassist-ai-migrations/build/libs/neuroassist-ai-migrations-0.0.1-SNAPSHOT.jar:/app/app.jar:ro
+    ports:
+      - "8091:8091"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,api
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/neuroassist_dev
+      SPRING_DATASOURCE_USERNAME: neuroassist
+      SPRING_DATASOURCE_PASSWORD: neuroassist_dev_pass
+      # O MIG so VALIDA o token; quem assina e o acs-service.
+      ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      MIG_GLOBAL_SCHEMA: neuroassist_global
+      MIG_TENANT_LOCATIONS: classpath:db/migration/empresa
+      # A role que o V0006 do template de empresa referencia.
+      HIST_SERVICE_ROLE: neuroassist
+    healthcheck:
+      # Checagem TCP via bash, e nao `curl`: a imagem jre nao traz curl, e instala-lo no
+      # `command` faria a subida depender de rede de pacotes — um healthcheck que falha por
+      # falta da propria ferramenta de checagem diz menos que nenhum.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8091' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 45s
+    depends_on:
+      migrations-empresa:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   # ═══════════════════════════════════════════════════════════════════════════
   # SERVICE REGISTRY — Eureka :8761 (interno) / :18761 (host)
@@ -147,6 +211,9 @@ services:
       SPRING_ARTEMIS_USER: admin
       SPRING_ARTEMIS_PASSWORD: admin
       ACS_SIGNING_KEY_SECRET: "e2e-dev-secret-change-in-production"
+      # E2E-016 — provisionamento de schema no onboarding de empresa. Sem esta variavel o
+      # default do Feign resolveria `migrations-api` de dentro do proprio conteiner.
+      MIG_SERVICE_URL: http://migrations-api:8091
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8088/actuator/health || exit 1"]
       interval: 15s
@@ -175,6 +242,17 @@ services:
     ports:
       - "8084:8084"
     environment:
+      # GEST→EDGE: resolução device→tenant antes de servir o ponteiro de perfil,
+      # e device→paciente ao projetar o perfil por dispositivo (E2E-034).
+      EDGE_SERVICE_URL: http://edge-service:8087
+      # GEST→PAC: catálogo ativo do paciente, de onde vem comando.sensibilidade (E2E-034).
+      # Um default apontando para localhost resolveria para o próprio gest-service.
+      PAC_SERVICE_URL: http://pac-service:8082
+      # GEST→ACS: identidade de serviço. Quem chama o GEST no caminho por dispositivo é o EDGE,
+      # com um token que só carrega gest.detection-profile.read — propagá-lo daria 403.
+      ACS_SERVICE_URL: http://acs-service:8088
+      GEST_CLIENT_ID: gest-service
+      GEST_CLIENT_SECRET: dev-service-secret
       SPRING_PROFILES_ACTIVE: docker
       DB_URL: jdbc:postgresql://postgres:5432/neuroassist_dev?currentSchema=t_emp_dev,neuroassist_global
       DB_USER: neuroassist
@@ -213,6 +291,15 @@ services:
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
       ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      # Downstream services. A localhost default resolves to the evnt-service container itself.
+      ACS_SERVICE_URL: http://acs-service:8088
+      GEST_SERVICE_URL: http://gest-service:8084
+      PAC_SERVICE_URL: http://pac-service:8082
+      DASH_SERVICE_URL: http://dash-service:8090
+      HIST_SERVICE_URL: http://hist-service:8089
+      # Service identity — matches the BCrypt hash of acs.service-clients.evnt-service
+      EVNT_CLIENT_ID: evnt-service
+      EVNT_CLIENT_SECRET: dev-service-secret
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -284,7 +371,7 @@ services:
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
       SPRING_ARTEMIS_PASSWORD: admin
-      ACS_TOKEN_ENDPOINT: http://acs-service:8088/oauth2/token
+      ACS_TOKEN_ENDPOINT: http://acs-service:8088/oauth2/token/device
       # Service identity EDGE -> GEST (service-identity.md); secret is dev-only
       ACS_SERVICE_URL: http://acs-service:8088
       EDGE_CLIENT_ID: edge-service
@@ -348,6 +435,14 @@ services:
       EUREKA_URI: http://registry:8761/eureka
       KEYCLOAK_ISSUER_URI: http://acs-service:8088
       ACS_JWK_URI: http://acs-service:8088/oauth2/jwks
+      ACS_BASE_URL: http://acs-service:8088
+      PAC_BASE_URL: http://pac-service:8082
+      EVNT_BASE_URL: http://evnt-service:8085
+      HIST_BASE_URL: http://hist-service:8089
+      EDGE_BASE_URL: http://edge-service:8087
+      # Service identity — matches the BCrypt hash of acs.service-clients.dash-service
+      DASH_CLIENT_ID: dash-service
+      DASH_CLIENT_SECRET: dev-service-secret
       SPRING_ARTEMIS_MODE: native
       SPRING_ARTEMIS_BROKER_URL: tcp://activemq:61616
       SPRING_ARTEMIS_USER: admin
@@ -390,6 +485,30 @@ services:
       registry:
         condition: service_healthy
       acs-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FRONTEND — neuroassist-ai-web (Angular + nginx) :14200 (host) / :80
+  # Bundle estático + proxy /api e /oauth2 → gateway:8080 (ver frontend/nginx.conf)
+  # ════════════════════════════════════════════════════════════════════════════
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: neuroassist/web:dev
+    container_name: neuroassist-web
+    ports:
+      - "14200:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      gateway:
         condition: service_healthy
     restart: unless-stopped
 

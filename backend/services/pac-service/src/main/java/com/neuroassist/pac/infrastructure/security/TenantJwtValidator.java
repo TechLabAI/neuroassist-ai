@@ -21,10 +21,26 @@ import org.springframework.stereotype.Component;
 @Component
 public class TenantJwtValidator {
 
-    /** JWT claim that carries the empresa identifier for the authenticated principal. */
-    public static final String JWT_CLAIM_EMPRESA_ID = "empresaId";
+    /**
+     * Claim canonico do tenant — o unico que o ACS emite (E2E-021).
+     *
+     * <p>Este validador lia {@code "empresaId"}, um alias que o ACS mantinha vivo <b>por causa
+     * dele</b>. Bastava o ACS parar de emitir o alias para toda requisicao autenticada ao PAC
+     * resolver o tenant como nulo — e, como o bloco inteiro do filtro e condicionado a esse valor,
+     * a requisicao seguiria sem tenant ligado, sem 400 e sem 403.
+     */
+    public static final String JWT_CLAIM_TENANT_ID = "tenant_id";
 
-    /** Request header the caller is expected to send with the empresa identifier. */
+    /** Header canonico, o mesmo dos outros seis servicos. */
+    public static final String HEADER_TENANT_ID = "X-Tenant-Id";
+
+    /**
+     * Header legado, aceito por uma versao (E2E-021, item 3 do escopo).
+     *
+     * <p>O PAC era o unico servico a exigir este nome, e a exigi-lo em vez do canonico: um
+     * consumidor que mandasse {@code X-Tenant-Id} — como todos os outros seis fazem — levava {@code
+     * 400 missing-tenant}. Foi assim que o gest-service esbarrou nisto na E2E-034.
+     */
     public static final String HEADER_EMPRESA_ID = "X-Empresa-Id";
 
     /**
@@ -38,7 +54,7 @@ public class TenantJwtValidator {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
             if (jwt != null) {
-                Object empresaClaim = jwt.getClaim(JWT_CLAIM_EMPRESA_ID);
+                Object empresaClaim = jwt.getClaim(JWT_CLAIM_TENANT_ID);
                 Object subClaim = jwt.getClaim("sub");
                 String empresaId = empresaClaim == null ? null : empresaClaim.toString();
                 String actor = subClaim == null ? null : subClaim.toString();

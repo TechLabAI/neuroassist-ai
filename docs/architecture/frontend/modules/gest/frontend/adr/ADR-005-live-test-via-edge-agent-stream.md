@@ -1,5 +1,8 @@
 # ADR-005 — Live gesture test bridges to the local Edge Agent (no browser ML)
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> A ponte com o agente Python sai do caminho do produto: o detector passa a rodar no browser, na calibração e no always-on. O argumento de engine drift desta ADR foi resolvido na raiz (um motor só), não abandonado.
+
 - **Status:** accepted (2026-08-12) — implemented via `edge-agent-ws.py`; interim detector ratified by ADR-006
 - **Scope:** local (module GEST)
 

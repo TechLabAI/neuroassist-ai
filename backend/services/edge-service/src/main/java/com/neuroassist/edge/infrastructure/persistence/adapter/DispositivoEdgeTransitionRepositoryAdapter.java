@@ -5,6 +5,7 @@ import com.neuroassist.edge.domain.model.DispositivoEdgeTransition;
 import com.neuroassist.edge.domain.model.TransitionKind;
 import com.neuroassist.edge.infrastructure.persistence.entity.DispositivoEdgeTransitionJpaEntity;
 import com.neuroassist.edge.infrastructure.persistence.repository.DispositivoEdgeTransitionJpaRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,11 @@ public class DispositivoEdgeTransitionRepositoryAdapter
     @Override
     public DispositivoEdgeTransition save(DispositivoEdgeTransition domain) {
         DispositivoEdgeTransitionJpaEntity entity = toEntity(domain);
+        // O mapper sempre constrói uma instância nova; só o repositório sabe se a
+        // linha já existe. Sem isto, um update viraria INSERT (C-20).
+        if (entity.getId() != null && repository.existsById(entity.getId())) {
+            entity.markExisting();
+        }
         DispositivoEdgeTransitionJpaEntity saved = repository.save(entity);
         return toDomain(saved);
     }
@@ -62,6 +68,12 @@ public class DispositivoEdgeTransitionRepositoryAdapter
         return repository
                 .findFirstByDispositivoEdgeIdAndKindOrderByAtDesc(deviceId, kind)
                 .map(DispositivoEdgeTransitionRepositoryAdapter::toDomain);
+    }
+
+    @Override
+    public boolean existsLivenessTransitionToOfflineAfter(UUID deviceId, Instant after) {
+        return repository.existsByDispositivoEdgeIdAndKindAndToStateAndAtAfter(
+                deviceId, TransitionKind.liveness, "offline", after);
     }
 
     // -------------------------------------------------------------------------

@@ -15,3 +15,6 @@ include(":services:acs-service")  // D-535 scaffold 2026-07-30
 include(":services:hist-service")  // D-539 scaffold 2026-08-16
 include(":services:dash-service")
 include(":services:edge-service")  // D-533 scaffold 2026-07-29
+// E2E-013 — nao e um microservico: so hospeda a suite E2E cross-service.
+// Nao entra no `build` padrao; rodar com `./gradlew :services:e2e-tests:e2eTest`.
+include(":services:e2e-tests")

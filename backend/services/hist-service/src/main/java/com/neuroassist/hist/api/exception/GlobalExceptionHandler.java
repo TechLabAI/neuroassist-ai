@@ -3,7 +3,9 @@ package com.neuroassist.hist.api.exception;
 import com.neuroassist.hist.domain.model.ActorDirectoryUnavailableException;
 import com.neuroassist.hist.domain.model.HistBadRequestException;
 import com.neuroassist.hist.domain.model.HistDomainException;
+import com.neuroassist.hist.domain.model.MissingTenantClaimException;
 import com.neuroassist.hist.domain.model.TenantMismatchException;
+import com.neuroassist.hist.domain.model.UnscopableCallerException;
 import com.neuroassist.hist.shared.error.CodedException;
 import com.neuroassist.hist.shared.error.ProblemDetailFactory;
 import jakarta.servlet.http.HttpServletRequest;
@@ -123,6 +125,37 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "error",
                 Map.of(
                         "code", ex.errorCode(),
+                        "category", "security",
+                        "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
+                        "timestamp", OffsetDateTime.now().toString(),
+                        "context", Map.of()));
+        return pd;
+    }
+
+    /**
+     * A request that cannot be scoped — no {@code tenant} claim (C-35), or a {@code hist:read}
+     * caller whose subject is not a caregiver id (C-36) → 403 Forbidden.
+     *
+     * <p>Both used to be handled by quietly substituting a default: a literal {@code
+     * "stub-tenant"}, and {@code null} (which downstream means "unrestricted"). Refusing is the
+     * only honest answer — the alternative is a result set that looks legitimate and is not.
+     */
+    @ExceptionHandler({MissingTenantClaimException.class, UnscopableCallerException.class})
+    public ProblemDetail handleUnscopableRequest(RuntimeException ex, HttpServletRequest req) {
+        String code =
+                ex instanceof MissingTenantClaimException m
+                        ? m.errorCode()
+                        : ((UnscopableCallerException) ex).errorCode();
+        log.warn("Unscopable request code={} message={}", code, ex.getMessage());
+        ProblemDetail pd = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        pd.setTitle("Forbidden");
+        pd.setDetail(ex.getMessage());
+        pd.setType(URI.create(TYPE_BASE + code));
+        pd.setInstance(URI.create(req.getRequestURI()));
+        pd.setProperty(
+                "error",
+                Map.of(
+                        "code", code,
                         "category", "security",
                         "correlationId", Objects.requireNonNullElse(MDC.get("correlationId"), ""),
                         "timestamp", OffsetDateTime.now().toString(),

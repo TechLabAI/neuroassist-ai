@@ -40,4 +40,24 @@ public interface CaregiverPatientLinkUseCase {
      * @return Optional with the active link response, or empty if no active link exists
      */
     Optional<CaregiverPatientLinkResponse> findActiveLink(UUID cuidadorId, UUID pacienteId);
+
+    /**
+     * Revoga <b>todos</b> os vinculos ativos de um paciente cujos dados pessoais foram apagados
+     * (LGPD).
+     *
+     * <p><b>Esta e a unica operacao que atravessa a invariante D-204, e por isso e uma operacao
+     * separada.</b> A invariante existe para que o alarme de um paciente sempre tenha para onde ir;
+     * um paciente apagado nao tem alarme a rotear. Manter o vinculo depois do apagamento nao
+     * protege ninguem — apenas mantem viva a associacao "esta cuidadora cuida desta pessoa", que e
+     * exatamente o tipo de vinculo que o apagamento se propos a remover.
+     *
+     * <p>Nao virou um parametro do {@code revokeLink} de proposito: burlar uma invariante marcada
+     * SAFETY-CRITICAL nao pode ser um booleano que alguem passa por engano. E metodo proprio, com
+     * authority propria, concedida so ao cliente de servico do PAC.
+     *
+     * <p>Idempotente: um paciente sem vinculos ativos devolve zero, sem erro.
+     *
+     * @return quantos vinculos foram revogados
+     */
+    int revokeAllForErasedPatient(UUID pacienteId);
 }

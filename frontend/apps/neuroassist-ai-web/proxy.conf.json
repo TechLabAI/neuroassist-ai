@@ -1,0 +1,8 @@
+{
+  "/oauth2": {
+    "target": "http://localhost:8088",
+    "secure": false,
+    "changeOrigin": false,
+    "logLevel": "warn"
+  }
+}

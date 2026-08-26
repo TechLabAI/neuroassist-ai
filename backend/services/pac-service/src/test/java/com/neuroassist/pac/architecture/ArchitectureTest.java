@@ -91,4 +91,28 @@ public class ArchitectureTest {
                     .dependOnClassesThat()
                     .haveFullyQualifiedName(
                             "org.springframework.web.reactive.function.client.WebClient");
+
+    /**
+     * E2E-024 — um adapter cujos métodos só lançam {@code UnsupportedOperationException} mente
+     * sobre a capacidade.
+     *
+     * <p>Não quebra em runtime enquanto ninguém o chama, e é exatamente por isso que sobrevive:
+     * quem lê o serviço vê um port com implementação e conclui que o caminho existe. O {@code
+     * TipoGestoRefRepositoryAdapter} do PAC viveu assim até esta issue, prometendo um cache de
+     * primitivas que nunca foi escrito.
+     *
+     * <p>Implemente o adapter ou remova-o. A terceira opção — deixar como está — é a que criou o
+     * problema.
+     */
+    @ArchTest
+    static final ArchRule rule_no_unimplemented_adapters =
+            ArchRuleDefinition.noClasses()
+                    .that()
+                    .resideInAPackage("..infrastructure.persistence.adapter..")
+                    .should()
+                    .dependOnClassesThat()
+                    .haveFullyQualifiedName("java.lang.UnsupportedOperationException")
+                    .because(
+                            "adapter que só lança UnsupportedOperationException mente sobre a"
+                                    + " capacidade (E2E-024) — implemente ou remova");
 }

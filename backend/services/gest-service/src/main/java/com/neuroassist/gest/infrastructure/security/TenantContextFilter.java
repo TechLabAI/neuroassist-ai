@@ -14,6 +14,7 @@ import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -39,7 +40,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @RequiredArgsConstructor
 public class TenantContextFilter extends OncePerRequestFilter {
 
-    private static final String JWT_CLAIM_TENANT = "tenant";
+    /**
+     * O claim canonico e o unico (E2E-021). Este filtro lia {@code "tenant"} — um alias que o ACS
+     * emitia so por compatibilidade —, entao bastava o ACS parar de emiti-lo para TODA requisicao
+     * ao GEST resolver o tenant como nulo.
+     */
+    private static final String JWT_CLAIM_TENANT_ID = "tenant_id";
+
     private static final String HEADER_TENANT_ID = "X-Tenant-Id";
     private static final String HEADER_CORRELATION_ID = "X-Correlation-Id";
     private static final String MDC_CORRELATION_KEY = "correlationId";
@@ -102,6 +109,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
 
             TenantContextHolder.set(tenantId);
             MDC.put(TenantContextHolder.MDC_KEY, tenantId);
+        } else if (requiresTenantClaim()) {
+            writeMissingTenantClaim(response);
+            return;
         }
 
         try {
@@ -122,7 +132,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
             Jwt jwt = jwtAuth.getToken();
             if (jwt != null) {
-                String tenantClaim = jwt.getClaimAsString(JWT_CLAIM_TENANT);
+                String tenantClaim = jwt.getClaimAsString(JWT_CLAIM_TENANT_ID);
                 if (tenantClaim != null && !tenantClaim.isBlank()) {
                     return tenantClaim;
                 }
@@ -191,5 +201,51 @@ public class TenantContextFilter extends OncePerRequestFilter {
                     e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * Um JWT autenticado sem claim de tenant tem de ser recusado aqui (E2E-021).
+     *
+     * <p>Antes o filtro seguia em frente sem ligar nada ao {@code TenantContextHolder}, e a
+     * requisicao morria adiante com {@code relation ... does not exist}, porque o resolver cai em
+     * {@code neuroassist_global}, onde as tabelas de negocio nao existem. Nao vazava dado — mas a
+     * seguranca dependia de uma coincidencia, e o chamador recebia 500 em vez de saber o que
+     * faltava. Era tambem o que tornava perigoso remover os aliases de claim.
+     *
+     * <p><b>Excecao deliberada:</b> {@code token_type=service} pode legitimamente nao ter tenant
+     * (E2E-029 — o cliente que cria empresas nao tem empresa a que se escopar).
+     *
+     * <p><b>Nao-anonimo, e nao "nao-JWT".</b> Este guarda cobria apenas {@link
+     * JwtAuthenticationToken}, e o GEST era o unico servico do monorepo que tambem aceitava HTTP
+     * Basic: um chamador autenticado por Basic — {@code gest-manager}, senha em texto plano no
+     * {@code SecurityConfig} — passava por aqui sem tenant nenhum e morria adiante com 500 do JDBC,
+     * em vez de um erro que dissesse o que faltava. O Basic foi removido do {@code SecurityConfig},
+     * e este guarda passou a raciocinar por <i>autenticado</i> em vez de por <i>tipo de token</i>,
+     * para que reintroduzir qualquer outra mecanica de autenticacao nao reabra o buraco em
+     * silencio.
+     *
+     * <p>Requisicao sem autenticacao alguma (actuator/health) continua passando: quem decide o
+     * acesso ali e o {@code SecurityConfig}, e o {@code anyRequest().authenticated()} ja recusa o
+     * que nao for publico.
+     */
+    private boolean requiresTenantClaim() {
+        Authentication current = SecurityContextHolder.getContext().getAuthentication();
+        if (current == null
+                || !current.isAuthenticated()
+                || current instanceof AnonymousAuthenticationToken) {
+            return false; // sem autenticacao: quem decide o acesso e o SecurityConfig
+        }
+        if (current instanceof JwtAuthenticationToken jwtAuth) {
+            return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+        }
+        // Qualquer outra autenticacao sem tenant nao chega ao banco.
+        return true;
+    }
+
+    /** 403 explicito, com um codigo que diz o que faltava. */
+    private void writeMissingTenantClaim(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
     }
 }

@@ -39,19 +39,20 @@ public class SharedSteps {
     }
 
     /**
-     * Stub ACS: GET /api/v1/caregivers/jamilly/patients retorna ["Marcio"]. Usado em varios
+     * Stub ACS: GET /api/v1/acs/directory/caregivers/jamilly/patient-scope. Usado em varios
      * features para indicar que Marcio esta no escopo de Jamilly.
      */
     @And("patient \"Marcio\" is in Jamilly's scope")
     public void andPatientMarcioIsInJamillysScope() {
         ctx.currentPatientId = "Marcio";
         BaseIntegrationTest.acsWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/caregivers/jamilly/patients"))
+                get(urlPathEqualTo("/api/v1/acs/directory/caregivers/jamilly/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader(
                                                 "Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                                        .withBody("[\"Marcio\"]")));
+                                        .withBody(
+                                                "{\"cuidadorId\":\"jamilly\",\"pacienteIds\":[\"Marcio\"]}")));
     }
 }

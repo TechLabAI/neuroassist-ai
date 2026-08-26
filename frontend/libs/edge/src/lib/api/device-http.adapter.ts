@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { DevicePort } from './device.port';
 import {
@@ -20,6 +20,27 @@ import {
 // ---------------------------------------------------------------------------
 
 const BASE = '/api/v1/edge';
+
+/**
+ * 304 é a única falha que significa "nada mudou". Todo o resto propaga.
+ *
+ * <p>Antes, os dois polls faziam `catchError(() => of({ notModified: true }))`:
+ * uma queda de rede era reportada à facade como "sem novidades", `_pollOk`
+ * permanecia `true` e o estado derivado seguia `online`. Isto é exatamente a
+ * mentira que o ADR-005 existe para proibir — um dispositivo silencioso
+ * aparecendo verde é um paciente sem voz com a tela dizendo que está tudo bem.
+ * Falha de poll tem de virar `unknown`, e para isso ela precisa CHEGAR à facade.
+ *
+ * <p>O 304 é entregue pelo HttpClient como erro (só 2xx é sucesso), por isso o
+ * teste vive aqui e não no `map`.
+ */
+function naoModificadoOuPropaga(
+  err: HttpErrorResponse,
+): Observable<LivenessView | NotModified> {
+  if (err.status === 304) return of({ notModified: true } as NotModified);
+  return throwError(() => err);
+}
+
 
 @Injectable()
 export class DeviceHttpAdapter implements DevicePort {
@@ -57,7 +78,7 @@ export class DeviceHttpAdapter implements DevicePort {
           if (resp.status === 304) return { notModified: true } as NotModified;
           return resp.body as LivenessView;
         }),
-        catchError(() => of({ notModified: true } as NotModified)),
+        catchError(naoModificadoOuPropaga),
       );
   }
 
@@ -78,7 +99,7 @@ export class DeviceHttpAdapter implements DevicePort {
           if (resp.status === 304) return { notModified: true } as NotModified;
           return resp.body as LivenessView;
         }),
-        catchError(() => of({ notModified: true } as NotModified)),
+        catchError(naoModificadoOuPropaga),
       );
   }
 

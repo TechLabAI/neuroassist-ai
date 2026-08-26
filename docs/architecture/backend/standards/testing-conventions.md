@@ -125,6 +125,62 @@ Infraestrutura adicional de teste por serviço:
 
 ---
 
+### 4.1 O schema do teste é o schema de produção (E2E-022)
+
+**`ddl-auto: validate`, nunca `create-drop`.** As migrations reais são aplicadas ao container
+antes de o Spring subir — exatamente o que o deploy faz.
+
+Com `create-drop` quem desenha o schema nos testes é o **Hibernate, a partir das entities**,
+enquanto em produção quem desenha é o **Flyway**. As entities concordam consigo mesmas por
+construção, então nenhuma divergência com as migrations é detectável. O projeto pagou duas vezes:
+
+- **C-12** — `hist_outbox.status` era ENUM nativo no Flyway e `String` na entity. O Postgres não
+  faz coerção implícita de varchar para ENUM em INSERT, então *toda* gravação no outbox falhava em
+  produção. Nos testes a coluna nascia varchar e o ENUM nunca entrava em cena.
+- **E2E-017** — o evnt-service quase mapeou a `hist_outbox` do pac-service. Os serviços
+  compartilham o schema do tenant, e o nome estava tomado. O IT rodava contra PostgreSQL real e
+  não viu: a tabela do PAC não existia lá, porque quem criava o schema era a entity.
+
+Referência de implementação: `pac-service/src/test/java/.../integration/SchemaMigrations.java` e o
+bloco estático de `BaseIntegrationTest`.
+
+```java
+POSTGRES.start();
+// Global antes de empresa, como no deploy: o template de empresa pode referenciar o
+// registro global, e o inverso não.
+SchemaMigrations.applyTo(POSTGRES, List.of("empresa-abc", "empresa-xyz", "t_emp_test"));
+```
+
+**Quatro detalhes que custam tempo se descobertos na marra:**
+
+1. **A URL do Testcontainers já vem com query string** (`?loggerLevel=OFF`). Concatenar um segundo
+   `?` faz o driver ignorar o parâmetro em silêncio — o `currentSchema` some e a validação falha
+   por um motivo que não é o real.
+2. **`currentSchema` precisa ter um schema de tenant à frente do global.** Com multi-tenancy o
+   Hibernate valida contra a conexão de bootstrap, que não tem tenant vinculado; sem o schema de
+   tenant no `search_path` ele reprova por não achar as tabelas, e não por divergência de
+   mapeamento — que é o que se quer medir.
+3. **O placeholder `hist_service_role`** precisa ser o usuário do container. Em produção é
+   `neuroassist`; sem sobrescrever, `V0006__hist_patient_encryption_key.sql` falha com
+   `role "neuroassist" does not exist` e o teste passa a medir a ausência de uma role.
+4. **`outOfOrder(true)`** é obrigatório: as faixas de V por módulo (PAC V0200-V0299, GEST
+   V0400-V0499, …) fazem toda migration nova de faixa baixa ser, por construção, out of order.
+
+**As migrations são lidas do diretório, não do classpath.** Elas vivem noutro módulo Gradle;
+depender dele traria a aplicação inteira para o classpath de teste. Apontar para o diretório
+mantém uma única fonte — os testes leem exatamente os arquivos que o deploy aplica.
+
+**O que esperar ao ligar isto num serviço.** Toda falha nova é um achado:
+
+| Sintoma | O que significa |
+|---|---|
+| `Schema-validation: missing table/column` | entity e migration divergem — descubra qual lado está errado antes de mexer |
+| Violação de constraint numa fixture | a fixture descreve um estado que produção rejeita |
+
+No PAC o segundo caso apareceu de imediato: `ux_comando_active_mapping` é um índice único
+**parcial** que proíbe dois comandos ativos com o mesmo mapeamento por paciente, e uma fixture
+criava quatro. O Hibernate nunca criava esse índice. Corrigiu-se a **fixture**, não a migration.
+
 ## 5. BDD / Acceptance Tests (Cucumber + JUnit 5)
 
 **Regras:**

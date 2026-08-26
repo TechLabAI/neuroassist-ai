@@ -33,6 +33,11 @@ function makeCuidadorVm(id: string, nome = 'Test'): CuidadorVm {
 // linkIdFor tracks cuidador:patient pairs
 const linkMapSignal = signal<ReadonlyMap<string, string>>(new Map());
 
+// ADR-005: a tela passou a desenhar o modal bloqueante (cross-empresa 422 e
+// re-imposição do último-vínculo 409), então o dublê precisa expor o sinal —
+// sem ele o template estoura em todos os casos, não só nos do modal.
+const coverageModalSignal = signal<{ type: 'deactivate' | 'cross-tenant'; pacienteNome: string } | null>(null);
+
 const mockFacade = {
   loading: loadingSignal.asReadonly(),
   saving: savingSignal.asReadonly(),
@@ -47,6 +52,8 @@ const mockFacade = {
   linkIdFor: jest.fn((cuidadorId: string, pacienteId: string): string | null => {
     return linkMapSignal().get(`${cuidadorId}:${pacienteId}`) ?? null;
   }),
+  coverageModal: coverageModalSignal.asReadonly(),
+  dismissCoverageModal: jest.fn(() => coverageModalSignal.set(null)),
   loadRoster: jest.fn().mockResolvedValue(undefined),
   linkToPatient: jest.fn().mockResolvedValue(undefined),
   revokeLink: jest.fn().mockResolvedValue(undefined),
@@ -118,7 +125,43 @@ describe('PatientLinkageComponent — FE-ACS-022 (revoke flow)', () => {
     });
 
     it('sets pacienteId from route param', () => {
-      expect(component.pacienteId()).toBe('pac-marcio');
+      expect(component.pacienteAlvo()).toBe('pac-marcio');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Composição fora da própria rota — o passo de vínculo do assistente
+  //
+  // Em /onboarding não existe :pacienteId na rota. Sem estas duas entradas o
+  // componente só sabia se localizar pela própria URL, e era por isso que o
+  // passo 3 do tutorial ("a coordenadora vincula cuidadoras ao paciente") não
+  // tinha superfície nenhuma no assistente.
+  // ---------------------------------------------------------------------------
+  describe('entradas de composição', () => {
+    it('a entrada pacienteId VENCE o parâmetro de rota', () => {
+      fixture.componentRef.setInput('pacienteId', 'pac-do-assistente');
+      fixture.detectChanges();
+      expect(component.pacienteAlvo()).toBe('pac-do-assistente');
+    });
+
+    // CONTROLE NEGATIVO: sem entrada, a rota continua mandando. Uma entrada que
+    // sobrescrevesse sempre (inclusive com null) quebraria a rota
+    // /acs/pacientes/:pacienteId/vinculos sem que nada mais acusasse.
+    it('sem entrada, o parâmetro de rota continua mandando', () => {
+      fixture.componentRef.setInput('pacienteId', null);
+      fixture.detectChanges();
+      expect(component.pacienteAlvo()).toBe('pac-marcio');
+    });
+
+    it('composto=false mantém o <h1> próprio (comportamento de página)', () => {
+      const h1 = fixture.nativeElement.querySelector('h1');
+      expect(h1?.textContent).toContain('Vínculos do paciente');
+    });
+
+    it('composto=true suprime o <h1> — o assistente já tem o seu', () => {
+      fixture.componentRef.setInput('composto', true);
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('h1')).toBeNull();
     });
   });
 

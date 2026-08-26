@@ -1,5 +1,6 @@
 package com.neuroassist.acs.api.controller;
 
+import com.neuroassist.acs.api.dto.CaregiverEditRequest;
 import com.neuroassist.acs.api.dto.CaregiverRequest;
 import com.neuroassist.acs.api.dto.CaregiverResponse;
 import com.neuroassist.acs.api.dto.CaregiverStatusUpdateRequest;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -64,6 +66,28 @@ public class CaregiverController {
     @PreAuthorize("hasAuthority('acs.cuidador.read')")
     public ResponseEntity<List<CaregiverResponse>> listByTenant(@RequestParam UUID tenantId) {
         return ResponseEntity.ok(caregiverUseCase.listByTenant(tenantId));
+    }
+
+    /**
+     * PUT /api/v1/acs/caregivers/{id} — corrige nome e login da cuidadora.
+     *
+     * <p>Requer {@code acs.cuidador.editar}.
+     *
+     * <p><b>Por que este endpoint passou a existir.</b> Não havia caminho de edição, e a tela do
+     * frontend tinha rota, formulário preenchido e um botão "Salvar" que NÃO FAZIA NADA — o {@code
+     * if} cobria só a criação e não havia {@code else}. Quem corrigia um nome clicava, nada
+     * acontecia, e a tela não dizia nem sucesso nem erro.
+     *
+     * <p>A alternativa que existia na prática — desativar a pessoa e criar outra — quebra o
+     * histórico: a confirmação de alarme guarda o id da cuidadora, e "quem atendeu?" passaria a
+     * apontar para uma conta desativada.
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('acs.cuidador.editar')")
+    @AuditAction("UPDATE_CAREGIVER")
+    public ResponseEntity<CaregiverResponse> edit(
+            @PathVariable UUID id, @Valid @RequestBody CaregiverEditRequest request) {
+        return ResponseEntity.ok(caregiverUseCase.edit(id, request.nome(), request.login()));
     }
 
     /**

@@ -4,7 +4,16 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # E2E-022 — `validate`, nao `create-drop`.
+      #
+      # Com create-drop quem desenhava o schema nos testes era o Hibernate, a partir das entities,
+      # enquanto o Flyway desenha o schema em producao. As entities concordavam consigo mesmas por
+      # construcao, e nenhuma divergencia com as migrations era detectavel — foi assim que o C-12
+      # (ENUM nativo x String) quebrou toda gravacao no outbox em producao com a suite verde.
+      #
+      # Agora as migrations reais sao aplicadas em BaseIntegrationTest antes do contexto subir, e
+      # `validate` derruba o contexto quando entity e migration discordam.
+      ddl-auto: validate
   flyway:
     enabled: false
   artemis:
@@ -33,6 +42,9 @@ spring:
           hist-service:
             connect-timeout: 2000
             read-timeout: 3000
+          acs-service-link:
+            connect-timeout: 2000
+            read-timeout: 3000
 eureka:
   client:
     enabled: false
@@ -40,6 +52,17 @@ eureka:
 # These values are overridden by @DynamicPropertySource in BaseIntegrationTest with the
 # actual dynamic ports assigned at runtime.
 neuroassist:
+  # Os dois sweepers ficam WIRED mas nao disparam durante a suite: um tick no meio de um
+  # cenario drenaria a fila que o cenario esta prestes a inspecionar, e a falha apareceria
+  # como flakiness em maquina lenta. Desligar por `enabled: false` esconderia um erro de
+  # wiring do proprio scheduler (@ConditionalOnProperty removeria o bean), entao o que se
+  # empurra e o primeiro disparo, nao a existencia dele.
+  hist-outbox:
+    drain:
+      initial-delay-ms: 3600000
+  directory-outbox:
+    drain:
+      initial-delay-ms: 3600000
   integration:
     gest:
       url: http://localhost:19991

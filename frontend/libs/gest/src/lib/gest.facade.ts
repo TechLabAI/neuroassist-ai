@@ -10,6 +10,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
 import { EDGE_DETECTION_PORT } from './api/edge-detection.port';
+import { CameraPreferenceService } from './detection/camera-preference.service';
 import {
   EdgeRecognitionSignal,
   ComandoDraft,
@@ -17,6 +18,7 @@ import {
   GestureTestState,
   GestureTestStep,
   DegradedReason,
+  DetectorType,
   GestureTestOutcome,
 } from '@neuroassist/shared/contracts';
 
@@ -36,7 +38,7 @@ const NEGOTIATED_VERSION = '1.0.0';
 type GestTelemetryEvent =
   | { type: 'start-test'; comandoDraftRef: string }
   | { type: 'stop-test'; duration_ms: number }
-  | { type: 'verdict'; outcome: GestureTestOutcome; detectorType: 'ear_bri' | 'onnx' | null }
+  | { type: 'verdict'; outcome: GestureTestOutcome; detectorType: DetectorType | null }
   | { type: 'degraded-activated'; reason: DegradedReason };
 
 function initialVm(): GestureTestVM {
@@ -58,6 +60,7 @@ function initialVm(): GestureTestVM {
 @Injectable({ providedIn: 'root' })
 export class GestureTestFacade {
   private readonly port = inject(EDGE_DETECTION_PORT);
+  private readonly cameraPref = inject(CameraPreferenceService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly _state = signal<GestureTestVM>(initialVm());
@@ -65,16 +68,20 @@ export class GestureTestFacade {
   private mediaStream: MediaStream | null = null;
   private currentDraft: ComandoDraft | null = null;
   private readonly _previewStream = signal<MediaStream | null>(null);
+  private readonly _detectionAlive = signal(false);
+  private readonly _detectionStarted = signal(false);
+  private lastAckMs: number | null = null;
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
   /** Epoch ms when the current test run started; used to compute stop-test duration. */
   private _testStartMs: number | null = null;
 
   /** Read-only view of the full VM (SPEC-03 §2). */
   readonly state = this._state.asReadonly();
 
-  /** Cosmetic-only preview stream (browser's own camera) for the caregiver to
-   * see themselves while testing. NOT the detection input — real detection
-   * runs on the edge agent's own camera handle (ADR-005 edge/cloud split);
-   * this stream never leaves the browser tab. */
+  /** Stream da webcam. Desde a ADR-007 ele é ao mesmo tempo o preview que a
+   * cuidadora vê E a entrada do detector — o motor roda no browser, sobre estes
+   * mesmos frames (antes, com a ADR-005, a detecção usava a câmera do agente
+   * Python e este stream era só cosmético). Os frames nunca saem da aba. */
   readonly previewStream = this._previewStream.asReadonly();
 
   /** Shortcut signals for component binding. */
@@ -83,9 +90,25 @@ export class GestureTestFacade {
   readonly degraded = computed(() => this._state().degraded);
   readonly testState = computed(() => this._state().state);
   readonly message = computed(() => this._state().message);
-  /** ADR-006: interim detector type from the edge agent handshake.
-   * 'ear_bri' triggers the interim banner in GestureLiveTestComponent. */
+  /** Motor em uso — ver DetectorType. */
   readonly detectorType = computed(() => this._state().detectorType);
+
+  /** Watchdog (ADR-007): true enquanto chegam batimentos do motor.
+   *
+   * Com a detecção no browser não existe supervisor de processo: uma aba
+   * estrangulada em segundo plano, um travamento do WASM ou a câmera tomada por
+   * outro app param o loop sem erro nenhum. Silêncio é o pior modo de falha
+   * deste produto, então a UI precisa dizer quando a detecção parou. */
+  readonly detectionAlive = this._detectionAlive.asReadonly();
+
+  /** True depois do primeiro sinal do motor nesta sessão de teste.
+   *
+   * Existe para separar "ainda carregando" de "parou": instanciar os ~11 MB de
+   * WASM do MediaPipe leva alguns segundos mesmo com o arquivo em cache, e nesse
+   * intervalo não há batimento nenhum. Sem esta distinção a UI acusaria falha
+   * durante a inicialização normal — e um alarme que grita à toa é tão ruim
+   * quanto um que não grita. */
+  readonly detectionStarted = this._detectionStarted.asReadonly();
 
   constructor() {
     // ADR-006: sync detectorType from the port's handshake signal into the VM state so
@@ -134,6 +157,8 @@ export class GestureTestFacade {
 
     this.emitTelemetry({ type: 'start-test', comandoDraftRef: draft.commandDraftRef });
 
+    this.startWatchdog();
+
     // Acquire camera (privacy-by-default: only open on explicit user action)
     void this.acquireCamera().then((ok) => {
       if (!ok) return;
@@ -144,6 +169,7 @@ export class GestureTestFacade {
   /** Stop the active test: unsubscribe, stop ALL MediaStream tracks, close bridge.
    * Satisfies SPEC-04 §3 EARS: WHEN stopTest dispatched, SHALL unsubscribe + stop tracks. */
   stopTest(): void {
+    this.stopWatchdog();
     this.unsubscribeStream();
     this.releaseCamera();
     this.port.close();
@@ -192,10 +218,13 @@ export class GestureTestFacade {
     }
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: this.cameraPref.videoConstraints(),
         audio: false,
       });
       this._previewStream.set(this.mediaStream);
+      // Só depois de uma permissão concedida o browser revela os nomes reais das
+      // câmeras — antes disso enumerateDevices() devolve label vazio.
+      void this.cameraPref.refresh();
       return true;
     } catch {
       this._state.update((vm) => ({
@@ -208,6 +237,33 @@ export class GestureTestFacade {
     }
   }
 
+  /** O adapter do browser emite batimento a cada ~1 s; 4 s sem nada = parado. */
+  private static readonly WATCHDOG_STALE_MS = 4000;
+
+  private startWatchdog(): void {
+    this.stopWatchdog();
+    this.lastAckMs = null;
+    this._detectionAlive.set(false);
+    this._detectionStarted.set(false);
+    this.watchdogTimer = setInterval(() => {
+      const ultimo = this.lastAckMs;
+      const parado = ultimo === null || Date.now() - ultimo > GestureTestFacade.WATCHDOG_STALE_MS;
+      if (parado && this._detectionAlive()) {
+        this._detectionAlive.set(false);
+      }
+    }, 1000);
+  }
+
+  private stopWatchdog(): void {
+    if (this.watchdogTimer !== null) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
+    this.lastAckMs = null;
+    this._detectionAlive.set(false);
+    this._detectionStarted.set(false);
+  }
+
   private releaseCamera(): void {
     this.mediaStream?.getTracks().forEach((t) => t.stop());
     this.mediaStream = null;
@@ -215,9 +271,12 @@ export class GestureTestFacade {
   }
 
   private subscribeToStream(draft: ComandoDraft): void {
+    // ADR-007: o motor roda no browser e precisa dos frames que este facade já
+    // adquiriu. Adapters que detectam em outro lugar (ponte legada) ignoram o
+    // segundo argumento.
     const stream$ = this._state().degraded
       ? this.port.mockStream(draft)
-      : this.port.openStream(draft);
+      : this.port.openStream(draft, this.mediaStream ?? undefined);
 
     const timeoutId = setTimeout(() => {
       // SPEC-04 EARS: WHEN no signal within tempoMaximoGestoMs → not-recognized
@@ -255,6 +314,11 @@ export class GestureTestFacade {
     timeoutId: ReturnType<typeof setTimeout>,
   ): void {
     const vm = this._state();
+
+    // Qualquer sinal do motor conta como batimento — inclusive um veredito.
+    this.lastAckMs = Date.now();
+    this._detectionAlive.set(true);
+    this._detectionStarted.set(true);
 
     // Propagate degraded flag from signal
     const isDegraded = sig.degraded || vm.degraded;
