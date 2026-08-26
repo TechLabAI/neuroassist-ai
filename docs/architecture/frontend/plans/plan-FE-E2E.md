@@ -3,7 +3,7 @@
 **Projeto:** NeuroAssist AI · **Módulo:** E2E (transversal — sem lib Nx própria)
 **Stack:** Angular 21, Nx, Signals-first (sem NgRx) · **Playwright** 1.60
 **Backends:** os 7 microserviços via GWY (host `:18080`) · **Gerado em:** 2026-08-20
-**Revalidado em:** 2026-08-20 contra a integração BE em andamento (`E2E-001` DONE)
+**Revalidado em:** 2026-08-22 (P2 validado, score 98/100 Maduro) — anterior: 2026-08-22 (P1 DONE, score 83/100); 2026-08-21 contra `E2E-014` DONE (G8 resolvido)
 
 > Módulo transversal: opera sobre `libs/{gest,evnt,pac,acs,edge,hist,dash}`,
 > `libs/shared/*` e `apps/{neuroassist-ai-web,*-e2e}`. Não cria lib nova.
@@ -11,9 +11,9 @@
 
 ## Status das prioridades
 
-- P1 -- pendente
-- P2 -- pendente
-- P3 -- pendente
+- P1 -- ✅ DONE (2026-08-22 — FE-E2E-002 + FE-E2E-003, score 83/100)
+- P2 -- ✅ DONE (2026-08-22 — FE-E2E-001 + FE-E2E-004 + FE-E2E-006, score 98/100; base paths de PAC/EVNT/DASH/GEST normalizados via ADR-008)
+- P3 -- pendente (próxima)
 - P4 -- pendente
 - P5 -- pendente
 - P6 -- pendente
@@ -219,11 +219,11 @@ por token de DI, nunca por edição de arquivo.
 
 ### Ordem das prioridades
 
-| P | Título | Motivo | Issues cobertas |
-|---|---|---|---|
-| P1 | Fundação HTTP: interceptor + sessão | Sem headers e sem token nada real funciona; é o único P1 sem dependência externa | FE-E2E-002, FE-E2E-003 |
-| P2 | Transporte e flip de adapter | Habilita a chamada sair do browser e chegar ao serviço | FE-E2E-001, FE-E2E-004, FE-E2E-006 |
-| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI | FE-E2E-005 |
+| P | Título | Motivo | Issues cobertas | Status |
+|---|---|---|---|---|
+| P1 | Fundação HTTP: interceptor + sessão | Sem headers e sem token nada real funciona; é o único P1 sem dependência externa | FE-E2E-002, FE-E2E-003 | ✅ DONE |
+| P2 | Transporte e flip de adapter | Habilita a chamada sair do browser e chegar ao serviço | FE-E2E-001, FE-E2E-004, FE-E2E-006 | ✅ DONE |
+| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI | FE-E2E-005 | pendente (próxima) |
 | P4 | Seed determinístico + global-setup | Todo teste integrado depende de dados e sessão previsíveis | FE-E2E-016 |
 | P5 | Suítes de módulo: skips e describes vazios | Zera o débito de 58 skips + 8 describes vazios | FE-E2E-007, 008, 009, 010 |
 | P6 | SSE real + fluxos ponta-a-ponta críticos | É o fluxo que justifica o produto | FE-E2E-011, 013, 014 |
@@ -362,7 +362,7 @@ ponto mais fácil de errar — teste com 3 requests concorrentes antes de consid
 
 ### Prioridade P2 -- Transporte: proxy, configuração `integrated` e flip de adapter
 
-Status: pendente
+Status: ✅ DONE (2026-08-22)
 Issues cobertas: FE-E2E-001, FE-E2E-004, FE-E2E-006
 Categoria: WIRING
 
@@ -446,6 +446,11 @@ P2. O que aquelas fases deixaram pronto e a P2 herda:
 
 - `GEST_SERVICE_BASE_URL` = `''` (URL relativa) no perfil `integrated`, por override de provider —
   **não** editando o factory default.
+  **Atenção:** o adapter atual constrói `${baseUrl}/gest-service/eligibility`. Com `baseUrl = ''`
+  isso vira `/gest-service/eligibility`, que **não é proxiado**. O implementador deve alterar
+  o provider override para `GEST_SERVICE_BASE_URL = '/api/v1/gest'` e o adapter para
+  `${baseUrl}/eligibility` — ou manter `baseUrl = ''` e alterar o path hardcoded no adapter
+  para `/api/v1/gest/eligibility` quando `baseUrl` estiver vazio. **Escolha uma opção e justifique.**
 - **Não tocar** em `EDGE_BRIDGE_WS_URL`: a ponte WS do edge-agent local nunca passa pelo GWY, por design.
 
 #### Arquivos-alvo
@@ -462,10 +467,13 @@ frontend/apps/neuroassist-ai-web/README.md                          (documentar 
 Somente na hipótese (a) — normalização de base path:
 
 ```
-frontend/libs/pac/src/lib/api/{paciente,comando,tipos-gesto-read}-http.adapter.ts
-frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts
-frontend/libs/dash/src/lib/api/{dash-summary,dash-notifications}-http.adapter.ts
-frontend/libs/gest/src/lib/api/{eligibility,edge-detection}-http.adapter.ts
+frontend/libs/pac/src/lib/api/paciente-http.adapter.ts          (/api/pac/v1/pacientes → /api/v1/pac/pacientes)
+frontend/libs/pac/src/lib/api/comando-http.adapter.ts           (/api/pac/v1/pacientes/{pid}/comandos → /api/v1/pac/...)
+frontend/libs/pac/src/lib/api/tipos-gesto-read-http.adapter.ts  (/api/gest/v1/tipos-gesto → /api/v1/gest/tipo-gesto)
+frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts      (/api/v1/events → /api/v1/evnt/events)
+frontend/libs/dash/src/lib/api/dash-summary-http.adapter.ts     (/panel → /api/v1/dash)
+frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts (/panel/notifications → /api/v1/dash/notifications)
+frontend/libs/gest/src/lib/api/eligibility-http.adapter.ts      (${baseUrl}/gest-service/eligibility → /api/v1/gest/eligibility)
 ```
 
 #### Contrato de tipo
@@ -543,7 +551,7 @@ volte para o token de DI.
 
 ### Prioridade P3 -- Paridade de contrato mock ↔ http
 
-Status: pendente
+Status: pendente (próxima)
 Issues cobertas: FE-E2E-005
 Categoria: VALIDACAO
 
@@ -573,28 +581,85 @@ describe.each([['mock', MockAdapter], ['http', HttpAdapter]])('%s satisfaz o por
 
 O braço `http` roda apenas no perfil `integrated`; o braço `mock` roda em todo PR.
 
-#### Arquivos-alvo
+#### Arquivos-alvo (15 arquivos novos — paths exatos, pós-P2)
 
 ```
-frontend/libs/acs/src/lib/api/*.contract.spec.ts     (3 ports)
-frontend/libs/pac/src/lib/api/*.contract.spec.ts     (3 ports)
-frontend/libs/evnt/src/lib/api/*.contract.spec.ts    (1 port)
-frontend/libs/hist/src/lib/api/*.contract.spec.ts    (2 ports — resolve G2)
-frontend/libs/edge/src/lib/api/*.contract.spec.ts    (2 ports)
-frontend/libs/dash/src/lib/api/*.contract.spec.ts    (2 ports)
-frontend/libs/gest/src/lib/api/*.contract.spec.ts    (2 ports)
+# ACS (3 ports) — base: /api/v1/acs/{tenants,caregivers}
+frontend/libs/acs/src/lib/api/acs-tenant.contract.spec.ts
+frontend/libs/acs/src/lib/api/acs-cuidador.contract.spec.ts
+frontend/libs/acs/src/lib/api/acs-link.contract.spec.ts
+
+# PAC (3 ports) — bases: /api/v1/pac/pacientes, /api/v1/gest/tipo-gesto (cross-module)
+frontend/libs/pac/src/lib/api/paciente.contract.spec.ts
+frontend/libs/pac/src/lib/api/comando.contract.spec.ts
+frontend/libs/pac/src/lib/api/tipos-gesto-read.contract.spec.ts
+
+# EVNT (1 port) — base: /api/v1/evnt/events (normalizado em P2)
+frontend/libs/evnt/src/lib/api/evnt-client.contract.spec.ts
+
+# HIST (2 ports — resolve G2) — hist-client: /api/v1/hist; hist-feedback: POST /api/v1/evnt/events/{id}/feedback
+frontend/libs/hist/src/lib/api/hist-client.contract.spec.ts
+frontend/libs/hist/src/lib/api/hist-feedback.contract.spec.ts
+
+# EDGE (2 ports) — base: /api/v1/edge
+frontend/libs/edge/src/lib/api/device.contract.spec.ts
+frontend/libs/edge/src/lib/api/pairing.contract.spec.ts
+
+# DASH (2 ports) — bases: /api/v1/dash, /api/v1/dash/notifications (normalizados em P2)
+frontend/libs/dash/src/lib/api/dash-summary.contract.spec.ts
+frontend/libs/dash/src/lib/api/dash-notifications.contract.spec.ts
+
+# GEST (2 ports) — eligibility: /api/v1/gest/eligibility (via GEST_SERVICE_BASE_URL token);
+#                               edge-detection: WS localhost (não passa pelo GWY — ver NUANCE abaixo)
+frontend/libs/gest/src/lib/api/eligibility.contract.spec.ts
+frontend/libs/gest/src/lib/api/edge-detection.contract.spec.ts
 ```
+
+#### Nuances de implementação obrigatórias (descobertas no code-audit de P3)
+
+**1. ACS — InjectionToken `ACCESS_HTTP_BASE`:**
+Os três adapters ACS usam `inject(ACCESS_HTTP_BASE)` (não string hardcoded). O `TestBed` de cada
+spec do braço `http` deve prover `{ provide: ACCESS_HTTP_BASE, useValue: '' }` para que o
+`HttpTestingController` receba URLs relativas testáveis. Não fornecer o token causa `NullInjectorError`.
+
+**2. GEST eligibility — InjectionToken `GEST_SERVICE_BASE_URL`:**
+`EligibilityHttpAdapter` injeta `GEST_SERVICE_BASE_URL` (padrão: URL absoluta do serviço direto).
+O TestBed do braço `http` deve prover `{ provide: GEST_SERVICE_BASE_URL, useValue: '/api/v1/gest' }`
+(equivalente ao override do perfil `integrated` aplicado em P2) para que `HttpTestingController`
+intercepte `/api/v1/gest/eligibility`.
+
+**3. GEST edge-detection — WebSocket local (não HTTP):**
+`EdgeDetectionHttpAdapter` abre WebSocket para `EDGE_BRIDGE_WS_URL` (localhost, nunca passa pelo GWY).
+`HttpTestingController` não intercepta WebSocket. O braço `http` desta spec deve:
+- Prover `{ provide: EDGE_BRIDGE_WS_URL, useValue: 'ws://localhost:0' }` (porta inválida = fallback imediato).
+- Verificar apenas a conformidade de tipo TypeScript e que o adapter implementa `EdgeDetectionPort`.
+- Não tentar exercitar o WS real: o adapter já cobre o caminho degradado por design.
+- O braço `mock` cobre a paridade de shape normalmente via `HttpTestingController`.
+
+**4. HIST feedback — endpoint EVNT:**
+`HistFeedbackHttpAdapter` envia `POST /api/v1/evnt/events/{id}/feedback` — não é um endpoint HIST.
+A spec deve interceptar a URL EVNT no `HttpTestingController`, não `/api/v1/hist/**`.
+Registrar a razão no comentário do spec.
+
+**5. PAC tipos-gesto-read — endpoint GEST:**
+`TiposGestoReadHttpAdapter` chama `GET /api/v1/gest/tipo-gesto` — endpoint GEST, não PAC.
+Conformidade com ADR-002: a spec não importa nenhum símbolo do módulo GEST.
+O adapter recebe apenas a URL e converte a resposta em `TipoGesto[]`; a spec verifica esse shape.
 
 #### Contrato de tipo
 
 Nenhum tipo novo. Esta prioridade **verifica** os tipos existentes dos ports.
 Se um tipo precisar mudar, isso é resultado da prioridade, não premissa.
+Se o braço `http` do `hist-client.contract.spec.ts` revelar que `rotulo`/`urgencia` não chegam
+no read model do HIST, registrar como issue de contrato (G2) e não alterar o tipo silenciosamente.
 
 #### Sequência de execução
 
-1. `testes`: specs de contrato dos 7 módulos (15 ports).
-2. Executar o braço `http` contra o stack Docker.
-3. Registrar divergências como issue de contrato.
+1. `testes`: HIST primeiro (CTR-04/05 — resolve G2).
+2. `testes`: ACS (CTR-01..03) → PAC (CTR-06..08) → EDGE (CTR-09/10) → DASH (CTR-11/12) → EVNT (CTR-13) → GEST eligibility (CTR-14) → GEST edge-detection (CTR-15).
+3. Executar braço `mock` de todos no CI (sem Docker).
+4. Executar braço `http` contra o stack Docker.
+5. Registrar divergências de shape como issue de contrato.
 
 #### Generators Nx obrigatórios
 
@@ -612,13 +677,15 @@ Indireto: o braço `http` só funciona com o interceptor de P1 ativo, o que vali
 #### Critérios de aceite
 
 ```bash
-npx nx run-many --target=test --all                  # PASS (braço mock)
+npx nx run-many --target=test --all                  # PASS (braço mock — sem Docker)
 # perfil integrated, com stack Docker no ar:
 npx nx run-many --target=test --all --configuration=integrated   # PASS (braço http)
 ```
 
-- CTR-01..07 cobertos (15 ports).
-- Gap G2 de `INT-FE-HIST-001` **respondido** e registrado.
+- CTR-01..15 cobertos (15 ports).
+- Gap G2 de `INT-FE-HIST-001` **respondido** e registrado (sim/não rotulo+urgencia chegam do HIST).
+- Zero `NullInjectorError` nos TestBeds (tokens `ACCESS_HTTP_BASE` e `GEST_SERVICE_BASE_URL` providos).
+- `edge-detection.contract.spec.ts` passa sem Docker (sem WS real).
 
 #### Riscos
 
@@ -628,8 +695,26 @@ e quebra a paridade com o mock.
 
 #### Instrução para implementador
 
-Comece por HIST (CTR-04): é o módulo verificador de todos os fluxos das prioridades seguintes
-e é onde o gap G2 está aberto. Se o shape do HIST divergir, P6 inteira é afetada.
+Comece por HIST (CTR-04/05): é o módulo verificador de todos os fluxos das prioridades seguintes
+e é onde o gap G2 está aberto. Se o shape do HIST divergir (ex.: `rotulo`/`urgencia` ausentes),
+registre como issue — não corrija o tipo silenciosamente.
+
+Para cada spec: prover **todos** os InjectionTokens necessários no `TestBed` antes de instanciar
+o adapter. O padrão é:
+```ts
+TestBed.configureTestingModule({
+  providers: [
+    provideHttpClient(),
+    provideHttpClientTesting(),
+    { provide: ACCESS_HTTP_BASE, useValue: '' },  // ACS apenas
+    // { provide: GEST_SERVICE_BASE_URL, useValue: '/api/v1/gest' }, // GEST eligibility apenas
+    SomeHttpAdapter,
+    SomeMockAdapter,
+  ],
+});
+```
+
+Para `edge-detection.contract.spec.ts`, o padrão é diferente (WS, não HTTP) — ver NUANCE 3 acima.
 
 ---
 
@@ -1170,11 +1255,11 @@ ACS, HIST e EDGE ficam inalterados. O proxy do FE passa a precisar de **2 prefix
 
 ### Decisões pendentes com o backend
 
-1. **G8 — normalizar (a) ou espelhar (b) as rotas do GWY.** Bloqueia P2. Recomendação: (a).
-2. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE.
-3. Claims exatos emitidos pelo ACS (`hist:read`, `hist:read:all`) → `shared/access-decision`.
-4. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join?
-5. Renomear `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` com default no ACS (higiene; não bloqueia).
+1. ~~**G8 — normalizar (a) ou espelhar (b) as rotas do GWY.**~~ **✅ Resolvida** — ADR-008 = (a), `E2E-014` DONE em 2026-08-21. P2 desbloqueada.
+2. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE. **Prematura enquanto EVNT não produz notificação real.**
+3. ~~Claims exatos emitidos pelo ACS.~~ **✅ Resolvida** — `authorities`, `tenant_id`/`tenant`/`empresaId`, `papel`, `nome`. `hist:read` / `hist:read:all` (prefixo `SCOPE_` no HIST). `hist:write` não emitido para usuário.
+4. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join? **Aberta — resolver em P3.**
+5. Renomear `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` com default no ACS — higiene; não bloqueia P1 nem P2.
 
 ### Contratos de tipo dependentes
 

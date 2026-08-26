@@ -1,12 +1,12 @@
 {
   "name": "shared-auth-session",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
   "sourceRoot": "libs/shared/auth-session/src",
   "tags": [
     "type:data-access",
     "scope:shared"
   ],
-  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "targets": {
     "test": {
       "executor": "@nx/jest:jest",

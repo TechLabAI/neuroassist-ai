@@ -5,7 +5,8 @@ import { PacPacientePort, Paciente, PacienteCreate, PacienteUpdate, Page } from 
 
 // ---------------------------------------------------------------------------
 // PacienteHttpAdapter — stub compilável (Layer 2 implementa os corpos).
-// Base path: /api/pac/v1/pacientes (roteado via GWY, descoberto via REG/Eureka).
+// Base path: /api/v1/pac/pacientes (GWY-normalized — ADR-008 / E2E-014).
+// Previously: /api/pac/v1/pacientes (direct service path, pre-ADR-008).
 // Mandatory headers (X-Empresa-Id, X-Correlation-Id, Authorization) são
 // injetados pelos interceptors HTTP de @neuroassist/shared/access-http-base.
 // ---------------------------------------------------------------------------
@@ -13,7 +14,7 @@ import { PacPacientePort, Paciente, PacienteCreate, PacienteUpdate, Page } from 
 @Injectable()
 export class PacienteHttpAdapter implements PacPacientePort {
   private readonly http = inject(HttpClient);
-  private readonly base = '/api/pac/v1/pacientes';
+  private readonly base = '/api/v1/pac/pacientes';
 
   list(page = 0, size = 20): Observable<Page<Paciente>> {
     // TODO[PAC-FE-007]: implement with HttpClient.get + query params

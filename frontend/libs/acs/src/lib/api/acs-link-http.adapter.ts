@@ -15,7 +15,7 @@ import { AcsLinkPort, CaregiverLinkDto } from './acs-link.port';
 @Injectable({ providedIn: 'root' })
 export class AcsLinkHttpAdapter implements AcsLinkPort {
   private readonly http = inject(HttpClient);
-  private readonly base = `${ACCESS_HTTP_BASE}/v1/acs/caregivers`;
+  private readonly base = `${inject(ACCESS_HTTP_BASE)}/v1/acs/caregivers`;
 
   listForCaregiver(cuidadorId: string): Observable<CaregiverLinkDto[]> {
     return this.http.get<CaregiverLinkDto[]>(`${this.base}/${cuidadorId}/links`);

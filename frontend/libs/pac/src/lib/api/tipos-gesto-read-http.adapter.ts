@@ -5,7 +5,8 @@ import { TiposGestoReadPort, TipoGesto } from './tipos-gesto-read.port';
 
 // ---------------------------------------------------------------------------
 // TiposGestoReadHttpAdapter — stub compilável (Layer 2 implementa os corpos).
-// Base path (via GWY): /api/gest/v1/tipos-gesto
+// Base path (via GWY): /api/v1/gest/tipo-gesto (GWY-normalized — ADR-008 / E2E-014).
+// Previously: /api/gest/v1/tipos-gesto (broken path, pre-ADR-008).
 // Cross-module read — GEST owns these primitives; PAC delegates naming to GEST.
 // Degradation: if GEST unreachable, the facade catches the error and falls
 // back to an empty list with a visible "tipos indisponíveis" hint (SPEC-07).
@@ -14,7 +15,7 @@ import { TiposGestoReadPort, TipoGesto } from './tipos-gesto-read.port';
 @Injectable()
 export class TiposGestoReadHttpAdapter implements TiposGestoReadPort {
   private readonly http = inject(HttpClient);
-  private readonly base = '/api/gest/v1/tipos-gesto';
+  private readonly base = '/api/v1/gest/tipo-gesto';
 
   list(): Observable<TipoGesto[]> {
     // TODO[PAC-INT-001]: implement — GEST endpoint (read-only cross-module call via GWY)

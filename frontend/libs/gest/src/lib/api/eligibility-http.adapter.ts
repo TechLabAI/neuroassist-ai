@@ -33,8 +33,11 @@ interface EligibilityResponseDto {
   missingStates: string[];
 }
 
-// Real adapter — POST /gest-service/eligibility (api-contract §3; backend
-// EligibilityController). Backend shape {eligible, missingStates} is mapped to
+// Real adapter — POST /api/v1/gest/eligibility (GWY-normalized — ADR-008 / E2E-014).
+// Previously: POST ${baseUrl}/gest-service/eligibility (direct service path, pre-ADR-008).
+// In 'integrated' profile: baseUrl = '/api/v1/gest' (overridden in app.config.ts).
+// In 'mock' profile: adapter not used (provideGest({ adapter: 'mock' }) bypasses this).
+// Backend shape {eligible, missingStates} is mapped to
 // the FE contract {eligible, reason, unsupportedPrimitiveIds} here.
 @Injectable()
 export class EligibilityHttpAdapter implements EligibilityPort {
@@ -43,6 +46,11 @@ export class EligibilityHttpAdapter implements EligibilityPort {
   private readonly empresaContext = inject(EMPRESA_CONTEXT_TOKEN);
 
   async check(urgencia: Urgencia): Promise<EligibilityResult> {
+    // Path construction (option a, FE-E2E-004):
+    //   baseUrl is overridden to '/api/v1/gest' in integrated profile via app.config.ts.
+    //   ${baseUrl}/eligibility → /api/v1/gest/eligibility (proxied via proxy.conf.js).
+    //   In the default (non-integrated) profile, baseUrl stays the direct gest-service origin
+    //   and this adapter is not wired at all (provideGest uses the mock adapter instead).
     const headers: Record<string, string> = {};
     if (this.empresaContext.id !== null) {
       // Send for log/debug traceability — isolation is enforced by the JWT claim tenant_id.
@@ -52,7 +60,7 @@ export class EligibilityHttpAdapter implements EligibilityPort {
     try {
       const res = await firstValueFrom(
         this.http.post<EligibilityResponseDto>(
-          `${this.baseUrl}/gest-service/eligibility`,
+          `${this.baseUrl}/eligibility`,
           { urgencyLevel: urgencia },
           Object.keys(headers).length > 0 ? { headers } : undefined,
         ),

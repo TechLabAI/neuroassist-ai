@@ -23,7 +23,7 @@ const skipEmpresaIdCtx = new HttpContext().set(SKIP_EMPRESA_ID_HEADER, true);
 @Injectable({ providedIn: 'root' })
 export class AcsTenantHttpAdapter implements AcsTenantPort {
   private readonly http = inject(HttpClient);
-  private readonly base = `${ACCESS_HTTP_BASE}/v1/acs/tenants`;
+  private readonly base = `${inject(ACCESS_HTTP_BASE)}/v1/acs/tenants`;
 
   get(id: string): Observable<TenantDto> {
     return this.http.get<TenantDto>(`${this.base}/${id}`);
