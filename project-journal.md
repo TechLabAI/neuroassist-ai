@@ -54,3 +54,22 @@
 - **Fechado:** EVNT-011 marcada DONE; `plan-EVNT.md` atualizado (P3 e P8 agora CONCLUIDA). Única
   prioridade real em aberto no EVNT: **P9 (hardening)**, ainda parcial.
 
+### 12:45:00 UTC — [DECISION] INT-GEST-007 fechada — OAuth2 client_credentials definitivo (GEST↔EDGE)
+
+- **Ator:** Claude Code (raio-x geral do projeto) — decisão do usuário via pergunta direta
+- ADR-007 (`docs/architecture/backend/adr/ADR-007-edge-device-auth.md`) estava "Accepted (MVP) —
+  Under Review", aguardando decisão entre mTLS e OAuth2 `client_credentials` para o transporte
+  serviço-a-serviço `gest-service` → `edge-service`. Pergunta feita diretamente ao usuário: manter
+  OAuth2, adiar formalmente, ou migrar para mTLS agora.
+- **Decisão do usuário:** manter OAuth2 `client_credentials` e fechar a decisão como definitiva —
+  não há requisito de segurança hoje que justifique o custo de mTLS (projeto pessoal/pré-produção,
+  ambos os serviços no mesmo realm Keycloak).
+- Gatilho de revisão documentado no ADR (não uma data, uma condição): reabrir se `edge-service`
+  passar a atender dispositivos de terceiros, migrar de realm/IdP, ou surgir requisito explícito de
+  compliance exigindo mTLS.
+- **Fechado:** ADR-007 → "Accepted (final)"; INT-GEST-007 → DONE; `plan-GEST.md` (R5) atualizado.
+  Nenhuma mudança de código necessária — `EdgePairingAdapter` já isolava a auth.
+- **Nota separada:** esta decisão cobre apenas o transporte serviço-a-serviço. A autenticação de
+  *dispositivo da estação do paciente* (browser, `clientSecret`, ADR-008 no FE) é um problema
+  diferente e continua com pendência própria (P1, armazenamento seguro de credencial).
+
