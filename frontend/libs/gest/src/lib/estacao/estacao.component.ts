@@ -6,6 +6,7 @@ import {
   signal,
   computed,
   inject,
+  isDevMode,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -324,6 +325,7 @@ export class EstacaoComponent implements OnInit, OnDestroy {
     this.heartbeatService.stop();
     this.wakeLock.release();
     this.encerrarSessao();
+    this.removerGanchoE2E();
   }
 
   // ---------------------------------------------------------------------------
@@ -352,6 +354,17 @@ export class EstacaoComponent implements OnInit, OnDestroy {
 
     // 2. Obter limiares do perfil (faixa global 'media')
     const thresholds = this.profileStore.thresholdsGlobaisMedia();
+
+    // ── Gancho E2E (dev mode only): pular detector + câmera ────────────────────
+    // `window.__gest_e2e_skip_detector = true` (setado via addInitScript antes
+    // do goto) faz o laço ir direto para 'vigiando'. O gancho de trigger de
+    // gesto é registrado a seguir para que os specs possam simular detecções.
+    // Em produção (`isDevMode()` falso) este bloco não existe no bundle.
+    if (isDevMode() && (window as unknown as Record<string, unknown>)['__gest_e2e_skip_detector']) {
+      this._estado.set('vigiando');
+      this.registrarGanchoE2E();
+      return;
+    }
 
     // 3. Criar e inicializar detector com os limiares do perfil
     this.detector = new GestureDetector(
@@ -407,6 +420,8 @@ export class EstacaoComponent implements OnInit, OnDestroy {
     // Solicitar Wake Lock para manter a tela acesa durante a vigília.
     // Ausência da API é degradação declarada — não altera o estado.
     await this.wakeLock.acquire();
+
+    this.registrarGanchoE2E();
   }
 
   // ---------------------------------------------------------------------------
@@ -505,6 +520,38 @@ export class EstacaoComponent implements OnInit, OnDestroy {
    */
   computeReportId(deviceId: string, engineFeatureRef: string, recognizedAt: string): string {
     return `${deviceId}|${engineFeatureRef}|${recognizedAt}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ganchos E2E (dev mode only — GEST-FE-033)
+  //
+  // Em build de desenvolvimento, dois ganchos globais são expostos para os specs
+  // Playwright conseguirem exercitar a máquina de estados sem câmera real e sem
+  // MediaPipe rodando:
+  //
+  // 1. `window.__gest_e2e_skip_detector` (setado via addInitScript antes do goto):
+  //    Quando `true`, `inicializarLoop()` vai direto para 'vigiando' sem tentar
+  //    carregar modelos do MediaPipe nem abrir câmera. Só é verificado dentro de
+  //    `inicializarLoop()`, portanto não interfere no fluxo de produção.
+  //
+  // 2. `window.__gest_e2e_trigger_gesture(ref, confidence)` (registrado aqui):
+  //    Permite que um spec chame `handleGesture()` de fora, simulando um gesto
+  //    reconhecido pelo motor. Limpo em ngOnDestroy.
+  //
+  // Ambos são removidos pelo tree-shaker em build de produção (`isDevMode()` é
+  // falso; o código dentro do `if` nunca é incluído no bundle). O gancho não pode
+  // existir onde há paciente — essa é a garantia.
+  // ---------------------------------------------------------------------------
+
+  private registrarGanchoE2E(): void {
+    if (!isDevMode()) return;
+    (window as unknown as Record<string, unknown>)['__gest_e2e_trigger_gesture'] =
+      (ref: string, conf: number) => void this.handleGesture(ref as EngineFeatureRef, conf);
+  }
+
+  private removerGanchoE2E(): void {
+    if (!isDevMode()) return;
+    delete (window as unknown as Record<string, unknown>)['__gest_e2e_trigger_gesture'];
   }
 
   // ---------------------------------------------------------------------------

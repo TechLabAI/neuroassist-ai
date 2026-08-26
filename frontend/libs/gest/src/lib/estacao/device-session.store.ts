@@ -1,4 +1,4 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, isDevMode } from '@angular/core';
 import type { DeviceAuthPort, DeviceTokenRequest } from './device-auth.port';
 import { DeviceAuthErro, DeviceAuthHttpAdapter } from './device-auth-http.adapter';
 
@@ -51,6 +51,21 @@ export class DeviceSessionStore {
   private readonly authPort: DeviceAuthPort = inject(DeviceAuthHttpAdapter);
 
   // ---------------------------------------------------------------------------
+  // Gancho E2E (dev mode only — GEST-FE-033)
+  //
+  // Em build de desenvolvimento, `sessionStorage` pode conter uma semente com
+  // token, deviceId e tenantId. Quando encontrada, o store arranca já no estado
+  // 'autenticado', permitindo que specs Playwright naveguem para /estacao sem
+  // precisar chamar POST /oauth2/token/device contra o backend real.
+  //
+  // Chave: '__gest.e2e.device-session'
+  // Formato: { token: string, deviceId: string, tenantId: string }
+  //
+  // `isDevMode()` é falso em build de produção; o bloco é removido pelo tree-
+  // shaker. Um dispositivo de paciente nunca chega a este código.
+  // ---------------------------------------------------------------------------
+
+  // ---------------------------------------------------------------------------
   // Estado interno (privado)
   // ---------------------------------------------------------------------------
 
@@ -58,6 +73,23 @@ export class DeviceSessionStore {
   private readonly _deviceId = signal<string | null>(null);
   private readonly _tenantId = signal<string | null>(null);
   private readonly _estado = signal<EstadoSessao>('desconhecido');
+
+  constructor() {
+    if (isDevMode()) {
+      try {
+        const raw = sessionStorage.getItem('__gest.e2e.device-session');
+        if (raw) {
+          const seed = JSON.parse(raw) as { token: string; deviceId: string; tenantId: string };
+          this._token.set(seed.token);
+          this._deviceId.set(seed.deviceId);
+          this._tenantId.set(seed.tenantId);
+          this._estado.set('autenticado');
+        }
+      } catch {
+        // sessionStorage indisponível ou JSON inválido — arrancar como desconhecido.
+      }
+    }
+  }
 
   private reauthTimer: ReturnType<typeof setTimeout> | null = null;
   private reauthCredential: DeviceTokenRequest | null = null;
