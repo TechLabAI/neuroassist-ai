@@ -1,8 +1,26 @@
 # EVNT-011 -- Create Flyway migration scripts V1..V4 (extensions, evento, notification_dispatch, report_idempotency)
 
-**Status:** INTACT -- gerado 2026-07-28
-**Maturidade:** 0 -- Inicial
-**Done/Total:** 0/2 itens
+**Status:** DONE -- reconciliado 2026-08-26
+**Maturidade:** 3 -- Concluído
+**Done/Total:** 2/2 itens
+
+> **Nota de reconciliação (2026-08-26):** esta issue e `plan-EVNT.md` continuavam marcando estas
+> migrations como ausentes ("Flyway V1..V4 ausentes"), mas o trabalho já havia sido feito sob a
+> convenção de faixa por serviço (`V0500..V0599`, ver CLAUDE.md) em vez da numeração V1..V4
+> originalmente prevista aqui. As três tabelas (`evento`, `report_idempotency`,
+> `notification_dispatch`) existem em
+> `backend/services/neuroassist-ai-migrations/src/main/resources/db/migration/empresa/V0500__evnt_initial_schema.sql`,
+> e `pgcrypto` já foi instalado globalmente por `V0100__acs_global_schema.sql` (ACS). Verificado
+> nesta sessão: `./gradlew :services:evnt-service:test` — 126/126 (inclui `CucumberIT` 23/23 cenários
+> BDD contra Testcontainers PostgreSQL real com estas migrations aplicadas) e
+> `architectureCheck` verde. Fechando a issue como DONE em vez de reescrever os scripts.
+>
+> **Divergência real encontrada (não bloqueante, registrar como tech-debt):** os critérios de
+> aceite originais abaixo pediam `FOREIGN KEY ... ON DELETE CASCADE` de `report_idempotency` e
+> `notification_dispatch` para `evento(id)`, e `CHECK` nos valores de `tier`/`status`. A migration
+> real (`V0500`) não tem essas constraints — a integridade referencial e de valores é garantida
+> apenas na camada de aplicação. Se isso for intencional, vale documentar a decisão; se não for,
+> é candidato a uma migration nova (`V0503`) antes de haver dados de produção.
 
 ## Contexto
 Materializes the four Flyway migration scripts (V1..V4) that MIG applies to each tenant schema.

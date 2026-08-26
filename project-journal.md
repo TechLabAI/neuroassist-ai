@@ -34,3 +34,23 @@
 - **Pendência real remanescente:** decisão mTLS vs OAuth2 para o bridge de autenticação GEST↔EDGE (ADR-007, P10) — decisão conjunta com EDGE, ainda em aberto.
 - `docs/architecture/frontend/plans/plan-FE-GEST.md` e `project-checklist.md` estavam desatualizados (mostravam P7-P9 pendentes) — atualizados nesta sessão para refletir o encerramento real.
 
+### 12:30:00 UTC — [CORRECTION] EVNT-011 e plan-EVNT.md estavam reportando bloqueadores já resolvidos
+
+- **Ator:** Claude Code (raio-x geral do projeto)
+- **EVNT-011** (Flyway V1..V4 ausentes) e o gap G2 do `plan-EVNT.md` (P8 BDD "25/46 falhando" por
+  `CucumberSpringContext` sem Testcontainers) estavam documentados como abertos, mas o código já os
+  havia resolvido — sem commit correspondente encontrado no journal, o que sugere que a correção
+  aconteceu numa sessão anterior sem registro aqui.
+- As três tabelas de EVNT (`evento`, `report_idempotency`, `notification_dispatch`) existem em
+  `V0500__evnt_initial_schema.sql` (faixa V0500..V0599, não a numeração V1..V4 que a issue previa) e
+  `pgcrypto` já foi instalado globalmente por `V0100__acs_global_schema.sql` (ACS). `CucumberSpringContext.java`
+  já sobe um `PostgreSQLContainer` real com as migrations aplicadas via `SchemaMigrations.applyTo`.
+- Verificado nesta sessão: `./gradlew :services:evnt-service:test` → 126/126 (inclui `CucumberIT` 23/23
+  cenários BDD), `architectureCheck` verde.
+- **Divergência real encontrada (tech-debt, não bloqueante):** a migration `V0500` não tem as
+  constraints `FOREIGN KEY ... ON DELETE CASCADE` nem `CHECK` em `tier`/`status` que os critérios de
+  aceite originais de EVNT-011 pediam — integridade garantida só na camada de aplicação. Registrado
+  em `EVNT-011.md` para decisão futura (nova migration `V0503` ou aceitar como está).
+- **Fechado:** EVNT-011 marcada DONE; `plan-EVNT.md` atualizado (P3 e P8 agora CONCLUIDA). Única
+  prioridade real em aberto no EVNT: **P9 (hardening)**, ainda parcial.
+
