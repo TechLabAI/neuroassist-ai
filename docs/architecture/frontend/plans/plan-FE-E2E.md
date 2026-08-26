@@ -3,10 +3,10 @@
 **Projeto:** NeuroAssist AI · **Módulo:** E2E (transversal — sem lib Nx própria)
 **Stack:** Angular 21, Nx, Signals-first (sem NgRx) · **Playwright** 1.60
 **Backends:** os 7 microserviços via GWY (host `:18080`) · **Gerado em:** 2026-08-20
-**Revalidado em:** 2026-08-20 contra a integração BE em andamento (`E2E-001` DONE)
-**Revalidado em:** 2026-08-26 contra o estado real do código (auditoria de código, não de doc) — ver §0.1
-**Replanejado em:** 2026-08-26 (`/fe-planner E2E`) — fecha as duas decisões deixadas em aberto pela
-revalidação acima. Ver §0.2.
+**Revalidado em:** 2026-08-22 (P2 validado, score 98/100 Maduro) — anterior: 2026-08-22 (P1 DONE, score 83/100); 2026-08-21 contra `E2E-014` DONE (G8 resolvido)
+**Replanejado em:** 2026-08-26 (`/fe-planner E2E`) — desbloqueia P6 por auditoria de código direta
+(EVNT deixou de ter o tenant hardcoded `"poc"`, o 501 em `NotificationOrchestrationController`
+e os adapters fake `@Primary`). Ver §0.1.
 
 > Módulo transversal: opera sobre `libs/{gest,evnt,pac,acs,edge,hist,dash}`,
 > `libs/shared/*` e `apps/{neuroassist-ai-web,*-e2e}`. Não cria lib nova.
@@ -14,12 +14,12 @@ revalidação acima. Ver §0.2.
 
 ## Status das prioridades
 
-- P1 -- **DONE (26/08)** -- fundação HTTP confirmada entregue por `shared/auth-login`; `access-http-base`/`auth-session` riscados do plano como código morto. Ver §0.2-A.
-- P2 -- pendente -- é a prioridade real de próximo passo (adapters já implementados, falta só o flip + validação)
-- P3 -- pendente
+- P1 -- ✅ DONE (2026-08-22 — FE-E2E-002 + FE-E2E-003, score 83/100)
+- P2 -- ✅ DONE (2026-08-22 — FE-E2E-001 + FE-E2E-004 + FE-E2E-006, score 98/100; base paths de PAC/EVNT/DASH/GEST normalizados via ADR-008)
+- P3 -- pendente (próxima)
 - P4 -- pendente
-- P5 -- pendente (parcialmente iniciada informalmente fora do plano -- ver §0.1)
-- P6 -- **desbloqueada (26/08)** -- reverificação confirmou que o bloqueio de backend (EVNT fake adapters, 501, tenant `"poc"`) não existe mais. Reordenada para logo após P3. Ver §0.2-B.
+- P5 -- pendente
+- P6 -- **desbloqueada (26/08)** -- bloqueio de backend (EVNT fake/501/tenant `"poc"`) não existe mais no código atual; reordenada para logo após P3. Ver §0.1.
 - P7 -- pendente
 
 ---
@@ -138,183 +138,53 @@ isso não basta: com o GWY no caminho, o que importa é o path *do gateway*, e e
 
 ### Multi-empresa: interceptor `@neuroassist/shared/access-http-base` configurado?
 
-**Não, e continua não sendo — mas isso deixou de ser um bloqueio.** `access-http-base` segue
-stub morto de 1 linha (`export const ACCESS_HTTP_BASE = '/api'`), sem consumidor. O que mudou
-(ver §0.1) é que a fundação HTTP nasceu por **outro caminho**, fora deste arquivo: a lib
-`shared/auth-login`. `X-Empresa-Id` é injetado por `acsHttpInterceptorFn` (não por um
-interceptor de `access-http-base`, que este plano nunca chegou a especificar completo para
-esse header). Enquanto P2 não flipar os módulos para `http`, a pergunta "é multi-empresa-safe"
-segue sem poder ser respondida em produção — mas não por falta de interceptor.
+**Não.** É o gap mais crítico do módulo e a razão de P1 existir. O arquivo inteiro é:
+
+```ts
+export const ACCESS_HTTP_BASE = '/api';
+```
+
+Nenhum interceptor injeta `X-Empresa-Id` hoje. Todos os `*HttpAdapter` documentam no
+cabeçalho que o interceptor faria isso — o contrato está escrito e nunca foi implementado.
+Enquanto P1 não fechar, **nenhuma** chamada real é multi-empresa-safe.
 
 ---
 
-## 0.1 Revalidação 2026-08-26 — auditoria de código (não de doc)
+## 0.1 Replanejamento 2026-08-26 — P6 desbloqueada (auditoria de código, não de doc)
 
-> Motivada por pedido do usuário de checar se o plano ainda reflete o código real antes de
-> rodar `/fe-planner E2E`. Feita por 3 investigações independentes (backend, frontend, histórico
-> documental) lendo código-fonte, não os planos. Resultado: o plano estava certo sobre o que
-> ainda falta (P2 em diante), mas **desatualizado em duas premissas estruturais** — P1 e P6.
+> P1 e P2 já estavam ✅ DONE neste plano (ver "Status das prioridades" acima) quando esta
+> rodada de `/fe-planner E2E` começou — nenhuma mudança feita nelas aqui. O trabalho desta
+> rodada foi reverificar o bloqueio de backend registrado contra P6 ("SSE real e fluxos
+> ponta-a-ponta críticos"), citado alhures neste plano como: EVNT com 4 ports de saída como
+> adapters fake `@Primary`, `NotificationOrchestrationController` lançando 501, e tenant
+> hardcoded `"poc"`. Checado por leitura direta do código-fonte de `evnt-service` e
+> `edge-service` em 26/08, não contra nenhum doc:
 
-### P1 — fechada retroativamente, por caminho diferente do especificado
-
-`app.config.ts:69` já registra
-`provideHttpClient(withInterceptors([authBearerInterceptorFn, acsHttpInterceptorFn]))` —
-**não** é mais `withInterceptors([])`. Mas nenhuma das duas funções vem de
-`shared/access-http-base` ou `shared/auth-session` (as libs-alvo que este plano especificava
-em §3/P1). Vieram de uma lib nova, `@neuroassist/shared/auth-login`
-(`libs/shared/auth-login/src/lib/{auth.interceptor.ts,auth-api.service.ts,auth.guard.ts,
-login-page.component.ts}`), criada pelos commits `3e98d4d`, `c673a4c`, `ba2635d` fora do
-escopo formal deste plano ("a tela de login e o menu por perfil — e o fim do bypass Wave-0").
-
-Evidência de que é real, não outro stub:
-- `auth.interceptor.ts:22-38` — `authBearerInterceptorFn` injeta `AuthSessionStore`, anexa
-  `Authorization: Bearer <token>` só para prefixos `/oauth2` e `/api` de mesma origem, com
-  guarda de origem (`extrairCaminhoSeMesmaOrigem`) contra vazar o token para terceiros.
-- Login real contra `POST /oauth2/token` (`auth.config.ts:33-36`), base relativa (`/acs-api`
-  inventado anteriormente foi removido; roteamento real via proxy/gateway).
-- `acsHttpInterceptorFn` injeta `X-Empresa-Id` nas chamadas ACS (`INT-FE-ACS-001`), com
-  `SKIP_EMPRESA_ID_HEADER` para as rotas de provisionamento de tenant.
-
-**Consequência para o replanejamento:** não reabrir P1 como está escrita (ela instrui a criar
-`AuthSessionService`/`accessHttpInterceptor` do zero em `access-http-base`/`auth-session`, que
-duplicaria o que `auth-login` já faz). As opções são (i) fechar P1 como DONE e apontar as
-referências para `auth-login`, ou (ii) reescrever P1 como "reconciliar `access-http-base` como
-alias/consumidor de `auth-login`" se a duplicação de libs for considerada dívida a limpar. Isso
-é uma decisão de arquitetura para o `/fe-planner`, não algo a assumir aqui.
-
-`shared/access-http-base` e `shared/auth-session` (as duas libs que P1 deveria ter preenchido)
-continuam stubs sem uso — código morto, não bloqueio.
-
-### P2 — continua a prioridade real, mas o volume de trabalho é menor do que o plano assume
-
-Os 7 `provide<Módulo>()` em `app.config.ts:217-223` continuam **100% hardcoded em
-`{adapter:'mock'}`**. Isso está correto no plano. O que o plano não reflete: os `*HttpAdapter`
-dos 7 módulos **já estão implementados de verdade** — os comentários `TODO[...]: implement` nos
-cabeçalhos estão obsoletos, o corpo já chama `HttpClient` contra os paths corretos (ex.
-`pac/src/lib/api/comando-http.adapter.ts:26` → `/api/pac/v1/pacientes/{pid}/comandos`). P2
-deixa de ser "construir transporte" e passa a ser "trocar o token + validar contra backend
-real", exatamente como a seção de riscos de P2 já antecipava sem ter certeza.
-
-Exceção não documentada no plano: **GEST "estação"** (pareamento de dispositivo/kiosk) já usa
-`DeviceAuthHttpAdapter`/`DetectionProfileHttpAdapter`/`ReportIngressHttpAdapter` sempre reais,
-sem alternativa mock (`gest.providers.ts:9-11,108-113`) — esse fluxo específico já fala com
-backend de verdade e pode servir de modelo para o flip dos outros 6.
-
-Gap real (não obsoleto) achado nesta rodada: `edge/src/lib/api/device-http.adapter.ts:18` —
-`TODO[INT-FE-EDGE-003]: wire X-Correlation-Id` — nenhum header de correlação é anexado.
-
-### P5 — sinal de que já começou informalmente, fora do plano formal
-
-`acs-e2e/caregiver-roster.spec.ts` já documenta **2 cenários vermelhos honestos** (não mais
-`test.skip()` com asserção vazia) por gaps reais de backend: falta `Idempotency-Key` no
-acs-service e falta endpoint de edição de cuidador. O plano ainda lista 45 skips em ACS como
-número de referência — vale reauditar a contagem atual antes de dimensionar P5 no `/fe-planner`.
-
-### P6 — reaberta para reverificação: o bloqueio de backend citado pode não existir mais
-
-Este plano (§3/P6, "Correção de premissa 2026-08-20") afirma que P6 segue bloqueada porque
-"o EVNT tem os 4 ports de saída como adapters fake `@Primary`,
-`NotificationOrchestrationController` lança 501 e o tenant é hardcoded `"poc"`". A auditoria de
-código de 26/08 **não encontrou nenhum desses três fatos**:
-
-- Zero `@Primary` fake em `evnt-service/src/main` (confirmado por busca no código, não no doc).
-- `NotificationOrchestrationController`/UseCase não lança mais `UnsupportedOperationException`
-  — grep vazio.
-- `AuditTrailClient` (EVNT→HIST) foi verificado linha a linha contra o
-  `RecordAuditFactController` real do HIST e bate contrato — não é mais um stub.
-
-Isso é consistente com `docs/architecture/backend/plans/plan-e2e-integration.md`, que já marca
-esse bloco como resolvido ("Sessão 6") e com os 34 issues `E2E-001..034` majoritariamente
-`DONE`. **Antes de descartar o bloqueio de P6**, confirmar especificamente: (a) se o tenant
-ainda é hardcoded `"poc"` em algum ponto do fluxo de notificação, e (b) o estado do canal SSE
-do lado backend (`GET /api/v1/events/stream`) — nenhuma das duas coisas foi reverificada nesta
-rodada, só a ausência dos fakes/501 citados. Se (a) e (b) confirmarem que o EVNT está pronto,
-P6 pode ser reordenada para logo depois de P2, em vez de ficar no fim da fila.
-
-O gap de transporte do SSE em si (`FE-EVNT-007`, `dash/dash-stream-client.ts:14,119` —
-`EventSource` não carrega `Authorization: Bearer`) continua real e aberto dos dois lados,
-independentemente do resultado da reverificação acima.
-
----
-
-## 0.2 Decisões fechadas nesta rodada (`/fe-planner E2E`, 26/08)
-
-As duas decisões que §0.1 deixou em aberto foram checadas contra o código-fonte hoje
-(não contra doc) e ambas se fecham a favor da hipótese mais barata.
-
-### 0.2-A — P1: aceitar `auth-login` como fundação definitiva (opção i de §0.1)
-
-Confirmado em `app.config.ts:69`:
-`provideHttpClient(withInterceptors([authBearerInterceptorFn, acsHttpInterceptorFn]))`,
-ambos importados de `@neuroassist/shared/auth-login` (`app.config.ts:26,21`). Os dois
-arquivos que P1 originalmente instruía a preencher continuam stub de 1 linha:
-
-```
-frontend/libs/shared/access-http-base/src/lib/access-http-base.ts:2
-  export const ACCESS_HTTP_BASE = '/api';
-frontend/libs/shared/auth-session/src/lib/auth-session.ts   -- idem (não lido nesta rodada, já
-  confirmado como stub em 20/08 e nenhum commit desde então o tocou)
-```
-
-**Decisão: (i).** P1 fecha **DONE**, sem reescrever `access-http-base`/`auth-session` — isso
-duplicaria o que `auth-login` já faz em produção. As duas libs-alvo originais viram **código
-morto a remover**, não dívida a reconciliar: nenhuma prioridade deste plano (P2–P7) as
-referencia, e criar uma prioridade só para deletar 2 arquivos de 1 linha não paga o próprio
-custo de planejamento. Registrado como achado D9 abaixo em vez de prioridade nova.
-
-A seção original de P1 (linhas "Prioridade P1" abaixo) é mantida **apenas como registro
-histórico do desenho de 20/08** — não é mais uma instrução de execução. O implementador que
-chegar a este plano deve tratar P1 como fechada e seguir direto para P2.
-
-### 0.2-B — P6: o bloqueio de backend não existe mais (confirmado por leitura de código, não de doc)
-
-Três checagens, todas negativas para o bloqueio citado em §3/P6 ("Correção de premissa
-2026-08-20"):
-
-1. **Tenant hardcoded `"poc"`** — `evnt-service/.../security/TenantContextFilter.java` resolve
-   `tenant_id` a partir do JWT (claim canônico, `TENANT_CLAIMS = List.of("tenant_id")`), com
-   403 explícito em `X-Tenant-Id` divergente e em requisição sem claim de tenant (E2E-021). O
-   javadoc da própria classe documenta que o hardcode `"poc"` existiu e foi removido — não é
-   suposição, é a classe atual descrevendo sua própria correção.
-2. **`NotificationOrchestrationController` lançando 501** — os dois métodos do controller
-   (`retrySweep`) chamam `notificationOrchestrationUseCase.retrySweep()` de verdade; o javadoc
-   registra que o `UnsupportedOperationException` foi corrigido na "Sessão 4" (C-45) depois de
+1. **Tenant hardcoded `"poc"` — não existe mais.**
+   `evnt-service/.../infrastructure/security/TenantContextFilter.java` resolve `tenant_id` a
+   partir do claim do JWT (`TENANT_CLAIMS = List.of("tenant_id")`), responde `403` em
+   `X-Tenant-Id` divergente do claim e em requisição autenticada sem claim de tenant
+   (E2E-021). O javadoc da própria classe documenta que o hardcode `"poc"` existiu e foi
+   removido — é a classe atual descrevendo a própria correção, não uma suposição externa.
+2. **`NotificationOrchestrationController` lançando 501 — não existe mais.** O método
+   `retrySweep()` chama `notificationOrchestrationUseCase.retrySweep()` de verdade; o javadoc
+   registra que o `UnsupportedOperationException` foi corrigido ("Sessão 4", C-45) depois de
    ter sido mal classificado como scaffolding morto.
-3. **4 ports de saída como adapters fake `@Primary`** — busca por `@Primary` em
-   `evnt-service/src/main` não retorna nenhum resultado.
-4. **Canal SSE do alarme** — `EventStreamController` (`GET /api/v1/events/stream`,
-   `@PreAuthorize("hasAuthority('evnt.event-query.read')")`) é real: resolve tenant via
+3. **4 ports de saída como adapters fake `@Primary` — não existe mais.** Busca por `@Primary`
+   em `evnt-service/src/main` não retorna nenhum resultado.
+4. **Canal SSE do alarme é real.** `EventStreamController` (`GET /api/v1/events/stream`,
+   `@PreAuthorize("hasAuthority('evnt.event-query.read')")`) resolve tenant via
    `TenantResolverPort`, registra o emitter via `SseRegistrationPort` e faz backfill por
    `Last-Event-ID` via `EventoRepositoryPort` — não é stub.
-5. **Bônus (não pedido em §0.1, mas mesma checagem no edge-service):** zero
-   `UnsupportedOperationException` em `edge-service/src/main` — o `ProfilePointerController`
-   citado como 501 em §4/"O que a Sessão 2 do BE mudou" também não bloqueia mais.
+5. **Bônus (mesma checagem em edge-service):** zero `UnsupportedOperationException` em
+   `edge-service/src/main` — o `ProfilePointerController` citado alhures neste plano como 501
+   também não bloqueia mais.
 
-**Decisão: P6 desbloqueada.** Reordenada para logo após P3 (mantendo P3 antes, porque a
-paridade de contrato é a verificação mais barata do plano e P6 é a prioridade mais cara —
-vale confirmar o *shape* do HIST/EVNT antes de investir em UI de SSE). Nova ordem: **P1(DONE)
-→ P2 → P3 → P6 → P4 → P5 → P7**. O gap de transporte do FE em si (`EventSource` sem header
-customizado, `FE-EVNT-007`) continua real e é a única coisa que P6 ainda precisa resolver do
-lado do browser — o backend deixou de ser o bloqueio.
-
----
-
-### Achados fora do escopo original — a reportar (regra do projeto D-423)
-
-TODOs/stubs vivos encontrados durante a auditoria, sem relação direta com nenhuma prioridade
-deste plano, registrados aqui para não se perderem:
-
-| # | Local | Achado | Natureza |
-|---|---|---|---|
-| D1 | `acs-service` `domain/service/{CuidadorDomainService,SigningKeyDomainService,TenantDomainService}.java` | `// TODO: implement domain invariants and business rules` em 3 arquivos | Scaffolding morto (não referenciado em runtime), mas presente há mais de uma sessão |
-| D2 | `evnt-service` DTOs (`EventConfirmationRequest/Response`, `EventQueryRequest/Response`, `NotificationOrchestrationRequest/Response`, `ReportIngressRequest/Response`) | `// TODO: define fields from api-contract.md`, campo único `tenantId` | **Não determinado** se vivo ou morto — não confirmado se algum controller real ainda os referencia. Precisa de segunda passada antes do `/fe-planner` assumir contrato estável |
-| D3 | `dash-service` DTOs (`PanelCompositionRequest/Response`, `PanelStreamRequest/Response`) | Mesmo padrão de D2 | Mesmo status: não determinado |
-| D4 | `gest-service` `EdgePairingAdapter.java:24-26` | Javadoc referencia `EdgePairingPortStub` que não existe mais no código | Comentário morto, sem efeito funcional |
-| D5 | `pac-service/README.md`, `gest-service/README.md`, `dash-service/README.md`, `edge-service/README.md` | Descrevem stubs/`UnsupportedOperationException`/regras não enforçadas que **não correspondem mais ao código atual** (verificado por grep) | Drift de documentação — mesmo padrão já registrado como recorrente neste projeto |
-| D6 | `frontend/libs/edge/src/lib/api/device-http.adapter.ts:18` | Falta `X-Correlation-Id` no adapter HTTP do EDGE | Gap real de observabilidade, relevante para P2/P7 |
-| D7 | `frontend/libs/dash/src/lib/dash-stream-client.ts:14,119` | `EventSource` não suporta header customizado — SSE do DASH fica sem transporte de auth definido | Gap real, relevante para P6 |
-| D8 | `project-checklist.md` | Marca "Ciclo de desenvolvimento" BE como pendente `[ ]` para todos os 7 módulos, contradizendo `plan-e2e-integration.md` e o journal (6 sessões de integração completas documentadas) | Checklist desatualizado, não o plano BE |
-| D9 | `frontend/libs/shared/{access-http-base,auth-session}/src/lib/*.ts` | Stubs de 1 linha, sem consumidor — a fundação HTTP real nasceu em `shared/auth-login` (ver §0.2-A) | Código morto — candidato a remoção numa limpeza pequena, não prioridade própria deste plano |
+**Decisão: P6 desbloqueada.** Reordenada para logo após P3 (ver §2) — P3 continua antes por
+ser a verificação mais barata do plano (contrato mock↔http, inclusive do HIST/EVNT que P6
+consome) e P6 a mais cara. Nova ordem: **P3 → P6 → P4 → P5 → P7.** O gap que resta em P6 é só
+do lado do browser: `EventSource` sem header customizado (`FE-EVNT-007`) — o backend deixou de
+ser o bloqueio, ver "Sequência de execução" na seção de P6 abaixo.
 
 ---
 
@@ -390,19 +260,18 @@ por token de DI, nunca por edição de arquivo.
 
 ### Ordem das prioridades
 
-**Reordenada em 26/08 (§0.2)** — P1 fechou DONE fora deste plano; P6 estava bloqueada por um
-achado de backend que a auditoria de código de hoje não confirmou, então sobe para logo após
-P3 em vez de ficar no fim da fila.
+**Reordenada em 26/08 (§0.1)** — P6 estava bloqueada por um achado de backend que a auditoria
+de código de hoje não confirmou, então sobe para logo após P3 em vez de ficar no fim da fila.
 
-| P | Título | Motivo | Issues cobertas |
-|---|---|---|---|
-| ~~P1~~ | ~~Fundação HTTP: interceptor + sessão~~ | **DONE (26/08)** — entregue por `shared/auth-login`, fora deste plano. Ver §0.2-A | FE-E2E-002, FE-E2E-003 |
-| P2 | Transporte e flip de adapter | Habilita a chamada sair do browser e chegar ao serviço; próxima prioridade real | FE-E2E-001, FE-E2E-004, FE-E2E-006 |
-| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI de SSE (P6) | FE-E2E-005 |
-| P6 | SSE real + fluxos ponta-a-ponta críticos | **Desbloqueada (26/08)** — backend pronto (ver §0.2-B); é o fluxo que justifica o produto | FE-E2E-011, 013, 014 |
-| P4 | Seed determinístico + global-setup | Todo teste integrado depende de dados e sessão previsíveis | FE-E2E-016 |
-| P5 | Suítes de módulo: skips e describes vazios | Zera o débito de 58 skips + 8 describes vazios | FE-E2E-007, 008, 009, 010 |
-| P7 | Degradação, fluxos secundários e CI | Fecha o gate e torna a verificação contínua | FE-E2E-012, 015, 017 |
+| P | Título | Motivo | Issues cobertas | Status |
+|---|---|---|---|---|
+| P1 | Fundação HTTP: interceptor + sessão | Sem headers e sem token nada real funciona; é o único P1 sem dependência externa | FE-E2E-002, FE-E2E-003 | ✅ DONE |
+| P2 | Transporte e flip de adapter | Habilita a chamada sair do browser e chegar ao serviço | FE-E2E-001, FE-E2E-004, FE-E2E-006 | ✅ DONE |
+| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI de SSE (P6) | FE-E2E-005 | pendente (próxima) |
+| P6 | SSE real + fluxos ponta-a-ponta críticos | **Desbloqueada (26/08)** — backend pronto (ver §0.1); é o fluxo que justifica o produto | FE-E2E-011, 013, 014 | pendente |
+| P4 | Seed determinístico + global-setup | Todo teste integrado depende de dados e sessão previsíveis | FE-E2E-016 | pendente |
+| P5 | Suítes de módulo: skips e describes vazios | Zera o débito de 58 skips + 8 describes vazios | FE-E2E-007, 008, 009, 010 | pendente |
+| P7 | Degradação, fluxos secundários e CI | Fecha o gate e torna a verificação contínua | FE-E2E-012, 015, 017 | pendente |
 
 ---
 
@@ -410,15 +279,9 @@ P3 em vez de ficar no fim da fila.
 
 ### Prioridade P1 -- Fundação HTTP: interceptor + sessão de autenticação
 
-Status: **DONE (26/08) -- decisão fechada em §0.2-A.** `auth-login` é a fundação definitiva;
-`access-http-base`/`auth-session` são código morto (D9), não dívida a reconciliar. A seção
-abaixo é o desenho *original* (20/08) e fica **apenas como registro histórico** do que se
-pretendia construir antes de se descobrir que já havia sido entregue por outro caminho. **Não
-executar nada desta seção** — duplicaria `shared/auth-login`. Se algo daqui parecer necessário
-(ex. single-flight de refresh, isenção de endpoints públicos), verificar primeiro se
-`auth-login` já resolve antes de abrir uma issue nova.
-Issues cobertas: FE-E2E-002, FE-E2E-003 (fechadas retroativamente, por `auth-login`)
-Categoria: ESTRUTURAL (histórico)
+Status: pendente
+Issues cobertas: FE-E2E-002, FE-E2E-003
+Categoria: ESTRUTURAL
 
 #### Objetivo / Problema / Resultado esperado
 
@@ -543,7 +406,7 @@ ponto mais fácil de errar — teste com 3 requests concorrentes antes de consid
 
 ### Prioridade P2 -- Transporte: proxy, configuração `integrated` e flip de adapter
 
-Status: pendente
+Status: ✅ DONE (2026-08-22)
 Issues cobertas: FE-E2E-001, FE-E2E-004, FE-E2E-006
 Categoria: WIRING
 
@@ -627,6 +490,11 @@ P2. O que aquelas fases deixaram pronto e a P2 herda:
 
 - `GEST_SERVICE_BASE_URL` = `''` (URL relativa) no perfil `integrated`, por override de provider —
   **não** editando o factory default.
+  **Atenção:** o adapter atual constrói `${baseUrl}/gest-service/eligibility`. Com `baseUrl = ''`
+  isso vira `/gest-service/eligibility`, que **não é proxiado**. O implementador deve alterar
+  o provider override para `GEST_SERVICE_BASE_URL = '/api/v1/gest'` e o adapter para
+  `${baseUrl}/eligibility` — ou manter `baseUrl = ''` e alterar o path hardcoded no adapter
+  para `/api/v1/gest/eligibility` quando `baseUrl` estiver vazio. **Escolha uma opção e justifique.**
 - **Não tocar** em `EDGE_BRIDGE_WS_URL`: a ponte WS do edge-agent local nunca passa pelo GWY, por design.
 
 #### Arquivos-alvo
@@ -643,10 +511,13 @@ frontend/apps/neuroassist-ai-web/README.md                          (documentar 
 Somente na hipótese (a) — normalização de base path:
 
 ```
-frontend/libs/pac/src/lib/api/{paciente,comando,tipos-gesto-read}-http.adapter.ts
-frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts
-frontend/libs/dash/src/lib/api/{dash-summary,dash-notifications}-http.adapter.ts
-frontend/libs/gest/src/lib/api/{eligibility,edge-detection}-http.adapter.ts
+frontend/libs/pac/src/lib/api/paciente-http.adapter.ts          (/api/pac/v1/pacientes → /api/v1/pac/pacientes)
+frontend/libs/pac/src/lib/api/comando-http.adapter.ts           (/api/pac/v1/pacientes/{pid}/comandos → /api/v1/pac/...)
+frontend/libs/pac/src/lib/api/tipos-gesto-read-http.adapter.ts  (/api/gest/v1/tipos-gesto → /api/v1/gest/tipo-gesto)
+frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts      (/api/v1/events → /api/v1/evnt/events)
+frontend/libs/dash/src/lib/api/dash-summary-http.adapter.ts     (/panel → /api/v1/dash)
+frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts (/panel/notifications → /api/v1/dash/notifications)
+frontend/libs/gest/src/lib/api/eligibility-http.adapter.ts      (${baseUrl}/gest-service/eligibility → /api/v1/gest/eligibility)
 ```
 
 #### Contrato de tipo
@@ -724,7 +595,7 @@ volte para o token de DI.
 
 ### Prioridade P3 -- Paridade de contrato mock ↔ http
 
-Status: pendente
+Status: pendente (próxima)
 Issues cobertas: FE-E2E-005
 Categoria: VALIDACAO
 
@@ -754,28 +625,85 @@ describe.each([['mock', MockAdapter], ['http', HttpAdapter]])('%s satisfaz o por
 
 O braço `http` roda apenas no perfil `integrated`; o braço `mock` roda em todo PR.
 
-#### Arquivos-alvo
+#### Arquivos-alvo (15 arquivos novos — paths exatos, pós-P2)
 
 ```
-frontend/libs/acs/src/lib/api/*.contract.spec.ts     (3 ports)
-frontend/libs/pac/src/lib/api/*.contract.spec.ts     (3 ports)
-frontend/libs/evnt/src/lib/api/*.contract.spec.ts    (1 port)
-frontend/libs/hist/src/lib/api/*.contract.spec.ts    (2 ports — resolve G2)
-frontend/libs/edge/src/lib/api/*.contract.spec.ts    (2 ports)
-frontend/libs/dash/src/lib/api/*.contract.spec.ts    (2 ports)
-frontend/libs/gest/src/lib/api/*.contract.spec.ts    (2 ports)
+# ACS (3 ports) — base: /api/v1/acs/{tenants,caregivers}
+frontend/libs/acs/src/lib/api/acs-tenant.contract.spec.ts
+frontend/libs/acs/src/lib/api/acs-cuidador.contract.spec.ts
+frontend/libs/acs/src/lib/api/acs-link.contract.spec.ts
+
+# PAC (3 ports) — bases: /api/v1/pac/pacientes, /api/v1/gest/tipo-gesto (cross-module)
+frontend/libs/pac/src/lib/api/paciente.contract.spec.ts
+frontend/libs/pac/src/lib/api/comando.contract.spec.ts
+frontend/libs/pac/src/lib/api/tipos-gesto-read.contract.spec.ts
+
+# EVNT (1 port) — base: /api/v1/evnt/events (normalizado em P2)
+frontend/libs/evnt/src/lib/api/evnt-client.contract.spec.ts
+
+# HIST (2 ports — resolve G2) — hist-client: /api/v1/hist; hist-feedback: POST /api/v1/evnt/events/{id}/feedback
+frontend/libs/hist/src/lib/api/hist-client.contract.spec.ts
+frontend/libs/hist/src/lib/api/hist-feedback.contract.spec.ts
+
+# EDGE (2 ports) — base: /api/v1/edge
+frontend/libs/edge/src/lib/api/device.contract.spec.ts
+frontend/libs/edge/src/lib/api/pairing.contract.spec.ts
+
+# DASH (2 ports) — bases: /api/v1/dash, /api/v1/dash/notifications (normalizados em P2)
+frontend/libs/dash/src/lib/api/dash-summary.contract.spec.ts
+frontend/libs/dash/src/lib/api/dash-notifications.contract.spec.ts
+
+# GEST (2 ports) — eligibility: /api/v1/gest/eligibility (via GEST_SERVICE_BASE_URL token);
+#                               edge-detection: WS localhost (não passa pelo GWY — ver NUANCE abaixo)
+frontend/libs/gest/src/lib/api/eligibility.contract.spec.ts
+frontend/libs/gest/src/lib/api/edge-detection.contract.spec.ts
 ```
+
+#### Nuances de implementação obrigatórias (descobertas no code-audit de P3)
+
+**1. ACS — InjectionToken `ACCESS_HTTP_BASE`:**
+Os três adapters ACS usam `inject(ACCESS_HTTP_BASE)` (não string hardcoded). O `TestBed` de cada
+spec do braço `http` deve prover `{ provide: ACCESS_HTTP_BASE, useValue: '' }` para que o
+`HttpTestingController` receba URLs relativas testáveis. Não fornecer o token causa `NullInjectorError`.
+
+**2. GEST eligibility — InjectionToken `GEST_SERVICE_BASE_URL`:**
+`EligibilityHttpAdapter` injeta `GEST_SERVICE_BASE_URL` (padrão: URL absoluta do serviço direto).
+O TestBed do braço `http` deve prover `{ provide: GEST_SERVICE_BASE_URL, useValue: '/api/v1/gest' }`
+(equivalente ao override do perfil `integrated` aplicado em P2) para que `HttpTestingController`
+intercepte `/api/v1/gest/eligibility`.
+
+**3. GEST edge-detection — WebSocket local (não HTTP):**
+`EdgeDetectionHttpAdapter` abre WebSocket para `EDGE_BRIDGE_WS_URL` (localhost, nunca passa pelo GWY).
+`HttpTestingController` não intercepta WebSocket. O braço `http` desta spec deve:
+- Prover `{ provide: EDGE_BRIDGE_WS_URL, useValue: 'ws://localhost:0' }` (porta inválida = fallback imediato).
+- Verificar apenas a conformidade de tipo TypeScript e que o adapter implementa `EdgeDetectionPort`.
+- Não tentar exercitar o WS real: o adapter já cobre o caminho degradado por design.
+- O braço `mock` cobre a paridade de shape normalmente via `HttpTestingController`.
+
+**4. HIST feedback — endpoint EVNT:**
+`HistFeedbackHttpAdapter` envia `POST /api/v1/evnt/events/{id}/feedback` — não é um endpoint HIST.
+A spec deve interceptar a URL EVNT no `HttpTestingController`, não `/api/v1/hist/**`.
+Registrar a razão no comentário do spec.
+
+**5. PAC tipos-gesto-read — endpoint GEST:**
+`TiposGestoReadHttpAdapter` chama `GET /api/v1/gest/tipo-gesto` — endpoint GEST, não PAC.
+Conformidade com ADR-002: a spec não importa nenhum símbolo do módulo GEST.
+O adapter recebe apenas a URL e converte a resposta em `TipoGesto[]`; a spec verifica esse shape.
 
 #### Contrato de tipo
 
 Nenhum tipo novo. Esta prioridade **verifica** os tipos existentes dos ports.
 Se um tipo precisar mudar, isso é resultado da prioridade, não premissa.
+Se o braço `http` do `hist-client.contract.spec.ts` revelar que `rotulo`/`urgencia` não chegam
+no read model do HIST, registrar como issue de contrato (G2) e não alterar o tipo silenciosamente.
 
 #### Sequência de execução
 
-1. `testes`: specs de contrato dos 7 módulos (15 ports).
-2. Executar o braço `http` contra o stack Docker.
-3. Registrar divergências como issue de contrato.
+1. `testes`: HIST primeiro (CTR-04/05 — resolve G2).
+2. `testes`: ACS (CTR-01..03) → PAC (CTR-06..08) → EDGE (CTR-09/10) → DASH (CTR-11/12) → EVNT (CTR-13) → GEST eligibility (CTR-14) → GEST edge-detection (CTR-15).
+3. Executar braço `mock` de todos no CI (sem Docker).
+4. Executar braço `http` contra o stack Docker.
+5. Registrar divergências de shape como issue de contrato.
 
 #### Generators Nx obrigatórios
 
@@ -793,13 +721,15 @@ Indireto: o braço `http` só funciona com o interceptor de P1 ativo, o que vali
 #### Critérios de aceite
 
 ```bash
-npx nx run-many --target=test --all                  # PASS (braço mock)
+npx nx run-many --target=test --all                  # PASS (braço mock — sem Docker)
 # perfil integrated, com stack Docker no ar:
 npx nx run-many --target=test --all --configuration=integrated   # PASS (braço http)
 ```
 
-- CTR-01..07 cobertos (15 ports).
-- Gap G2 de `INT-FE-HIST-001` **respondido** e registrado.
+- CTR-01..15 cobertos (15 ports).
+- Gap G2 de `INT-FE-HIST-001` **respondido** e registrado (sim/não rotulo+urgencia chegam do HIST).
+- Zero `NullInjectorError` nos TestBeds (tokens `ACCESS_HTTP_BASE` e `GEST_SERVICE_BASE_URL` providos).
+- `edge-detection.contract.spec.ts` passa sem Docker (sem WS real).
 
 #### Riscos
 
@@ -809,8 +739,26 @@ e quebra a paridade com o mock.
 
 #### Instrução para implementador
 
-Comece por HIST (CTR-04): é o módulo verificador de todos os fluxos das prioridades seguintes
-e é onde o gap G2 está aberto. Se o shape do HIST divergir, P6 inteira é afetada.
+Comece por HIST (CTR-04/05): é o módulo verificador de todos os fluxos das prioridades seguintes
+e é onde o gap G2 está aberto. Se o shape do HIST divergir (ex.: `rotulo`/`urgencia` ausentes),
+registre como issue — não corrija o tipo silenciosamente.
+
+Para cada spec: prover **todos** os InjectionTokens necessários no `TestBed` antes de instanciar
+o adapter. O padrão é:
+```ts
+TestBed.configureTestingModule({
+  providers: [
+    provideHttpClient(),
+    provideHttpClientTesting(),
+    { provide: ACCESS_HTTP_BASE, useValue: '' },  // ACS apenas
+    // { provide: GEST_SERVICE_BASE_URL, useValue: '/api/v1/gest' }, // GEST eligibility apenas
+    SomeHttpAdapter,
+    SomeMockAdapter,
+  ],
+});
+```
+
+Para `edge-detection.contract.spec.ts`, o padrão é diferente (WS, não HTTP) — ver NUANCE 3 acima.
 
 ---
 
@@ -998,17 +946,13 @@ asserido ainda, deixe o `.skip` e registre o porquê — é mais honesto que um 
 
 ### Prioridade P6 -- SSE real e fluxos ponta-a-ponta críticos
 
-Status: **desbloqueada (26/08) -- decisão fechada em §0.2-B.** O bloqueio de backend descrito
-abaixo ("Correção de premissa 2026-08-20": EVNT com 4 adapters fake `@Primary`,
-`NotificationOrchestrationController` lançando 501, tenant hardcoded `"poc"`) foi
-**reverificado por leitura direta do código em 26/08 e não existe mais**: `TenantContextFilter`
-resolve `tenant_id` do JWT de verdade, `NotificationOrchestrationController.retrySweep()` chama
-um use case real, zero `@Primary` em `evnt-service`, e `EventStreamController` (`GET
-/api/v1/events/stream`) é um endpoint SSE real com backfill por `Last-Event-ID`. Reordenada
-para logo após P3 (ver §2 e §0.2-B) — deixou de estar no fim da fila. O único bloqueio que
-resta é do lado do **frontend**: o gap de transporte do SSE (`EventSource` sem header
-customizado, `FE-EVNT-007`) continua real e é o primeiro passo desta prioridade (ver "Sequência
-de execução" abaixo).
+Status: **desbloqueada (26/08) -- decisão fechada em §0.1.** O bloqueio de backend descrito
+mais abaixo ("EVNT com 4 ports de saída como adapters fake `@Primary`,
+`NotificationOrchestrationController` lança 501 e o tenant é hardcoded `"poc"`") foi
+reverificado por leitura direta do código em 26/08 e não existe mais — ver §0.1 para a
+evidência arquivo-a-arquivo. Reordenada para logo após P3 (era a última da fila). O único
+bloqueio que resta é do lado do **frontend**: `EventSource` sem header customizado
+(`FE-EVNT-007`), primeiro passo da "Sequência de execução" abaixo.
 Issues cobertas: FE-E2E-011, FE-E2E-013, FE-E2E-014
 Categoria: FUNCIONAL
 
@@ -1321,9 +1265,9 @@ verdes. Impactos diretos aqui:
 3. **`X-Empresa-Id` (P1) é obrigatório e validado.** O PAC compara o header com o claim do JWT
    e responde 403 em divergência. Confirma o gap crítico de P1 — mas atenção: **o GWY não
    injeta tenant header nenhum**; a responsabilidade é inteiramente do FE.
-4. ~~**EVNT e DASH não estão prontos para P6.**~~ **Superado (26/08, §0.2-B).** Era verdade em
-   21/08; a auditoria de código de hoje não encontrou nenhum dos três fatos (fakes `@Primary`,
-   501, tenant `"poc"`) no `evnt-service` atual. P6 desbloqueada.
+4. ~~**EVNT e DASH não estão prontos para P6.**~~ **Superado (26/08, §0.1).** Era verdade
+   quando escrito; a auditoria de código de hoje não encontrou nenhum dos três fatos (fakes
+   `@Primary`, 501, tenant `"poc"`) no `evnt-service` atual. P6 desbloqueada.
 5. ~~**O heartbeat do EDGE não é alcançável**~~ **Também superado** — zero
    `UnsupportedOperationException` em `edge-service/src/main` hoje.
 
@@ -1332,17 +1276,16 @@ verdes. Impactos diretos aqui:
 | # | Decisão | Estado |
 |---|---|---|
 | 1 | G8 normalizar (a) / espelhar (b) | ✅ **decidida e implementada** — ADR-008 = (a), E2E-014 DONE. P2 **desbloqueada** |
-| 2 | Auth do canal SSE (P6) | ✅ **desbloqueada (26/08)** — o EVNT produz notificação real (§0.2-B); decisão de transporte (`fetch`+`ReadableStream` / polyfill / `HttpClient observe:'events'`) fica a cargo do implementador de P6, ver §3/P6 |
+| 2 | Auth do canal SSE (P6) | ✅ **desbloqueada (26/08)** — o EVNT produz notificação real (§0.1); decisão de transporte (`fetch`+`ReadableStream` / polyfill / `HttpClient observe:'events'`) fica a cargo do implementador de P6 |
 | 3 | Claims emitidos pelo ACS | ✅ **resolvida** — ver item 2 acima |
 | 4 | `rotulo`/`urgencia` server-side ou client-join | ⏳ aberta |
 | 5 | `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` | ⏳ aberta (higiene) |
 
-### Ordem sugerida após o replanejamento de 26/08 (§0.2)
+### Ordem sugerida após o replanejamento de 26/08 (§0.1)
 
-**P1 fechou DONE** fora deste plano (`shared/auth-login`). **P2 (proxy + flip de adapter)**
-está livre: `E2E-014` fechou em 2026-08-21 e as 7 rotas alcançam o controller. **P6 deixou de
-estar bloqueada** — a auditoria de código de 26/08 não confirmou nenhum dos fatos que a
-bloqueavam (ver §0.2-B) — e sobe para logo após P3. Ordem final: **P2 → P3 → P6 → P4 → P5 → P7.**
+**P1 e P2 já estão ✅ DONE** (ver "Status das prioridades"). **P6 deixou de estar bloqueada**
+— a auditoria de código de 26/08 não confirmou nenhum dos fatos que a bloqueavam (§0.1) — e
+sobe para logo após P3. Ordem final: **P3 → P6 → P4 → P5 → P7.**
 
 **Mudança de base path exigida no FE** (6 constantes, sem mudança de lógica — a superfície
 pública agora é `/api/v1/<svc>/**` para tudo):
@@ -1361,11 +1304,11 @@ ACS, HIST e EDGE ficam inalterados. O proxy do FE passa a precisar de **2 prefix
 
 ### Decisões pendentes com o backend
 
-1. **G8 — normalizar (a) ou espelhar (b) as rotas do GWY.** Bloqueia P2. Recomendação: (a).
-2. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE.
-3. Claims exatos emitidos pelo ACS (`hist:read`, `hist:read:all`) → `shared/access-decision`.
-4. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join?
-5. Renomear `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` com default no ACS (higiene; não bloqueia).
+1. ~~**G8 — normalizar (a) ou espelhar (b) as rotas do GWY.**~~ **✅ Resolvida** — ADR-008 = (a), `E2E-014` DONE em 2026-08-21. P2 desbloqueada.
+2. Mecanismo de auth do canal SSE (P6) — afeta o `dash-service`, não só o FE. **Prematura enquanto EVNT não produz notificação real.**
+3. ~~Claims exatos emitidos pelo ACS.~~ **✅ Resolvida** — `authorities`, `tenant_id`/`tenant`/`empresaId`, `papel`, `nome`. `hist:read` / `hist:read:all` (prefixo `SCOPE_` no HIST). `hist:write` não emitido para usuário.
+4. Gap G2 de `INT-FE-HIST-001`: `rotulo` / `urgencia` resolvidos server-side ou client-join? **Aberta — resolver em P3.**
+5. Renomear `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` com default no ACS — higiene; não bloqueia P1 nem P2.
 
 ### Contratos de tipo dependentes
 

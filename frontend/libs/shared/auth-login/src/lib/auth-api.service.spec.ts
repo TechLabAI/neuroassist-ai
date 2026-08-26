@@ -156,4 +156,3 @@ describe('AuthApiService — caminho padrão', () => {
     http.expectOne('/oauth2/token').flush(RESPOSTA_TOKEN_COORD);
   });
 });
-;

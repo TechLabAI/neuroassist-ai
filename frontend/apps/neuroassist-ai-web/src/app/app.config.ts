@@ -8,7 +8,7 @@ import {
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideGest } from '@neuroassist/gest';
+import { provideGest, GEST_SERVICE_BASE_URL } from '@neuroassist/gest';
 import { provideEvnt, EventDeliveryFacade } from '@neuroassist/evnt';
 import {
   providePac,
@@ -19,12 +19,14 @@ import {
 import {
   provideAcs,
   acsHttpInterceptorFn,
+  AcsEmpresaContextService,
   ACS_AUTH_SESSION,
   ACS_ACCESS_DECISION,
   MODULE_PERMISSION_MAP,
 } from '@neuroassist/acs';
 import { provideAuth, authBearerInterceptorFn } from '@neuroassist/shared/auth-login';
 import { AuthSessionStore } from '@neuroassist/shared/auth-session';
+import { accessHttpInterceptor, EMPRESA_ID_TOKEN } from '@neuroassist/shared/access-http-base';
 import { provideEdge, EDGE_ACCESS_DECISION, EDGE_TOAST_TOKEN } from '@neuroassist/edge';
 import { ToastService } from '@neuroassist/shared/ui-feedback';
 import { provideHist } from '@neuroassist/hist';
@@ -35,19 +37,29 @@ import {
 } from '@neuroassist/dash';
 import type { ActiveEventVm } from '@neuroassist/dash';
 import { appRoutes } from './app.routes';
+import { APP_ADAPTER_MODE } from './config/adapter-mode';
+import { CURRENT_ADAPTER_MODE } from './config/adapter-mode-env';
 
 // ---------------------------------------------------------------------------
 // app.config.ts — root ApplicationConfig for neuroassist-ai-web.
 //
-// adapter: 'mock' for every module — no backend microservice is required to
+// adapter: 'mock' for every module below — no backend microservice is required to
 // serve/e2e this app locally (see docs/architecture/backend/standards/
-// api-mock-convention.md). Flip individual modules to 'http' once their
-// backend + GWY route is deployed and reachable (per-module TODO in each
-// provide<Module>() factory).
+// api-mock-convention.md). Flip individual modules to 'http' once their backend + GWY
+// route is deployed and reachable (per-module TODO in each provideX call below).
 //
-// acsHttpInterceptorFn: ACS-specific HTTP interceptor that adds X-Empresa-Id
-//   header to ACS requests once a tenant has been provisioned (INT-FE-ACS-001).
-//   Tenant provisioning routes are excluded via SKIP_EMPRESA_ID_HEADER token.
+// APP_ADAPTER_MODE (P2 FE-E2E-006): CURRENT_ADAPTER_MODE is resolved at build time via
+// fileReplacements ('mock' | 'http') and exposed as an injectable token so e2e specs can
+// read which build they are running against. It does NOT drive the per-module adapter
+// choice above — that is deliberately manual (see comment above) — it is read-only
+// observability for tests.
+//
+// GEST_SERVICE_BASE_URL override (P2 FE-E2E-004): unconditional, not gated by adapter
+// mode. Harmless while eligibility stays 'mock' below (EligibilityHttpAdapter is never
+// instantiated), and already correct — GWY-relative '/api/v1/gest' — for the day
+// eligibility flips to 'http'. Must appear before provideGest() so the adapter picks up
+// the overridden value. EDGE_BRIDGE_WS_URL is NOT overridden — it is localhost-only,
+// never routed through GWY.
 //
 // Tokens cross-module do DASH:
 //   DASH_ACTIVE_EVENT_TOKEN — LIGADO ao EventDeliveryFacade do EVNT (ver abaixo).
@@ -58,6 +70,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(appRoutes),
+
     // ORDEM dos interceptors = ordem de execução na ida.
     //
     // `authBearerInterceptorFn` vem primeiro porque identidade é anterior a
@@ -66,8 +79,30 @@ export const appConfig: ApplicationConfig = {
     // é imutável e cada interceptor clona o que recebeu, então o segundo clone
     // preserva o header do primeiro. (No Feign do backend é o contrário: o
     // `RequestTemplate` é mutável e compartilhado, e ali a ordem morde.)
-    provideHttpClient(withInterceptors([authBearerInterceptorFn, acsHttpInterceptorFn])),
+    //
+    // `accessHttpInterceptor` (P1 FE-E2E-002) não decide Authorization — isso é
+    // `authBearerInterceptorFn`, acima. Ele só acrescenta X-Empresa-Id (rastreabilidade,
+    // nunca um portão — ver multi-empresa.md), X-Correlation-Id e Idempotency-Key, e
+    // mapeia erro ProblemDetail (RFC 7807) para AppError.
+    provideHttpClient(
+      withInterceptors([authBearerInterceptorFn, acsHttpInterceptorFn, accessHttpInterceptor]),
+    ),
     provideAnimations(),
+
+    // P2 FE-E2E-006: expose build-time adapter mode as injectable token (read-only,
+    // consumed by e2e specs — does not drive the manual per-module flips below).
+    { provide: APP_ADAPTER_MODE, useValue: CURRENT_ADAPTER_MODE },
+
+    // P1 FE-E2E-002: wire EMPRESA_ID_TOKEN to AcsEmpresaContextService.empresaId signal.
+    // ACS is the sole writer of the active tenant id (ACS-003 / INT-FE-ACS-003).
+    {
+      provide: EMPRESA_ID_TOKEN,
+      useFactory: () => inject(AcsEmpresaContextService).empresaId,
+    },
+
+    // P2 FE-E2E-004: GWY-relative base for GEST — see file header. Inert until
+    // eligibility below flips to 'http'.
+    { provide: GEST_SERVICE_BASE_URL, useValue: '/api/v1/gest' },
 
     // ------------------------------------------------------------------
     // Autenticação.

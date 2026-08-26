@@ -19,7 +19,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class AcsCuidadorHttpAdapter implements AcsCuidadorPort {
   private readonly http = inject(HttpClient);
-  private readonly base = `${ACCESS_HTTP_BASE}/v1/acs/caregivers`;
+  private readonly base = `${inject(ACCESS_HTTP_BASE)}/v1/acs/caregivers`;
 
   list(): Observable<CuidadorDto[]> {
     return this.http.get<CuidadorDto[]>(this.base);

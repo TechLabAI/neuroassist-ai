@@ -6,17 +6,18 @@ import { NotificationEnvelope, UnacknowledgedResponse } from '../dash.types';
 
 // =============================================================================
 // DashNotificationsHttpAdapter — production adapter (stub, compilable)
-// Base: /panel — routed through GWY (api-contract.md §4; port 8090 dev).
+// Base: /api/v1/dash/notifications (GWY-normalized — ADR-008 / E2E-014).
+// Previously: /panel/notifications (direct service path, pre-ADR-008).
 // Switch via provideDash({ adapter: 'http' }) in app.config.ts.
 // TODO[INT-FE-DASH-005]: activate once dash-service is deployed.
-// SSE auth note: EventSource cannot send custom headers; coordinate with BE
-// whether to use cookie-based or query-param JWT for /panel/stream (M5 warning).
+// SSE auth note: DashStreamClient opens /panel/stream via EventSource — auth
+// strategy is P6 scope (FE-E2E-011 / DASH-005-AUTH); not changed here.
 // =============================================================================
 
 @Injectable({ providedIn: 'root' })
 export class DashNotificationsHttpAdapter implements DashNotificationsPort {
   private readonly http = inject(HttpClient);
-  private readonly base = '/panel/notifications';
+  private readonly base = '/api/v1/dash/notifications';
 
   listUnacknowledged(): Observable<UnacknowledgedResponse> {
     return this.http.get<UnacknowledgedResponse>(`${this.base}/unacknowledged`);

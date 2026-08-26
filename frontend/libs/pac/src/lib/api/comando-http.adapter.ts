@@ -12,7 +12,8 @@ import {
 
 // ---------------------------------------------------------------------------
 // ComandoHttpAdapter — stub compilável (Layer 2 implementa os corpos).
-// Base path: /api/pac/v1/pacientes/{pid}/comandos
+// Base path: /api/v1/pac/pacientes/{pid}/comandos (GWY-normalized — ADR-008 / E2E-014).
+// Previously: /api/pac/v1/pacientes/{pid}/comandos (direct service path, pre-ADR-008).
 // If-Match header guards lifecycle transitions against concurrent edits.
 // Emergency gate (422 /errors/emergency-not-detectable) is surfaced via the
 // error handler in PacComandoFacade — see SPEC-07.
@@ -23,7 +24,7 @@ export class ComandoHttpAdapter implements PacComandoPort {
   private readonly http = inject(HttpClient);
 
   private baseUrl(pid: string): string {
-    return `/api/pac/v1/pacientes/${pid}/comandos`;
+    return `/api/v1/pac/pacientes/${pid}/comandos`;
   }
 
   list(pid: string, estado?: ComandoEstado[]): Observable<Comando[]> {

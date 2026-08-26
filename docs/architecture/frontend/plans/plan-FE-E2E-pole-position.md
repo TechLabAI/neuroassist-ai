@@ -6,8 +6,7 @@
 
 ## ⚠️ Avisos
 
-- 4 file(s) are targeted by >1 unit; those units were coalesced into the same stream to keep ownership disjoint.
-- some units declare no file targets — their split is by unit only (ownership not verifiable). Add 'Alvos de alteração' paths to the plan.
+- 5 file(s) are targeted by >1 unit; those units were coalesced into the same stream to keep ownership disjoint.
 
 ## Setup de worktrees (humano, uma vez)
 
@@ -20,8 +19,8 @@ git worktree add ../fe-e2e-t2 -b stream/fe-e2e-t2
 
 | Terminal | Branch | Unidades | Arquivos (owned) |
 |---|---|---|---|
-| t1 | `stream/fe-e2e-t1` | P1, P2, P6, P7 | 45 |
-| t2 | `stream/fe-e2e-t2` | P3, P4, P5 | 6 |
+| t1 | `stream/fe-e2e-t1` | P1, P2, P6, P7 | 50 |
+| t2 | `stream/fe-e2e-t2` | P3, P4, P5 | 23 |
 
 ### Terminal t1 — `stream/fe-e2e-t1`
 
@@ -56,8 +55,13 @@ git worktree add ../fe-e2e-t2 -b stream/fe-e2e-t2
 - `frontend/apps/neuroassist-ai-web/src/app/config/adapter-mode.ts`
 - `frontend/apps/neuroassist-ai-web/src/app/shell/app-shell.component.ts`
 - `frontend/libs/dash/src/lib/api/dash-notifications-http.adapter.ts`
+- `frontend/libs/dash/src/lib/api/dash-summary-http.adapter.ts`
 - `frontend/libs/evnt/src/lib/api/evnt-client-http.adapter.ts`
 - `frontend/libs/gest/src/lib/api/eligibility-http.adapter.spec.ts`
+- `frontend/libs/gest/src/lib/api/eligibility-http.adapter.ts`
+- `frontend/libs/pac/src/lib/api/comando-http.adapter.ts`
+- `frontend/libs/pac/src/lib/api/paciente-http.adapter.ts`
+- `frontend/libs/pac/src/lib/api/tipos-gesto-read-http.adapter.ts`
 - `frontend/libs/shared/access-http-base/src/index.ts`
 - `frontend/libs/shared/access-http-base/src/lib/access-http-base.ts`
 - `frontend/libs/shared/access-http-base/src/lib/access-http.interceptor.ts`
@@ -95,8 +99,25 @@ Siga o plano para suas unidades; rode os testes locais antes de marcar pronto.
 
 - `-e2e/playwright.config.ts`
 - `docker/seed-e2e.sql`
+- `edge-detection.contract.spec.ts`
 - `frontend/e2e-support/global-setup.ts`
 - `frontend/e2e-support/seed.ts`
+- `frontend/libs/acs/src/lib/api/acs-cuidador.contract.spec.ts`
+- `frontend/libs/acs/src/lib/api/acs-link.contract.spec.ts`
+- `frontend/libs/acs/src/lib/api/acs-tenant.contract.spec.ts`
+- `frontend/libs/dash/src/lib/api/dash-notifications.contract.spec.ts`
+- `frontend/libs/dash/src/lib/api/dash-summary.contract.spec.ts`
+- `frontend/libs/edge/src/lib/api/device.contract.spec.ts`
+- `frontend/libs/edge/src/lib/api/pairing.contract.spec.ts`
+- `frontend/libs/evnt/src/lib/api/evnt-client.contract.spec.ts`
+- `frontend/libs/gest/src/lib/api/edge-detection.contract.spec.ts`
+- `frontend/libs/gest/src/lib/api/eligibility.contract.spec.ts`
+- `frontend/libs/hist/src/lib/api/hist-client.contract.spec.ts`
+- `frontend/libs/hist/src/lib/api/hist-feedback.contract.spec.ts`
+- `frontend/libs/pac/src/lib/api/comando.contract.spec.ts`
+- `frontend/libs/pac/src/lib/api/paciente.contract.spec.ts`
+- `frontend/libs/pac/src/lib/api/tipos-gesto-read.contract.spec.ts`
+- `hist-client.contract.spec.ts`
 - `playwright.config.ts`
 - `test.skip`
 

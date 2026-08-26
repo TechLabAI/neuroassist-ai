@@ -17,7 +17,8 @@ import { parseSseLine, createSseBuffer } from './evnt-sse-parser';
 
 // =============================================================================
 // EvntClientHttpAdapter — production adapter (P6-A, P6-B refactor)
-// Base path: /api/v1/events (routed via GWY).
+// Base path: /api/v1/evnt/events (GWY-normalized — ADR-008 / E2E-014).
+// Previously: /api/v1/events (direct service path, pre-ADR-008).
 //
 // Multi-empresa (INT-FE-EVNT-001):
 //   HttpClient calls: X-Empresa-Id added by evntHttpInterceptorFn (withInterceptors).
@@ -36,7 +37,7 @@ import { parseSseLine, createSseBuffer } from './evnt-sse-parser';
 @Injectable({ providedIn: 'root' })
 export class EvntClientHttpAdapter implements EvntClientPort {
   private readonly http = inject(HttpClient);
-  private readonly base = '/api/v1/events';
+  private readonly base = '/api/v1/evnt/events';
 
   /**
    * EmpresaContext captured at construction time for use inside fetch() callbacks.

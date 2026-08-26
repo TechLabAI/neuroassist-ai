@@ -1,9 +1,29 @@
 {
   "name": "shared-access-http-base",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
   "projectType": "library",
   "sourceRoot": "libs/shared/access-http-base/src",
   "tags": [
     "type:data-access",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/shared/access-http-base"],
+      "options": {
+        "jestConfig": "libs/shared/access-http-base/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/shared/access-http-base/**/*.ts"
+        ]
+      }
+    }
+  }
 }

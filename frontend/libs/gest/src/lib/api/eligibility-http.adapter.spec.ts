@@ -10,13 +10,25 @@ import { GEST_SERVICE_BASE_URL } from './gest-service.config';
 // ---------------------------------------------------------------------------
 // EligibilityHttpAdapter — unit tests (GEST-FE-008 + P1 multi-empresa wiring)
 // Critical path: fail-closed on emergencia when backend unreachable.
+//
+// Path construction after ADR-008 / E2E-014 / FE-E2E-004 (option a):
+//   adapter.check() posts to ${GEST_SERVICE_BASE_URL}/eligibility
+//   In 'integrated' profile: GEST_SERVICE_BASE_URL = '/api/v1/gest'
+//                            → endpoint '/api/v1/gest/eligibility'
+//   In tests with a custom baseUrl ('http://test-gest:8084')
+//                            → endpoint 'http://test-gest:8084/eligibility'
+//
 // Multi-empresa: header is sent for traceability when empresa is resolved;
 //   NOT sent when id is null (empresa not yet resolved).
 //   Isolation is enforced by JWT claim — these tests do NOT assert isolation.
 // ---------------------------------------------------------------------------
 
 const BASE_URL = 'http://test-gest:8084';
-const ELIGIBILITY_ENDPOINT = `${BASE_URL}/gest-service/eligibility`;
+const ELIGIBILITY_ENDPOINT = `${BASE_URL}/eligibility`;
+
+// Integrated-profile scenario: baseUrl = '/api/v1/gest' (set by app.config.ts).
+const INTEGRATED_BASE_URL = '/api/v1/gest';
+const INTEGRATED_ELIGIBILITY_ENDPOINT = `${INTEGRATED_BASE_URL}/eligibility`;
 
 describe('EligibilityHttpAdapter', () => {
   let adapter: EligibilityHttpAdapter;
@@ -44,7 +56,7 @@ describe('EligibilityHttpAdapter', () => {
   describe('basic HTTP contract', () => {
     beforeEach(() => setupWithEmpresaId(null));
 
-    it('should POST to /gest-service/eligibility with urgencyLevel in body', async () => {
+    it('should POST to ${baseUrl}/eligibility with urgencyLevel in body', async () => {
       const promise = adapter.check('rotina');
 
       const req = httpMock.expectOne(ELIGIBILITY_ENDPOINT);
@@ -157,5 +169,66 @@ describe('EligibilityHttpAdapter', () => {
       req.flush({ eligible: true, missingStates: [] });
       await promise;
     });
+  });
+});
+
+// =============================================================================
+// P2 FE-E2E-004: integrated-profile base URL override (/api/v1/gest via GWY)
+//
+// Isolated top-level describe to avoid TestBed re-configuration issues when
+// nested inside the base-URL describe above.
+//
+// Verifies that when GEST_SERVICE_BASE_URL = '/api/v1/gest' (as provided by
+// app.config.ts in the 'integrated' Nx configuration), the adapter posts to
+// /api/v1/gest/eligibility — the GWY-normalized path (ADR-008 / E2E-014).
+// =============================================================================
+
+describe('EligibilityHttpAdapter (integrated profile — GEST_SERVICE_BASE_URL = /api/v1/gest)', () => {
+  let adapter: EligibilityHttpAdapter;
+  let httpMock: HttpTestingController;
+
+  const INTEGRATED_BASE_URL = '/api/v1/gest';
+  const INTEGRATED_ENDPOINT = `${INTEGRATED_BASE_URL}/eligibility`;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        EligibilityHttpAdapter,
+        { provide: GEST_SERVICE_BASE_URL, useValue: INTEGRATED_BASE_URL },
+      ],
+    });
+    adapter = TestBed.inject(EligibilityHttpAdapter);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    TestBed.resetTestingModule();
+  });
+
+  it('should POST to /api/v1/gest/eligibility (GWY route, ADR-008 / E2E-014)', async () => {
+    const promise = adapter.check('rotina');
+
+    const req = httpMock.expectOne(INTEGRATED_ENDPOINT);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ urgencyLevel: 'rotina' });
+
+    req.flush({ eligible: true, missingStates: [] });
+    const result = await promise;
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBeNull();
+  });
+
+  it('[CRÍTICO] should fail-closed on emergencia via GWY path', async () => {
+    const promise = adapter.check('emergencia');
+    const req = httpMock.expectOne(INTEGRATED_ENDPOINT);
+    req.error(new ProgressEvent('NetworkError'));
+
+    const result = await promise;
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain('indisponível');
+    expect(result.unsupportedPrimitiveIds).toEqual([]);
   });
 });

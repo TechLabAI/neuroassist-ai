@@ -67,6 +67,17 @@
           "optimization": false,
           "extractLicenses": false,
           "sourceMap": true
+        },
+        "integrated": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true,
+          "fileReplacements": [
+            {
+              "replace": "apps/neuroassist-ai-web/src/app/config/adapter-mode-env.ts",
+              "with": "apps/neuroassist-ai-web/src/app/config/adapter-mode-env.integrated.ts"
+            }
+          ]
         }
       },
       "defaultConfiguration": "production"
@@ -83,6 +94,10 @@
         },
         "development": {
           "buildTarget": "neuroassist-ai-web:build:development"
+        },
+        "integrated": {
+          "buildTarget": "neuroassist-ai-web:build:integrated",
+          "proxyConfig": "apps/neuroassist-ai-web/proxy.conf.js"
         }
       },
       "defaultConfiguration": "development"
