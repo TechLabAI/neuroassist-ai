@@ -1,5 +1,27 @@
 # CI — NeuroAssist AI
 
+> ## ⛔ OS DOIS WORKFLOWS ESTÃO DESATIVADOS (25/08/2026)
+>
+> ```
+> $ gh workflow list --all
+> CI — Backend     disabled_manually
+> CI — Frontend    disabled_manually
+> ```
+>
+> Decisão do dono do produto ("desativar e pular por agora"). **Nada do que este documento
+> descreve está executando.** Os workflows existem, com clone limpo, `integrationTest` e o
+> `gitignore-guard` — e nenhum deles roda.
+>
+> Enquanto isso valer, "os módulos estão verdes" volta a ser uma afirmação sobre a última vez
+> que alguém rodou localmente — exatamente o que a seção abaixo explica que o CI existe para
+> evitar. Rastreado em `E2E-027`, que foi REABERTA por causa disto.
+>
+> Para religar:
+> ```bash
+> gh workflow enable "CI — Backend"
+> gh workflow enable "CI — Frontend"
+> ```
+
 Implementado em E2E-027. Dois workflows em `.github/workflows/`:
 
 | Arquivo | Gatilho | O que verifica |

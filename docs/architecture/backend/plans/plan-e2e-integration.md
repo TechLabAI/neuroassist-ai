@@ -393,7 +393,7 @@ dívida que ninguém prioriza.
 | E2E-016 | ACS não provisiona schema de tenant (`MigProvisioningAdapter` no-op) | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-017 | EVNT perde fato de auditoria — fail-open sem outbox | P1 | ✅ DONE — validado no stack (2026-08-23) |
 | E2E-018 | DASH sem circuit breaker; config resilience4j decorativa (C-37) | P1 | ✅ DONE — validado com EDGE fora (2026-08-23) |
-| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | 🟡 EM REVISÃO — workflows escritos, não validados no GitHub (2026-08-23) |
+| E2E-027 | Não existe CI — nenhum gate roda sem alguém digitar o comando | P1 | ⛔ REABERTA — workflows escritos e DESATIVADOS por decisão do dono (2026-08-25) |
 | E2E-028 | PAC aceita remover a última cuidadora; ACS recusa (C-47) | P1 | ✅ DONE — guarda no PAC, ACS segue dono (ADR-010, 2026-08-24) |
 | E2E-029 | Tenant novo nasce vazio e ninguém consegue entrar nele (C-48) | P1 | ✅ DONE — Flow-01 fecha numa empresa nova (2026-08-23) |
 | E2E-030 | Tenant provisionado congela na versão do template (C-50) | P1 | ✅ DONE — frota convergida (2026-08-23) |
