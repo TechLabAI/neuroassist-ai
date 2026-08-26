@@ -6,6 +6,9 @@ import { EdgeDetectionBrowserAdapter } from './api/edge-detection-browser.adapte
 import { ELIGIBILITY_PORT } from './api/eligibility.port';
 import { EligibilityMockAdapter } from './api/eligibility-mock.adapter';
 import { EligibilityHttpAdapter } from './api/eligibility-http.adapter';
+import { DeviceAuthHttpAdapter } from './estacao/device-auth-http.adapter';
+import { DetectionProfileHttpAdapter } from './estacao/detection-profile-http.adapter';
+import { ReportIngressHttpAdapter } from './estacao/report-ingress-http.adapter';
 
 // ---------------------------------------------------------------------------
 // provideGest() — liga as portas do GEST aos adapters.
@@ -100,5 +103,13 @@ export function provideGest(config: GestProviderConfig = {}): EnvironmentProvide
       provide: ELIGIBILITY_PORT,
       useClass: eligibility === 'http' ? EligibilityHttpAdapter : EligibilityMockAdapter,
     },
+    // Adapters da estação do paciente (W10 / GEST-FE-027..030).
+    // São @Injectable() sem providedIn — devem ser declarados explicitamente.
+    // Sem este registro, inject(DeviceAuthHttpAdapter) em DeviceSessionStore
+    // lança NullInjectorError na execução do estacaoDeviceGuard, impedindo o
+    // componente de montar (sintoma: page.waitForSelector('gest-estacao') → TIMEOUT).
+    DeviceAuthHttpAdapter,
+    DetectionProfileHttpAdapter,
+    ReportIngressHttpAdapter,
   ]);
 }

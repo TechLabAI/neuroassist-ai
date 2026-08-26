@@ -49,25 +49,13 @@ test.describe('estacao-privacidade', () => {
     // Coletar todos os request bodies enviados durante o teste.
     const allRequestBodies: Array<{ url: string; body: Record<string, unknown> }> = [];
 
-    // Interceptar TODAS as requisições POST para APIs da aplicação.
-    await page.route('**/*', async (route, request) => {
-      if (request.method() === 'POST' || request.method() === 'PUT') {
-        try {
-          const body = await request.postDataJSON() as Record<string, unknown>;
-          allRequestBodies.push({ url: request.url(), body });
-        } catch {
-          // Corpo não é JSON — ignorar (ex.: multipart)
-        }
-      }
-      await route.continue();
-    });
-
     await page.addInitScript(scriptSemearSessaoDispositivo());
     await page.addInitScript(scriptSkipDetector());
 
     await mockPerfilDisponivel(page);
 
-    // Stub heartbeat e relatos.
+    // Stub heartbeat e relatos (registrados ANTES do catch-all, portanto executados
+    // DEPOIS na cadeia do Playwright — last-registered runs first).
     await page.route('**/api/v1/edge/heartbeat', async (route) => {
       await route.fulfill({
         status: 200,
@@ -77,6 +65,27 @@ test.describe('estacao-privacidade', () => {
     });
     await page.route('**/api/v1/reports', async (route) => {
       await route.fulfill({ status: 201, contentType: 'application/json', body: '{}' });
+    });
+
+    // Interceptar TODAS as requisições POST para APIs da aplicação.
+    // DEVE ser registrado POR ÚLTIMO para que seja executado PRIMEIRO na cadeia
+    // do Playwright (last-registered = first-executed). Isso garante que o body
+    // é capturado antes que os stubs mais específicos acima consumam a requisição.
+    //
+    // IMPORTANTE: usar route.fallback() e NÃO route.continue().
+    //   route.continue() → envia para a REDE (o backend não existe em e2e → erro).
+    //   route.fallback() → passa para o próximo handler registrado (os stubs acima).
+    // Sem fallback(), os stubs de heartbeat e reports nunca são alcançados.
+    await page.route('**/*', async (route, request) => {
+      if (request.method() === 'POST' || request.method() === 'PUT') {
+        try {
+          const body = await request.postDataJSON() as Record<string, unknown>;
+          allRequestBodies.push({ url: request.url(), body });
+        } catch {
+          // Corpo não é JSON — ignorar (ex.: multipart)
+        }
+      }
+      await route.fallback();
     });
 
     await gotoEstacao(page);

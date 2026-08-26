@@ -81,6 +81,9 @@ export class HeartbeatService {
 
     // Emissão imediata — confirma ao servidor que a estação está viva agora.
     void this.emit();
+    // Agendar próxima emissão com o intervalo padrão.
+    // emit() reconfigura este timer quando o servidor responde com um intervalo
+    // diferente via recommendedHeartbeatSeconds — ver o bloco dentro de emit().
     this.scheduleNext();
   }
 
@@ -120,11 +123,26 @@ export class HeartbeatService {
       );
 
       // Atualizar cadência com o valor recomendado pelo servidor.
+      // Se o servidor retorna um intervalo diferente do atual, reconfigura o timer
+      // pendente para que o PRÓXIMO heartbeat use o novo intervalo imediatamente.
+      // Isso é essencial para o caso de bootstrap: start() agenda com 30 s (default),
+      // mas a primeira resposta pode recomendar 1 s — sem o reset, o próximo
+      // heartbeat só viria em 30 s, ignorando a recomendação do servidor durante
+      // todo o primeiro ciclo (bug detectado em e2e E4 — GEST-FE-033).
       if (
         typeof response.recommendedHeartbeatSeconds === 'number' &&
         response.recommendedHeartbeatSeconds > 0
       ) {
-        this.currentIntervalMs = response.recommendedHeartbeatSeconds * 1000;
+        const novoIntervalMs = response.recommendedHeartbeatSeconds * 1000;
+        if (novoIntervalMs !== this.currentIntervalMs) {
+          this.currentIntervalMs = novoIntervalMs;
+          // Cancelar o timer existente e reagendar com o novo intervalo.
+          if (this.timer !== null) {
+            clearTimeout(this.timer);
+            this.timer = null;
+          }
+          this.scheduleNext();
+        }
       }
 
       // Perfil desatualizado → recarregar para sincronizar com o servidor.
