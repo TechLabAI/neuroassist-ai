@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover - cli_utils always ships alongside
 
 # A work unit is a priority (backend) or a phase (frontend). Both are `### ...`.
 _UNIT_RE = re.compile(
-    r"^###\s+(Prioridade\s+\d+|fase-(?:UI-)?\d+|Fase\s+\d+)\b[^\n]*$",
+    r"^###\s+(Prioridade\s+P?\d+|fase-(?:UI-)?\d+|Fase\s+\d+)\b[^\n]*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -63,7 +63,7 @@ _NOISE_PREFIXES = ("python ", "npx ", "npm ", "./gradlew", "git ", "$ ")
 
 def _unit_id(heading: str) -> str:
     """'Prioridade 2 -- Foo' → 'P2'; 'fase-UI-1: bar' → 'fase-UI-1'."""
-    m = re.match(r"Prioridade\s+(\d+)", heading, re.IGNORECASE)
+    m = re.match(r"Prioridade\s+P?(\d+)", heading, re.IGNORECASE)
     if m:
         return f"P{m.group(1)}"
     m = re.match(r"(fase-(?:UI-)?\d+)", heading, re.IGNORECASE)

@@ -4,6 +4,9 @@
 **Stack:** Angular 21, Nx, Signals-first (sem NgRx) · **Playwright** 1.60
 **Backends:** os 7 microserviços via GWY (host `:18080`) · **Gerado em:** 2026-08-20
 **Revalidado em:** 2026-08-22 (P2 validado, score 98/100 Maduro) — anterior: 2026-08-22 (P1 DONE, score 83/100); 2026-08-21 contra `E2E-014` DONE (G8 resolvido)
+**Replanejado em:** 2026-08-26 (`/fe-planner E2E`) — desbloqueia P6 por auditoria de código direta
+(EVNT deixou de ter o tenant hardcoded `"poc"`, o 501 em `NotificationOrchestrationController`
+e os adapters fake `@Primary`). Ver §0.1.
 
 > Módulo transversal: opera sobre `libs/{gest,evnt,pac,acs,edge,hist,dash}`,
 > `libs/shared/*` e `apps/{neuroassist-ai-web,*-e2e}`. Não cria lib nova.
@@ -16,7 +19,7 @@
 - P3 -- pendente (próxima)
 - P4 -- pendente
 - P5 -- pendente
-- P6 -- pendente
+- P6 -- **desbloqueada (26/08)** -- bloqueio de backend (EVNT fake/501/tenant `"poc"`) não existe mais no código atual; reordenada para logo após P3. Ver §0.1.
 - P7 -- pendente
 
 ---
@@ -147,6 +150,44 @@ Enquanto P1 não fechar, **nenhuma** chamada real é multi-empresa-safe.
 
 ---
 
+## 0.1 Replanejamento 2026-08-26 — P6 desbloqueada (auditoria de código, não de doc)
+
+> P1 e P2 já estavam ✅ DONE neste plano (ver "Status das prioridades" acima) quando esta
+> rodada de `/fe-planner E2E` começou — nenhuma mudança feita nelas aqui. O trabalho desta
+> rodada foi reverificar o bloqueio de backend registrado contra P6 ("SSE real e fluxos
+> ponta-a-ponta críticos"), citado alhures neste plano como: EVNT com 4 ports de saída como
+> adapters fake `@Primary`, `NotificationOrchestrationController` lançando 501, e tenant
+> hardcoded `"poc"`. Checado por leitura direta do código-fonte de `evnt-service` e
+> `edge-service` em 26/08, não contra nenhum doc:
+
+1. **Tenant hardcoded `"poc"` — não existe mais.**
+   `evnt-service/.../infrastructure/security/TenantContextFilter.java` resolve `tenant_id` a
+   partir do claim do JWT (`TENANT_CLAIMS = List.of("tenant_id")`), responde `403` em
+   `X-Tenant-Id` divergente do claim e em requisição autenticada sem claim de tenant
+   (E2E-021). O javadoc da própria classe documenta que o hardcode `"poc"` existiu e foi
+   removido — é a classe atual descrevendo a própria correção, não uma suposição externa.
+2. **`NotificationOrchestrationController` lançando 501 — não existe mais.** O método
+   `retrySweep()` chama `notificationOrchestrationUseCase.retrySweep()` de verdade; o javadoc
+   registra que o `UnsupportedOperationException` foi corrigido ("Sessão 4", C-45) depois de
+   ter sido mal classificado como scaffolding morto.
+3. **4 ports de saída como adapters fake `@Primary` — não existe mais.** Busca por `@Primary`
+   em `evnt-service/src/main` não retorna nenhum resultado.
+4. **Canal SSE do alarme é real.** `EventStreamController` (`GET /api/v1/events/stream`,
+   `@PreAuthorize("hasAuthority('evnt.event-query.read')")`) resolve tenant via
+   `TenantResolverPort`, registra o emitter via `SseRegistrationPort` e faz backfill por
+   `Last-Event-ID` via `EventoRepositoryPort` — não é stub.
+5. **Bônus (mesma checagem em edge-service):** zero `UnsupportedOperationException` em
+   `edge-service/src/main` — o `ProfilePointerController` citado alhures neste plano como 501
+   também não bloqueia mais.
+
+**Decisão: P6 desbloqueada.** Reordenada para logo após P3 (ver §2) — P3 continua antes por
+ser a verificação mais barata do plano (contrato mock↔http, inclusive do HIST/EVNT que P6
+consome) e P6 a mais cara. Nova ordem: **P3 → P6 → P4 → P5 → P7.** O gap que resta em P6 é só
+do lado do browser: `EventSource` sem header customizado (`FE-EVNT-007`) — o backend deixou de
+ser o bloqueio, ver "Sequência de execução" na seção de P6 abaixo.
+
+---
+
 ## 1. Principais achados
 
 ### Pontos fortes
@@ -219,15 +260,18 @@ por token de DI, nunca por edição de arquivo.
 
 ### Ordem das prioridades
 
+**Reordenada em 26/08 (§0.1)** — P6 estava bloqueada por um achado de backend que a auditoria
+de código de hoje não confirmou, então sobe para logo após P3 em vez de ficar no fim da fila.
+
 | P | Título | Motivo | Issues cobertas | Status |
 |---|---|---|---|---|
 | P1 | Fundação HTTP: interceptor + sessão | Sem headers e sem token nada real funciona; é o único P1 sem dependência externa | FE-E2E-002, FE-E2E-003 | ✅ DONE |
 | P2 | Transporte e flip de adapter | Habilita a chamada sair do browser e chegar ao serviço | FE-E2E-001, FE-E2E-004, FE-E2E-006 | ✅ DONE |
-| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI | FE-E2E-005 | pendente (próxima) |
-| P4 | Seed determinístico + global-setup | Todo teste integrado depende de dados e sessão previsíveis | FE-E2E-016 |
-| P5 | Suítes de módulo: skips e describes vazios | Zera o débito de 58 skips + 8 describes vazios | FE-E2E-007, 008, 009, 010 |
-| P6 | SSE real + fluxos ponta-a-ponta críticos | É o fluxo que justifica o produto | FE-E2E-011, 013, 014 |
-| P7 | Degradação, fluxos secundários e CI | Fecha o gate e torna a verificação contínua | FE-E2E-012, 015, 017 |
+| P3 | Paridade de contrato mock ↔ http | Verificação mais barata do plano; pega drift antes de investir em UI de SSE (P6) | FE-E2E-005 | pendente (próxima) |
+| P6 | SSE real + fluxos ponta-a-ponta críticos | **Desbloqueada (26/08)** — backend pronto (ver §0.1); é o fluxo que justifica o produto | FE-E2E-011, 013, 014 | pendente |
+| P4 | Seed determinístico + global-setup | Todo teste integrado depende de dados e sessão previsíveis | FE-E2E-016 | pendente |
+| P5 | Suítes de módulo: skips e describes vazios | Zera o débito de 58 skips + 8 describes vazios | FE-E2E-007, 008, 009, 010 | pendente |
+| P7 | Degradação, fluxos secundários e CI | Fecha o gate e torna a verificação contínua | FE-E2E-012, 015, 017 | pendente |
 
 ---
 
@@ -902,7 +946,13 @@ asserido ainda, deixe o `.skip` e registre o porquê — é mais honesto que um 
 
 ### Prioridade P6 -- SSE real e fluxos ponta-a-ponta críticos
 
-Status: pendente
+Status: **desbloqueada (26/08) -- decisão fechada em §0.1.** O bloqueio de backend descrito
+mais abaixo ("EVNT com 4 ports de saída como adapters fake `@Primary`,
+`NotificationOrchestrationController` lança 501 e o tenant é hardcoded `"poc"`") foi
+reverificado por leitura direta do código em 26/08 e não existe mais — ver §0.1 para a
+evidência arquivo-a-arquivo. Reordenada para logo após P3 (era a última da fila). O único
+bloqueio que resta é do lado do **frontend**: `EventSource` sem header customizado
+(`FE-EVNT-007`), primeiro passo da "Sequência de execução" abaixo.
 Issues cobertas: FE-E2E-011, FE-E2E-013, FE-E2E-014
 Categoria: FUNCIONAL
 
@@ -1215,28 +1265,27 @@ verdes. Impactos diretos aqui:
 3. **`X-Empresa-Id` (P1) é obrigatório e validado.** O PAC compara o header com o claim do JWT
    e responde 403 em divergência. Confirma o gap crítico de P1 — mas atenção: **o GWY não
    injeta tenant header nenhum**; a responsabilidade é inteiramente do FE.
-4. **EVNT e DASH não estão prontos para P6.** O EVNT tem os 4 ports de saída como adapters
-   fake `@Primary`, `NotificationOrchestrationController` lança 501 e o tenant é hardcoded
-   `"poc"`. O DASH é agregador puro (sem tabelas, ADR-004) e depende do EVNT. Os fluxos de
-   alarme ponta-a-ponta de P6 **não têm backend** hoje, independentemente de G8.
-5. **O heartbeat do EDGE não é alcançável** — `ProfilePointerController` lança 501 e
-   `edge.device` não tem emissor. Afeta qualquer cenário E2E de dispositivo.
+4. ~~**EVNT e DASH não estão prontos para P6.**~~ **Superado (26/08, §0.1).** Era verdade
+   quando escrito; a auditoria de código de hoje não encontrou nenhum dos três fatos (fakes
+   `@Primary`, 501, tenant `"poc"`) no `evnt-service` atual. P6 desbloqueada.
+5. ~~**O heartbeat do EDGE não é alcançável**~~ **Também superado** — zero
+   `UnsupportedOperationException` em `edge-service/src/main` hoje.
 
 ### Decisões pendentes — reavaliadas
 
 | # | Decisão | Estado |
 |---|---|---|
 | 1 | G8 normalizar (a) / espelhar (b) | ✅ **decidida e implementada** — ADR-008 = (a), E2E-014 DONE. P2 **desbloqueada** |
-| 2 | Auth do canal SSE (P6) | ⛔ **prematura** — o EVNT não produz notificação real; decidir junto com a implementação do EVNT |
+| 2 | Auth do canal SSE (P6) | ✅ **desbloqueada (26/08)** — o EVNT produz notificação real (§0.1); decisão de transporte (`fetch`+`ReadableStream` / polyfill / `HttpClient observe:'events'`) fica a cargo do implementador de P6 |
 | 3 | Claims emitidos pelo ACS | ✅ **resolvida** — ver item 2 acima |
 | 4 | `rotulo`/`urgencia` server-side ou client-join | ⏳ aberta |
 | 5 | `KEYCLOAK_ISSUER_URI` → `ACS_ISSUER_URI` | ⏳ aberta (higiene) |
 
-### Ordem sugerida após a revalidação
+### Ordem sugerida após o replanejamento de 26/08 (§0.1)
 
-P1 (interceptor + sessão) e **P2 (proxy + flip de adapter)** estão livres: `E2E-014` fechou
-em 2026-08-21 e as 7 rotas alcançam o controller. P3/P4/P5 seguem P2. **P6 continua
-bloqueada** — o EVNT não produz notificação real (adapters fake + tenant `"poc"`).
+**P1 e P2 já estão ✅ DONE** (ver "Status das prioridades"). **P6 deixou de estar bloqueada**
+— a auditoria de código de 26/08 não confirmou nenhum dos fatos que a bloqueavam (§0.1) — e
+sobe para logo após P3. Ordem final: **P3 → P6 → P4 → P5 → P7.**
 
 **Mudança de base path exigida no FE** (6 constantes, sem mudança de lógica — a superfície
 pública agora é `/api/v1/<svc>/**` para tudo):
