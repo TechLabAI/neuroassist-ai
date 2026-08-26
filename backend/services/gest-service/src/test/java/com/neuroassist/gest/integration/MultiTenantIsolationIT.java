@@ -111,13 +111,13 @@ class MultiTenantIsolationIT extends BaseIntegrationTest {
     /**
      * The resolver returns the tenant identifier untouched.
      *
-     * <p>It used to prepend {@code t_} here. That hid the real identifier from
-     * {@link com.neuroassist.gest.infrastructure.security.MultiTenantConnectionProvider}, which
-     * resolves the schema from {@code neuroassist_global.tenant.schema_nome} — acs-service issues
-     * the tenant UUID while the provisioned schema is e.g. {@code t_emp_dev}, so a prefixed
-     * identifier never matched the catalogue and every ACS-issued tenant routed to a schema that
-     * does not exist (E2E-009 / C-15). Mapping identifier → schema now lives solely in the
-     * provider, which falls back to {@code t_<tenant>} when the catalogue has no row.
+     * <p>It used to prepend {@code t_} here. That hid the real identifier from {@link
+     * com.neuroassist.gest.infrastructure.security.MultiTenantConnectionProvider}, which resolves
+     * the schema from {@code neuroassist_global.tenant.schema_nome} — acs-service issues the tenant
+     * UUID while the provisioned schema is e.g. {@code t_emp_dev}, so a prefixed identifier never
+     * matched the catalogue and every ACS-issued tenant routed to a schema that does not exist
+     * (E2E-009 / C-15). Mapping identifier → schema now lives solely in the provider, which falls
+     * back to {@code t_<tenant>} when the catalogue has no row.
      */
     @Test
     void tenantIdentifierResolver_returnsIdentifierUnchanged() {

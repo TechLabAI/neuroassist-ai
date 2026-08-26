@@ -111,7 +111,8 @@ class Sha256HashChainAdapterTest {
                         original.prevHash(),
                         original.recordHash(),
                         original.correctsRecordId(),
-                        false);
+                        false,
+                        FIXED_SUBJECT_ID);
 
         String tamperedHash = adapter.compute(HashChain.GENESIS_PREV_HASH, tampered);
 
@@ -158,6 +159,7 @@ class Sha256HashChainAdapterTest {
                 prevHash,
                 recordHash,
                 null,
-                false);
+                false,
+                FIXED_SUBJECT_ID);
     }
 }

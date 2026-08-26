@@ -3,7 +3,14 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # E2E-022 — `validate`, no lugar de `none`.
+      #
+      # Antes as tabelas vinham de 11 CREATE TABLE escritos a mao no init-schema.sql — uma copia
+      # do schema que podia divergir das migrations nos DOIS sentidos, com `none` garantindo que
+      # nada validasse a diferenca. Agora o init-schema so cria schemas e extensoes, o Flyway
+      # aplica as migrations reais, e `validate` derruba o contexto se entity e migration
+      # discordarem. Ver testing-conventions.md §4.1.
+      ddl-auto: validate
   flyway:
     enabled: false
   artemis:
@@ -12,18 +19,29 @@ spring:
     oauth2:
       resourceserver:
         jwt:
+          # Apontado para WireMock quando nenhum JwtDecoder @Primary de test sobrescreve.
+          # Com @TestConfiguration fornecendo @Primary JwtDecoder, esta URL nao e usada
+          # (OAuth2ResourceServerJwtConfiguration e @ConditionalOnMissingBean).
           jwk-set-uri: http://localhost:9999/.well-known/jwks.json
 eureka:
   client:
     enabled: false
-# D-532 pitfall fix: stub Feign client URLs so Spring context loads without malformed-URL error
-# neuroassist.gest.url is used by DetectionProfileClient (declared in generator-config.yml feign_clients)
+# D-532 pitfall fix: stub Feign client URLs so Spring context loads without malformed-URL error.
+# Valor sobrescrito pelo @DynamicPropertySource em CucumberSpringContext para o WireMock real.
 neuroassist:
   gest:
     url: http://localhost:8080
+  acs:
+    service-token:
+      # URL sobrescrita para WireMock via @DynamicPropertySource (CucumberSpringContext).
+      url: http://localhost:8080
+      client-id: test-edge-service
+      client-secret: test-secret
+      refresh-margin-seconds: 0
 
-# Resilience4j — high-threshold CB for tests so WireMock stubs never open the circuit (EDGE-014)
-# threshold 100%/100-calls = circuit never opens during unit/integration tests
+# Resilience4j — high-threshold CB for tests so WireMock stubs never open the circuit (EDGE-014).
+# threshold 100%/100-calls = circuit never opens during unit/integration tests.
+# Para forcá-lo aberto em testes específicos: circuitBreakerRegistry.circuitBreaker("gest-detection-profile").transitionToOpenState()
 resilience4j:
   circuitbreaker:
     instances:

@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy, viewChild, computed } from '@angular/core';
-import { CommandEditorComponent } from '@neuroassist/pac';
+import { Component, ChangeDetectionStrategy, viewChild, computed, inject } from '@angular/core';
+import { CommandEditorComponent, TiposGestoReadFacade } from '@neuroassist/pac';
 import { GestureLiveTestComponent } from '@neuroassist/gest';
 import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts';
 
@@ -31,6 +31,10 @@ import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts'
 export class PacComandoEditorPageComponent {
   private readonly editorRef = viewChild(CommandEditorComponent);
 
+  /** Provida por `providePac()` no nível do ambiente — a MESMA instância que o
+   * editor usa, então o catálogo já está carregado quando o rascunho é montado. */
+  private readonly tiposFacade = inject(TiposGestoReadFacade);
+
   protected readonly draft = computed<ComandoDraft | null>(() => {
     const editor = this.editorRef();
     if (!editor) return null;
@@ -40,6 +44,15 @@ export class PacComandoEditorPageComponent {
       rotulo: ed.rotulo,
       primitivoPrincipal: ed.primitivoPrincipal,
       primitivoSecundario: ed.primitivoSecundario,
+      // A tradução catálogo → motor acontece AQUI, no hospedeiro, porque é ele
+      // quem tem o catálogo em mãos. O GEST recebe a resolução pronta: por
+      // contrato ele "does not own or fetch the catalog".
+      //
+      // `null` quando o tipo escolhido não tem motor — e é um valor que a tela
+      // precisa mostrar, não esconder: antes disso o teste ao vivo simplesmente
+      // rodava para sempre sem veredito nenhum.
+      engineFeatureRefPrincipal: this.tiposFacade.engineFeatureRefDe(ed.primitivoPrincipal),
+      engineFeatureRefSecundario: this.tiposFacade.engineFeatureRefDe(ed.primitivoSecundario),
       sensibilidade: ed.sensibilidade,
       urgencia: ed.urgencia,
       tempoMinimoGestoMs: ed.tempoMinimoGestoMs,

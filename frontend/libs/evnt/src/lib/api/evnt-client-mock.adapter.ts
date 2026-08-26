@@ -12,6 +12,7 @@ import {
   EventoPageDto,
   EventoSummaryDto,
 } from './evnt-client.port';
+import { EVNT_E2E_FLAGS } from './evnt-e2e-flags';
 
 // =============================================================================
 // EvntClientMockAdapter — dev/test (default adapter)
@@ -106,7 +107,7 @@ export class EvntClientMockAdapter implements EvntClientPort {
    * detects the error and activates degraded polling mode (BRIDGE-01 in P9 spec).
    */
   openStream(): Observable<SseFrame> {
-    if (e2eFlag('__EVNT_E2E_SSE_FAIL__')) {
+    if (e2eFlag(EVNT_E2E_FLAGS.falhaSse)) {
       return throwError(() => new Error('e2e: SSE forced failure'));
     }
 
@@ -129,7 +130,7 @@ export class EvntClientMockAdapter implements EvntClientPort {
   listActive(since?: string): Observable<ActiveEventsDto> {
     return timer(400).pipe(
       switchMap(() => {
-        const noEmergency = e2eFlag('__EVNT_E2E_NO_EMERGENCY__');
+        const noEmergency = e2eFlag(EVNT_E2E_FLAGS.semEmergencia);
         const activeEvt = (noEmergency || _confirmed.has(MOCK_ACTIVE_EMERGENCY.eventoId))
           ? null
           : MOCK_ACTIVE_EMERGENCY;
@@ -179,11 +180,11 @@ export class EvntClientMockAdapter implements EvntClientPort {
   confirm(eventoId: string, verdict: ConfirmationVerdict): Observable<ConfirmationResponseDto> {
     return timer(600).pipe(
       switchMap(() => {
-        if (e2eFlag('__EVNT_E2E_CONFIRM_FAIL__')) {
+        if (e2eFlag(EVNT_E2E_FLAGS.falhaConfirmar)) {
           return throwError(() => new Error('e2e: confirm forced network failure'));
         }
 
-        if (e2eFlag('__EVNT_E2E_CONFIRM_409__')) {
+        if (e2eFlag(EVNT_E2E_FLAGS.conflitoConfirmar)) {
           const concurrentErr = {
             type: '/errors/feedback-terminal',
             code: '/errors/feedback-terminal',

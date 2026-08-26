@@ -1,19 +1,19 @@
 # API v0 Mock Convention (NeuroAssist AI Backend)
 
-> Convenção uniforme: todo microserviço deve implementar uma superfície `/api/v0/`
-> com dados mockados, ativada via Spring profile `mock`. Objetivo: desbloquear FE cedo,
-> permitir trabalho paralelo, prover API previsível em dev-time que espelhe contratos reais.
+> Uniform convention: every microservice must expose an `/api/v0/` surface
+> backed by mock data, enabled through the Spring profile `mock`. Goal: unblock the FE early,
+> allow parallel work, and provide a predictable dev-time API that mirrors the real contracts.
 
-## Princípios
+## Principles
 
-- **Atrito mínimo:** mocks rodam com 1 flag de profile ou comando.
-- **Contract-first:** endpoints mock seguem o contrato (request/response shapes) definido nos SPECs.
-- **Isolado:** confinado ao profile Spring `mock` -- nunca em produção.
-- **Discoverable:** dados mock em path previsível na árvore do projeto.
+- **Minimum friction:** mocks run with a single profile flag or command.
+- **Contract-first:** mock endpoints follow the contract (request/response shapes) defined in the SPECs.
+- **Isolated:** confined to the `mock` Spring profile -- never in production.
+- **Discoverable:** mock data lives at a predictable path in the project tree.
 
 ---
 
-## 1. Onde colocar mocks
+## 1. Where to put mocks
 
 ```
 src/main/java/com/neuroassist/<module>/
@@ -26,23 +26,23 @@ src/main/resources/
             └── <domain>/        # JSON fixture files
 ```
 
-Exemplo: `src/main/resources/mocks/api/v0/<resource>/get-123.json`
+Example: `src/main/resources/mocks/api/v0/<resource>/get-123.json`
 
 ---
 
-## 2. Como habilitar
+## 2. How to enable it
 
-- Ativação default via Spring profile `mock` apenas.
-- Nunca inclua `mock` em `prod` ou `staging`.
-- Nunca habilite `mock` em deploys de produção.
+- Enabled through the `mock` Spring profile only.
+- Never include `mock` in `prod` or `staging`.
+- Never enable `mock` in production deployments.
 
-**Run local (Gradle Kotlin DSL):**
+**Local run (Gradle Kotlin DSL):**
 ```powershell
 
-.\gradlew ::bootRun -Dspring.profiles.active=mock
+.\gradlew :gest-service:bootRun -Dspring.profiles.active=mock
 ```
 
-**Tarefa de conveniência opcional em `build.gradle.kts`:**
+**Optional convenience task in `build.gradle.kts`:**
 ```kotlin
 tasks.register<JavaExec>("bootRunMock") {
     group = "application"
@@ -55,17 +55,17 @@ tasks.register<JavaExec>("bootRunMock") {
 
 ---
 
-## 3. Regras de design
+## 3. Design rules
 
 - Path prefix: `/api/v0/...`
-- Espelhe os paths e shapes reais. Se SPEC define `/api/v1/<resource>`, crie `/api/v0/<resource>` com o mesmo DTO shape (mas conteúdo mockado).
-- Forneça respostas canned em JSON sob `mocks/api/v0/` carregadas pelos controllers mock.
-- Suporte latência simulada e error injection opcional via properties.
-- Anote `@Profile("mock")` -- nunca ativo por default.
+- Mirror the real paths and shapes. If a SPEC defines `/api/v1/<resource>`, create `/api/v0/<resource>` with the same DTO shape (but mocked content).
+- Provide canned JSON responses under `mocks/api/v0/`, loaded by the mock controllers.
+- Support simulated latency and optional error injection through properties.
+- Annotate with `@Profile("mock")` -- never active by default.
 
 ---
 
-## 4. Exemplo de mock controller
+## 4. Mock controller example
 
 ```java
 @RestController
@@ -99,7 +99,7 @@ public class <Resource>MockController {
 
 ---
 
-## 5. Organização de dados mock
+## 5. Mock data organization
 
 ```
 src/main/resources/mocks/api/v0/
@@ -117,25 +117,25 @@ src/main/resources/mocks/api/v0/
 
 ---
 
-## 6. `application-mock.yml` -- latência e error injection
+## 6. `application-mock.yml` -- latency and error injection
 
 ```yaml
 mock:
   response:
     delay:
-      ms: 200          # latência de rede simulada
+      ms: 200          # simulated network latency
     error:
-      rate: 0.0        # fração 0..1 chance de retornar 500 (chaos testing)
+      rate: 0.0        # 0..1 fraction chance of returning 500 (chaos testing)
 
 spring:
   security:
     oauth2:
       resourceserver:
         jwt:
-          # bypass JWT validation no profile mock
+          # bypass JWT validation in the mock profile
           issuer-uri: http://localhost:9999/mock-issuer
 
-# Origens locais permitidas no profile mock
+# Local origins allowed in the mock profile
 cors:
   allowed-origins: "http://localhost:4200,http://localhost:3000"
 
@@ -150,7 +150,7 @@ neuroassist-ai:
 
 ## 7. Security Guard -- MockGuard
 
-**Obrigatório em todo serviço que implementa o profile mock:**
+**Mandatory in every service that implements the mock profile:**
 
 ```java
 @Configuration
@@ -170,38 +170,38 @@ class MockGuard {
 
 ---
 
-## 8. Testes de mock controllers
+## 8. Testing mock controllers
 
-- Inclua unit tests para validar carregamento de fixtures.
-- CI deve garantir que `mock` não está no artefato de produção.
-- Adicione smoke test que sobe o serviço com profile `mock` e valida endpoints-chave retornam 200.
-
----
-
-## 9. Multi-empresa em mock
-
-- O profile `mock` deve respeitar `EmpresaContextHolder` (mesmo enforcement de RULE-07).
-- Endpoints mock leem `X-Empresa-Id` do header e populam o contexto antes de retornar fixture.
-- Fixtures podem ter sufixo por empresa: `get-123-<empresa-a>.json`, `get-123-<empresa-b>.json`.
-- Sem header `X-Empresa-Id`, use `neuroassist-ai.mock.empresa-default` do `application-mock.yml`.
+- Include unit tests that validate fixture loading.
+- CI must guarantee that `mock` is not in the production artifact.
+- Add a smoke test that boots the service with the `mock` profile and asserts key endpoints return 200.
 
 ---
 
-## 10. PR Checklist para mock
+## 9. Multi-empresa in mock mode
 
-- [ ] Endpoints mock existem sob `/api/v0/` espelhando o contrato SPEC.
-- [ ] Fixtures em `src/main/resources/mocks/api/v0/`.
-- [ ] Código mock anotado com `@Profile("mock")`.
-- [ ] `application-mock.yml` com configuração específica.
-- [ ] `MockGuard` implementado e bloqueia em ENV produção.
-- [ ] Instruções de run local documentadas no README do serviço.
-- [ ] Shapes alinhados com SPECs em `docs/architecture/backend/services/<service>/SPEC-*.md`.
-- [ ] Multi-empresa respeitada (header ou default).
+- The `mock` profile must honor `EmpresaContextHolder` (same enforcement as RULE-07).
+- Mock endpoints read `X-Empresa-Id` from the header and populate the context before returning a fixture.
+- Fixtures may carry a per-empresa suffix: `get-123-<empresa-a>.json`, `get-123-<empresa-b>.json`.
+- Without the `X-Empresa-Id` header, use `neuroassist-ai.mock.empresa-default` from `application-mock.yml`.
 
 ---
 
-## Referências
+## 10. PR checklist for mocks
+
+- [ ] Mock endpoints exist under `/api/v0/`, mirroring the SPEC contract.
+- [ ] Fixtures in `src/main/resources/mocks/api/v0/`.
+- [ ] Mock code annotated with `@Profile("mock")`.
+- [ ] `application-mock.yml` with the specific configuration.
+- [ ] `MockGuard` implemented and blocking on a production ENV.
+- [ ] Local run instructions documented in the service README.
+- [ ] Shapes aligned with the SPECs in `docs/architecture/backend/services/<service>/SPEC-*.md`.
+- [ ] Multi-empresa honored (header or default).
+
+---
+
+## References
 
 - `docs/architecture/backend/standards/hexagonal-patterns.md`
-- `docs/architecture/backend/services/<service>/SPEC-*.md` (contratos por serviço)
+- `docs/architecture/backend/services/<service>/SPEC-*.md` (per-service contracts)
 - `docs/architecture/shared/multi-empresa.md`

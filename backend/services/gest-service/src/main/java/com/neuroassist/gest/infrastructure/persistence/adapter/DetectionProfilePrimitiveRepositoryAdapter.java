@@ -2,6 +2,7 @@ package com.neuroassist.gest.infrastructure.persistence.adapter;
 
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.infrastructure.persistence.entity.DetectionProfilePrimitiveJpaEntity;
 import com.neuroassist.gest.infrastructure.persistence.repository.DetectionProfilePrimitiveJpaRepository;
 import java.util.List;
@@ -45,6 +46,7 @@ public class DetectionProfilePrimitiveRepositoryAdapter
                 .tipoGestoId(p.tipoGestoId())
                 .nomeSnapshot(p.nomeSnapshot())
                 .engineFeatureRef(p.engineFeatureRef())
+                .sensibilidade(p.sensibilidade().name())
                 .build();
     }
 
@@ -54,6 +56,7 @@ public class DetectionProfilePrimitiveRepositoryAdapter
                 entity.getDetectionProfileId(),
                 entity.getTipoGestoId(),
                 entity.getNomeSnapshot(),
-                entity.getEngineFeatureRef());
+                entity.getEngineFeatureRef(),
+                Sensibilidade.valueOf(entity.getSensibilidade()));
     }
 }

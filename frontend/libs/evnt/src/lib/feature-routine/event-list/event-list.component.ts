@@ -4,7 +4,7 @@ import {
   Input,
   output,
 } from '@angular/core';
-import { EventoVm } from '../../evnt.types';
+import { EventoVm, Feedback } from '../../evnt.types';
 import { UrgencyBadgeComponent } from '../../ui/urgency-badge/urgency-badge.component';
 import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestamp.component';
 
@@ -20,6 +20,14 @@ import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestam
 // for signal inputs (P2 ts-jest limitation extended to P3).
 // =============================================================================
 
+// Rótulos pt-BR do veredito. A cuidadora nunca deve ler o identificador do enum
+// ("Nao_avaliado" aparecia cru na tela, com underscore e capitalize do CSS).
+const FEEDBACK_LABELS: Record<Feedback, string> = {
+  nao_avaliado: 'Sem revisão',
+  real: 'Confirmado real',
+  falso_positivo: 'Falso positivo',
+};
+
 @Component({
   selector: 'evnt-event-list',
   standalone: true,
@@ -34,7 +42,7 @@ import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestam
       <button
         type="button"
         (click)="onOpen(evt.eventoId)"
-        class="mb-2 flex w-full items-start gap-3 rounded-xl border border-surface-border bg-surface px-4 py-3 text-left shadow-sm transition-colors hover:bg-surface-hover"
+        class="mb-2 flex w-full items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left shadow-sm transition-colors hover:bg-surface-2"
         [attr.aria-label]="'Ver detalhe de: ' + evt.commandLabel">
 
         <!-- Urgency badge -->
@@ -50,8 +58,8 @@ import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestam
             <span aria-hidden="true">·</span>
             <evnt-event-timestamp [recognizedAt]="evt.recognizedAt" />
           </p>
-          <span class="mt-1 inline-block text-xs capitalize text-ink-faint">
-            {{ evt.feedback }}
+          <span class="mt-1 inline-block text-xs text-ink-faint" data-testid="event-feedback">
+            {{ feedbackLabel(evt.feedback) }}
           </span>
         </div>
 
@@ -67,6 +75,11 @@ import { EventTimestampComponent } from '../../ui/event-timestamp/event-timestam
 export class EventListComponent {
   /** Ordered list of recent events to display. Defaults to empty array. */
   @Input() events: readonly EventoVm[] = [];
+
+  /** Rótulo humano do veredito — nunca o valor cru do enum. */
+  protected feedbackLabel(feedback: Feedback): string {
+    return FEEDBACK_LABELS[feedback] ?? 'Sem revisão';
+  }
 
   /** Emits the eventoId when a card is clicked (navigate to detail page). */
   readonly open = output<string>();

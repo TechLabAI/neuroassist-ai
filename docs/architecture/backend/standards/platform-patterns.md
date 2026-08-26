@@ -1,54 +1,54 @@
 # Platform Patterns (NeuroAssist AI Backend)
 
-> JMS Artemis, OpenFeign + Resilience4j, Flyway centralizado, MDC/CorrelationId,
+> JMS Artemis, OpenFeign + Resilience4j, centralized Flyway, MDC/CorrelationId,
 > multi-schema (empresa), Saga choreography, Eureka.
 
-## Propósito
+## Purpose
 
-Padrões cross-cutting que todos os microserviços `backend/services/` devem implementar.
-Garante consistência operacional, observabilidade e resilência.
+Cross-cutting patterns that every `backend/services/` microservice must implement.
+They guarantee operational consistency, observability and resilience.
 
 ---
 
-## 1. ActiveMQ Artemis -- Padrões JMS
+## 1. ActiveMQ Artemis -- JMS patterns
 
-### 1.1 Broker e protocolo
+### 1.1 Broker and protocol
 
-- Broker: **ActiveMQ Artemis** (não ActiveMQ Classic).
-- Protocolo: **AMQP 1.0** -- configurar em `application.yml`:
+- Broker: **ActiveMQ Artemis** (not ActiveMQ Classic).
+- Protocol: **AMQP 1.0** -- configure it in `application.yml`:
 
 ```yaml
 spring:
   artemis:
-    mode: native            # native quando broker dedicado; embedded para dev/testes
+    mode: native            # native for a dedicated broker; embedded for dev/tests
     broker-url: ${ARTEMIS_URL}
     user: ${ARTEMIS_USER}
     password: ${ARTEMIS_PASSWORD}
   jms:
-    pub-sub-domain: false   # queues, não topics
+    pub-sub-domain: false   # queues, not topics
 ```
 
-Em testes de integração: usar `mode: embedded` (NUNCA `org.testcontainers:activemq`).
+In integration tests: use `mode: embedded` (NEVER `org.testcontainers:activemq`).
 
-### 1.2 Event Envelope (obrigatório)
+### 1.2 Event Envelope (mandatory)
 
-Todos os eventos publicados devem conformar a este envelope JSON:
+Every published event must conform to this JSON envelope:
 
 ```java
 // infrastructure/messaging/producer/EventEnvelope.java
 public record EventEnvelope(
-    String eventId,        // UUID v4 -- único por ocorrência
-    String eventType,      // canonical name (ex.: "neuroassist-ai.<module>.<entity>.<event>")
+    String eventId,        // UUID v4 -- unique per occurrence
+    String eventType,      // canonical name (e.g. "neuroassist-ai.<module>.<entity>.<event>")
     String occurredAt,     // ISO 8601 UTC
-    String correlationId,  // do MDC -- trace cross-service
-    String version,        // payload schema version (ex.: "1.0")
-    String empresaId,      // sempre presente em eventos operacionais
-    String userId,         // quando aplicável
-    Object payload         // dados específicos do evento
+    String correlationId,  // from the MDC -- cross-service trace
+    String version,        // payload schema version (e.g. "1.0")
+    String empresaId,      // always present on operational events
+    String userId,         // when applicable
+    Object payload         // event-specific data
 ) {}
 ```
 
-**Uso:**
+**Usage:**
 ```java
 public void publish(VendaConfirmadaPayload payload, String empresaId) {
     var envelope = new EventEnvelope(
@@ -67,9 +67,9 @@ public void publish(VendaConfirmadaPayload payload, String empresaId) {
 
 ### 1.3 Producer Pattern
 
-- Localização: `infrastructure/messaging/producer/`
-- Use `JmsTemplate` injetado por construtor.
-- Nunca produza eventos diretamente de Application Services; delegue a um publisher dedicado.
+- Location: `infrastructure/messaging/producer/`
+- Use a constructor-injected `JmsTemplate`.
+- Never publish events directly from Application Services; delegate to a dedicated publisher.
 
 ```java
 // infrastructure/messaging/producer/VendaConfirmadaPublisher.java
@@ -86,13 +86,13 @@ class VendaConfirmadaPublisher {
 }
 ```
 
-### 1.4 Consumer Pattern (idempotente)
+### 1.4 Consumer Pattern (idempotent)
 
-- Localização: `infrastructure/messaging/consumer/`
-- Anotar com `@JmsListener(destination = "queue.name")`.
-- Consumer deve ser idempotente -- check `processed` antes de agir.
-- Setar `EmpresaContextHolder` explicitamente do envelope (ThreadLocal não propaga cross-thread).
-- Limpar `EmpresaContextHolder` em `finally`.
+- Location: `infrastructure/messaging/consumer/`
+- Annotate with `@JmsListener(destination = "queue.name")`.
+- The consumer must be idempotent -- check `processed` before acting.
+- Set `EmpresaContextHolder` explicitly from the envelope (a ThreadLocal does not propagate cross-thread).
+- Clear `EmpresaContextHolder` in `finally`.
 
 ```java
 // infrastructure/messaging/consumer/VendaConfirmadaConsumer.java
@@ -105,7 +105,7 @@ class VendaConfirmadaConsumer {
     @JmsListener(destination = "neuroassist-ai.<module>.<entity>.<event>")
     public void onVendaConfirmada(EventEnvelope envelope) {
         if (processedEvents.alreadyProcessed(envelope.eventId())) {
-            log.warn("evento duplicado ignorado eventId={}", envelope.eventId());
+            log.warn("duplicate event ignored eventId={}", envelope.eventId());
             return;
         }
         MDC.put("correlationId", envelope.correlationId());
@@ -123,7 +123,7 @@ class VendaConfirmadaConsumer {
 
 ### 1.5 Event Catalog
 
-Catálogo canônico de eventos em `docs/architecture/backend/standards/services-catalog.md` §6.
+The canonical event catalog lives in `docs/architecture/backend/standards/services-catalog.md` §6.
 
 ---
 
@@ -131,15 +131,15 @@ Catálogo canônico de eventos em `docs/architecture/backend/standards/services-
 
 ### 2.1 Setup
 
-- Habilitar em main class:
+- Enable it on the main class:
   `@EnableFeignClients(basePackages = "com.neuroassist.<module>.infrastructure.clients")`
-- Ou por módulo via `@EnableFeignClients` numa `@Configuration` em `infrastructure/config/`.
+- Or per module through `@EnableFeignClients` on a `@Configuration` in `infrastructure/config/`.
 
 ### 2.2 Interface Pattern
 
-- Localização: `infrastructure/clients/` (RULE-06).
-- Apenas interface -- Spring gera a implementação.
-- Propagar `X-Correlation-Id`, `X-Empresa-Id`, `X-User-Id` via `RequestInterceptor`.
+- Location: `infrastructure/clients/` (RULE-06).
+- Interface only -- Spring generates the implementation.
+- Propagate `X-Correlation-Id`, `X-Empresa-Id`, `X-User-Id` through a `RequestInterceptor`.
 
 ```java
 // infrastructure/clients/CadastrosClienteClient.java
@@ -152,7 +152,7 @@ public interface CadastrosClienteClient {
 }
 ```
 
-### 2.3 RequestInterceptor -- propagação de contexto
+### 2.3 RequestInterceptor -- context propagation
 
 ```java
 // infrastructure/config/FeignContextInterceptor.java
@@ -167,10 +167,10 @@ class FeignContextInterceptor implements RequestInterceptor {
 }
 ```
 
-### 2.4 Resilience4j em chamadas Feign
+### 2.4 Resilience4j on Feign calls
 
-- Aplicar no método **Application Service** que chama o Feign port -- não na interface Feign.
-- Configurar em `application.yml`:
+- Apply it on the **Application Service** method that calls the Feign port -- not on the Feign interface.
+- Configure it in `application.yml`:
 
 ```yaml
 resilience4j:
@@ -201,41 +201,41 @@ public Cliente buscarCliente(UUID id, String empresaId) {
 
 ---
 
-## 3. Flyway -- Database Migrations (CENTRALIZADAS)
+## 3. Flyway -- Database Migrations (CENTRALIZED)
 
-### 3.1 Estratégia (decidida em ADR-001 shared)
+### 3.1 Strategy (decided in shared ADR-001)
 
-- **`neuroassist-ai-migrations`** é o único projeto que rodar Flyway.
-- Microserviços individuais usam `spring.jpa.hibernate.ddl-auto=validate` apenas.
-- Migrações nunca em projetos de serviço -- sempre em `neuroassist-ai-migrations/src/main/resources/db/migration/`.
+- **`neuroassist-ai-migrations`** is the only project that runs Flyway.
+- Individual microservices only use `spring.jpa.hibernate.ddl-auto=validate`.
+- Migrations never live in service projects -- always in `neuroassist-ai-migrations/src/main/resources/db/migration/`.
 
-### 3.2 Layout de migrações
+### 3.2 Migration layout
 
 ```
 backend/services/neuroassist-ai-migrations/src/main/resources/db/migration/
-├── global/                              # aplica em neuroassist_global (uma vez)
-│   ├── V1__iam_schema.sql               # IAM (usuário, papel, permissão, ...)
+├── global/                              # applied to neuroassist_global (once)
+│   ├── V1__iam_schema.sql               # IAM (user, role, permission, ...)
 │   ├── V2__catalogos_fiscais.sql        # NCM, CFOP, CST, ...
 │   ├── V3__plano_contas_master.sql
-│   └── V4__empresas_seed.sql            # registra as empresas
-├── empresa/                             # aplica em CADA emp_*
-│   ├── V1__cadastros.sql                # CAD: cliente, fornecedor, produto, ...
-│   ├── V2__comercial.sql                # COM: orçamento, venda, ...
+│   └── V4__empresas_seed.sql            # registers the empresas
+├── empresa/                             # applied to EVERY emp_*
+│   ├── V1__cadastros.sql                # CAD: customer, supplier, product, ...
+│   ├── V2__comercial.sql                # COM: quote, sale, ...
 │   ├── V3__fiscal.sql                   # FIS: nfe, cte, ...
-│   ├── V4__financeiro.sql               # FIN: caixa, conta_pagar, ...
-│   ├── V5__estoque.sql                  # EST: movimento_estoque, ...
-│   ├── V6__crm.sql                      # CRM: lead, oportunidade, ...
-│   ├── V7__logistica.sql                # LOG: entrega, frete, ...
-│   └── V8__auditoria.sql                # AUD: evento (opcional, se cada empresa terá sua trilha)
+│   ├── V4__financeiro.sql               # FIN: cash, payable, ...
+│   ├── V5__estoque.sql                  # EST: stock movement, ...
+│   ├── V6__crm.sql                      # CRM: lead, opportunity, ...
+│   ├── V7__logistica.sql                # LOG: delivery, freight, ...
+│   └── V8__auditoria.sql                # AUD: event (optional, if each empresa keeps its own trail)
 ```
 
-### 3.3 Configuração
+### 3.3 Configuration
 
 `neuroassist-ai-migrations/src/main/resources/application.yml`:
 ```yaml
 spring:
   flyway:
-    enabled: false           # control manual via Java (multi-schema)
+    enabled: false           # driven manually from Java (multi-schema)
 
 neuroassist-ai:
   migrations:
@@ -264,7 +264,7 @@ public class NeuroAssist AIMigrationsApp implements CommandLineRunner {
     public void run(String... args) {
         // 1. Global
         migrate(config.globalSchema(), config.globalLocation());
-        // 2. Cada empresa
+        // 2. Each empresa
         for (String empresa : config.empresas()) {
             migrate(empresa, config.empresaLocation());
         }
@@ -282,30 +282,30 @@ public class NeuroAssist AIMigrationsApp implements CommandLineRunner {
 }
 ```
 
-### 3.4 Regras
+### 3.4 Rules
 
-- Nunca modifique migração já aplicada em produção.
-- Scripts idempotentes quando possível (`IF NOT EXISTS`, `IF EXISTS`).
-- Para adicionar empresa nova: adicionar em `neuroassist-ai.migrations.empresas` e rerodar
-  `neuroassist-ai-migrations` -- o Flyway aplicará todas as Vs no schema novo.
-- `ddl-auto: validate` em TODOS os outros serviços.
+- Never modify a migration already applied in production.
+- Idempotent scripts whenever possible (`IF NOT EXISTS`, `IF EXISTS`).
+- To add a new empresa: add it to `neuroassist-ai.migrations.empresas` and re-run
+  `neuroassist-ai-migrations` -- Flyway will apply every V to the new schema.
+- `ddl-auto: validate` on ALL other services.
 
 ---
 
-## 4. MDC e CorrelationId -- Observabilidade
+## 4. MDC and CorrelationId -- Observability
 
-### 4.1 Campos MDC obrigatórios
+### 4.1 Mandatory MDC fields
 
-Todo serviço propaga estes campos MDC em todo request:
+Every service propagates these MDC fields on every request:
 
-| MDC key | Origem | Descrição |
+| MDC key | Source | Description |
 |---|---|---|
-| `correlationId` | `X-Correlation-Id` request header | Trace cross-service |
-| `empresaId` | `X-Empresa-Id` request header | Empresa do contexto |
-| `userId` | `X-User-Id` request header | Usuário atuante |
-| `service` | static -- nome do serviço | Quem produziu o log |
+| `correlationId` | `X-Correlation-Id` request header | Cross-service trace |
+| `empresaId` | `X-Empresa-Id` request header | Empresa of the context |
+| `userId` | `X-User-Id` request header | Acting user |
+| `service` | static -- service name | Who produced the log |
 
-### 4.2 CorrelationIdInterceptor (obrigatório)
+### 4.2 CorrelationIdInterceptor (mandatory)
 
 ```java
 // infrastructure/security/CorrelationIdInterceptor.java
@@ -322,7 +322,7 @@ public class CorrelationIdInterceptor implements HandlerInterceptor {
         MDC.put("empresaId",     req.getHeader("X-Empresa-Id"));
         MDC.put("userId",        req.getHeader("X-User-Id"));
         MDC.put("service",       serviceName);
-        res.setHeader("X-Correlation-Id", corrId);    // ecoa para o caller
+        res.setHeader("X-Correlation-Id", corrId);    // echoed back to the caller
         return true;
     }
     @Override
@@ -333,7 +333,7 @@ public class CorrelationIdInterceptor implements HandlerInterceptor {
 }
 ```
 
-Registrar em `WebMvcConfigurer`:
+Register it in `WebMvcConfigurer`:
 ```java
 @Configuration
 @RequiredArgsConstructor
@@ -346,7 +346,7 @@ public class WebConfig implements WebMvcConfigurer {
 }
 ```
 
-### 4.3 Pattern de logging
+### 4.3 Logging pattern
 
 ```yaml
 logging:
@@ -357,7 +357,7 @@ logging:
     org.springframework.security: WARN
 ```
 
-Em produção: `logstash-logback-encoder` para JSON estruturado.
+In production: `logstash-logback-encoder` for structured JSON.
 
 ---
 
@@ -365,12 +365,12 @@ Em produção: `logstash-logback-encoder` para JSON estruturado.
 
 ### 5.1 EmpresaContextHolder
 
-Ver `hexagonal-patterns.md` §5 -- código canônico de `EmpresaContextHolder`.
+See `hexagonal-patterns.md` §5 -- canonical code for `EmpresaContextHolder`.
 
 ### 5.2 Schema Routing (Hibernate)
 
-Como os schemas NeuroAssist AI são **fixos** (1 global + 5 emp_*, não dinâmicos por cliente),
-a abordagem mais simples é configurar `search_path` por conexão via interceptor JDBC:
+Since the NeuroAssist AI schemas are **fixed** (1 global + 5 emp_*, not dynamic per customer),
+the simplest approach is to set `search_path` per connection through a JDBC interceptor:
 
 ```java
 // infrastructure/persistence/EmpresaSearchPathInterceptor.java
@@ -379,15 +379,15 @@ a abordagem mais simples é configurar `search_path` por conexão via intercepto
 class EmpresaSearchPathInterceptor {
     @PostConstruct
     void registerHikariCallback() {
-        // Configurar HikariCP setConnectionInitSql dinamicamente,
-        // OU usar AbstractRoutingDataSource com 1 datasource por schema.
+        // Configure HikariCP setConnectionInitSql dynamically,
+        // OR use AbstractRoutingDataSource with 1 datasource per schema.
     }
 }
 ```
 
-**Alternativa preferida:** usar Hibernate `MultiTenantConnectionProvider` apontando para
-um único DataSource e executando `SET search_path TO emp_<empresa>, neuroassist_global, public`
-no início de cada session.
+**Preferred alternative:** use the Hibernate `MultiTenantConnectionProvider` pointing at
+a single DataSource and running `SET search_path TO emp_<empresa>, neuroassist_global, public`
+at the start of each session.
 
 ```java
 // infrastructure/persistence/EmpresaConnectionProvider.java
@@ -411,11 +411,11 @@ class EmpresaConnectionProvider implements MultiTenantConnectionProvider {
         }
         c.close();
     }
-    // ... outros métodos obrigatórios
+    // ... other mandatory methods
 }
 ```
 
-E `CurrentTenantIdentifierResolver`:
+And `CurrentTenantIdentifierResolver`:
 ```java
 @Component
 class EmpresaIdentifierResolver implements CurrentTenantIdentifierResolver<String> {
@@ -441,32 +441,32 @@ spring:
 
 ---
 
-## 6. Saga Choreography (Onboarding de Empresa Nova)
+## 6. Saga Choreography (Onboarding a new Empresa)
 
-Cenário raro mas importante: cliente decide adicionar nova empresa ao grupo.
+A rare but important scenario: the customer decides to add a new empresa to the group.
 
 ### 6.1 Steps
 
 ```
-1. iam-service publish: neuroassist-ai.empresa.created (com empresa_id, nome, parametros)
-2. neuroassist-ai-migrations consume: cria schema <new-empresa-schema> e roda todas as Vs (manual ou via job)
-3. <provider-service> consume: importa catálogos compartilhados
-4. fiscal-service consume: registra empresa na config SEFAZ
-5. financeiro-service consume: cria plano de contas template
-6. auditoria-service grava: neuroassist-ai.empresa.onboarding.completed
+1. iam-service publishes: neuroassist-ai.empresa.created (with empresa_id, name, parameters)
+2. neuroassist-ai-migrations consumes: creates schema <new-empresa-schema> and runs every V (manually or via job)
+3. <provider-service> consumes: imports the shared catalogs
+4. fiscal-service consumes: registers the empresa in the SEFAZ config
+5. financeiro-service consumes: creates the chart-of-accounts template
+6. auditoria-service records: neuroassist-ai.empresa.onboarding.completed
 ```
 
-### 6.2 Compensação
+### 6.2 Compensation
 
-- Se qualquer step falhar após commit, publica evento de compensação (`neuroassist-ai.empresa.onboarding.failed`).
-- Cada consumer trata compensação e rollback local idempotente.
-- Nunca transações distribuídas -- consistência eventual + consumers idempotentes.
+- If any step fails after commit, publish a compensation event (`neuroassist-ai.empresa.onboarding.failed`).
+- Each consumer handles the compensation and its own idempotent local rollback.
+- Never distributed transactions -- eventual consistency + idempotent consumers.
 
 ---
 
 ## 7. Eureka -- Service Discovery
 
-### 7.1 Registro de cliente (obrigatório)
+### 7.1 Client registration (mandatory)
 
 ```yaml
 eureka:
@@ -480,12 +480,12 @@ eureka:
     instance-id: ${spring.application.name}:${random.value}
 ```
 
-### 7.2 Resolução de Feign
+### 7.2 Feign resolution
 
-Com `@FeignClient(name = "service-name")`, Spring Cloud + Eureka resolve a instância
-automaticamente. Sem URLs hardcoded em produção.
+With `@FeignClient(name = "service-name")`, Spring Cloud + Eureka resolve the instance
+automatically. No hardcoded URLs in production.
 
-Para dev local sem Eureka:
+For local dev without Eureka:
 ```yaml
 # application-local.yml
 eureka.client.enabled: false
@@ -494,28 +494,28 @@ spring.cloud.openfeign.client.config.<provider-service>.url: http://localhost:80
 
 ---
 
-## 8. Checklist (Platform Patterns -- serviço novo)
+## 8. Checklist (Platform Patterns -- new service)
 
-- [ ] `CorrelationIdInterceptor` registrado em `WebMvcConfigurer`
-- [ ] `EmpresaContextHolder` em `infrastructure/security/`
-- [ ] `EmpresaFilter` (`OncePerRequestFilter`) popula e limpa contexto por request
-- [ ] Todos os JMS producers usam `EventEnvelope`
-- [ ] Todos os JMS consumers setam `EmpresaContextHolder` do envelope e limpam em `finally`
-- [ ] Todos os JMS consumers são idempotentes (`processedEventPort.alreadyProcessed`)
-- [ ] Feign clients propagam `X-Correlation-Id`, `X-Empresa-Id`, `X-User-Id` via `RequestInterceptor`
-- [ ] Resilience4j CircuitBreaker + Retry aplicado na borda do application service
-- [ ] `spring.jpa.hibernate.ddl-auto: validate` em `application.yml`
-- [ ] `spring.jpa.open-in-view: false` em `application.yml` (RULE-08)
-- [ ] Hibernate `multiTenancy: SCHEMA` + `EmpresaIdentifierResolver` configurado
-- [ ] Eureka registration configurado
-- [ ] Sem migration própria (delegada para `neuroassist-ai-migrations`)
+- [ ] `CorrelationIdInterceptor` registered in `WebMvcConfigurer`
+- [ ] `EmpresaContextHolder` under `infrastructure/security/`
+- [ ] `EmpresaFilter` (`OncePerRequestFilter`) populates and clears the context per request
+- [ ] Every JMS producer uses `EventEnvelope`
+- [ ] Every JMS consumer sets `EmpresaContextHolder` from the envelope and clears it in `finally`
+- [ ] Every JMS consumer is idempotent (`processedEventPort.alreadyProcessed`)
+- [ ] Feign clients propagate `X-Correlation-Id`, `X-Empresa-Id`, `X-User-Id` through a `RequestInterceptor`
+- [ ] Resilience4j CircuitBreaker + Retry applied at the application-service edge
+- [ ] `spring.jpa.hibernate.ddl-auto: validate` in `application.yml`
+- [ ] `spring.jpa.open-in-view: false` in `application.yml` (RULE-08)
+- [ ] Hibernate `multiTenancy: SCHEMA` + `EmpresaIdentifierResolver` configured
+- [ ] Eureka registration configured
+- [ ] No own migration (delegated to `neuroassist-ai-migrations`)
 
 ---
 
-## Referências
+## References
 
-- `hexagonal-patterns.md` -- `EmpresaContextHolder` e cross-empresa guard
-- `services-catalog.md` -- catálogo de microserviços e eventos
-- `rbac.md` -- modelo RBAC + claims JWT
+- `hexagonal-patterns.md` -- `EmpresaContextHolder` and the cross-empresa guard
+- `services-catalog.md` -- microservice and event catalog
+- `rbac.md` -- RBAC model + JWT claims
 - `docs/architecture/shared/multi-empresa.md` -- ADR-001
-- `docs/architecture/shared/distributed-architecture.md` -- topologia
+- `docs/architecture/shared/distributed-architecture.md` -- topology

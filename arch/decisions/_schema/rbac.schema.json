@@ -4,9 +4,17 @@
   "title": "RBAC architecture decision",
   "description": "Formal model of the RBAC aspect: roles, permission bundles, enforcement and data-scope policies. Source of truth from which RBAC markdown templates and (Phase 2) code annotations are derived.",
   "type": "object",
-  "required": ["_schema_version", "version", "roles"],
+  "required": [
+    "_schema_version",
+    "version",
+    "roles"
+  ],
   "additionalProperties": false,
   "properties": {
+    "$comment": {
+      "type": "string",
+      "description": "Free-text note for maintainers; not consumed by any generator."
+    },
     "_schema_version": {
       "type": "integer",
       "const": 1,
@@ -28,17 +36,33 @@
       "properties": {
         "default": {
           "type": "string",
-          "enum": ["pre_authorize", "post_authorize", "manual"],
+          "enum": [
+            "pre_authorize",
+            "post_authorize",
+            "manual"
+          ],
           "description": "Default mechanism used to enforce permissions on controller endpoints."
         },
         "fallback": {
           "type": "string",
-          "enum": ["none", "deny", "allow"],
+          "enum": [
+            "none",
+            "deny",
+            "allow"
+          ],
           "description": "What happens when no explicit rule matches."
         },
         "audit_required": {
           "type": "array",
-          "items": { "type": "string", "enum": ["CREATE", "READ", "UPDATE", "DELETE"] },
+          "items": {
+            "type": "string",
+            "enum": [
+              "CREATE",
+              "READ",
+              "UPDATE",
+              "DELETE"
+            ]
+          },
           "description": "HTTP/CRUD actions that must emit audit log entries."
         }
       }
@@ -53,20 +77,39 @@
         },
         "override_allowed": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "description": "Role codes allowed to bypass the default scope."
         },
         "types": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "description"],
+            "required": [
+              "id",
+              "description"
+            ],
             "additionalProperties": false,
             "properties": {
-              "id": { "type": "string" },
-              "scope_field": { "type": "string" },
-              "value_kind": { "type": "string", "enum": ["uuid", "csv-uuid", "string", "none"] },
-              "description": { "type": "string" }
+              "id": {
+                "type": "string"
+              },
+              "scope_field": {
+                "type": "string"
+              },
+              "value_kind": {
+                "type": "string",
+                "enum": [
+                  "uuid",
+                  "csv-uuid",
+                  "string",
+                  "none"
+                ]
+              },
+              "description": {
+                "type": "string"
+              }
             }
           }
         }
@@ -74,10 +117,16 @@
     },
     "roles": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
-        "required": ["code", "name", "description", "category", "permission_bundle"],
+        "required": [
+          "code",
+          "name",
+          "description",
+          "category",
+          "permission_bundle"
+        ],
         "additionalProperties": false,
         "properties": {
           "code": {
@@ -95,7 +144,10 @@
           },
           "category": {
             "type": "string",
-            "enum": ["default", "optional"],
+            "enum": [
+              "default",
+              "optional"
+            ],
             "description": "default: applied to all tenants. optional: applied on demand."
           },
           "active": {
@@ -104,63 +156,110 @@
             "description": "Seeded with ativo=true/false."
           },
           "data_scope_tipo": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Default data_scope tipo for users assigned to this role. null = no restriction."
           },
           "permission_bundle": {
             "type": "object",
             "oneOf": [
               {
-                "required": ["kind"],
+                "required": [
+                  "kind"
+                ],
                 "additionalProperties": false,
                 "properties": {
-                  "kind": { "const": "all" },
-                  "note": { "type": "string" }
+                  "kind": {
+                    "const": "all"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
                 }
               },
               {
-                "required": ["kind", "patterns"],
+                "required": [
+                  "kind",
+                  "patterns"
+                ],
                 "additionalProperties": false,
                 "properties": {
-                  "kind": { "const": "exclude_patterns" },
-                  "patterns": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-                  "note": { "type": "string" }
+                  "kind": {
+                    "const": "exclude_patterns"
+                  },
+                  "patterns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1
+                  },
+                  "note": {
+                    "type": "string"
+                  }
                 }
               },
               {
-                "required": ["kind", "pattern"],
+                "required": [
+                  "kind",
+                  "pattern"
+                ],
                 "additionalProperties": false,
                 "properties": {
-                  "kind": { "const": "match_pattern" },
-                  "pattern": { "type": "string" },
-                  "note": { "type": "string" }
+                  "kind": {
+                    "const": "match_pattern"
+                  },
+                  "pattern": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
                 }
               },
               {
-                "required": ["kind", "permissions"],
+                "required": [
+                  "kind",
+                  "permissions"
+                ],
                 "additionalProperties": false,
                 "properties": {
-                  "kind": { "const": "list" },
+                  "kind": {
+                    "const": "list"
+                  },
                   "permissions": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
                       "type": "object",
-                      "required": ["code"],
+                      "required": [
+                        "code"
+                      ],
                       "additionalProperties": false,
                       "properties": {
-                        "code": { "type": "string", "description": "Either a fully-qualified permission (cad.cliente.read) or a wildcard (fis.*)." },
-                        "scope_note": { "type": "string", "description": "Free-text annotation (e.g. 'data_scope: próprios') rendered next to the permission." }
+                        "code": {
+                          "type": "string",
+                          "description": "Either a fully-qualified permission (cad.cliente.read) or a wildcard (fis.*)."
+                        },
+                        "scope_note": {
+                          "type": "string",
+                          "description": "Free-text annotation (e.g. 'data_scope: próprios') rendered next to the permission."
+                        }
                       }
                     }
                   },
-                  "note": { "type": "string" }
+                  "note": {
+                    "type": "string"
+                  }
                 }
               }
             ]
           }
         }
-      }
+      },
+      "description": "Ships EMPTY in the source of truth (D-103 Gap B); projects fill it via arch/overrides/<aspect>.partial.json (D-074 deep-merge)."
     }
   }
 }

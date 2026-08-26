@@ -1,9 +1,11 @@
 import { TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { HttpResponse } from '@angular/common/http';
 import { PacComandoFacade, ComandoRowVM } from './pac-comando.facade';
 import { PAC_COMANDO_PORT, Comando } from './api/comando.port';
 import { EdgeDeviceAckStubAdapter } from './api/edge-device-ack-stub.adapter';
+import { PacErrorHandler } from './error-surface/pac-error.handler';
+import { PacTelemetryService } from './telemetry/pac-telemetry.service';
 
 // =============================================================================
 // PacComandoFacade — unit tests (P6 / PAC-FE-011)
@@ -31,6 +33,26 @@ function buildComando(overrides?: Partial<Comando>): Comando {
     tempoMinimoGestoMs: 400,
     tempoMaximoGestoMs: 1500,
     estado: 'drafted',
+    etag: 'etag-v1',
+    ...overrides,
+  };
+}
+
+function buildRowVM(overrides?: Partial<ComandoRowVM>): ComandoRowVM {
+  return {
+    id: 'c1',
+    rotulo: 'Preciso de ajuda',
+    urgencia: 'rotina',
+    primitivoPrincipalNome: 'g1',
+    primitivoSecundarioNome: null,
+    primitivoPrincipalId: 'g1',
+    primitivoSecundarioId: null,
+    tempoMinimoGestoMs: 400,
+    tempoMaximoGestoMs: 1500,
+    sensibilidade: 'media',
+    estado: 'drafted',
+    syncState: 'pending-sync',
+    testedState: 'not-tested',
     etag: 'etag-v1',
     ...overrides,
   };
@@ -260,7 +282,26 @@ describe('PacComandoFacade', () => {
 
   describe('emergency gate (ADR-005 BE / SPEC-07)', () => {
     it('deve popular emergencyGateError quando save() recebe erro 422 emergency-not-detectable', fakeAsync(() => {
-      const emergencyError = Object.assign(new Error('emergency-not-detectable'), { status: 422 });
+      // A forma REAL do erro, copiada do que o produtor emite: o
+      // `ComandoMockAdapter` (e o backend) lançam `HttpErrorResponse` com o
+      // ProblemDetail no corpo, em `error.type`.
+      //
+      // Antes esta fixture era `Object.assign(new Error('emergency-not-detectable'),
+      // {status: 422})` — texto na mensagem e nada de ProblemDetail. Ela casava
+      // com a classificação por substring que a facade fazia, e as duas estavam
+      // erradas juntas: o teste concordava com o consumidor e discordava do
+      // produtor, então ficava verde justamente enquanto o código não sabia ler
+      // o erro de verdade.
+      const emergencyError = {
+        status: 422,
+        error: {
+          type: 'https://neuroassist.ai/problems/emergency-not-detectable',
+          title: 'Emergency gate: gesture not detectable',
+          status: 422,
+          detail:
+            'O gesto escolhido não é detectável pelo motor atual. Escolha outro gesto ou mude a urgência para Rotina.',
+        },
+      };
       mockPort.create.mockReturnValue(throwError(() => emergencyError));
 
       facade.openNew('p1', 'g1');
@@ -271,6 +312,60 @@ describe('PacComandoFacade', () => {
       const ed = facade.editor();
       expect(ed.saveState).toBe('error');
       expect(ed.emergencyGateError).not.toBeNull();
+    }));
+
+    it('encaminha o erro ao PacErrorHandler — a ligação que faltava', fakeAsync(() => {
+      // O `PacErrorHandler` era exportado no barrel e NÃO TINHA um único ponto de
+      // invocação no repositório: uma superfície de erro completa, com testes, e
+      // jamais chamada pelo código de tela. Este teste é o que impede a ligação
+      // de ser desfeita em silêncio.
+      const handler = TestBed.inject(PacErrorHandler);
+      const espiao = jest.spyOn(handler, 'handle');
+
+      mockPort.create.mockReturnValue(
+        throwError(() => ({
+          status: 403,
+          error: {
+            type: 'https://neuroassist.ai/problems/missing-tenant',
+            title: 'Missing tenant',
+            status: 403,
+            detail: 'Empresa não identificada nesta sessão.',
+          },
+        })),
+      );
+
+      facade.openNew('p1', 'g1');
+      facade.patchEditor({ rotulo: 'Água' });
+      facade.save();
+      tick();
+
+      // Chegou classificado: o código veio do ProblemDetail, e não de procurar
+      // substring na mensagem.
+      expect(espiao).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'missing-tenant' }),
+        'editor',
+      );
+    }));
+
+    it('erro já mostrado pelo handler não é repetido inline', fakeAsync(() => {
+      // A mesma frase em dois lugares faz a pessoa procurar dois problemas.
+      mockPort.create.mockReturnValue(
+        throwError(() => ({
+          status: 403,
+          error: {
+            type: 'https://neuroassist.ai/problems/missing-tenant',
+            status: 403,
+            detail: 'Empresa não identificada nesta sessão.',
+          },
+        })),
+      );
+
+      facade.openNew('p1', 'g1');
+      facade.patchEditor({ rotulo: 'Água' });
+      facade.save();
+      tick();
+
+      expect(facade.error()).toBeNull();
     }));
 
     it('emergencyGateError deve ser null quando o erro não é do tipo 422', fakeAsync(() => {
@@ -307,24 +402,42 @@ describe('PacComandoFacade', () => {
 
   describe('openEdit()', () => {
     it('deve popular o editor com os dados da row selecionada', () => {
-      const row: ComandoRowVM = {
-        id: 'c1',
-        rotulo: 'Beber Água',
-        urgencia: 'rotina',
-        primitivoPrincipalNome: 'g1',
-        primitivoSecundarioNome: null,
-        sensibilidade: 'baixa',
-        estado: 'drafted',
-        syncState: 'pending-sync',
-        testedState: 'not-tested',
-        etag: 'etag-v1',
-      };
+      const row = buildRowVM({ rotulo: 'Beber Água', urgencia: 'rotina', sensibilidade: 'baixa' });
 
       facade.openEdit('p1', row);
 
       expect(facade.editor().rotulo).toBe('Beber Água');
       expect(facade.editor().cid).toBe('c1');
       expect(facade.editor().pid).toBe('p1');
+    });
+
+    // O defeito: o editor não copiava a janela de tempo da row — escrevia 400 e
+    // 1500 literais. Enquanto não havia botão de recalibrar isso não saía da
+    // tela; recalibrate() manda os dois campos no corpo, e um comando calibrado
+    // em 250/900 voltaria a 400/1500 sem ninguém ter pedido.
+    it('copia a janela de tempo da row em vez de fabricar 400/1500', () => {
+      facade.openEdit('p1', buildRowVM({ tempoMinimoGestoMs: 250, tempoMaximoGestoMs: 900 }));
+
+      expect(facade.editor().tempoMinimoGestoMs).toBe(250);
+      expect(facade.editor().tempoMaximoGestoMs).toBe(900);
+    });
+
+    // O outro defeito do mesmo lugar: o NOME do primitivo ia para o campo de ID.
+    // Hoje _toRowVM guarda o id nos dois campos, então nada acusa — daí este
+    // teste dar nome e id DIFERENTES, que é a única forma de a troca aparecer.
+    it('copia o ID do primitivo, não o nome de exibição', () => {
+      facade.openEdit(
+        'p1',
+        buildRowVM({
+          primitivoPrincipalNome: 'Levantar sobrancelha',
+          primitivoPrincipalId: 'tg-sobrancelha',
+          primitivoSecundarioNome: 'Piscar duas vezes',
+          primitivoSecundarioId: 'tg-piscar-duplo',
+        }),
+      );
+
+      expect(facade.editor().primitivoPrincipal).toBe('tg-sobrancelha');
+      expect(facade.editor().primitivoSecundario).toBe('tg-piscar-duplo');
     });
   });
 
@@ -372,6 +485,222 @@ describe('PacComandoFacade', () => {
       facade.markTested('c1');
 
       expect(facade.catalog()[0].testedState).toBe('tested');
+    }));
+  });
+
+  // ==========================================================================
+  // Ciclo de vida — validate / publish / recalibrate / retire a partir do editor
+  //
+  // Antes destes, o facade nem sequer expunha validate() e publish(): o porto
+  // declarava os quatro métodos, o adaptador implementava os quatro, e nenhum
+  // deles tinha chamador em lugar nenhum do repositório.
+  // ==========================================================================
+
+  /** Abre o editor com um comando no estado pedido. */
+  function abrirEditor(estado: ComandoRowVM['estado'], extra?: Partial<ComandoRowVM>): void {
+    facade.openEdit('p1', buildRowVM({ estado, ...extra }));
+  }
+
+  describe('validate()', () => {
+    it('chama port.validate com o If-Match do editor e avança o estado', fakeAsync(() => {
+      mockPort.validate.mockReturnValue(of(buildComando({ estado: 'validated', etag: 'etag-v2' })));
+      abrirEditor('drafted', { etag: 'etag-v1' });
+
+      facade.validate();
+      tick();
+      tick();
+
+      expect(mockPort.validate).toHaveBeenCalledWith('p1', 'c1', 'etag-v1');
+      expect(facade.editor().estado).toBe('validated');
+      expect(facade.editor().etag).toBe('etag-v2');
+    }));
+
+    it('marca saveState "saving" enquanto a chamada está no ar', () => {
+      // Observable que nunca emite: o editor fica parado no meio da chamada.
+      mockPort.validate.mockReturnValue(new Observable<Comando>(() => undefined));
+      abrirEditor('drafted');
+
+      facade.validate();
+
+      expect(facade.editor().saveState).toBe('saving');
+    });
+
+    it('NÃO termina em "saved-pending-sync" — esse estado navega para fora do editor', fakeAsync(() => {
+      mockPort.validate.mockReturnValue(of(buildComando({ estado: 'validated' })));
+      abrirEditor('drafted');
+
+      facade.validate();
+      tick();
+      tick();
+
+      expect(facade.editor().saveState).not.toBe('saved-pending-sync');
+    }));
+
+    // PAR do estado: quem está no estado certo passa; quem não está, não chama.
+    it.each([['validated'], ['published'], ['retired']] as const)(
+      'não chama port.validate a partir de %s',
+      (estado) => {
+        abrirEditor(estado);
+
+        facade.validate();
+
+        expect(mockPort.validate).not.toHaveBeenCalled();
+      },
+    );
+
+    it('emite telemetria "validated" com o id do comando', fakeAsync(() => {
+      const telemetria = TestBed.inject(PacTelemetryService);
+      const espia = jest.spyOn(telemetria, 'trackLifecycleTransition');
+      mockPort.validate.mockReturnValue(of(buildComando({ estado: 'validated' })));
+      abrirEditor('drafted');
+
+      facade.validate();
+      tick();
+      tick();
+
+      expect(espia).toHaveBeenCalledWith('validated', 'c1');
+    }));
+  });
+
+  describe('publish()', () => {
+    it('chama port.publish com o If-Match do editor e avança o estado', fakeAsync(() => {
+      mockPort.publish.mockReturnValue(of(buildComando({ estado: 'published', etag: 'etag-v3' })));
+      abrirEditor('validated', { etag: 'etag-v2' });
+
+      facade.publish();
+      tick();
+      tick();
+
+      expect(mockPort.publish).toHaveBeenCalledWith('p1', 'c1', 'etag-v2');
+      expect(facade.editor().estado).toBe('published');
+    }));
+
+    it.each([['drafted'], ['published'], ['retired']] as const)(
+      'não chama port.publish a partir de %s',
+      (estado) => {
+        abrirEditor(estado);
+
+        facade.publish();
+
+        expect(mockPort.publish).not.toHaveBeenCalled();
+      },
+    );
+
+    // SPEC-07 §"emergency-not-detectable on publicar": bloqueia a publicação,
+    // deixa o comando em 'validated' e abre o modal bloqueante. É o cenário que
+    // até agora só era exercido no create — onde o backend não aplica o portão.
+    it('422 emergency-not-detectable no publish bloqueia e deixa o comando validated', fakeAsync(() => {
+      mockPort.publish.mockReturnValue(
+        throwError(() => ({
+          status: 422,
+          error: {
+            type: 'https://neuroassist.ai/problems/emergency-not-detectable',
+            title: 'Emergency gate',
+            status: 422,
+          },
+        })),
+      );
+      abrirEditor('validated', { urgencia: 'emergencia' });
+
+      facade.publish();
+      tick();
+
+      expect(facade.editor().emergencyGateError).not.toBeNull();
+      expect(facade.editor().saveState).toBe('error');
+      expect(facade.editor().estado).toBe('validated');
+    }));
+
+    it('emite telemetria de portão de emergência bloqueado no publish', fakeAsync(() => {
+      const telemetria = TestBed.inject(PacTelemetryService);
+      const espia = jest.spyOn(telemetria, 'trackEmergencyGateBlocked');
+      mockPort.publish.mockReturnValue(
+        throwError(() => ({
+          error: { type: 'https://neuroassist.ai/problems/emergency-not-detectable', status: 422 },
+        })),
+      );
+      abrirEditor('validated', { urgencia: 'emergencia' });
+
+      facade.publish();
+      tick();
+
+      expect(espia).toHaveBeenCalledWith('c1');
+    }));
+  });
+
+  describe('recalibrateCurrent()', () => {
+    it('manda o tuning que está no editor, não valores fabricados', fakeAsync(() => {
+      mockPort.recalibrate.mockReturnValue(of(buildComando({ estado: 'published' })));
+      abrirEditor('published', {
+        sensibilidade: 'alta',
+        tempoMinimoGestoMs: 250,
+        tempoMaximoGestoMs: 900,
+      });
+
+      facade.recalibrateCurrent();
+      tick();
+      tick();
+
+      expect(mockPort.recalibrate).toHaveBeenCalledWith(
+        'p1',
+        'c1',
+        { sensibilidade: 'alta', tempoMinimoGestoMs: 250, tempoMaximoGestoMs: 900 },
+        'etag-v1',
+      );
+    }));
+
+    it('marca saveState "saving" enquanto a chamada está no ar', () => {
+      mockPort.recalibrate.mockReturnValue(new Observable<Comando>(() => undefined));
+      abrirEditor('published');
+
+      facade.recalibrateCurrent();
+
+      expect(facade.editor().saveState).toBe('saving');
+    });
+
+    it.each([['drafted'], ['validated'], ['retired']] as const)(
+      'não chama port.recalibrate a partir de %s',
+      (estado) => {
+        abrirEditor(estado);
+
+        facade.recalibrateCurrent();
+
+        expect(mockPort.recalibrate).not.toHaveBeenCalled();
+      },
+    );
+  });
+
+  describe('retireCurrent()', () => {
+    it.each([['drafted'], ['validated'], ['published']] as const)(
+      'aposenta a partir de %s',
+      (estado) => {
+        mockPort.retire.mockReturnValue(of(buildComando({ estado: 'retired' })));
+        abrirEditor(estado);
+
+        facade.retireCurrent();
+
+        expect(mockPort.retire).toHaveBeenCalledWith('p1', 'c1', 'etag-v1');
+      },
+    );
+
+    it('não chama port.retire sobre um comando já aposentado (terminal, ADR-006)', () => {
+      abrirEditor('retired');
+
+      facade.retireCurrent();
+
+      expect(mockPort.retire).not.toHaveBeenCalled();
+    });
+
+    it('emite telemetria "retired"', fakeAsync(() => {
+      const telemetria = TestBed.inject(PacTelemetryService);
+      const espia = jest.spyOn(telemetria, 'trackLifecycleTransition');
+      mockPort.retire.mockReturnValue(of(buildComando({ estado: 'retired' })));
+      abrirEditor('published');
+
+      facade.retireCurrent();
+      tick();
+      tick();
+
+      expect(espia).toHaveBeenCalledWith('retired', 'c1');
     }));
   });
 });

@@ -30,17 +30,47 @@ tenant already at head is a no-op success.
 
 ```json
 // request
-{}
+{ "schema": "t_b3f1e2a94c7d4f0e8a1b2c3d4e5f6a7b" }
 // response 200 (created or already-current)
 {
   "tenantId": "b3f1...-uuid",
-  "schema": "t_b3f1uuid",
-  "status": "provisioned",
-  "appliedVersions": ["V0002", "V0003"],
-  "currentVersion": "V0003",
-  "correlationId": "..."
+  "schema": "t_b3f1e2a94c7d4f0e8a1b2c3d4e5f6a7b",
+  "status": "READY",
+  "appliedVersions": ["0200", "0201"],
+  "currentVersion": "0800"
 }
 ```
+
+> **Two corrections to the original draft, made when this was implemented (E2E-016).**
+>
+> 1. **The schema name travels in the request; MIG does not derive it.** The draft
+>    showed an empty body and `t_<tenantId>`. Deriving a schema name from a tenant
+>    identifier is the defect recorded in CLAUDE.md ("tenant id ≠ schema name") — and
+>    acs-service does not name schemas that way anyway: `TenantProvisioningService`
+>    mints `"t_" +` a fresh UUID and records it in `neuroassist_global.tenant.schema_nome`.
+>    ACS owns the name, MIG applies it, neither derives it from the other's identifier.
+> 2. **`status` is `READY`, not `provisioned`.** acs-service compares against `READY`
+>    and shares that vocabulary with `MigSchemaStatusResponse`. Two words for one state
+>    is how a consumer polls forever against a producer that already finished.
+>
+> MIG validates the name against `^t_[a-z0-9_]{1,60}$` before any DDL: a schema name
+> cannot be a bound parameter, and this service holds the platform's DDL role.
+
+### 1.1b `GET /internal/migrations/tenants/{tenantId}`
+
+The poll path for acs-service. Resolves the schema through
+`neuroassist_global.tenant.schema_nome` and reports what is actually there:
+
+| Situation | `status` |
+|---|---|
+| No schema recorded for the tenant yet | `PENDING` |
+| Schema recorded but **absent from the database** | `FAILED` |
+| Schema exists with no Flyway history | `PROVISIONING` |
+| Schema exists and is migrated | `READY` |
+
+The second row is the one that matters: it is the exact state the old stub
+manufactured on every onboarding — a recorded `schema_nome` pointing at nothing,
+reported as `READY`.
 
 ### 1.2 `GET /internal/migrations/status`
 

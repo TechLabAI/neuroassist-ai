@@ -74,11 +74,16 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
-                        expectedSequenceNo, Instant.now());
+                        streamKey,
+                        ChainStatus.broken,
+                        verifiedCount,
+                        erasedCount,
+                        expectedSequenceNo,
+                        Instant.now());
             }
 
-            // Check prevHash linkage — verifiable even for erased records (stored recordHash intact)
+            // Check prevHash linkage — verifiable even for erased records (stored recordHash
+            // intact)
             if (!expectedPrevHash.equals(record.prevHash())) {
                 log.warn(
                         "Chain broken: prevHash mismatch at sequenceNo={} streamKey={} tenant={}",
@@ -87,8 +92,12 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
-                        record.sequenceNo(), Instant.now());
+                        streamKey,
+                        ChainStatus.broken,
+                        verifiedCount,
+                        erasedCount,
+                        record.sequenceNo(),
+                        Instant.now());
             }
 
             // If patient key was erased (LGPD crypto-shredding), skip hash re-computation.
@@ -97,7 +106,8 @@ public class ChainVerificationService implements ChainVerificationUseCase {
             if (record.erased()) {
                 log.debug(
                         "LGPD-erased record at sequenceNo={} streamKey={} — skipping hash re-computation",
-                        record.sequenceNo(), streamKey);
+                        record.sequenceNo(),
+                        streamKey);
                 erasedCount++;
                 expectedPrevHash = record.recordHash();
                 expectedSequenceNo++;
@@ -114,8 +124,12 @@ public class ChainVerificationService implements ChainVerificationUseCase {
                         tenantId);
                 histMetrics.incrementChainVerificationTotal(tenantId, "broken");
                 return new ChainVerificationResult(
-                        streamKey, ChainStatus.broken, verifiedCount, erasedCount,
-                        record.sequenceNo(), Instant.now());
+                        streamKey,
+                        ChainStatus.broken,
+                        verifiedCount,
+                        erasedCount,
+                        record.sequenceNo(),
+                        Instant.now());
             }
 
             // Record successfully verified
@@ -124,11 +138,16 @@ public class ChainVerificationService implements ChainVerificationUseCase {
             expectedSequenceNo++;
         }
 
-        ChainStatus finalStatus = erasedCount > 0 ? ChainStatus.partially_erased : ChainStatus.intact;
+        ChainStatus finalStatus =
+                erasedCount > 0 ? ChainStatus.partially_erased : ChainStatus.intact;
         String outcome = erasedCount > 0 ? "partially_erased" : "ok";
         log.info(
                 "Chain verification {}: streamKey={} tenant={} verified={} erased={}",
-                finalStatus, streamKey, tenantId, verifiedCount, erasedCount);
+                finalStatus,
+                streamKey,
+                tenantId,
+                verifiedCount,
+                erasedCount);
         histMetrics.incrementChainVerificationTotal(tenantId, outcome);
         return new ChainVerificationResult(
                 streamKey, finalStatus, verifiedCount, erasedCount, null, Instant.now());

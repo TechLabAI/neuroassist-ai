@@ -29,16 +29,16 @@ public class PatientDataErasureController {
     @DeleteMapping("/{subjectId}/personal-data")
     @PreAuthorize("hasAuthority('SCOPE_hist:erase')")
     public ResponseEntity<ErasePatientDataResponse> erasePersonalData(
-            @PathVariable UUID subjectId,
-            @RequestHeader("X-Tenant-Id") String tenantId) {
+            @PathVariable UUID subjectId, @RequestHeader("X-Tenant-Id") String tenantId) {
 
         erasePatientDataUseCase.erase(
                 new ErasePatientDataUseCase.EraseCommand(subjectId, tenantId, "api-request"));
 
-        return ResponseEntity.ok(new ErasePatientDataResponse(
-                subjectId,
-                tenantId,
-                Instant.now(),
-                "Patient payload data erased. Hash chain structure remains intact (ADR-006)."));
+        return ResponseEntity.ok(
+                new ErasePatientDataResponse(
+                        subjectId,
+                        tenantId,
+                        Instant.now(),
+                        "Patient payload data erased. Hash chain structure remains intact (ADR-006)."));
     }
 }

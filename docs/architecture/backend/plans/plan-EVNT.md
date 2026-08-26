@@ -19,12 +19,12 @@
 |---|---|---|
 | P1 | Scaffold + API controllers + GlobalExceptionHandler | CONCLUIDA |
 | P2 | Notification orchestration (IngestRecognizedReport, OrchestrateNotification, ConfirmEvento, retry sweep) | CONCLUIDA |
-| P3 | Persistência JPA + Flyway migrations + Tenant routing | CONCLUIDA* (Flyway V1..V4 ausentes em neuroassist-ai-migrations — EVNT-011) |
+| P3 | Persistência JPA + Flyway migrations + Tenant routing | CONCLUIDA (reconciliado 2026-08-26 — EVNT-011 fechada: migrations existem sob a faixa V0500..V0502, não V1..V4 como esta linha presumia) |
 | P4 | SSE live delivery (SseEmitterAdapter + Last-Event-ID replay + TenantResolverPort) | CONCLUIDA (2026-08-14: SseEmitterAdapter + keepalive + seq-based replay + RULE-04 fix) |
 | P5 | Feign adapters (GEST, PAC, ACS, DASH, HIST) + contract tests | CONCLUIDA* (adapters presentes; WireMock contract tests INT-EVNT-002..005 pendentes) |
 | P6 | Security (OAuth2 resource server + device-token filter) | CONCLUIDA* (interim — INT-EVNT-001 arquitetura pendente) |
 | P7 | Observability + health (Actuator + Micrometer + MDC) | CONCLUIDA* (Actuator/MDC presentes; Micrometer business metrics a verificar) |
-| P8 | BDD Cucumber end-to-end (36 cenários) | EM-PROGRESSO — 25/46 falhando (FULL-VALIDACAO); Spring context + Feign URI config issue. Bloqueador: CucumberSpringContext + Testcontainers setup |
+| P8 | BDD Cucumber end-to-end (36 cenários) | CONCLUIDA (reconciliado 2026-08-26 — `CucumberSpringContext` já usa `PostgreSQLContainer` real com migrations aplicadas; `./gradlew :services:evnt-service:test` = 126/126, `CucumberIT` 23/23 cenários, 0 falhas) |
 | P9 | Hardening + circuit breakers + gap closeouts | EM-PROGRESSO (parcial) |
 
 ---
@@ -32,7 +32,13 @@
 ## Status
 
 **Tipo:** Incremental
-**Resumo:** Score 82/100 (Consistente) — atualizado 2026-08-15 (FULL-VALIDACAO). P1-P7 concluídas. P8 (BDD) framework pronto mas testes falhando por Spring context + Testcontainers config issue. P9 (hardening) parcial. Próxima ação (B2): resolver CucumberSpringContext + Feign URI config — após fix, retornar para re-validação.
+**Resumo:** Reconciliado em 2026-08-26 — este plano descrevia P3 e P8 como bloqueadas (Flyway V1..V4
+ausentes / BDD 25 de 46 cenários falhando), mas isso já não reflete o código: `CucumberSpringContext`
+já sobe um `PostgreSQLContainer` real com as migrations reais aplicadas (`SchemaMigrations.applyTo`),
+e a suíte completa do serviço passa integralmente (`./gradlew :services:evnt-service:test` → 126/126,
+incluindo 23/23 cenários BDD; `architectureCheck` verde). Não está claro nesta sessão em qual commit
+o fix realmente aconteceu — não há entrada correspondente no `project-journal.md`. P1-P8 concluídas.
+Resta apenas **P9 (hardening)**, ainda parcial, como prioridade real em aberto.
 
 ---
 
@@ -73,16 +79,20 @@ P4 deve fazer fan-out **por tenant** — somente emitters do tenant correto rece
 
 ### Gaps identificados
 
+> **G2 e G3 fechados (reconciliado 2026-08-26)** — ver nota no topo do arquivo. Mantidos na tabela
+> abaixo por valor histórico (o diagnóstico de causa raiz que motivou o P8 ainda é útil), mas não
+> refletem o estado atual do código.
+
 | # | Gap | Causa | Prioridade | Issues |
 |---|---|---|---|---|
 | G1 | `SseEventBroadcastNoOpAdapter` é stub — SSE não funciona | P4 não implementada | P4 | EVNT-013, EVNT-014 |
-| G2 | 24/36 BDD falhando — Spring context sem Testcontainers + steps de SSE sem adapter | P8 bloqueada parcialmente por P4 | P8 | EVNT-022..024 |
-| G3 | Flyway V1..V4 ausentes em `neuroassist-ai-migrations` | P3 incompleta | P3 (residual) | EVNT-011 |
+| G2 | ~~24/36 BDD falhando~~ — **RESOLVIDO**: `CucumberSpringContext` já usa Testcontainers real | P8 bloqueada parcialmente por P4 | P8 | EVNT-022..024 |
+| G3 | ~~Flyway V1..V4 ausentes~~ — **RESOLVIDO**: existem sob a faixa V0500..V0502 | P3 incompleta | P3 (residual) | EVNT-011 |
 | G4 | WireMock contract tests ausentes (INT-EVNT-002..005) | P5 incompleta | P5 (residual) | INT-EVNT-002..005 |
 | G5 | INT-EVNT-001 (device-token mTLS vs client_credentials) — decisão arquitetural pendente | Aguarda EDGE | P6 (residual) | INT-EVNT-001 |
 | G6 | Micrometer business metrics — counters/timers de negócio a verificar | P7 parcial | P7 (residual) | EVNT-021 |
 
-### Diagnóstico do BDD (24/36 failures)
+### Diagnóstico do BDD (24/36 failures) — histórico, já corrigido (ver nota acima)
 
 **Causa raiz confirmada pela inspeção do código:**
 1. `CucumberSpringContext` usa `@SpringBootTest(RANDOM_PORT)` mas NÃO configura Testcontainers

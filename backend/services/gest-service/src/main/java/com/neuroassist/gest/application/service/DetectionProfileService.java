@@ -1,20 +1,27 @@
 package com.neuroassist.gest.application.service;
 
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse;
+import com.neuroassist.gest.api.dto.DetectionProfilePrimitiveResponse.Origem;
 import com.neuroassist.gest.api.dto.DetectionProfileRequest;
 import com.neuroassist.gest.api.dto.DetectionProfileResponse;
 import com.neuroassist.gest.application.port.in.DetectionProfileUseCase;
 import com.neuroassist.gest.application.port.out.DetectionProfilePrimitiveRepositoryPort;
 import com.neuroassist.gest.application.port.out.DetectionProfileRepositoryPort;
+import com.neuroassist.gest.application.port.out.EdgeDevicePort;
+import com.neuroassist.gest.application.port.out.PatientCatalogPort;
 import com.neuroassist.gest.application.port.out.TenantContextPort;
 import com.neuroassist.gest.application.port.out.TipoGestoRepositoryPort;
 import com.neuroassist.gest.domain.event.DetectionProfilePublished;
 import com.neuroassist.gest.domain.model.DetectabilityState;
 import com.neuroassist.gest.domain.model.DetectionProfile;
 import com.neuroassist.gest.domain.model.DetectionProfilePrimitive;
+import com.neuroassist.gest.domain.model.Sensibilidade;
 import com.neuroassist.gest.domain.model.TipoGesto;
 import com.neuroassist.gest.domain.service.DetectionProfileDomainService;
+import com.neuroassist.gest.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -40,12 +47,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class DetectionProfileService implements DetectionProfileUseCase {
 
+    /**
+     * Subiu de v1.0.0 quando o perfil passou a carregar limiares tipados e a devolver os primitivos
+     * (E2E-033). Menor, nao maior: o que existia continua no lugar e com o mesmo significado — o
+     * agente antigo ignora os campos novos e segue funcionando.
+     */
+    private static final String CONTRACT_VERSION = "v1.1.0";
+
     private final DetectionProfileRepositoryPort detectionProfileRepositoryPort;
     private final DetectionProfilePrimitiveRepositoryPort detectionProfilePrimitiveRepositoryPort;
     private final TipoGestoRepositoryPort tipoGestoRepositoryPort;
     private final DetectionProfileDomainService detectionProfileDomainService;
     private final ApplicationEventPublisher eventPublisher;
     private final TenantContextPort tenantContextPort;
+    private final EdgeDevicePort edgeDevicePort;
+    private final PatientCatalogPort patientCatalogPort;
 
     /**
      * Publishes a new versioned DetectionProfile. Steps (GEST-009):
@@ -66,7 +82,13 @@ public class DetectionProfileService implements DetectionProfileUseCase {
                         .filter(tg -> tg.detectabilityState() == DetectabilityState.SUPPORTED)
                         .toList();
         if (supported.isEmpty()) {
-            throw new IllegalStateException("no supported primitives");
+            // CodedException, nao IllegalStateException: a regra "perfil vazio nao publica" esta
+            // no catalogo de erros como `empty-profile` (422), mas o throw generico caia no
+            // handler de ultimo recurso e a coordenadora recebia 500 — indistinguivel de uma
+            // falha do servico. A regra de negocio precisa se anunciar como regra de negocio.
+            throw new CodedException(
+                    "empty-profile",
+                    "Nenhum primitivo em estado SUPPORTED — nao ha o que publicar");
         }
 
         // 2. Next monotonic version + deactivate current (atomic from service perspective)
@@ -77,8 +99,8 @@ public class DetectionProfileService implements DetectionProfileUseCase {
         DetectionProfile profile =
                 DetectionProfile.publish(
                         version,
-                        "v1.0.0",
-                        request.classificationParams(),
+                        CONTRACT_VERSION,
+                        request.thresholds(),
                         supported,
                         tenantContextPort.getTenantIdOrNull(),
                         null);
@@ -86,56 +108,197 @@ public class DetectionProfileService implements DetectionProfileUseCase {
 
         // 4. Snapshot SUPPORTED primitives via domain service and persist
         List<DetectionProfilePrimitive> primitives =
-                detectionProfileDomainService.createSnapshot(supported, saved.id());
-        detectionProfilePrimitiveRepositoryPort.saveAll(primitives);
+                detectionProfileDomainService.createSnapshot(
+                        supported, saved.id(), request.sensibilidadePorGesto());
+        List<DetectionProfilePrimitive> savedPrimitives =
+                detectionProfilePrimitiveRepositoryPort.saveAll(primitives);
 
         // 5. Publish in-process domain event (AFTER_COMMIT listener in P6)
         eventPublisher.publishEvent(
                 new DetectionProfilePublished(saved.id(), saved.version(), Instant.now()));
 
-        log.info("DetectionProfile published: id={} version={}", saved.id(), saved.version());
-        return toResponse(saved);
+        log.info(
+                "DetectionProfile published: id={} version={} primitivos={}",
+                saved.id(),
+                saved.version(),
+                savedPrimitives.size());
+        return toResponse(saved, savedPrimitives);
     }
 
     /** Returns the currently active profile for the tenant, if any. */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findActive() {
-        return detectionProfileRepositoryPort.findActive().map(this::toResponse);
+        return detectionProfileRepositoryPort.findActive().map(this::toResponseWithPrimitives);
     }
 
     /**
-     * Returns the profile for a specific version. Port query deferred to P3 (requires
-     * DetectionProfileRepositoryPort.findByVersion() added when persistence is connected).
+     * O perfil de uma versão específica — inclusive uma já desativada.
+     *
+     * <p>Devolvia {@code Optional.empty()} sempre, então {@code GET
+     * /detection-profile/&#123;version&#125;} era 404 para toda versão, inclusive as que existiam.
+     * Isso tirava a única forma de auditar um relatório de gesto: o relatório cita a {@code
+     * profileVersion} com que foi detectado, e sem esta leitura ninguém consegue dizer que limiares
+     * estavam valendo naquele instante.
+     *
+     * <p>Os primitivos vêm junto pelo mesmo motivo do {@code /active} (E2E-033): um perfil sem
+     * gesto nenhum não diz o que o agente estava detectando. Aqui eles saem como o perfil os
+     * publicou — sem projeção de paciente, porque esta rota é da empresa e não conhece dispositivo.
+     *
+     * <p>O ETag é só {@code "<version>"}: uma versão publicada é imutável, então nada além dela
+     * pode invalidar esta resposta. O ETag combinado com a versão do catálogo é exclusivo da
+     * resposta por dispositivo, onde a recalibração do paciente muda o corpo sem mudar a versão do
+     * perfil.
      */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findByVersion(long version) {
-        // P3: add DetectionProfileRepositoryPort.findByVersion(long) and implement here
-        return Optional.empty();
+        return detectionProfileRepositoryPort
+                .findByVersion(version)
+                .map(this::toResponseWithPrimitives);
     }
 
     /**
-     * Returns the active profile for a device identified by its paired deviceId. Device-lookup via
-     * EdgePairingClient deferred to P4.
+     * O perfil ativo projetado sobre a calibracao DO PACIENTE pareado com este dispositivo
+     * (E2E-034).
+     *
+     * <p>Devolvia {@code Optional.empty()} sempre — 404 eterno —, e e exatamente o endpoint que o
+     * EDGE chama no heartbeat: o ponteiro de perfil do EDGE leu "sem perfil ativo" para todo
+     * dispositivo desde sempre.
+     *
+     * <p>A juncao acontece aqui, na leitura, e nao no publish: o perfil da empresa diz o que "alta"
+     * significa; o catalogo do paciente diz qual faixa cada gesto dele usa. Nada e copiado para
+     * dentro do perfil publicado, entao recalibrar um paciente nao exige republicar o perfil da
+     * clinica — e nenhuma copia envelhece.
+     *
+     * <p>Nenhum dos dois lados externos derruba a resposta. Sem EDGE ou sem PAC, o dispositivo
+     * recebe o perfil da empresa com a faixa padrao e a resposta diz que esta degradada: o aparelho
+     * esta na casa do paciente, e detectar impreciso e melhor que nao detectar.
      */
     @Override
     @Transactional(readOnly = true)
     public Optional<DetectionProfileResponse> findForDevice(UUID deviceId) {
-        // P4: requires EdgePairingClient.getTenant(deviceId) + findActive() for that tenant
-        return Optional.empty();
+        Optional<DetectionProfile> active = detectionProfileRepositoryPort.findActive();
+        if (active.isEmpty()) {
+            return Optional.empty();
+        }
+        DetectionProfile profile = active.get();
+        List<DetectionProfilePrimitive> primitives =
+                detectionProfilePrimitiveRepositoryPort.findByProfileId(profile.id());
+
+        EdgeDevicePort.DeviceBinding binding = edgeDevicePort.resolveBinding(deviceId);
+        if (!binding.hasPaciente()) {
+            log.debug(
+                    "Dispositivo {} sem paciente resolvido (degradado={}) — perfil da empresa",
+                    deviceId,
+                    binding.degraded());
+            return Optional.of(toResponse(profile, primitives, null, null, binding.degraded()));
+        }
+
+        PatientCatalogPort.PatientBands bands = patientCatalogPort.bandsFor(binding.pacienteId());
+        return Optional.of(toPatientResponse(profile, primitives, binding.pacienteId(), bands));
     }
 
     // ── Mapping ──────────────────────────────────────────────────────────────
 
-    private DetectionProfileResponse toResponse(DetectionProfile profile) {
+    /**
+     * Carrega os primitivos do perfil antes de responder.
+     *
+     * <p>Sem isto o agente de borda recebe um perfil sem gesto nenhum — os primitivos eram gravados
+     * no publish e nunca lidos de volta, e o agente sempre-ligado abortava na partida (E2E-033).
+     */
+    private DetectionProfileResponse toResponseWithPrimitives(DetectionProfile profile) {
+        return toResponse(
+                profile, detectionProfilePrimitiveRepositoryPort.findByProfileId(profile.id()));
+    }
+
+    private DetectionProfileResponse toResponse(
+            DetectionProfile profile, List<DetectionProfilePrimitive> primitives) {
+        return toResponse(profile, primitives, null, null, false);
+    }
+
+    private DetectionProfileResponse toResponse(
+            DetectionProfile profile,
+            List<DetectionProfilePrimitive> primitives,
+            UUID pacienteId,
+            Integer catalogoVersao,
+            boolean catalogoDegradado) {
+        Origem origem = catalogoDegradado ? Origem.INDISPONIVEL : Origem.PERFIL_EMPRESA;
         return new DetectionProfileResponse(
                 profile.id(),
                 profile.version(),
                 profile.active(),
                 profile.contractVersion(),
-                profile.classificationParams(),
+                profile.thresholds(),
+                primitives.stream()
+                        .map(p -> DetectionProfilePrimitiveResponse.forPatient(p, null, origem))
+                        .toList(),
+                pacienteId,
+                catalogoVersao,
+                catalogoDegradado,
                 profile.publishedAt(),
-                "\"" + profile.version() + "\"");
+                etag(profile.version(), catalogoVersao));
+    }
+
+    /**
+     * Projeta a calibracao do paciente sobre os primitivos do perfil da empresa.
+     *
+     * <p>Gesto com {@code comando} publicado recebe a faixa da cuidadora; gesto sem comando fica
+     * com a do perfil e e marcado como tal. As duas coisas sao visiveis na resposta de proposito:
+     * "media porque escolheram media" e "media porque ninguem calibrou" nao podem parecer iguais.
+     */
+    private DetectionProfileResponse toPatientResponse(
+            DetectionProfile profile,
+            List<DetectionProfilePrimitive> primitives,
+            UUID pacienteId,
+            PatientCatalogPort.PatientBands bands) {
+        Map<UUID, Sensibilidade> porPrimitivo = bands.porPrimitivo();
+        Origem semComando = bands.degraded() ? Origem.INDISPONIVEL : Origem.PERFIL_EMPRESA;
+
+        List<DetectionProfilePrimitiveResponse> projetados =
+                primitives.stream()
+                        .map(
+                                p -> {
+                                    Sensibilidade doPaciente = porPrimitivo.get(p.tipoGestoId());
+                                    return DetectionProfilePrimitiveResponse.forPatient(
+                                            p,
+                                            doPaciente,
+                                            doPaciente != null ? Origem.PACIENTE : semComando);
+                                })
+                        .toList();
+
+        log.debug(
+                "Perfil v{} projetado para o paciente {} — {}/{} calibrado(s), catalogo v{}",
+                profile.version(),
+                pacienteId,
+                porPrimitivo.size(),
+                projetados.size(),
+                bands.catalogoVersao());
+
+        return new DetectionProfileResponse(
+                profile.id(),
+                profile.version(),
+                profile.active(),
+                profile.contractVersion(),
+                profile.thresholds(),
+                projetados,
+                pacienteId,
+                bands.catalogoVersao(),
+                bands.degraded(),
+                profile.publishedAt(),
+                etag(profile.version(), bands.catalogoVersao()));
+    }
+
+    /**
+     * ETag da resposta por dispositivo combina as DUAS versoes.
+     *
+     * <p>So {@code profileVersion} faria a recalibracao de um paciente nao invalidar o cache do
+     * dispositivo dele: a cuidadora mudaria de {@code media} para {@code alta}, o GEST responderia
+     * {@code 304}, e o aparelho seguiria detectando com a faixa velha por tempo indeterminado.
+     */
+    private String etag(long profileVersion, Integer catalogoVersao) {
+        return catalogoVersao == null
+                ? "\"" + profileVersion + "\""
+                : "\"" + profileVersion + "-" + catalogoVersao + "\"";
     }
 }

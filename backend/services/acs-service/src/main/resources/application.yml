@@ -17,6 +17,20 @@ spring:
   # issuer-uri is NOT used — acs-service validates its own tokens via local RSA key
   cloud:
     openfeign:
+      # NEVER use the legacy "feign.client.config" prefix — since Spring Cloud 2025.0.1 it is
+      # silently ignored, leaving infinite timeouts.
+      client:
+        config:
+          edge-service:
+            connectTimeout: 2000
+            readTimeout: 3000
+          # E2E-016 — provisionamento de schema. readTimeout generoso de propósito: criar o
+          # schema e aplicar o histórico inteiro do template de empresa é DDL, não uma leitura.
+          # O time limiter de 5s do resilience4j (mig-service, acima) continua sendo o teto
+          # efetivo do passo síncrono; este valor é só a paciência do socket.
+          neuroassist-ai-migrations:
+            connectTimeout: 2000
+            readTimeout: 30000
       circuitbreaker:
         enabled: true
     loadbalancer:
@@ -120,6 +134,125 @@ acs:
       authorities:
         # PAC→HIST: audit facts for comando lifecycle. hist-service applies the SCOPE_ prefix.
         - hist:write
+        # PAC→HIST: crypto-shredding da chave do paciente no erasure LGPD (Flow-04).
+        # Separada de hist:write de propósito — escrever fato e destruir dado pessoal
+        # são poderes diferentes.
+        - hist:erase
+        # PAC→ACS: propagação do vínculo cuidador-paciente para o directory (E2E-015 / C-30).
+        # O dreno roda num @Scheduled — não há chamador de quem herdar token.
+        - acs.vinculo.criar
+        - acs.vinculo.revogar
+        # PAC->ACS: revogar TODOS os vinculos de um paciente apagado (LGPD).
+        #
+        # Separada de acs.vinculo.revogar de proposito: esta e a unica authority do sistema que
+        # atravessa a invariante D-204 (nao deixar paciente sem cuidadora). A invariante protege o
+        # caminho do alarme de um paciente vivo; um paciente apagado nao produz alarme, e manter o
+        # vinculo apenas preservaria a associacao que o apagamento se propos a remover.
+        #
+        # NENHUM papel humano a tem, e ha teste percorrendo todos os papeis para garantir isso.
+        - acs.vinculo.revogar-apagamento
+        # PAC→ACS→PAC: `createLink` resolve o paciente chamando de volta o pac-service
+        # (PacPatientResolveClient), propagando o token de quem chamou o ACS — que neste
+        # caminho é o próprio pac-service. Sem esta authority a chamada volta 403, o ACS
+        # a lê como "paciente desconhecido" e responde 422: um erro de permissão disfarçado
+        # de dado ausente, que o outbox marcaria como recusa terminal.
+        - pac.paciente.read
+    gest-service:
+      secret-hash: ${GEST_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # GEST->EDGE: resolve device->paciente ao projetar o perfil por dispositivo (E2E-034).
+        # Quem chama o GEST nesse caminho e o EDGE, com um token de servico que carrega apenas
+        # gest.detection-profile.read — propagar aquele token daria 403 aqui.
+        - edge.read
+        # GEST->EDGE: guarda de pareamento em GET /devices/{id}/tenant, o endpoint congelado
+        # (GEST FROZEN 4.2) que exige exatamente esta authority. O GEST ja o chamava propagando o
+        # JWT do chamador — que nunca a carrega —, entao a resolucao de pareamento so funcionava
+        # por acidente. Mesma razao pela qual o acs-service ja a tem.
+        - edge.internal
+        # GEST->PAC: le comando.sensibilidade do catalogo ativo do paciente. E a authority do
+        # endpoint que o proprio javadoc do PAC ja dizia que o GEST deveria consumir.
+        - pac.catalogo-ativo.read
+    acs-service:
+      secret-hash: ${ACS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # ACS→EDGE: verificação de credencial de dispositivo em POST /oauth2/token/device.
+        # Até aqui edge.internal era exigida por endpoints do EDGE e emitida por ninguém (C-18).
+        - edge.internal
+        # ACS→HIST: fatos de autenticacao (E2E-019). O hist-service aplica o prefixo SCOPE_.
+        # Token ESCOPADO POR TENANT, diferente do de provisionamento: o HIST roteia o schema pelo
+        # claim de tenant, e um fato de login pertence a empresa de quem logou.
+        - hist:write
+        # ACS→MIG: provisionamento do schema do tenant no onboarding (E2E-016, ADR-005).
+        # O token é emitido SEM claim de tenant — o tenant provisionado ainda não tem schema
+        # para onde rotear, e é justamente isso que a chamada vai criar.
+        - migrations:internal
+    evnt-service:
+      secret-hash: ${EVNT_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # EVNT→ACS: quais cuidadores são responsáveis pelo paciente do evento.
+        - acs.directory.read
+        # EVNT→GEST: a primitiva reconhecida pelo report é conhecida? (mesmo caminho
+        # que o PAC usa para a mesma pergunta — C-7; o endpoint de eligibility não
+        # consegue respondê-la porque só avalia o catálogo do tenant por urgência).
+        - gest.tipo-gesto.read
+        # EVNT→PAC: snapshot do comando (rótulo + urgência) no momento do report.
+        - pac.comando-lifecycle.read
+        # EVNT→DASH: POST /internal/notifications. Até aqui SVC_EVNT era exigida pelo
+        # NotificationDeliveryController e emitida por ninguém — mesma família do C-18.
+        - SVC_EVNT
+        # EVNT→HIST: evento.criado / evento.confirmado. hist-service aplica o prefixo SCOPE_.
+        - hist:write
+    # E2E-029 — onboarding de empresa e uma operacao de plataforma, nao de clinica.
+    #
+    # Ate aqui `acs.tenant.provisionar` estava no papel COORDENADOR_CLINICA, entao o coordenador
+    # da clinica A podia criar e reprocessar a clinica B. Nao era o modelo pretendido; era o
+    # unico caminho que existia. As autoridades passaram para este cliente.
+    #
+    # `tenantless: true` porque criar uma empresa acontece ANTES dessa empresa existir — nao ha
+    # tenant a que escopar o token. A excecao e declarada por cliente de proposito: todo cliente
+    # cujas chamadas roteiam por schema continua obrigado a informar o tenant.
+    platform-ops:
+      secret-hash: ${PLATFORM_OPS_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      tenantless: true
+      authorities:
+        - acs.tenant.provisionar
+        - acs.tenant.read
+        - acs.tenant.reprocessar
+        # E2E-030 — ler o status de migração da frota (GET /internal/migrations/status).
+        # `migrations:admin` e não `migrations:internal`: aquela é a identidade do acs-service
+        # chamando o MIG; esta é o operador perguntando quem está atrasado (api-contract §1.4).
+        - migrations:admin
+    dash-service:
+      secret-hash: ${DASH_CLIENT_SECRET_HASH:$2a$10$KNH6nkRI8bwREw8Z.fGJHu/O3vPJBB0Z53ExWyaFPHwO5xzTR.LRm}
+      authorities:
+        # DASH→EVNT: callbacks de entrega (delivered / no-session / ack) e confirmação
+        # proxiada do painel. O caregiverId viaja explícito no payload de cada chamada —
+        # o DASH já autorizou o cuidador na sua própria borda /panel/**, e a autoridade
+        # da chamada é o dash-service, não a pessoa (service-identity.md §4).
+        - SVC_DASH
+
+  # Reentrega de fatos de auditoria presos no outbox (E2E-031).
+  # O HistAuditAdapter e fail-open — ninguem pode ser impedido de autenticar porque o
+  # hist-service caiu — mas ate aqui era fail-open SEM durabilidade: o adapter registrava
+  # "NAO gravado e perdido" e seguia. Um fato de autenticacao perdido e lacuna em "quem
+  # entrou e quando", que e o primeiro registro que uma auditoria LGPD pede.
+  hist-outbox:
+    batch-size: 50          # entradas por tick — evita replay de um backlog inteiro numa transacao
+    max-retries: 10         # depois disso a entrada vai para 'failed' COM o motivo registrado
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do hist-service subir junto no compose
+      interval-ms: 60000
+
+  # Identidade de serviço do PRÓPRIO acs-service (E2E-005).
+  # Usada por EdgeInternalTokenProvider para chamar POST /internal/devices/verify-credential
+  # no edge-service durante POST /oauth2/token/device. O segredo é validado contra o
+  # hash BCrypt de acs.service-clients.acs-service — segredo ausente = falha fechada (401).
+  service-identity:
+    client-id: ${ACS_SERVICE_IDENTITY_CLIENT_ID:acs-service}
+    client-secret: ${ACS_CLIENT_SECRET:dev-service-secret}
+    # Renova o token cacheado esta margem (segundos) antes de expirar.
+    refresh-margin-seconds: ${ACS_SERVICE_IDENTITY_REFRESH_MARGIN:60}
 
 logging:
   pattern:

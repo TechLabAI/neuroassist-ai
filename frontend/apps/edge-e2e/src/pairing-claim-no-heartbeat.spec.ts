@@ -21,6 +21,7 @@
 import { test, expect } from '@playwright/test';
 import {
   EDGE_BASE,
+  aplicarModoHttp,
   EDGE_DEVICE_ID,
   EDGE_PATIENT_ID,
   fulfillRegister,
@@ -28,9 +29,42 @@ import {
   makeLivenessPayload,
 } from './fixtures/edge-stubs';
 
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+
+// Estado de partida da suíte. Ambos via `addInitScript`, que roda antes de
+// qualquer script da página: o AuthSessionStore lê o sessionStorage no construtor
+// e o mock do EVNT lê a bandeira na primeira chamada, então semear depois do goto
+// seria tarde demais nos dois casos.
+//
+//   1. sessão — todas as rotas do shell passam a exigir login; sem isto a suíte
+//      cai em /login;
+//   2. sem emergência ativa — o mock do EVNT semeia uma, e o alarme de emergência
+//      preempta a tela inteira (é o comportamento certo do produto, e a suíte do
+//      EVNT existe para prová-lo). Sobre estas telas ele só contribui um segundo
+//      <h1> e um alertdialog por cima do conteúdo.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
+
 // ---------------------------------------------------------------------------
 // Mode A — Mock adapter assertions
 // ---------------------------------------------------------------------------
+
+
+// A tela ociosa traz o rótulo "Solicitar código" DUAS vezes: no botão e na frase
+// de instrução `Clique em "Solicitar código" para iniciar o pareamento`. Não é
+// defeito — a instrução cita o botão de propósito —, mas obriga o teste a dizer
+// qual dos dois quer. `getByRole('button')` com nome exato é o locator honesto.
+const botaoSolicitarCodigo = (page: import('@playwright/test').Page) =>
+  page.getByRole('button', { name: 'Solicitar código' });
+
+// O rótulo da fase corrente é ecoado na linha "Estado: …" no rodapé da página,
+// com o MESMO texto do cartão de desfecho ("Dispositivo pareado!", "Código
+// expirado"). Quem representa o desfecho é o cartão — escopamos nele.
+const cartaoResultado = (page: import('@playwright/test').Page) =>
+  page.locator('edge-pairing-result');
 
 test.describe('EDGE – Pairing claim no heartbeat (mock-adapter mode)', () => {
   test('pairing page renders correctly (surface check)', async ({ page }) => {
@@ -43,14 +77,14 @@ test.describe('EDGE – Pairing claim no heartbeat (mock-adapter mode)', () => {
     // For no-heartbeat validation at the UI level we assert the waiting step is shown
     // immediately after register before the poll cycle completes.
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await botaoSolicitarCodigo(page).click();
 
     // Token visible (awaiting-claim phase active)
     await expect(page.getByText(/MOCK-TOKEN/i)).toBeVisible({ timeout: 2000 });
 
     // At this point (immediately after register), "Dispositivo pareado!" MUST NOT be shown.
     // This is the no-premature-paired check at the e2e level.
-    await expect(page.getByText(/Dispositivo pareado!/i)).not.toBeVisible();
+    await expect(cartaoResultado(page).getByText('Dispositivo pareado!')).not.toBeVisible();
   });
 });
 
@@ -62,6 +96,13 @@ const HTTP_MODE = process.env['EDGE_HTTP_MODE'] === '1';
 
 test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)', () => {
   test.skip(!HTTP_MODE, 'Requires EDGE_HTTP_MODE=1 (app in HTTP adapter mode)');
+
+  // A app precisa EMITIR as chamadas para os `page.route` abaixo terem o que
+  // interceptar. Antes disto não havia como sair do mock em runtime, e por isso
+  // estes cenários nunca rodaram.
+  test.beforeEach(async ({ page }) => {
+    await aplicarModoHttp(page);
+  });
 
   test('phase stays awaiting-first-heartbeat when liveness always returns null ultimaSincronizacao', async ({ page }) => {
     // Stub register
@@ -113,7 +154,7 @@ test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)
     });
 
     await page.goto('/edge/pairing');
-    await page.getByText(/Solicitar código/i).click();
+    await page.getByRole('button', { name: 'Solicitar código' }).click();
 
     // Token displayed (awaiting-claim)
     await expect(page.getByText(/NO-HB-TOKEN/i)).toBeVisible({ timeout: 3000 });
@@ -124,7 +165,7 @@ test.describe('EDGE – Pairing claim no heartbeat (HTTP mode, route intercepts)
     await page.waitForTimeout(2000); // wait through 1 claim poll cycle
 
     // Assertion: phase is NOT 'paired' — chip MUST NOT be green
-    await expect(page.getByText(/Dispositivo pareado!/i)).not.toBeVisible();
+    await expect(page.locator('edge-pairing-result').getByText('Dispositivo pareado!')).not.toBeVisible();
 
     // Assertion: connectivity chip MUST NOT show Online (no heartbeat → not online)
     await expect(page.locator('[data-derived-state="online"]')).not.toBeVisible();

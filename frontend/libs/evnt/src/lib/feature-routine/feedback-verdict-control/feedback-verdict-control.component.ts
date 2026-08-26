@@ -27,7 +27,7 @@ import { Feedback } from '../../evnt.types';
         type="button"
         (click)="onVerdict('real')"
         [disabled]="disabled"
-        class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-ink transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+        class="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-ink transition-colors hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Marcar como evento real">
         Real
       </button>
@@ -35,7 +35,7 @@ import { Feedback } from '../../evnt.types';
         type="button"
         (click)="onVerdict('falso_positivo')"
         [disabled]="disabled"
-        class="rounded-lg border border-surface-border px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-50"
+        class="rounded-lg border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Marcar como falso positivo">
         Falso positivo
       </button>

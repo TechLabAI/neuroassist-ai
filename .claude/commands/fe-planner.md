@@ -8,7 +8,7 @@ Voce NAO e o entry point. O Validator-Orchestrator (`/fe-validator`) aciona voce
 
 **Modulo:** `$ARGUMENTS`
 
-Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
+Se nao informado, perguntar: `Qual modulo? (GWY | REG | MIG | GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
 
 **Validar módulo antes de continuar (D-393):** `python scripts/pipeline-guard.py resolve --module <MODULO>`
 
@@ -90,10 +90,13 @@ python scripts/pipeline-context.py decision-context --tags frontend,planner,pipe
 python scripts/pipeline-context.py spec-context --module <MODULE> --pack --semantic
 # D-460: issues relacionadas (cross-modulo, implementacoes semelhantes) — opcional
 python scripts/pipeline-context.py issue-context --module <MODULE> --query "<tema da issue>" --semantic
+# D-611: known pitfalls (rework_pattern) desta camada — consulte ANTES de sequenciar prioridades
+python scripts/pipeline-context.py learning-context --module <MODULE> --layer fe
 ```
 
 - Retorna as decisoes ativas do framework (`D-NNN`) relevantes para o planejamento FE — guarda-corpos arquiteturais ja decididos.
 - Respeitar as decisoes ao sequenciar prioridades e escolher o tipo de planejamento (ex.: convencoes de pipeline FE, padroes Angular/Nx, RAG-first).
+- `learning-context` (D-611/D-498/D-497) devolve **known pitfalls** cross-client agrupados por `defect_signature`: ao priorizar uma issue que toca a mesma camada de um pitfall recorrente, mencione o `recommended_generator_fix` no plano para o `fe-implement` aplicar proativamente.
 - `available: false` (ES indisponivel) → prosseguir sem o pacote de decisoes; **nunca bloquear**.
 - Nao reler o consolidation doc — o indice ES e a fonte consultavel.
 
@@ -158,7 +161,7 @@ Se ES indisponivel: ler module-state.md focando nas secoes 2 (estado), 4 (gaps),
 Emita o **esqueleto** pelo scaffold (D-372):
 
 ```bash
-python scripts/doc-scaffold.py plan --module <MODULO> --layer fe \
+python scripts/doc-scaffold.py plan --issue <MODULO> --layer fe \
   --output docs/architecture/frontend/plans/plan-FE-<MODULO>.md
 ```
 
@@ -217,8 +220,10 @@ Categoria: ESTRUTURAL | FUNCIONAL | WIRING | VALIDACAO
   2. feature-* (components, pages, signals, forms)
   3. wiring (app.routes.ts, providers, guards)
   4. testes (unit obrigatorio; e2e se toca fluxo principal)
+
 #### Generators Nx obrigatorios (se fase exige novo project)
   npx nx g @nx/angular:library --directory=libs/<module>/<sublib> --buildable
+
 #### Politica de testes (unit obrigatorio; e2e se toca fluxo principal)
 #### Multi-empresa: @neuroassist/shared/access-http-base necessario? Signal @neuroassist/shared/empresa-context consumido?
 #### Criterios de aceite (nx lint, nx test, nx build — comandos exatos)

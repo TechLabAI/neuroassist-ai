@@ -6,8 +6,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.neuroassist.edge.application.port.in.LivenessUseCase;
-import com.neuroassist.edge.application.port.out.DetectionProfilePort;
+import com.neuroassist.edge.application.port.in.ProfilePointerUseCase;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
+import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
 import com.neuroassist.edge.domain.model.PairingState;
 import com.neuroassist.edge.domain.service.DispositivoEdgeDomainService;
@@ -30,8 +31,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 class LivenessServiceTest {
 
     @Mock private DispositivoEdgeRepositoryPort deviceRepo;
-    @Mock private DetectionProfilePort detectionProfilePort;
+    @Mock private ProfilePointerUseCase profilePointerUseCase;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private DispositivoEdgeTransitionRepositoryPort transitionRepo;
 
     private final DispositivoEdgeDomainService domainService = new DispositivoEdgeDomainService();
     private LivenessService sut;
@@ -40,7 +42,13 @@ class LivenessServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new LivenessService(deviceRepo, detectionProfilePort, domainService, eventPublisher);
+        sut =
+                new LivenessService(
+                        deviceRepo,
+                        profilePointerUseCase,
+                        domainService,
+                        eventPublisher,
+                        transitionRepo);
         ReflectionTestUtils.setField(sut, "heartbeatIntervalSeconds", 30L);
         ReflectionTestUtils.setField(sut, "stalenessFactor", 3L);
         TenantContextHolder.set(TENANT);

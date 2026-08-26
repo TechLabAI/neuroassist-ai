@@ -42,6 +42,15 @@ public class CrossAspectArchTest {
                     "evnt.notification-orchestration.processar",
                     "evnt.notification-orchestration.reprocessar",
                     "evnt.report-ingress.ingerir",
+                    // Authorities evnt-service ACCEPTS but does not own. They belong to the
+                    // issuing services' catalogues; listing them here is what lets this rule
+                    // stay meaningful instead of being widened to "anything goes".
+                    //   edge.device — the device token that authenticates a gesture report
+                    //                 (minted by POST /oauth2/token/device, closes C-18)
+                    //   SVC_DASH    — dash-service's service identity on the delivery-callback
+                    //                 surface, mirroring SVC_EVNT on dash-service's /internal/**
+                    "edge.device",
+                    "SVC_DASH",
                     "gest.detection-contract.read",
                     "gest.detection-profile.publicar",
                     "gest.detection-profile.read",

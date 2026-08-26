@@ -36,56 +36,121 @@ management:
 
 dash:
   acs:
-    base-url: ${ACS_BASE_URL:http://acs-service}
+    base-url: ${ACS_BASE_URL:http://acs-service:8088}
   pac:
-    base-url: ${PAC_BASE_URL:http://pac-service}
+    base-url: ${PAC_BASE_URL:http://pac-service:8082}
   evnt:
-    base-url: ${EVNT_BASE_URL:http://evnt-service}
+    base-url: ${EVNT_BASE_URL:http://evnt-service:8085}
   hist:
-    base-url: ${HIST_BASE_URL:http://hist-service}
+    base-url: ${HIST_BASE_URL:http://hist-service:8089}
   edge:
-    base-url: ${EDGE_BASE_URL:http://edge-service}
+    base-url: ${EDGE_BASE_URL:http://edge-service:8087}
+
+# Service identity (standards/service-identity.md) — applied ONLY to EvntClient.
+# The other clients keep propagating the caregiver's JWT, because hist-service and edge-service
+# answer questions whose authorization depends on who asked.
+neuroassist:
+  service-identity:
+    token-uri: ${ACS_BASE_URL:http://acs-service:8088}/oauth2/token/service
+    client-id: ${DASH_CLIENT_ID:dash-service}
+    client-secret: ${DASH_CLIENT_SECRET:dev-service-secret}
+    refresh-margin-seconds: 60
+    connect-timeout-ms: 2000
+    read-timeout-ms: 3000
+
+spring.cloud.openfeign:
+  # E2E-018 — o DASH nao tinha timeout de Feign NENHUM: valia o default (10s connect / 60s read).
+  #
+  # Com o EDGE fora do ar, a primeira chamada ao painel levou 24s — cada paciente esperando o
+  # connect timeout inteiro ate o breaker abrir. A partir da segunda o breaker responde em 30ms,
+  # mas a primeira e justamente a que a cuidadora faz quando o alarme chega.
+  #
+  # O breaker limita o REGIME; o timeout limita a PRIMEIRA chamada. Sao coisas diferentes e
+  # precisam das duas. Os valores espelham o timelimiter ja declarado abaixo por instancia.
+  #
+  # NUNCA usar o prefixo legado `feign.client.config`: desde o Spring Cloud 2025.0.1 ele e
+  # silenciosamente ignorado, deixando timeout infinito (CLAUDE.md).
+  client:
+    config:
+      default:
+        connect-timeout: 2000
+        read-timeout: 3000
+      acs-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      pac-service:
+        connect-timeout: 2000
+        read-timeout: 3000
+      evnt-service:
+        connect-timeout: 2000
+        read-timeout: 2000
+      hist-service:
+        connect-timeout: 2000
+        read-timeout: 5000
+      edge-service:
+        connect-timeout: 1000
+        read-timeout: 2000
 
 resilience4j:
   circuitbreaker:
+    # E2E-018 — ate aqui esta configuracao era DECORATIVA: `grep @CircuitBreaker` no src/main
+    # nao retornava nada. O DASH e um BFF que agrega ACS, PAC, EVNT, HIST e EDGE numa requisicao
+    # de painel; sem breaker, um upstream lento segurava uma thread pelo timeout inteiro a cada
+    # chamada — e o painel e o que a cuidadora tem aberto quando o alarme chega.
+    configs:
+      default:
+        # 4xx NAO conta como falha e NAO abre o breaker.
+        #
+        # `FeignClientException` e a familia 4xx do Feign (`FeignServerException` e a 5xx). Um 403
+        # e erro de autorizacao, um 404 e ausencia de dado, um 422 e recusa de regra — nenhum
+        # deles e indisponibilidade, e tratar assim faz um bug de permissao virar "servico
+        # degradado". Foi exatamente o que aconteceu no heartbeat do EDGE (C-19), onde um 403
+        # ficou indistinguivel de "GEST fora do ar" por uma sessao inteira.
+        #
+        # Ignorada, a excecao propaga intacta e o GlobalExceptionHandler a repassa fielmente.
+        ignoreExceptions:
+          - feign.FeignException$FeignClientException
     instances:
       acs-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       pac-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       evnt-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       hist-service:
+        baseConfig: default
         slidingWindowSize: 10
         failureRateThreshold: 50
         waitDurationInOpenState: 10s
         permittedNumberOfCallsInHalfOpenState: 3
       edge-service:
+        baseConfig: default
         slidingWindowSize: 20
         failureRateThreshold: 60
         waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 5
-  timelimiter:
-    instances:
-      acs-service:
-        timeoutDuration: 3s
-      pac-service:
-        timeoutDuration: 3s
-      evnt-service:
-        timeoutDuration: 2s
-      hist-service:
-        timeoutDuration: 5s
-      edge-service:
-        timeoutDuration: 2s
+  # O bloco `timelimiter` foi REMOVIDO daqui (era decorativo).
+  #
+  # Declarava cinco instancias com timeoutDuration, e nao havia UM `@TimeLimiter` no src/main —
+  # o resilience4j so aplica time limiter a metodo que devolva `CompletionStage`/tipo reativo, e
+  # todos os clientes Feign do DASH sao sincronos. Quem de fato limita o tempo destas chamadas e o
+  # `spring.cloud.openfeign.client.config` acima (E2E-018), e ele nao lia estes valores.
+  #
+  # Configuracao que parece proteger e nao protege e pior que ausencia de configuracao: alguem
+  # ajusta o numero errado achando que mudou o comportamento. Se o time limiter voltar a ser
+  # necessario, ele volta junto com o `@TimeLimiter` e um retorno assincrono.
 
 logging:
   pattern:

@@ -4,6 +4,7 @@ import com.neuroassist.evnt.application.port.out.EventoRepositoryPort;
 import com.neuroassist.evnt.domain.model.Evento;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.repository.EventoJpaRepository;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,8 +30,20 @@ public class EventoRepositoryAdapter implements EventoRepositoryPort {
     }
 
     @Override
-    public List<Evento> findByFeedback(String feedback) {
-        return repository.findByFeedback(feedback).stream().map(this::toDomain).toList();
+    public List<Evento> findByFeedbackMaisRecentePrimeiro(String feedback) {
+        return repository.findByFeedbackOrderBySeqDesc(feedback).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<String> findPacienteIdsByFeedback(String feedback, Collection<String> pacienteIds) {
+        // `in ()` vazio é SQL inválido no Postgres — e a resposta certa para "nenhum paciente
+        // perguntado" é "nenhum paciente com alarme", não uma exceção.
+        if (pacienteIds == null || pacienteIds.isEmpty()) {
+            return List.of();
+        }
+        return repository.findPacienteIdsByFeedback(feedback, pacienteIds);
     }
 
     @Override

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal, computed, Signal } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
-import { ACS_CUIDADOR_PORT } from './api/acs-cuidador.port';
+import { ACS_CUIDADOR_PORT, CuidadorEditDto } from './api/acs-cuidador.port';
 import type { CuidadorCreateDto } from './api/acs-cuidador.port';
 import { ACS_LINK_PORT } from './api/acs-link.port';
 import { CuidadorVm, CoverageVm, toCuidadorVm } from './acs.types';
@@ -116,6 +116,40 @@ export class AcsCaregiverFacade {
     }
   }
 
+  /**
+   * Corrige nome e login de uma cuidadora já cadastrada.
+   *
+   * <p><b>Por que isto passou a existir.</b> O `save()` do editor tinha um `if`
+   * que cobria só a criação e nenhum `else`: quem corrigia um nome clicava em
+   * "Salvar", nada acontecia, e a tela não dizia nem sucesso nem erro. A causa
+   * era mais funda que a tela — não havia endpoint de edição, e a matriz de
+   * perfis não listava a capacidade. Ela foi definida (`acs.cuidador.editar`,
+   * só para a coordenadora) porque a alternativa disponível — desativar a
+   * pessoa e criar outra — quebra o histórico: a confirmação de alarme guarda o
+   * id da cuidadora.
+   *
+   * <p>Atualiza a linha NO LUGAR, sem recarregar o elenco: recarregar perderia a
+   * posição de quem está no meio de uma lista longa, e o servidor devolve a
+   * própria linha atualizada.
+   */
+  async edit(id: string, dto: CuidadorEditDto): Promise<CuidadorVm | null> {
+    this._saving.set(true);
+    this._error.set(null);
+    try {
+      const result = await lastValueFrom(this.cuidadorPort.edit(id, dto));
+      const vm = toCuidadorVm(result);
+      this._caregivers.update((list) => list.map((c) => (c.id === id ? vm : c)));
+      return vm;
+    } catch (err) {
+      // Login duplicado é o erro esperado aqui, e o backend o devolve como 409.
+      // A frase do servidor é preferida quando existe: ela diz QUAL conflito.
+      this._error.set(err instanceof Error ? err.message : 'Erro ao salvar cuidador');
+      return null;
+    } finally {
+      this._saving.set(false);
+    }
+  }
+
   async deactivate(id: string): Promise<void> {
     // ADR-005 pre-flight: block if this caregiver is the sole coverage for any patient.
     const blockedPatientId = this._getSolelyBlockedPatient(id);
@@ -133,8 +167,21 @@ export class AcsCaregiverFacade {
       this._caregivers.update((list) =>
         list.map((c) => (c.id === id ? vm : c)),
       );
+      // Re-deriva a cobertura: quem acabou de ser desativado deixa de contar como
+      // cobertura, e a pré-checagem D-204 da PRÓXIMA desativação lê exatamente
+      // este mapa. Sem isto ele ficava com o estado de antes da desativação — a
+      // barreira de segurança decidindo sobre dados vencidos.
+      await this._refreshCoverageMap(this._caregivers().filter((c) => c.isActive));
       this.telemetry.trackDeactivateSuccess(id);
-    } catch (err) {
+    } catch (err: unknown) {
+      const status = err instanceof Object && 'status' in err ? (err as { status: number }).status : 0;
+      if (status === 409) {
+        // Re-imposição pelo backend (D-204): a pré-checagem da UI deixou passar —
+        // mapa de cobertura vencido, ou vínculo mudado por outra pessoa desde a
+        // última leitura — e o serviço recusou. Mesmo modal bloqueante da
+        // pré-checagem: para quem usa, é a mesma regra.
+        this._showCoverageModal.set({ type: 'deactivate', pacienteNome: id });
+      }
       this._error.set(err instanceof Error ? err.message : 'Erro ao desativar cuidador');
       this.telemetry.trackDeactivateError();
     } finally {
@@ -154,8 +201,27 @@ export class AcsCaregiverFacade {
       await lastValueFrom(this.linkPort.link(cuidadorId, pacienteId));
       // Refresh coverage for the affected patient
       await this._refreshCoverageForPatient(pacienteId);
-    } catch (err) {
-      this._error.set(err instanceof Error ? err.message : 'Erro ao vincular cuidador ao paciente');
+    } catch (err: unknown) {
+      const status = err instanceof Object && 'status' in err ? (err as { status: number }).status : 0;
+
+      // 422 — cuidador e paciente de empresas diferentes. O acs-service estoura
+      // `CrossTenantLinkException`, que o GlobalExceptionHandler converte em 422
+      // (não 409, que é a família do último-vínculo). ADR-005 pede modal
+      // BLOQUEANTE aqui: é violação de fronteira de empresa, não um erro de
+      // digitação — uma faixa de erro que some sozinha não serve.
+      if (status === 422) {
+        this._error.set('Cuidador e paciente pertencem a empresas diferentes — vínculo não permitido.');
+        this._showCoverageModal.set({ type: 'cross-tenant', pacienteNome: pacienteId });
+      } else {
+        this._error.set(err instanceof Error ? err.message : 'Erro ao vincular cuidador ao paciente');
+      }
+
+      // RE-DERIVA a cobertura mesmo depois do erro, e é deliberado: um vínculo que
+      // falhou não diz em que estado o servidor ficou (o 500 pode ter gravado
+      // antes de estourar). Manter o mapa anterior seria afirmar sobre cobertura
+      // — invariante de segurança — a partir de um palpite. Antes daqui o `catch`
+      // só escrevia a mensagem e deixava o mapa velho no lugar.
+      await this._refreshCoverageForPatient(pacienteId);
     } finally {
       this._saving.set(false);
     }

@@ -36,7 +36,10 @@ from pathlib import Path
 # ── Load poc-edge-agent-webcam.py as a module ─────────────────────────────────
 # We import it to reuse the EXACT same detection logic and thresholds as production.
 ROOT = Path(__file__).parent.parent.parent  # backend/
-_spec = importlib.util.spec_from_file_location("edge_agent", ROOT / "poc-edge-agent-webcam.py")
+# E2E: o aparato do paper foi congelado em docs/paper/artifacts/ quando o profile `poc` saiu do
+# backend. O nome do arquivo NAO mudou de proposito — a secao de avaliacao o cita nominalmente.
+ARTIFACTS = Path(__file__).parent.parent.parent.parent / "docs" / "paper" / "artifacts"
+_spec = importlib.util.spec_from_file_location("edge_agent", ARTIFACTS / "poc-edge-agent-webcam.py")
 _agent = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_agent)  # type: ignore[union-attr]
 

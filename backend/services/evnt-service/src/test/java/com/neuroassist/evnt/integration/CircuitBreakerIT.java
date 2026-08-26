@@ -10,6 +10,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker.State;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,11 +60,21 @@ class CircuitBreakerIT {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+        // E2E-022 — this class has its own container (not a subclass of BaseIntegrationTest), so
+        // migrations must be applied here too. Without this, ddl-auto=validate fails at startup.
+        SchemaMigrations.applyTo(POSTGRES, List.of("t_emp_test"));
+    }
+
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
     }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add("spring.datasource.url", CircuitBreakerIT::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         // Point GEST Feign URL to WireMock — overridden per-test via wiremock.baseUrl()
@@ -150,9 +161,7 @@ class CircuitBreakerIT {
         assertThat(cb.getState()).isEqualTo(State.OPEN);
 
         // Any decorated callable must throw CallNotPermittedException without executing the body
-        assertThatThrownBy(
-                        () ->
-                                CircuitBreaker.decorateCallable(cb, () -> "upstream-call").call())
+        assertThatThrownBy(() -> CircuitBreaker.decorateCallable(cb, () -> "upstream-call").call())
                 .isInstanceOf(CallNotPermittedException.class)
                 .hasMessageContaining("gest-service");
     }

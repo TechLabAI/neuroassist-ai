@@ -29,3 +29,60 @@ export { EDGE_DETECTION_PORT } from './lib/api/edge-detection.port';
 export type { EdgeDetectionPort } from './lib/api/edge-detection.port';
 export { ELIGIBILITY_PORT } from './lib/api/eligibility.port';
 export type { EligibilityPort } from './lib/api/eligibility.port';
+
+// Detection contract (GEST-FE-009)
+export { DetectionContractService } from './lib/api/detection-contract.service';
+export type { DetectionContractDescriptor } from './lib/api/detection-contract.service';
+
+// Multi-empresa wiring token (P1 — GEST-FE-009 / GEST-INT-002)
+export { EMPRESA_CONTEXT_TOKEN } from './lib/api/eligibility-http.adapter';
+
+// Estação do paciente — P2 / GEST-FE-027 / ADR-008
+// Store de identidade de dispositivo (scope:web e scope:gest estacao only)
+export { DeviceSessionStore, AVISO_CREDENCIAL_DISPOSITIVO } from './lib/estacao/device-session.store';
+export type { EstadoSessao } from './lib/estacao/device-session.store';
+export { DeviceAuthHttpAdapter, DeviceAuthErro } from './lib/estacao/device-auth-http.adapter';
+export { DEVICE_AUTH_PORT } from './lib/estacao/device-auth.port';
+export type { DeviceTokenRequest, DeviceAuthResult } from './lib/estacao/device-auth.port';
+
+// ADR-007 — motor de detecção no browser
+export { EdgeDetectionBrowserAdapter } from './lib/api/edge-detection-browser.adapter';
+export { GestureDetector, ENGINE_FEATURE, DEFAULT_ASSET_PATHS } from './lib/detection/gesture-detector';
+export type { GestureFrame, DetectorAssetPaths, GestureDetectorCallbacks } from './lib/detection/gesture-detector';
+export { CameraPreferenceService } from './lib/detection/camera-preference.service';
+export type { CameraOption } from './lib/detection/camera-preference.service';
+
+// Estação do paciente — P3 / GEST-FE-028/029 / ADR-008
+// Endpoint migrado para GET /api/v1/edge/profile (EDGE-022 resolvido).
+export { DetectionProfileStore } from './lib/estacao/detection-profile.store';
+export type { PrimitivoResolvido, ProfileDegradacao } from './lib/estacao/detection-profile.store';
+export { DetectionProfileHttpAdapter } from './lib/estacao/detection-profile-http.adapter';
+export { DETECTION_PROFILE_PORT } from './lib/estacao/detection-profile.port';
+export type {
+  DetectionProfilePort,
+  DetectionProfileDto,
+  PrimitivoDeteccao,
+  ThresholdsTable,
+  SensibilidadeNivel,
+  OrigemPerfil,
+  ProfileResult,
+  ProfileNotModified,
+} from './lib/estacao/detection-profile.port';
+export { isNotModified } from './lib/estacao/detection-profile.port';
+
+// Estação do paciente — P4 / GEST-FE-030 / ADR-008
+// Rota /estacao: laço always-on, guard de sessão de dispositivo, relato de gesto.
+export { EstacaoComponent } from './lib/estacao/estacao.component';
+export type { EstacaoEstado } from './lib/estacao/estacao.component';
+export { estacaoDeviceGuard } from './lib/estacao/estacao.guard';
+export { ReportIngressHttpAdapter } from './lib/estacao/report-ingress-http.adapter';
+export { ReportIngressPort } from './lib/estacao/report-ingress.port';
+export type { ReportRequest, ReportResponse } from './lib/estacao/report-ingress.port';
+
+// Estação do paciente — P5 / GEST-FE-031/032 / ADR-008
+// Heartbeat, Wake Lock e fila offline de relatos.
+export { HeartbeatService, AGENT_VERSION } from './lib/estacao/heartbeat.service';
+export type { HeartbeatResponse } from './lib/estacao/heartbeat.service';
+export { WakeLockService } from './lib/estacao/wake-lock.service';
+export { ReportQueueService, isNonRetryable } from './lib/estacao/report-queue.service';
+export type { QueuedReport, DiscardReason } from './lib/estacao/report-queue.service';

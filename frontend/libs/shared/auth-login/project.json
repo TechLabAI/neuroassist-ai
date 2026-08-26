@@ -1,0 +1,28 @@
+{
+  "name": "shared-auth-login",
+  "projectType": "library",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared/auth-login/src",
+  "prefix": "auth",
+  "tags": ["scope:shared", "type:feature"],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/shared/auth-login"],
+      "options": {
+        "jestConfig": "libs/shared/auth-login/jest.config.js",
+        "passWithNoTests": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/shared/auth-login/**/*.ts",
+          "libs/shared/auth-login/**/*.html"
+        ]
+      }
+    }
+  }
+}

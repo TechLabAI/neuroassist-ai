@@ -1,0 +1,11 @@
+{
+  // O Playwright resolve os aliases do workspace a partir do tsconfig.json mais
+  // próximo do seu config — e estes projetos não tinham nenhum. Sem este arquivo,
+  // `import { scriptSemearSessao } from '@neuroassist/shared/auth-login'` falha com
+  // "Cannot find module" no runner, mesmo estando correto no tsconfig.base.json.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "playwright.config.ts"]
+}

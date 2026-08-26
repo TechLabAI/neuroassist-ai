@@ -267,7 +267,8 @@ class RecordAuditFactServiceTest {
                 Map.of("nivel", "medio"),
                 occurredAt,
                 null,
-                TENANT_ID);
+                TENANT_ID,
+                SUBJECT_ID);
     }
 
     private Command buildCommandWithFactType(String factType) {
@@ -281,7 +282,8 @@ class RecordAuditFactServiceTest {
                 Map.of("nivel", "alto"),
                 Instant.now(),
                 null,
-                TENANT_ID);
+                TENANT_ID,
+                SUBJECT_ID);
     }
 
     private Command buildCommandWithPayload(Map<String, Object> payload) {
@@ -295,7 +297,8 @@ class RecordAuditFactServiceTest {
                 payload,
                 Instant.now(),
                 null,
-                TENANT_ID);
+                TENANT_ID,
+                SUBJECT_ID);
     }
 
     private AuditRecord buildStoredRecord(UUID id) {
@@ -314,6 +317,7 @@ class RecordAuditFactServiceTest {
                 HashChain.GENESIS_PREV_HASH,
                 COMPUTED_HASH,
                 null,
-                false);
+                false,
+                SUBJECT_ID);
     }
 }

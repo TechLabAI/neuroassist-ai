@@ -2,13 +2,16 @@ package com.neuroassist.evnt.bdd.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 import com.neuroassist.evnt.application.port.out.CaregiverRoutingPort;
 import com.neuroassist.evnt.application.port.out.CommandLookupPort;
 import com.neuroassist.evnt.application.port.out.NotificationDispatchPort;
+import com.neuroassist.evnt.bdd.BddIds;
 import com.neuroassist.evnt.bdd.ScenarioContext;
 import com.neuroassist.evnt.infrastructure.persistence.entity.EventoJpaEntity;
 import com.neuroassist.evnt.infrastructure.persistence.entity.NotificationDispatchJpaEntity;
@@ -52,7 +55,12 @@ public class UrgencyTieredNotificationSteps {
 
     @And("ACS resolves \"cg-1\" as the responsible caregiver for patient \"pac-1\"")
     public void andAcsResolvesCg1AsTheResponsibleCaregiverFor() {
-        when(caregiverRoutingPort.resolveCaregiver("pac-1")).thenReturn("cg-1");
+        when(caregiverRoutingPort.responsibleFor(BddIds.PACIENTE))
+                .thenReturn(
+                        java.util.List.of(
+                                new CaregiverRoutingPort.ResponsibleCaregiver(
+                                        BddIds.CUIDADOR, "CUIDADORA")));
+        when(caregiverRoutingPort.isKnownCaregiver(anyString())).thenReturn(true);
     }
 
     @And("GEST validates any well-formed report")
@@ -69,7 +77,7 @@ public class UrgencyTieredNotificationSteps {
     public void givenACommandOfUrgency(String command, String urgencia) {
         ctx.setCommandRef(command);
         ctx.setUrgencia(urgencia);
-        when(commandLookupPort.lookup(command))
+        when(commandLookupPort.lookup(anyString(), eq(command)))
                 .thenReturn(
                         new CommandLookupPort.CommandSnapshot(command, "Test command", urgencia));
     }
@@ -101,7 +109,9 @@ public class UrgencyTieredNotificationSteps {
                 .isNotEmpty();
         NotificationDispatchJpaEntity dispatch = dispatches.get(0);
         assertThat(dispatch.getTier()).as("Notification tier").isEqualToIgnoringCase(tier);
-        assertThat(dispatch.getTargetCaregiverId()).as("Target caregiver").isEqualTo("cg-1");
+        assertThat(dispatch.getTargetCaregiverId())
+                .as("Target caregiver")
+                .isEqualTo(BddIds.CUIDADOR);
     }
 
     // -------------------------------------------------------------------------
@@ -112,7 +122,7 @@ public class UrgencyTieredNotificationSteps {
     public void andDashIsUnavailable() {
         doThrow(new RuntimeException("DASH unavailable"))
                 .when(notificationDispatchPort)
-                .dispatch(any());
+                .dispatch(any(), any());
     }
 
     @And("exactly one Evento exists with reportId {string}")
@@ -148,9 +158,11 @@ public class UrgencyTieredNotificationSteps {
     @And("DASH will fail the first delivery attempt and succeed on the second")
     public void andDashWillFailTheFirstDeliveryAttemptAnd() {
         doThrow(new RuntimeException("First attempt failed"))
-                .doNothing()
+                .doReturn(
+                        new NotificationDispatchPort.DispatchOutcome(
+                                NotificationDispatchPort.DispatchOutcome.DELIVERED))
                 .when(notificationDispatchPort)
-                .dispatch(any());
+                .dispatch(any(), any());
     }
 
     @And("the retry sweep runs")
@@ -184,10 +196,15 @@ public class UrgencyTieredNotificationSteps {
         // Make DASH fail on ingress so NotificationDispatch is saved with QUEUED/FAILED status
         doThrow(new RuntimeException("DASH unavailable"))
                 .when(notificationDispatchPort)
-                .dispatch(any());
+                .dispatch(any(), any());
         sharedSteps.postReport();
-        // Reset dispatch mock so subsequent steps are not affected
-        doNothing().when(notificationDispatchPort).dispatch(any());
+        // Reset the mock with doReturn, not when(...): when() *invokes* the method to record the
+        // call, and the mock is currently stubbed to throw, so the reset itself would blow up.
+        doReturn(
+                        new NotificationDispatchPort.DispatchOutcome(
+                                NotificationDispatchPort.DispatchOutcome.DELIVERED))
+                .when(notificationDispatchPort)
+                .dispatch(any(), any());
     }
 
     @When("evnt-service restarts")

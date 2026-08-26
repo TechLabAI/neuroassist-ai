@@ -21,6 +21,15 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+
+// Esta suíte NÃO semeia sessão no beforeEach de propósito: os dois primeiros cenários
+// descrevem quem chega em /entrada sem estar autenticado, e /entrada é rota de topo
+// (fora do AppShellComponent), acessível sem login. Só o cenário do CTA precisa de
+// sessão — porque ele sai de /entrada e entra em /, que hoje exige login de verdade
+// (o authGuard deixou de ser bypass Wave-0). Ver o comentário lá embaixo.
+
 // ── Navigation helper ─────────────────────────────────────────────────────────
 
 /** Navigate to /entrada and wait for the chromeless page to load. */
@@ -43,11 +52,16 @@ test.describe('DASH — /entrada chromeless brand entry (FE-DASH-025, G3)', () =
   test('G3 — /entrada renderiza sem shell chrome (sem sidebar, sem topbar)', async ({ page }) => {
     await openEntrada(page);
 
-    // Shell layout is ABSENT (AppShellComponent not mounted for this route)
-    await expect(page.locator('.shell-layout')).not.toBeVisible();
+    // Shell layout is ABSENT (AppShellComponent not mounted for this route).
+    // `.shell-layout` também não existe hoje — o app-shell é um grid sem essa classe.
+    // O que identifica o shell é o próprio elemento <app-shell>.
+    await expect(page.locator('app-shell')).not.toBeVisible();
 
-    // Sidebar is ABSENT
-    await expect(page.locator('nav.sidebar')).not.toBeVisible();
+    // Sidebar is ABSENT. `app-sidebar` é o seletor real (o shell nunca teve
+    // `nav.sidebar`) — com o seletor errado esta asserção passava por vacuidade:
+    // provava que um elemento inexistente não estava visível, não que a /entrada
+    // é chromeless.
+    await expect(page.locator('app-sidebar')).not.toBeVisible();
 
     // app-topbar is ABSENT (no shell topbar element)
     await expect(page.locator('app-topbar')).not.toBeVisible();
@@ -88,6 +102,13 @@ test.describe('DASH — /entrada chromeless brand entry (FE-DASH-025, G3)', () =
   // Clicking it triggers Angular router navigation → AppShellComponent mounts → / renders.
   // DashHomeFacade.load() is called → HomeStatusComponent renders with greeting.
   test('CTA Entrar no painel navega para a home (/)', async ({ page }) => {
+    // Sessão semeada antes do goto: o CTA leva a `/`, que é rota do shell e exige
+    // login — sem isto o clique caía em /login?destino=%2F e o cenário reprovava
+    // pelo redirecionamento, não pelo CTA. E a emergência do EVNT é apagada porque
+    // o alarme preempta a home inteira; o que se mede aqui é a navegação.
+    await page.addInitScript(scriptSemearSessao());
+    await page.addInitScript(scriptSemAlarmeDeEmergencia());
+
     await openEntrada(page);
 
     // CTA link is visible
@@ -97,14 +118,15 @@ test.describe('DASH — /entrada chromeless brand entry (FE-DASH-025, G3)', () =
     // Click CTA → Angular router navigates to /
     await ctaLink.click();
 
-    // After navigation: URL is / (or root)
-    await expect(page).toHaveURL(/localhost:4200\/?$/, { timeout: 5000 });
+    // After navigation: URL is / (or root). Sem a porta na asserção — a suíte roda
+    // contra APP_URL (4201 aqui, 14200 no container).
+    await expect(page).toHaveURL(/^https?:\/\/[^/]+\/$/, { timeout: 5000 });
 
     // HomeStatusComponent renders (DashHomeFacade.load() → 400ms → "Olá, Jamilly")
     await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible({ timeout: 6000 });
 
     // Shell chrome now visible (inside AppShellComponent)
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
   });
 
 });

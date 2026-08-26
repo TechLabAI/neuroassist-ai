@@ -1,5 +1,12 @@
 package com.neuroassist.dash.api.dto;
 
-/** Response DTO para write-through de calibracao (eco do resultado do PAC). */
+import java.util.List;
+
+/** Response DTO do write-through de recalibração — eco do resultado autoritativo do PAC. */
 public record CalibrationProxyResponse(
-        String commandId, String newCalibrationState, boolean success) {}
+        String comandoId,
+        String sensibilidade,
+        String urgencia,
+        String estado,
+        int calibracaoVersao,
+        List<String> warnings) {}

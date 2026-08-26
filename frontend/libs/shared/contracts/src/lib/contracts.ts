@@ -4,6 +4,8 @@
 // Contract version: 1.0.0 (frozen — do NOT modify without updating BE event-contracts.md)
 // =============================================================================
 
+import type { EngineFeatureRef } from './gesture-vocabulary';
+
 // ---------------------------------------------------------------------------
 // EdgeRecognitionSignal (frozen v1.0.0 — SPEC-04 §1)
 // ---------------------------------------------------------------------------
@@ -43,6 +45,23 @@ export interface ComandoDraft {
   readonly rotulo: string;                 // family label, e.g. "água"
   readonly primitivoPrincipal: string;     // TipoGesto id
   readonly primitivoSecundario: string | null;
+
+  // --- o que o MOTOR entende -------------------------------------------------
+  //
+  // `primitivoPrincipal` é id de CATÁLOGO (uuid no backend); o detector emite
+  // `engine_feature_ref`. São vocabulários diferentes, e o adaptador comparava um
+  // com o outro — a igualdade era falsa por construção, e nada acusava porque
+  // cada lado se testava com os próprios ids.
+  //
+  // Quem resolve catálogo → motor é o HOSPEDEIRO (o editor de comando do PAC),
+  // que é quem tem o catálogo em mãos: "GEST does not own or fetch the catalog"
+  // (§ acima). O GEST recebe a resolução pronta.
+  //
+  // `null` é um estado legítimo e precisa aparecer na tela: significa que o
+  // comando aponta para um tipo de gesto que o motor não detecta. Antes isso
+  // produzia um teste que rodava para sempre sem veredito.
+  readonly engineFeatureRefPrincipal: EngineFeatureRef | null;
+  readonly engineFeatureRefSecundario: EngineFeatureRef | null;
   readonly sensibilidade: Sensibilidade;
   readonly urgencia: Urgencia;
   readonly tempoMinimoGestoMs: number;
@@ -62,6 +81,12 @@ export type GestureTestStep = 'principal' | 'secundario' | null;
 export type DegradedReason =
   | 'device-offline' | 'bridge-unreachable' | 'version-mismatch' | null;
 
+/** Motor de detecção em uso.
+ *  'browser_mediapipe' — MediaPipe no browser; o único motor do produto (GEST ADR-007).
+ *  'ear_bri' | 'onnx'  — agente Python legado, reportado no handshake WS (ADR-006).
+ *  null                — ainda não iniciado, ou caminho mock. */
+export type DetectorType = 'browser_mediapipe' | 'ear_bri' | 'onnx';
+
 export interface GestureTestVM {
   readonly commandDraftRef: string;
   readonly rotulo: string;
@@ -73,9 +98,8 @@ export interface GestureTestVM {
   readonly degraded: boolean;            // true => mocked verdict, honest banner shown
   readonly degradedReason: DegradedReason;
   readonly contractVersion: string | null; // negotiated with edge bridge on openStream
-  /** ADR-006: detector algorithm in use. 'ear_bri' = interim; 'onnx' = production;
-   *  null = handshake not yet received (pre-connection or mock path). */
-  readonly detectorType: 'ear_bri' | 'onnx' | null;
+  /** Motor em uso — ver DetectorType. null antes de iniciar ou no caminho mock. */
+  readonly detectorType: DetectorType | null;
 }
 
 // ---------------------------------------------------------------------------

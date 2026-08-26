@@ -93,9 +93,46 @@ def scan_presence(paths, root: Path) -> dict:
                 "size": full.stat().st_size,
                 "isStub": is_stub(full),
             }
+            continue
+        # Issue checklists routinely cite a source file by bare name
+        # ("`DevicePairingSteps.java`") rather than by repo-relative path.
+        # Resolving that against the repo root always misses, which used to
+        # score a present, fully-implemented file as MISSING. Fall back to a
+        # basename search so the citation style does not decide the verdict.
+        matches = _find_by_basename(raw, root) if "/" not in str(raw) else []
+        if matches:
+            result[str(raw)] = {
+                "exists": True,
+                "size": max(m.stat().st_size for m in matches),
+                # Ambiguous basename: only call it a stub when every candidate is.
+                "isStub": all(is_stub(m) for m in matches),
+                "resolvedFrom": [str(m.relative_to(root)) for m in matches],
+            }
         else:
             result[str(raw)] = {"exists": False, "size": 0, "isStub": False}
     return result
+
+
+_SKIP_DIRS = {
+    "build", "out", "dist", "node_modules", ".git", ".gradle",
+    "__pycache__", "target", ".nx", "coverage",
+}
+
+
+def _find_by_basename(name: str, root: Path) -> list[Path]:
+    """Locate source files whose basename matches ``name``, skipping build output.
+
+    Build directories are excluded deliberately: a compiled or copied artefact
+    under ``build/`` would otherwise satisfy a checklist item whose source file
+    was never written.
+    """
+    hits: list[Path] = []
+    for path in root.rglob(name):
+        if any(part in _SKIP_DIRS for part in path.relative_to(root).parts[:-1]):
+            continue
+        if path.is_file():
+            hits.append(path)
+    return hits
 
 
 # ── Path extraction (from prose / checklist items) ───────────────────────────

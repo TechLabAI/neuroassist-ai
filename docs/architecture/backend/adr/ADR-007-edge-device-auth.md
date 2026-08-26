@@ -1,7 +1,7 @@
 # ADR-007 — Edge Device Authentication (INT-GEST-007)
 
-**Status:** Accepted (MVP) — Under Review for production protocol  
-**Date:** 2026-08-12  
+**Status:** Accepted (final)  
+**Date:** 2026-08-12 (decisão de transporte finalizada em 2026-08-26)  
 **Deciders:** NeuroAssist AI Backend Team  
 **Context:** INT-GEST-007 — transport authentication between gest-service and edge-service
 
@@ -45,16 +45,27 @@ domain, or application layers.
 **Negative / Risks:**
 - Propagating user JWT to edge-service couples gest-service to the same Keycloak realm as
   edge-service. If edge-service moves to a different realm/IdP, this will break.
-- The EDGE module team may require mTLS or a device-specific token in the future
-  (INT-GEST-007 remains open for that decision).
 
 ---
 
-## Temporary nature
+## Finalização (2026-08-26)
 
-This decision is explicitly provisional. When the EDGE team finalises the device authentication
-protocol, this ADR should be superseded by a new ADR and `EdgePairingAdapter` updated accordingly.
-No other files should require changes.
+Esta decisão deixa de ser provisória: **OAuth2 `client_credentials` é o protocolo definitivo** para
+o transporte GEST→EDGE, não apenas uma escolha de MVP. Racional: o projeto ainda é pessoal/pré-produção
+(poucos dispositivos, mesmo realm Keycloak controlado pelo próprio time), e mTLS adicionaria custo de
+implementação (emissão/rotação de certificados por serviço, configuração adicional no Feign/Spring) sem
+um requisito de segurança concreto que o justifique hoje.
+
+**Gatilho de revisão** (não uma data, uma condição): reabrir esta decisão se e quando qualquer um destes
+ocorrer — (a) `edge-service` passar a atender dispositivos de terceiros fora do controle direto do time,
+(b) `edge-service` migrar para um realm/IdP diferente do de `gest-service`, ou (c) houver requisito
+explícito de compliance/segurança que exija autenticação mútua por certificado. Até lá, não há ação
+pendente.
+
+Esta finalização cobre apenas o transporte serviço-a-serviço (GEST→EDGE). A autenticação de
+**dispositivo da estação do paciente** (browser → backend, `clientSecret` no cliente) é um problema
+diferente, tratado em `ADR-008-estacao-do-paciente-como-dispositivo.md` (frontend), e continua com
+sua própria pendência (P1) sobre armazenamento seguro de credencial — não afetada por esta decisão.
 
 ---
 

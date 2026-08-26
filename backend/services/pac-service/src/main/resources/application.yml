@@ -29,6 +29,14 @@ spring:
           hist-service:
             connect-timeout: 2000
             read-timeout: 3000
+          # E2E-015 — propagacao do vinculo cuidador-paciente para o directory do ACS.
+          # Cliente separado de `acs-service` (AcsDirectoryClient) de proposito: este usa
+          # identidade de servico e roda no dreno agendado; aquele propaga o token do chamador.
+          # O read-timeout e maior porque o ACS resolve o paciente no PAC antes de gravar o
+          # vinculo — a chamada volta para ca antes de responder.
+          acs-service-link:
+            connect-timeout: 2000
+            read-timeout: 5000
           default:
             connect-timeout: 3000
             read-timeout: 5000
@@ -87,6 +95,30 @@ neuroassist:
     refresh-margin-seconds: 60      # re-mint 60s before expiry (service-identity.md §5)
     connect-timeout-ms: 2000
     read-timeout-ms: 3000
+
+# Dreno do outbox de fatos de auditoria (C-44).
+# Ate a Sessao 6 nada lia `hist_outbox.status = 'pending'`: o comentario no adapter dizia
+# "retry will handle it later" e o retry nao existia, entao um fato gravado com o hist-service
+# fora do ar ficava na tabela para sempre.
+  hist-outbox:
+    batch-size: 50          # entradas por tick — evita replay de um backlog inteiro numa transacao
+    max-retries: 10         # depois disso a entrada vai para 'failed' e para de ser tentada
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do hist-service subir junto no compose
+      interval-ms: 60000
+
+# Propagacao do vinculo cuidador-paciente para o directory do ACS (E2E-015 / C-30).
+# O PAC gravava `paciente_cuidador` e parava ai, enquanto o ACS — que e quem o EVNT consulta
+# para decidir quem recebe um alarme — lia outra tabela, em outro schema. Todo paciente criado
+# pelo PAC nascia com directory vazio: alarme sem destinatario.
+  directory-outbox:
+    batch-size: 50          # o dreno para no primeiro erro transitorio; o lote so limita o tick
+    max-retries: 10         # depois disso a entrada vai para 'failed' COM o motivo registrado
+    drain:
+      enabled: true
+      initial-delay-ms: 30000   # da tempo do acs-service subir junto no compose
+      interval-ms: 60000
 
 # Resilience4j — Circuit Breaker for gest-service (INT-PAC-001 / SPEC-10 §4)
 resilience4j:

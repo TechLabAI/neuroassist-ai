@@ -35,6 +35,27 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+
+// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
+// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
+// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
+// depois do goto seria tarde demais.
+//
+// Emergência apagada: esta suíte é sobre ESTADO DE ERRO inline (403/503/fallback do
+// SSE). O mock do EVNT semeia uma emergência ativa e o alarme preempta a tela inteira
+// em qualquer rota do shell — comportamento correto do produto, provado pela evnt-e2e.
+// Aqui ele só sobrepõe o banner e intercepta o clique em "Tentar novamente".
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
+
+// Nota de seletor: o shell renderiza <app-sidebar><aside>…</aside> — não existe
+// `nav.sidebar`. As asserções de "shell intacto" apontavam para uma estrutura antiga
+// e o erro que davam ("element(s) not found") escondia o que queriam medir.
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)', () => {
@@ -58,7 +79,7 @@ test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)
     await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible();
 
     // Shell chrome INTACT: sidebar visible (error is local to content, not full-screen)
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
 
     // No modal overlay (SPEC-07: DASH never uses modal for errors)
     await expect(page.locator('[role="dialog"]')).not.toBeVisible();
@@ -90,7 +111,7 @@ test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)
     await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible();
 
     // Shell chrome INTACT during 403
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
 
     // No modal
     await expect(page.locator('[role="dialog"]')).not.toBeVisible();
@@ -115,7 +136,7 @@ test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)
     await expect(page.getByText('Você não tem acesso a este paciente.')).toBeVisible({ timeout: 5000 });
 
     // Sidebar visible before retry
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
 
     // Click retry
     await page.getByRole('button', { name: 'Tentar novamente' }).click();
@@ -124,7 +145,7 @@ test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)
     await expect(page.getByText('Você não tem acesso a este paciente.')).toBeVisible({ timeout: 5000 });
 
     // Sidebar still visible after retry cycle (shell chrome never hidden)
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
   });
 
   // ── Scenario 4: SSE fallback não quebra UI das notificações ───────────────
@@ -153,7 +174,7 @@ test.describe('DASH — Error states: 403 + 503 + SSE fallback (FE-DASH-030, G8)
     await expect(page.getByText('"Ajuda"')).toBeVisible({ timeout: 5000 });
 
     // No crash: page is stable
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
     await expect(page.locator('[role="alert"]')).not.toBeVisible();
 
     // Acknowledge still works (catch-up HTTP path, not SSE)

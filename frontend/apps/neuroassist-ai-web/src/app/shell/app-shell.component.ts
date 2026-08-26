@@ -1,64 +1,77 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from './sidebar.component';
 import { TopbarComponent } from './topbar.component';
 import { AlarmOverlayComponent } from '@neuroassist/evnt';
+import { DashHomeFacade } from '@neuroassist/dash';
+import { EdgeShellIntegrationService } from '@neuroassist/edge';
 
 // =============================================================================
-// AppShellComponent — persistent shell layout wrapping all feature routes.
+// AppShellComponent — layout persistente que envolve todas as rotas de feature.
 //
-// AlarmOverlayComponent is included directly here (above the router-outlet)
-// so it renders at interrupt z-layer on every shell route. This is the interim
-// implementation of the global-outlet pattern described in ADR-005 — the full
-// ShellOutletRegistry dynamic rendering (INT-FE-EVNT-001) is planned for a
-// future iteration once the registry gains reactive signal-based notification.
+// AlarmOverlayComponent entra aqui direto (acima do router-outlet) para renderizar
+// na camada de interrupção em toda rota do shell. É a implementação interina do
+// padrão de outlet global descrito no ADR-005 — o ShellOutletRegistry dinâmico
+// (INT-FE-EVNT-001) fica para quando o registry ganhar notificação reativa por signal.
 //
-// The overlay is self-hiding: AlarmOverlayComponent only renders content when
-// facade.alarmVm().visible is true (i.e., activeEvent != null). It has zero
-// visual footprint when no alarm is active.
+// O overlay se auto-oculta: só renderiza conteúdo quando facade.alarmVm().visible
+// é true (activeEvent != null). Sem alarme, pegada visual zero.
+//
+// O shell dispara DashHomeFacade.load() uma vez: paciente e cuidadora aparecem no
+// chrome (topbar/sidebar) em qualquer rota, não só na home. Guardado por status
+// 'idle' para não duplicar a carga que a própria home faz.
+//
+// E, assim que o paciente ativo é conhecido, inicia a conectividade do EDGE
+// (SPEC-06 §3). Sem essa chamada o chip da topbar ficava em "Sem dispositivo"
+// para sempre — contradizendo, na mesma tela, o "Dispositivo online" que a home
+// mostra a partir do summary do DASH.
 // =============================================================================
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [
-    RouterOutlet,
-    SidebarComponent,
-    TopbarComponent,
-    AlarmOverlayComponent,
-  ],
+  imports: [RouterOutlet, SidebarComponent, TopbarComponent, AlarmOverlayComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <!-- Global alarm overlay (ADR-005 interrupt layer) — above sidebar, topbar, and router-outlet -->
+    <!-- Overlay global de alarme (camada de interrupção ADR-005) — acima de sidebar, topbar e outlet -->
     <evnt-alarm-overlay />
 
-    <div class="shell-layout">
-      <app-sidebar class="shell-sidebar" />
-      <div class="shell-main">
-        <app-topbar class="shell-topbar" />
-        <main class="shell-content">
+    <!--
+      Os outlets de aviso/faixa/modal MUDARAM DE LUGAR: subiram para o
+      AppShellRootComponent. Estavam aqui, e este componente não envolve as rotas
+      de topo — /onboarding, /login e /entrada ficam fora dele. Resultado:
+      o assistente de configuração disparava faixa e aviso que não tinham onde
+      aparecer. O código parecia tratar o erro; a tela seguia muda.
+    -->
+
+    <div class="grid h-screen grid-cols-[auto_1fr] overflow-hidden">
+      <app-sidebar />
+      <div class="flex min-w-0 flex-col overflow-hidden">
+        <app-topbar />
+        <main class="content-mesh min-h-0 flex-1 overflow-y-auto">
           <router-outlet />
         </main>
       </div>
     </div>
   `,
-  styles: [`
-    .shell-layout {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      grid-template-rows: 1fr;
-      height: 100vh;
-      overflow: hidden;
-    }
-    .shell-main {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .shell-content {
-      flex: 1;
-      overflow: auto;
-    }
-  `],
 })
-export class AppShellComponent {}
+export class AppShellComponent {
+  private readonly dash = inject(DashHomeFacade);
+  private readonly edge = inject(EdgeShellIntegrationService);
+
+  /** Guarda: resolveForActivePatient/startPolling só devem rodar uma vez. */
+  private connectivityStarted = false;
+
+  constructor() {
+    if (this.dash.status() === 'idle') {
+      void this.dash.load();
+    }
+
+    effect(() => {
+      const pacienteId = this.dash.patient()?.patientId;
+      if (!pacienteId || this.connectivityStarted) return;
+      this.connectivityStarted = true;
+      this.edge.startConnectivityForActivePatient(pacienteId);
+    });
+  }
+}

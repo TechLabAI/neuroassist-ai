@@ -3,7 +3,15 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # E2E-022 — `validate`, nao `create-drop`.
+      #
+      # Com create-drop quem desenhava o schema nos testes era o Hibernate, a partir das entities,
+      # enquanto o Flyway desenha o schema em producao. As entities concordavam consigo mesmas por
+      # construcao, e nenhuma divergencia com as migrations era detectavel.
+      #
+      # Agora as migrations reais sao aplicadas em BaseIntegrationTest antes do contexto subir, e
+      # `validate` derruba o contexto quando entity e migration discordam.
+      ddl-auto: validate
   flyway:
     enabled: false
   artemis:

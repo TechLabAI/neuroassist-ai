@@ -12,6 +12,18 @@ Feature: Tenant Provisioning
     And schema_name is not null
     And the domain fact TenantProvisionado is recorded to HIST
 
+  # E2E-029 — a empresa nasce utilizável, não só provisionada.
+  #
+  # Antes disto o tenant ficava inalcançável: todo token pertence a um cuidador e todo cuidador a
+  # um tenant, então uma empresa sem ninguém dentro não tinha ator possível. Criar o coordenador
+  # por fora exigiria autoridade para criar pessoas em outra empresa — exatamente o que o
+  # 403 acs.tenant.mismatch existe para impedir.
+  Scenario: O primeiro coordenador consegue autenticar na empresa recém-criada
+    Given MIG is available and can provision schemas
+    When I POST a tenant with nome "Família Amaral" and tipo "familia"
+    Then the response status is 201
+    And the first coordinator can authenticate into the new tenant
+
   Scenario: Tenant provisioning returns 202 when MIG times out
     Given MIG times out on schema request after 5 seconds
     When I POST a tenant with nome "Família Souza" and tipo "familia"

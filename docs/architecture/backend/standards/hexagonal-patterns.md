@@ -2,96 +2,93 @@
 
 > Ports & Adapters, Application vs Domain Services, EmpresaContext.
 
-## Propósito
+## Purpose
 
-Guia prescritivo para aplicar arquitetura Hexagonal em todos os microserviços `backend/services/`.
-Garante: separação clara de responsabilidades, testabilidade, segurança e previsibilidade operacional.
+Prescriptive guide for applying Hexagonal architecture across every `backend/services/` microservice.
+It guarantees: clear separation of concerns, testability, security and operational predictability.
 
-## Escopo
+## Scope
 
-- Engenheiros backend, code reviewers e agentes de automação trabalhando em qualquer serviço sob `backend/services/`.
+- Backend engineers, code reviewers and automation agents working on any service under `backend/services/`.
 - Java 21 / Spring Boot 3.5.0 / Gradle (Kotlin DSL).
-- Modelo de referência: ver `services-catalog.md`.
+- Reference model: see `services-catalog.md`.
 
 ---
 
-## 1. Layout canônico de pacotes
+## 1. Canonical package layout
 
-Todos os serviços usam o seguinte layout sob `com.neuroassist.<module>`:
+Every service uses the following layout under `com.neuroassist.<module>`:
 
 ```
 com.neuroassist.<module>/
 ├── api/
 │   ├── controller/          # @RestController — HTTP entry points
-│   ├── dto/                 # Request/Response DTOs (Java records preferidos)
+│   ├── dto/                 # Request/Response DTOs (Java records preferred)
 │   └── exception/           # @RestControllerAdvice (ProblemDetail — RFC 7807)
 ├── application/
-│   ├── service/             # @Service — use-case impl (@Transactional aqui)
+│   ├── service/             # @Service — use-case impl (@Transactional here)
 │   └── port/
 │       ├── in/              # Use-case interfaces (commands / queries)
 │       └── out/             # Repository + external service interfaces
 ├── domain/
-│   ├── model/               # Entities, value objects — POJO puro, zero Spring/JPA
-│   └── service/             # Regras de domínio cross-entity — sem infra
+│   ├── model/               # Entities, value objects — plain POJO, zero Spring/JPA
+│   └── service/             # Cross-entity domain rules — no infra
 └── infrastructure/
     ├── clients/             # @FeignClient — inter-service HTTP
     ├── config/              # @Configuration — Spring beans, Resilience4j, DomainServiceConfig
-    ├── messaging/
-    │   ├── producer/        # JmsTemplate event publishers
-    │   └── consumer/        # @JmsListener event consumers
     ├── persistence/
     │   ├── entity/          # @Entity JPA
     │   ├── repository/      # Spring Data JPA @Repository interfaces
-    │   └── adapter/         # Implementa port.out — mapeia domain ↔ JPA
+    │   └── adapter/         # Implements port.out — maps domain <-> JPA
     └── security/            # Spring Security filters, MDC, CorrelationIdInterceptor, EmpresaContextHolder
 ```
 
-**Regras de dependência entre camadas:**
+**Dependency rules between layers:**
 
-| Camada | Pode depender de | Proibido |
+| Layer | May depend on | Forbidden |
 |---|---|---|
-| `domain` | Apenas outras classes `domain` | Qualquer outra camada, qualquer framework |
+| `domain` | Only other `domain` classes | Any other layer, any framework |
 | `application` | `domain`, `port.in`, `port.out` | `infrastructure`, `api` |
-| `infrastructure` | `domain`, `port.out`, libs externas | `api`, `application` |
-| `api` | `application`, `domain` (VOs, enums) | `infrastructure` diretamente |
+| `infrastructure` | `domain`, `port.out`, external libs | `api`, `application` |
+| `api` | `application`, `domain` (VOs, enums) | `infrastructure` directly |
 
 ---
 
-## 2. Ports & Adapters — regras práticas
+## 2. Ports & Adapters -- practical rules
 
-### Ports (interfaces de nível domain, `application/port/out/`)
-- Métodos com intenção de negócio (ex.: `findByBusinessKey`) em vez de infra-centric (`findById(Long)`).
-- Ports usam tipos de domínio e lançam exceções de domínio.
-- Output ports em `application.port.out`; use-case interfaces em `application.port.in`.
+### Ports (domain-level interfaces, `application/port/out/`)
+- Methods carry business intent (e.g. `findByBusinessKey`) instead of being infra-centric (`findById(Long)`).
+- Ports use domain types and throw domain exceptions.
+- Output ports in `application.port.out`; use-case interfaces in `application.port.in`.
 
-### Adapters (implementações infra, `infrastructure/persistence/adapter/`)
-- Traduzem entre infra (JPA entities, HTTP payloads) e objetos de domínio.
-- Adapters NÃO contêm orquestração nem lógica de processo de negócio.
-- Anotados com `@Component` ou `@Repository`, vivem exclusivamente em `infrastructure`.
+### Adapters (infra implementations, `infrastructure/persistence/adapter/`)
+- They translate between infra (JPA entities, HTTP payloads) and domain objects.
+- Adapters do NOT contain orchestration or business-process logic.
+- Annotated with `@Component` or `@Repository`, they live exclusively in `infrastructure`.
 
-### Anti-patterns a evitar
-- Ports expondo IDs JPA como identificadores primários quando há business key.
-- Adapters com lógica de negócio ou abrindo suas próprias transações.
+### Anti-patterns to avoid
+- Ports exposing JPA IDs as primary identifiers when a business key exists.
+- Adapters holding business logic or opening their own transactions.
 
 ---
 
 ## 3. Application Services vs Domain Services
 
 ### Application Services (`application/service/`)
-- Implementam interfaces de `application/port/in/`.
-- Orquestram chamadas a ports, aplicam policies Resilience4j, delimitam transações com `@Transactional`.
-- Chamam `EmpresaContextHolder.require()` antes de qualquer operação de empresa (RULE-07).
-- Exemplo: `Create<Resource>Service implements Create<Resource>UseCase`.
+- They implement interfaces from `application/port/in/`.
+- They orchestrate port calls, apply Resilience4j policies, and delimit transactions with `@Transactional`.
+- They call `EmpresaContextHolder.require()` before any empresa operation (RULE-07).
+- Example: `Create<Resource>Service implements Create<Resource>UseCase`.
 
 ### Domain Services (`domain/service/`)
-- Regras puras de domínio que atravessam múltiplas entidades mas não pertencem a uma só.
-- Sem dependência de infra; unit-testáveis sem Spring.
-- Exemplo: `<Resource>DomainService` -- valida regras de negócio, calcula estado derivado.
-- **NÃO PODEM** usar `@Service`, `@Component` ou qualquer anotação Spring (ArchUnit RULE-02).
+- Pure domain rules that span multiple entities but do not belong to a single one.
+- No infra dependency; unit-testable without Spring.
+- Example: `<Resource>DomainService` -- validates business rules, computes derived state.
+- They **MUST NOT** use `@Service`, `@Component` or any Spring annotation (ArchUnit RULE-02).
 
-### Registro como Bean (obrigatório)
-Domain services precisam ser registrados via `@Configuration` em `infrastructure/config/`.
-**Sempre** crie `DomainServiceConfig.java` que provê `@Bean` para cada domain service.
+### Bean registration (mandatory)
+Domain services must be registered through a `@Configuration` in `infrastructure/config/`.
+**Always** create `DomainServiceConfig.java` providing a `@Bean` for each domain service.
 
 ```java
 // infrastructure/config/DomainServiceConfig.java
@@ -106,19 +103,19 @@ public class DomainServiceConfig {
 
 ---
 
-## 4. Boundaries de transação
+## 4. Transaction boundaries
 
-- `@Transactional` **apenas** em Application Services (RULE-03).
-- Controllers e infrastructure adapters NÃO declaram `@Transactional`.
-- Propagação explícita (`REQUIRES_NEW`) apenas quando justificado (ex.: idempotency key write).
-- `@Version` para optimistic locking em entidades sujeitas a modificação concorrente.
+- `@Transactional` **only** on Application Services (RULE-03).
+- Controllers and infrastructure adapters do NOT declare `@Transactional`.
+- Explicit propagation (`REQUIRES_NEW`) only when justified (e.g. idempotency key write).
+- `@Version` for optimistic locking on entities subject to concurrent modification.
 
 ---
 
-## 4b. JPA Entity Persistence — UUIDs domain-assigned
+## 4b. JPA Entity Persistence -- domain-assigned UUIDs
 
-Quando a camada domain gera UUID (ex.: `UUID.randomUUID()` dentro de factory estática
-`static create(...)` no record domain), a entidade JPA DEVE usar:
+When the domain layer generates the UUID (e.g. `UUID.randomUUID()` inside the static factory
+`static create(...)` on the domain record), the JPA entity MUST use:
 
 ```java
 @Entity
@@ -129,41 +126,41 @@ Quando a camada domain gera UUID (ex.: `UUID.randomUUID()` dentro de factory est
 public class FooJpaEntity {
     @Id
     @Column(name = "id", updatable = false, nullable = false)
-    private UUID id;                // set pelo caller — nunca auto-gerado
+    private UUID id;                // set by the caller — never auto-generated
     @Version
     @Column(name = "version")
-    private Long version;           // nullable — Spring Data usa
-                                    // version==null para detectar entidades NOVAS
-    // ... outras colunas ...
+    private Long version;           // nullable — Spring Data uses
+                                    // version==null to detect NEW entities
+    // ... other columns ...
 }
 ```
 
-**NÃO combinar** os seguintes — cada permutação quebra CREATE (erros: "uninitialized
-version value", "detached entity passed to persist", `ObjectOptimisticLockingFailureException`
-silencioso em `em.merge`):
+**Do NOT combine** the following -- each permutation breaks CREATE (errors: "uninitialized
+version value", "detached entity passed to persist", a silent
+`ObjectOptimisticLockingFailureException` in `em.merge`):
 
-- ❌ `@UuidGenerator` + pre-set UUID do domain
-- ❌ `implements Persistable<UUID>` + `@Version` juntos
-- ❌ `@Version` inicializado como `0L` no builder
-- ❌ `@GeneratedValue(strategy = UUID)` com UUIDs gerados no domain
+- ❌ `@UuidGenerator` + a UUID pre-set by the domain
+- ❌ `implements Persistable<UUID>` + `@Version` together
+- ❌ `@Version` initialized as `0L` in the builder
+- ❌ `@GeneratedValue(strategy = UUID)` with UUIDs generated in the domain
 
-**Fixtures e adapters DEVEM chamar `.id(UUID.randomUUID())`** (ou `.id(domain.id())`)
-em todo `builder().build()` -- não há fallback auto-gerado.
+**Fixtures and adapters MUST call `.id(UUID.randomUUID())`** (or `.id(domain.id())`)
+on every `builder().build()` -- there is no auto-generated fallback.
 
 ---
 
-## 5. Propagação de EmpresaContext
+## 5. EmpresaContext propagation
 
-> **Variante de multi-tenancy:** este padrão implementa **corporate multi-tenant** —
-> tenants são unidades conhecidas do mesmo grupo econômico, isoladas por schema Postgres.
-> A diferença para SaaS multi-tenant (clientes externos desconhecidos) está na descoberta
-> de tenant (estática vs. dinâmica), não na propagação de contexto — que segue o mesmo
-> padrão ThreadLocal em ambas as variantes (D-400).
+> **Multi-tenancy variant:** this pattern implements **corporate multi-tenant** --
+> tenants are known units of the same economic group, isolated by Postgres schema.
+> The difference from SaaS multi-tenant (unknown external customers) is in tenant
+> discovery (static vs. dynamic), not in context propagation -- which follows the same
+> ThreadLocal pattern in both variants (D-400).
 
-### Requests síncronos
-- `EmpresaContextHolder` (ThreadLocal) populado em `OncePerRequestFilter` / `HandlerInterceptor` em `infrastructure/security/`.
-- Setar MDC: `MDC.put("empresaId", empresaId)` para correlação em logs estruturados.
-- Limpar ThreadLocal e MDC em `finally`.
+### Synchronous requests
+- `EmpresaContextHolder` (ThreadLocal) populated in a `OncePerRequestFilter` / `HandlerInterceptor` under `infrastructure/security/`.
+- Set the MDC: `MDC.put("empresaId", empresaId)` for correlation in structured logs.
+- Clear the ThreadLocal and the MDC in `finally`.
 
 ```java
 // infrastructure/security/EmpresaContextHolder.java
@@ -186,59 +183,54 @@ public final class EmpresaContextHolder {
 }
 ```
 
-### Chamadas assíncronas e `@JmsListener`
-- Para threads async, passar `EmpresaContext` explicitamente como header da mensagem JMS (`empresaId`).
-- Consumer lê o header, popula ThreadLocal, processa, faz `clear()` no `finally`.
-- **Nunca** confie em propagação ThreadLocal cross thread pool.
+### Cross-Empresa Access Guard (mandatory on child-entity creation)
 
-### Cross-Empresa Access Guard (obrigatório em criação de child-entity)
-
-Qualquer application service que cria entidade-filho ligada a um pai DEVE carregar o pai via
+Any application service that creates a child entity linked to a parent MUST load the parent via
 `findByIdAndEmpresaId(parentId, ctx.empresaId())`
-e lançar `<Parent>NotFoundException` se ausente -- **antes** de instanciar o filho.
+and throw `<Parent>NotFoundException` if absent -- **before** instantiating the child.
 
-`EmpresaContextHolder.require()` só prova QUEM é o caller, não QUAIS recursos pode tocar.
-Pular o parent-empresa check silenciosamente permite que empresa-A crie filhos no agregado da empresa-B.
-
----
-
-## 6. DTOs, mapeamento & Anti-Corruption Layer
-
-- `api` usa DTOs (`api.dto.*`) para input/output -- nunca entidades JPA.
-- Use MapStruct: Entity ↔ Domain ↔ DTO.
-- Anti-Corruption Layer (ACL) para integrações externas vive em `infrastructure.clients` ou `infrastructure.messaging.consumer` -- traduz schemas externos para o modelo de domínio interno.
+`EmpresaContextHolder.require()` only proves WHO the caller is, not WHICH resources it may touch.
+Silently skipping the parent-empresa check lets empresa-A create children inside the aggregate of empresa-B.
 
 ---
 
-## 7. Integrações externas & resilience
+## 6. DTOs, mapping & Anti-Corruption Layer
 
-- Aplique Resilience4j `@Retry` e `@CircuitBreaker` no adapter/client.
-- Adapters traduzem erros de infra para exceções de domínio.
-- Application Services decidem retry/compensation baseados nas exceções de domínio.
-- Aplique `@Bulkhead` para limitar chamadas concorrentes a sistemas externos lentos.
-
----
-
-## 8. Idempotência e concorrência
-
-- Implemente padrão idempotency token: armazena uma idempotency key (scoped por empresa + operação)
-  antes de processar; constraint unique no banco.
-- Combine com optimistic locking (`@Version`) para entidades sob update concorrente.
+- `api` uses DTOs (`api.dto.*`) for input/output -- never JPA entities.
+- Use MapStruct: Entity <-> Domain <-> DTO.
+- The Anti-Corruption Layer (ACL) for external integrations lives in `infrastructure.clients` -- it translates external schemas into the internal domain model.
 
 ---
 
-## 9. Tratamento de erros & exceções
+## 7. External integrations & resilience
 
-- Exceções de domínio em `domain.exception` -- expressam falhas de negócio em linguagem de domínio.
-- Exceções de infra em `infrastructure.*` -- traduzidas para domain antes de chegar à application.
-- `@RestControllerAdvice` em `api.exception` mapeia exceções de domínio para `ProblemDetail` (RFC 7807).
-- Ver `java-conventions.md` §Exception Handling.
+- Apply Resilience4j `@Retry` and `@CircuitBreaker` on the adapter/client.
+- Adapters translate infra errors into domain exceptions.
+- Application Services decide retry/compensation based on the domain exceptions.
+- Apply `@Bulkhead` to cap concurrent calls to slow external systems.
+
+---
+
+## 8. Idempotency and concurrency
+
+- Implement the idempotency token pattern: store an idempotency key (scoped by empresa + operation)
+  before processing; unique constraint in the database.
+- Combine it with optimistic locking (`@Version`) for entities under concurrent update.
+
+---
+
+## 9. Error and exception handling
+
+- Domain exceptions in `domain.exception` -- they express business failures in domain language.
+- Infra exceptions in `infrastructure.*` -- translated to domain ones before reaching the application.
+- `@RestControllerAdvice` in `api.exception` maps domain exceptions to `ProblemDetail` (RFC 7807).
+- See `java-conventions.md` §Exception Handling.
 
 ---
 
 ## 10. ArchUnit Rules & Gradle integration
 
-Crie `ArchitectureTest.java` enforçando boundaries:
+Create `ArchitectureTest.java` enforcing the boundaries:
 
 ```java
 @AnalyzeClasses(packages = "com.neuroassist.{module}")
@@ -264,9 +256,9 @@ public class ArchitectureTest {
         classes().that().areAnnotatedWith(FeignClient.class)
             .should().resideInAPackage("..infrastructure.clients..");
 
-    @ArchTest static final ArchRule RULE_07 = // (verificação manual + check em integration test)
-        // todo method em application.service que toca dado de empresa DEVE chamar
-        // EmpresaContextHolder.require() na primeira linha. Enforced via custom ArchUnit rule.
+    @ArchTest static final ArchRule RULE_07 = // (manual review + check in integration test)
+        // every method in application.service that touches empresa data MUST call
+        // EmpresaContextHolder.require() on the first line. Enforced via custom ArchUnit rule.
         methods().that().arePublic().and()
             .areDeclaredInClassesThat().resideInAPackage("..application.service..")
             .should(callEmpresaContextHolderRequire());
@@ -276,7 +268,7 @@ public class ArchitectureTest {
 }
 ```
 
-Add em `build.gradle.kts`:
+Add to `build.gradle.kts`:
 ```kotlin
 dependencies {
     testImplementation("com.tngtech.archunit:archunit-junit5:1.3.0")
@@ -288,26 +280,26 @@ tasks.register("architectureCheck") { dependsOn(tasks.named("test")) }
 
 ## 11. PR Checklist
 
-### Automatizado
-- ArchUnit rules verdes (`./gradlew :<service>:architectureCheck`).
-- Unit + integration tests verdes.
+### Automated
+- ArchUnit rules green (`./gradlew :<service>:architectureCheck`).
+- Unit + integration tests green.
 
 ### Manual
-- Ports em `application/port/out` (ou `port/in`) -- não em `domain`.
-- Adapters implementando ports em `infrastructure/persistence/adapter` ou `infrastructure/clients`.
-- Sem `@Transactional` em controllers ou adapters.
-- API controllers usam DTOs; entities nunca retornadas direto.
-- `EmpresaContextHolder.require()` chamado em application services antes de operações de empresa.
-- Pacote base `com.neuroassist.<module>` (RULE-09).
-- `DomainServiceConfig.java` presente se o serviço tem domain services.
+- Ports in `application/port/out` (or `port/in`) -- not in `domain`.
+- Adapters implementing ports in `infrastructure/persistence/adapter` or `infrastructure/clients`.
+- No `@Transactional` in controllers or adapters.
+- API controllers use DTOs; entities never returned directly.
+- `EmpresaContextHolder.require()` called in application services before empresa operations.
+- Base package `com.neuroassist.<module>` (RULE-09).
+- `DomainServiceConfig.java` present if the service has domain services.
 
 ---
 
-## Referências
+## References
 
-- `java-conventions.md` -- convenções Java/Lombok/JPA
-- `snippets.md` -- código reference por tipo de classe
-- `platform-patterns.md` -- JMS, Feign, Flyway, MDC, Saga, multi-schema
-- `testing-conventions.md` -- pirâmide de testes
-- `services-catalog.md` -- catálogo de microserviços
+- `java-conventions.md` -- Java/Lombok/JPA conventions
+- `snippets.md` -- reference code per class type
+- `platform-patterns.md` -- Feign, Flyway, MDC, Saga, multi-schema
+- `testing-conventions.md` -- test pyramid
+- `services-catalog.md` -- microservice catalog
 - `docs/architecture/shared/multi-empresa.md` -- ADR-001 schema-per-empresa

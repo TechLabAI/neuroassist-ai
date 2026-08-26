@@ -28,7 +28,11 @@ public interface PacienteJpaRepository extends JpaRepository<PacienteJpaEntity, 
      *
      * @return number of rows updated (1 if found, 0 if patient not found in this schema)
      */
-    @Modifying
+    // Mesma razao do DELETE em PacienteCuidadorJpaRepository: um UPDATE em massa passa ao lado do
+    // contexto, entao uma leitura posterior de catalogoVersao na mesma transacao devolveria o valor
+    // ANTIGO — e catalogoVersao e a semente do ETag do catalogo ativo. Servir o ETag velho faria o
+    // consumidor receber 304 depois de o catalogo ter mudado.
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
             "UPDATE PacienteJpaEntity p SET p.catalogoVersao = p.catalogoVersao + 1 WHERE p.id = :pacienteId")
     int bumpCatalogoVersao(@Param("pacienteId") UUID pacienteId);

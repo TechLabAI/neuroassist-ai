@@ -1,6 +1,6 @@
 import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import { JsonPipe } from '@angular/common';
-import { ComandoDraft, GestureTestOutcome } from '@neuroassist/shared/contracts';
+import { ComandoDraft, GestureTestOutcome, ENGINE_FEATURE } from '@neuroassist/shared/contracts';
 import { GestureLiveTestComponent } from './gesture-live-test.component';
 
 // ---------------------------------------------------------------------------
@@ -37,9 +37,18 @@ export class GestDevHostComponent {
   protected readonly draft = signal<ComandoDraft>({
     commandDraftRef: 'draft-dev-host',
     rotulo: 'água',
-    primitivoPrincipal: 'tg-piscar-duplo-001',
+    // O gesto secundário era `tg-fechar-punho-001` — fechar a mão, que motor
+    // nenhum deste projeto detecta (o FaceLandmarker vê rosto, não mão). O host
+    // de desenvolvimento é onde se confere o comportamento real, então usar um
+    // gesto fantasma aqui garantia que o caminho composto nunca fosse exercido
+    // de verdade.
+    primitivoPrincipal: ENGINE_FEATURE.blinkDouble,
     primitivoSecundario: (_w?.__GEST_E2E_COMPOSITE as boolean | undefined)
-      ? 'tg-fechar-punho-001'
+      ? ENGINE_FEATURE.browRaiseBoth
+      : null,
+    engineFeatureRefPrincipal: ENGINE_FEATURE.blinkDouble,
+    engineFeatureRefSecundario: (_w?.__GEST_E2E_COMPOSITE as boolean | undefined)
+      ? ENGINE_FEATURE.browRaiseBoth
       : null,
     sensibilidade: 'media',
     urgencia: 'rotina',

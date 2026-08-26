@@ -2,7 +2,11 @@ package com.neuroassist.pac.application.service;
 
 import com.neuroassist.pac.application.port.in.PacienteUseCase;
 import com.neuroassist.pac.application.port.out.AcsDirectoryPort;
+import com.neuroassist.pac.application.port.out.AcsLinkPort;
+import com.neuroassist.pac.application.port.out.CallerAuthoritiesPort;
+import com.neuroassist.pac.application.port.out.DirectoryOutboxPort;
 import com.neuroassist.pac.application.port.out.EdgeDevicePort;
+import com.neuroassist.pac.application.port.out.HistErasurePort;
 import com.neuroassist.pac.application.port.out.PacienteCuidadorRepositoryPort;
 import com.neuroassist.pac.application.port.out.PacienteRepositoryPort;
 import com.neuroassist.pac.domain.model.Paciente;
@@ -12,6 +16,8 @@ import com.neuroassist.pac.infrastructure.security.TenantContextHolder;
 import com.neuroassist.pac.shared.error.CodedException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -34,9 +40,13 @@ public class PacienteService implements PacienteUseCase {
 
     private final PacienteRepositoryPort pacienteRepository;
     private final PacienteCuidadorRepositoryPort cuidadorRepository;
+    private final DirectoryOutboxPort directoryOutboxPort;
     private final PacienteDomainService pacienteDomainService;
     private final EdgeDevicePort edgeDevicePort;
     private final AcsDirectoryPort acsDirectoryPort;
+    private final HistErasurePort histErasurePort;
+    private final CallerAuthoritiesPort callerAuthoritiesPort;
+    private final AcsLinkPort acsLinkPort;
 
     /**
      * Creates a new Paciente scoped to the current tenant.
@@ -66,7 +76,8 @@ public class PacienteService implements PacienteUseCase {
                         0, // initial rowVersion
                         0, // initial catalogoVersao
                         now,
-                        now);
+                        now,
+                        null); // erasedAt — active patient
 
         Paciente saved = pacienteRepository.save(paciente);
         log.info("Paciente created id={} tenant={}", saved.id(), tenantId);
@@ -77,6 +88,11 @@ public class PacienteService implements PacienteUseCase {
                             .map(cid -> new PacienteCuidador(saved.id(), cid, now))
                             .collect(Collectors.toList());
             cuidadorRepository.saveAll(links);
+            // E2E-015 (C-30): the ACS directory — not this table — is what EVNT reads to decide
+            // who receives an alarm. Writing only here left every patient created through the PAC
+            // with an empty directory, i.e. an alarm with no destination. Same transaction, so the
+            // link and the intent to propagate it are committed together or not at all.
+            cuidadores.forEach(cid -> directoryOutboxPort.enqueueLink(saved.id(), cid));
         }
 
         return withCuidadores(saved, cuidadores);
@@ -124,6 +140,45 @@ public class PacienteService implements PacienteUseCase {
     }
 
     /**
+     * Pacientes da empresa sem nenhuma cuidadora ativa (ADR-010).
+     *
+     * <p>Le a projecao local {@code paciente_cuidador}, e nao o ACS: esta consulta responde "quem
+     * eu deixei descoberto?" sobre os dados que ESTE servico gravou.
+     *
+     * <p><b>Limitacao conhecida, e ela e real hoje.</b> Existem DUAS portas para criar um vinculo
+     * cuidadora-paciente: por aqui (o PAC grava e propaga ao ACS) e direto no ACS, que a
+     * coordenadora tambem pode chamar porque tem {@code acs.vinculo.criar}. A segunda porta nao
+     * escreve nada aqui. No ambiente de desenvolvimento isso ja produziu 17 pacientes com vinculo
+     * ATIVO no ACS e nenhuma linha nesta tabela — e o inverso nao acontece nenhuma vez, o que
+     * confirma a direcao.
+     *
+     * <p>Enquanto as duas portas existirem, <b>esta lista super-reporta</b>: mostra como descoberto
+     * quem foi vinculado pela porta do ACS. Ler do ACS em vez daqui trocaria o erro de lado, nao o
+     * resolveria — o ACS nao conhece paciente sem vinculo nenhum, entao nao consegue responder
+     * "quem esta descoberto?" sozinho. A correcao e fechar a segunda porta, nao remendar a
+     * consulta. Registrado em docs/operacao/fluxo-e-perfis.md secao 6.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Paciente> listUncovered() {
+        String tenantId = TenantContextHolder.require(); // RULE-07
+        List<Paciente> descobertos =
+                pacienteRepository.findByTenantId(tenantId).stream()
+                        .filter(p -> !p.isErased())
+                        .filter(p -> cuidadorRepository.findByPacienteId(p.id()).isEmpty())
+                        .map(p -> withCuidadores(p, List.of()))
+                        .toList();
+        if (!descobertos.isEmpty()) {
+            log.warn(
+                    "{} paciente(s) sem cuidadora ativa no tenant {} — alarme desses pacientes nao"
+                            + " tem para onde ir (D-204)",
+                    descobertos.size(),
+                    tenantId);
+        }
+        return descobertos;
+    }
+
+    /**
      * Updates a Paciente after validating the ETag (optimistic locking).
      *
      * <p>ETag = rowVersion + 1. Stale ETag (expectedEtagVersion != rowVersion + 1) throws 409
@@ -131,6 +186,92 @@ public class PacienteService implements PacienteUseCase {
      * trigger {@code tg_paciente_touch} also increments it. The trigger is not present in test
      * (ddl-auto=create-drop) — the Java increment is the canonical path for P2.
      */
+    /**
+     * Erases the patient's personal data (LGPD / Flow-04).
+     *
+     * <p><b>Order matters.</b> hist-service is asked first, and only if it confirms does
+     * pac-service anonymise its own row. The reverse order would let the local row be anonymised
+     * while the audit payloads stayed readable, and — because the local name is what a retry would
+     * need — leave no obvious way to notice. Failing before touching anything keeps the request
+     * retryable as a whole.
+     *
+     * <p>The row is kept, with {@code nome} replaced by a marker: {@code comando} and {@code
+     * paciente_cuidador} reference the id, and the obligation is to remove the personal data, not
+     * the record that care happened.
+     *
+     * <p>Idempotent — erasing an already-erased patient returns it unchanged without calling
+     * hist-service again.
+     */
+    @Override
+    @Transactional
+    public Paciente erasePersonalData(UUID id) {
+        String tenantId = TenantContextHolder.require(); // RULE-07
+
+        Paciente existing =
+                pacienteRepository
+                        .findByIdAndTenantId(id, tenantId)
+                        .orElseThrow(
+                                () ->
+                                        new CodedException(
+                                                "not_found.paciente", "Paciente not found: " + id));
+
+        if (existing.isErased()) {
+            log.info("Paciente {} already erased at {} — no-op", id, existing.erasedAt());
+            return existing;
+        }
+
+        histErasurePort.erasePatientData(id, tenantId);
+
+        // Revogar o acesso vem DEPOIS do HIST e ANTES de anonimizar aqui, pela mesma logica que ja
+        // ordenava o HIST primeiro: os sistemas externos sao pedidos enquanto o dado local ainda
+        // existe, porque e ele que uma retentativa precisaria. Falhar aqui deixa a requisicao
+        // retentavel como um todo — nada foi anonimizado ainda.
+        //
+        // POR QUE ISTO PRECISOU EXISTIR: o apagamento removia o dado pessoal e deixava o vinculo
+        // ATIVO no ACS. A associacao "esta cuidadora cuida desta pessoa" sobrevivia ao apagamento
+        // da pessoa — e associacao e dado. No dev havia 7 casos assim.
+        //
+        // Nao passa pelo outbox de propósito: o outbox existe para a propagacao de alto volume das
+        // edicoes, onde falhar em silencio e aceitavel porque ha reentrega. Apagamento e raro,
+        // deliberado e irreversivel; aqui falhar alto e o comportamento certo.
+        AcsLinkPort.Outcome desvinculo = acsLinkPort.revokeAllForErasedPatient(id);
+        if (desvinculo != AcsLinkPort.Outcome.ACCEPTED) {
+            log.error(
+                    "Apagamento do paciente {} abortado: o ACS nao revogou os vinculos ({}). O dado"
+                            + " local NAO foi anonimizado — a operacao segue retentavel.",
+                    id,
+                    desvinculo);
+            throw new CodedException(
+                            "pac.paciente.erasure-vinculo-falhou",
+                            "Could not revoke caregiver links for patient "
+                                    + id
+                                    + " — erasure aborted so the request stays retryable")
+                    .withContext(Map.of("pacienteId", id.toString(), "outcome", desvinculo.name()));
+        }
+
+        // A projecao local acompanha: o vinculo aqui espelha acesso, e o acesso acabou de ser
+        // revogado. O registro de que houve cuidado vive no HIST, que e append-only — nao nesta
+        // tabela.
+        cuidadorRepository.deleteByPacienteId(id);
+
+        Instant now = Instant.now();
+        Paciente erased =
+                new Paciente(
+                        existing.id(),
+                        existing.tenantId(),
+                        Paciente.ERASED_NOME,
+                        existing.dispositivoEdgeId(),
+                        existing.cuidadorResponsavelIds(),
+                        existing.rowVersion() + 1,
+                        existing.catalogoVersao(),
+                        existing.createdAt(),
+                        now,
+                        now);
+        Paciente saved = pacienteRepository.save(erased);
+        log.info("Paciente {} personal data erased (tenant={})", id, tenantId);
+        return saved;
+    }
+
     @Override
     @Transactional
     public Paciente update(
@@ -145,7 +286,14 @@ public class PacienteService implements PacienteUseCase {
 
         // EDGE/ACS validation: reject foreign devices and unknown caregivers before any DB write
         List<UUID> cuidadores = cuidadorResponsavelIds != null ? cuidadorResponsavelIds : List.of();
+
+        // Autorizacao ANTES de validar existencia, de proposito. Na ordem inversa, um chamador sem
+        // permissao de vincular descobria pela resposta se um id de cuidadora existe na empresa —
+        // 422 "nao encontrada" contra 403 "voce nao pode" sao respostas diferentes para quem sonda.
+        // Quem nao pode mexer no vinculo nao deve aprender nada sobre o vinculo.
+        recusarSeMudaVinculoSemAutorizacao(id, cuidadores);
         validateExternalRefs(tenantId, dispositivoEdgeId, cuidadores);
+        recusarSeDeixaPacienteSemCobertura(id, cuidadores);
 
         Paciente existing =
                 pacienteRepository
@@ -182,11 +330,21 @@ public class PacienteService implements PacienteUseCase {
                         existing.catalogoVersao(), // preserve — bumped separately by
                         // PacienteVersionBumper
                         existing.createdAt(),
-                        now);
+                        now,
+                        existing.erasedAt());
 
         Paciente saved = pacienteRepository.save(updated);
         log.info(
                 "Paciente updated id={} tenant={} newVersion={}", id, tenantId, saved.rowVersion());
+
+        // E2E-015: read the previous set before destroying it. The rewrite below is delete-all +
+        // insert-all, which says nothing about what actually changed — and the ACS directory needs
+        // the difference, not the result. Revoking and re-creating every link on each update would
+        // trip the ACS coverage invariant (D-204) on a patient with a single caregiver.
+        Set<UUID> previousCuidadores =
+                cuidadorRepository.findByPacienteId(id).stream()
+                        .map(PacienteCuidador::cuidadorResponsavelId)
+                        .collect(Collectors.toSet());
 
         cuidadorRepository.deleteByPacienteId(id);
         if (!cuidadores.isEmpty()) {
@@ -196,6 +354,14 @@ public class PacienteService implements PacienteUseCase {
                             .collect(Collectors.toList());
             cuidadorRepository.saveAll(links);
         }
+
+        Set<UUID> currentCuidadores = Set.copyOf(cuidadores);
+        previousCuidadores.stream()
+                .filter(cid -> !currentCuidadores.contains(cid))
+                .forEach(cid -> directoryOutboxPort.enqueueUnlink(id, cid));
+        currentCuidadores.stream()
+                .filter(cid -> !previousCuidadores.contains(cid))
+                .forEach(cid -> directoryOutboxPort.enqueueLink(id, cid));
 
         return withCuidadores(saved, cuidadores);
     }
@@ -234,6 +400,94 @@ public class PacienteService implements PacienteUseCase {
                 p.rowVersion(),
                 p.catalogoVersao(),
                 p.createdAt(),
-                p.updatedAt());
+                p.updatedAt(),
+                p.erasedAt());
+    }
+
+    /**
+     * Guarda de cobertura (D-204) — ADR-010.
+     *
+     * <p>O dono da invariante e o acs-service, que recusa a revogacao do ultimo vinculo ativo com
+     * 409 e marca isso SAFETY-CRITICAL. Ate a E2E-015 os dois lados nunca se falavam, entao o
+     * conflito era invisivel; com a propagacao no ar, um {@code PUT} esvaziando a lista era aceito
+     * aqui com 200 e recusado la com 409 — {@code paciente_cuidador} vazio de um lado, {@code
+     * caregiver_patient_link} ativo do outro, e uma entrada de outbox em {@code failed}.
+     *
+     * <p>Este guarda recusa o caso <b>inequivoco</b> na porta. Lista vazia significa zero
+     * cobertura, exatamente, sem depender de a projecao local estar sincronizada com o ACS — nao ha
+     * drift possivel no caso coberto. A autoridade continua la: se algo passar por divergencia de
+     * projecao, o ACS ainda recusa e o outbox registra, que e o comportamento de hoje.
+     *
+     * <p>Um paciente que ja estava sem cuidadora continua podendo ser editado — recusar seria
+     * prende-lo num estado do qual ele nao consegue sair pela unica porta que tem.
+     */
+    private void recusarSeDeixaPacienteSemCobertura(UUID pacienteId, List<UUID> novosCuidadores) {
+        if (!novosCuidadores.isEmpty()) {
+            return;
+        }
+        long cobertura = cuidadorRepository.findByPacienteId(pacienteId).size();
+        if (cobertura == 0) {
+            // Ja estava descoberto. Bloquear aqui nao restauraria cobertura nenhuma; so tornaria o
+            // paciente ineditavel.
+            log.warn(
+                    "Paciente {} ja estava sem cuidadora — update sem cobertura aceito (D-204)",
+                    pacienteId);
+            return;
+        }
+        log.warn(
+                "Recusado: update deixaria o paciente {} sem cuidadora ativa"
+                        + " (tinha {}) — D-204/ADR-010",
+                pacienteId,
+                cobertura);
+        throw new CodedException(
+                        "pac.paciente.sem-cobertura",
+                        "Cannot leave patient "
+                                + pacienteId
+                                + " without an active caregiver (D-204). Add another caregiver"
+                                + " before removing the last one.")
+                .withContext(
+                        Map.of("pacienteId", pacienteId.toString(), "cuidadorasAtivas", cobertura));
+    }
+
+    /** Authority que permite mudar QUEM cuida do paciente — distinta de editar o paciente. */
+    static final String AUTHORITY_VINCULAR = "pac.paciente.vincular";
+
+    /**
+     * Recusa a mudanca da lista de cuidadoras por quem so tem permissao de editar o paciente.
+     *
+     * <p>Editar e vincular chegam pelo mesmo {@code PUT}, e por isso {@code @PreAuthorize} nao
+     * consegue separa-las: a anotacao decide antes de saber o que o corpo pede. A diferenca so
+     * aparece comparando a lista que chegou com a que ja estava — e e por isso que esta verificacao
+     * mora aqui, e nao no controller.
+     *
+     * <p>Decisao de produto: a cuidadora edita o paciente; <b>quem cuida de quem</b> e da
+     * coordenadora. Sem esta separacao, dar {@code pac.paciente.editar} a cuidadora daria junto o
+     * poder de se vincular a qualquer paciente da empresa — a permissao de vinculo entraria de
+     * carona num campo do corpo.
+     *
+     * <p>Um PUT que reenvia a MESMA lista nao e mudanca e passa: e o caso comum de quem edita o
+     * nome e devolve o objeto inteiro.
+     */
+    private void recusarSeMudaVinculoSemAutorizacao(UUID pacienteId, List<UUID> novosCuidadores) {
+        if (callerAuthoritiesPort.hasAuthority(AUTHORITY_VINCULAR)) {
+            return;
+        }
+        Set<UUID> atuais =
+                cuidadorRepository.findByPacienteId(pacienteId).stream()
+                        .map(PacienteCuidador::cuidadorResponsavelId)
+                        .collect(Collectors.toSet());
+        if (atuais.equals(Set.copyOf(novosCuidadores))) {
+            return; // nada mudou — nao e vinculo, e edicao
+        }
+        log.warn(
+                "Recusado: chamador sem {} tentou mudar a lista de cuidadoras do paciente {}",
+                AUTHORITY_VINCULAR,
+                pacienteId);
+        throw new CodedException(
+                        "pac.paciente.vinculo-nao-autorizado",
+                        "Changing the caregiver list requires the "
+                                + AUTHORITY_VINCULAR
+                                + " authority. Editing the patient does not grant it.")
+                .withContext(Map.of("pacienteId", pacienteId.toString()));
     }
 }

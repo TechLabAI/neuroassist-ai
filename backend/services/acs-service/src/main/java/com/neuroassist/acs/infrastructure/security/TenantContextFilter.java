@@ -37,6 +37,9 @@ public class TenantContextFilter extends OncePerRequestFilter {
                 return;
             }
             TenantContextHolder.set(tenantId);
+        } else if (requiresTenantClaim()) {
+            writeMissingTenantClaim(response);
+            return;
         }
         try {
             chain.doFilter(request, response);
@@ -55,5 +58,35 @@ public class TenantContextFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+
+    /**
+     * Um JWT autenticado sem claim de tenant tem de ser recusado aqui (E2E-021).
+     *
+     * <p>Antes o filtro seguia em frente: nada era ligado ao {@code TenantContextHolder}, e a
+     * requisicao morria adiante com {@code relation ... does not exist}, porque o resolver cai em
+     * {@code neuroassist_global}, onde as tabelas de negocio nao existem. Nao vazava dado — mas a
+     * seguranca dependia de uma coincidencia (o schema de fallback nao conter tabela de negocio), e
+     * o chamador recebia 500 em vez de saber o que faltava. Era tambem o que tornava perigoso
+     * remover os aliases de claim: quatro servicos liam so um alias, e parar de emiti-lo os faria
+     * resolver tenant nulo em silencio.
+     *
+     * <p><b>Excecao deliberada:</b> {@code token_type=service} pode legitimamente nao ter tenant —
+     * o cliente que cria empresas nao tem empresa a que se escopar (E2E-029), e o ACS so concede
+     * isso a clientes marcados como tenant-less.
+     */
+    private boolean requiresTenantClaim() {
+        Authentication current = SecurityContextHolder.getContext().getAuthentication();
+        if (!(current instanceof JwtAuthenticationToken jwtAuth)) {
+            return false; // sem JWT: quem decide o acesso e o SecurityConfig
+        }
+        return !"service".equals(jwtAuth.getToken().getClaimAsString("token_type"));
+    }
+
+    /** 403 explicito, com um codigo que diz o que faltava. */
+    private void writeMissingTenantClaim(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"error\":\"tenant_claim_missing\"}");
     }
 }

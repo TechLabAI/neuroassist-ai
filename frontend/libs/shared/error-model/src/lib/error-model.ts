@@ -7,4 +7,20 @@ export interface AppError {
    * Examples: '/errors/tenant-mismatch', '/errors/forbidden', '/errors/event-not-found'.
    * INT-FE-EVNT-006 / P6-C. */
   readonly type?: string;
+  /**
+   * Erros por CAMPO, quando o backend os manda.
+   *
+   * <p>Um ProblemDetail de validação carrega `fieldErrors: [{field, message}]`, e
+   * essa lista é o que permite dizer "Dispositivo desconhecido no catálogo EDGE"
+   * ao lado do campo dispositivo, em vez de uma frase genérica no rodapé do
+   * formulário. Nada no frontend modelava isso: a informação chegava e era
+   * jogada fora, então toda falha de validação virava a mesma mensagem.
+   */
+  readonly fieldErrors?: readonly FieldError[];
+}
+
+/** Um erro atribuído a um campo do formulário. */
+export interface FieldError {
+  readonly field: string;
+  readonly message: string;
 }

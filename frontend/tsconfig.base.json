@@ -24,11 +24,17 @@
       "@neuroassist/evnt": [
         "libs/evnt/src/index.ts"
       ],
+      "@neuroassist/evnt/testing": [
+        "libs/evnt/src/testing/index.ts"
+      ],
       "@neuroassist/pac": [
         "libs/pac/src/index.ts"
       ],
       "@neuroassist/acs": [
         "libs/acs/src/index.ts"
+      ],
+      "@neuroassist/acs/testing": [
+        "libs/acs/src/testing/index.ts"
       ],
       "@neuroassist/hist": [
         "libs/hist/src/index.ts"
@@ -41,6 +47,12 @@
       ],
       "@neuroassist/shared/auth-session": [
         "libs/shared/auth-session/src/index.ts"
+      ],
+      "@neuroassist/shared/auth-login": [
+        "libs/shared/auth-login/src/index.ts"
+      ],
+      "@neuroassist/shared/auth-login/testing": [
+        "libs/shared/auth-login/src/testing/index.ts"
       ],
       "@neuroassist/shared/empresa-context": [
         "libs/shared/empresa-context/src/index.ts"

@@ -18,7 +18,8 @@ import lombok.Setter;
  * JPA entity for the {@code paciente} table.
  *
  * <p>Schema: per-empresa (tenant-scoped). Schema routing handled by MultiTenantConnectionProvider +
- * TenantContextHolder at runtime. Column mapping aligned to V1__create_initial_schema.sql.
+ * TenantContextHolder at runtime. Column mapping aligned to V0200__pac_extensions_and_paciente.sql
+ * (neuroassist-ai-migrations).
  */
 @Entity
 @Table(name = "paciente")
@@ -67,4 +68,8 @@ public class PacienteJpaEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** LGPD erasure timestamp — see {@code Paciente#erasedAt}. */
+    @Column(name = "erased_at")
+    private Instant erasedAt;
 }

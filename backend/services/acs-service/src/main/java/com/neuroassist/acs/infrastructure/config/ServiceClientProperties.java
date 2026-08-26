@@ -55,5 +55,19 @@ public class ServiceClientProperties {
 
         /** Set false to disable the client without removing its configuration. */
         private boolean enabled = true;
+
+        /**
+         * Whether this client may obtain a <b>tenant-less</b> token over HTTP (E2E-029).
+         *
+         * <p>Default false, and it must stay the default. A service token is normally scoped to a
+         * tenant because downstream services route the Postgres {@code search_path} by the tenant
+         * claim — a tenant-less token would reach the wrong schema.
+         *
+         * <p>The exception is the client whose job is to create tenants: onboarding a company
+         * happens before that company exists, so there is no tenant to scope to. Declaring it per
+         * client keeps the original constraint intact for everyone whose calls do route by schema,
+         * instead of relaxing the rule globally to accommodate one caller.
+         */
+        private boolean tenantless = false;
     }
 }

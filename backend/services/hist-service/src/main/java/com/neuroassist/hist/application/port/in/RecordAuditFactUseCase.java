@@ -40,7 +40,13 @@ public interface RecordAuditFactUseCase {
             Map<String, Object> payload,
             Instant occurredAt,
             UUID correctsFactId,
-            String tenantId) {}
+            String tenantId,
+
+            /**
+             * Patient this fact concerns, for caregiver scoping (C-16). Optional on the wire: when
+             * the subject already is a patient, hist-service derives it from the subject.
+             */
+            UUID scopePacienteId) {}
 
     /**
      * Result returned to the controller.

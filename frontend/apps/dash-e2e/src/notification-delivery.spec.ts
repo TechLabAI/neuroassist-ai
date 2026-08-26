@@ -23,6 +23,23 @@
  */
 import { test, expect, Page } from '@playwright/test';
 
+import { scriptSemAlarmeDeEmergencia } from '@neuroassist/evnt/testing';
+import { scriptSemearSessao } from '@neuroassist/shared/auth-login/testing';
+
+// Sessão semeada: todas as rotas do shell passam a exigir login (shared/auth-login).
+// Sem isto a suíte cai em /login. `addInitScript` roda antes de qualquer script da
+// página — o AuthSessionStore lê o sessionStorage no construtor, então semear
+// depois do goto seria tarde demais.
+//
+// Emergência apagada: esta suíte é sobre a LISTA de notificações e o "Revisei". O
+// mock do EVNT semeia uma emergência ativa cujo alarme cobre a tela toda — e o clique
+// em "Revisei" reprovava com "alarm-overlay intercepts pointer events", que é o alarme
+// funcionando, não a lista quebrada. Quem prova a preempção é a evnt-e2e.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(scriptSemearSessao());
+  await page.addInitScript(scriptSemAlarmeDeEmergencia());
+});
+
 // ── Navigation helpers ─────────────────────────────────────────────────────────
 
 /** Navigate to /notificacoes and wait for the heading. */
@@ -36,6 +53,10 @@ async function waitForList(page: Page): Promise<void> {
   // The "Ajuda" notification text appears after listUnacknowledged() completes (400ms mock)
   await expect(page.getByText('"Ajuda"')).toBeVisible({ timeout: 5000 });
 }
+
+// Nota de seletor: o shell renderiza <app-sidebar><aside>…</aside> — não existe
+// `nav.sidebar`. As asserções de "shell intacto" apontavam para uma estrutura antiga
+// e o erro que davam ("element(s) not found") escondia o que queriam medir.
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -157,7 +178,7 @@ test.describe('DASH — Notification delivery: lista + acknowledge (FE-DASH-026)
     await expect(page.getByRole('button', { name: 'Tentar novamente' })).toBeVisible();
 
     // Shell chrome intact: sidebar still visible (error is inline content, not shell)
-    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('app-sidebar')).toBeVisible();
 
     // No "Tudo revisado" (error state, not empty state)
     await expect(page.getByText('Tudo revisado')).not.toBeVisible();

@@ -65,3 +65,13 @@ export { toRelativePtBR } from './lib/ui/relative-time.component';
 // Or shared/ui-feedback once available.
 export { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './lib/edge-toast.token';
 export type { EdgeToastService } from './lib/edge-toast.token';
+
+// Tokens de acesso — exportados para que `app.config.ts` possa LIGÁ-LOS à sessão
+// real. Enquanto ficaram só internos, o padrão `factory: () => null` valia para
+// sempre, e o "Wave-0 bypass" dos guards do EDGE nunca tinha como acabar.
+export {
+  EDGE_ACCESS_DECISION,
+  EDGE_AUTH_SESSION,
+  type EdgeAccessDecision,
+  type EdgeAuthSession,
+} from './lib/access/edge-access-tokens';

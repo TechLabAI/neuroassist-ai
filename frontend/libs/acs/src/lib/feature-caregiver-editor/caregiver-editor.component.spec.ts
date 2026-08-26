@@ -7,7 +7,7 @@
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { CaregiverEditorComponent } from './caregiver-editor.component';
 import { AcsCaregiverFacade } from '../acs-caregiver.facade';
 import type { CuidadorVm } from '../acs.types';
@@ -29,6 +29,10 @@ const mockFacade = {
     papel: 'cuidadora', status: 'active', isActive: true, papelLabel: 'Cuidadora',
   }),
   loadOne: jest.fn().mockResolvedValue(undefined),
+  edit: jest.fn().mockResolvedValue({
+    id: 'cuid-1', nome: 'Nome Corrigido', email: 'corrigido@test.com',
+    papel: 'cuidadora', status: 'active', isActive: true, papelLabel: 'Cuidadora',
+  }),
   // unused but needed for DI type compatibility
   loading: signal(false).asReadonly(),
   caregivers: signal([]).asReadonly(),
@@ -60,6 +64,10 @@ describe('CaregiverEditorComponent — FE-ACS-022 (form validation)', () => {
       papel: 'cuidadora', status: 'active', isActive: true, papelLabel: 'Cuidadora',
     });
     mockFacade.loadOne.mockResolvedValue(undefined);
+    mockFacade.edit.mockResolvedValue({
+      id: 'cuid-1', nome: 'Nome Corrigido', email: 'corrigido@test.com',
+      papel: 'cuidadora', status: 'active', isActive: true, papelLabel: 'Cuidadora',
+    });
 
     await TestBed.configureTestingModule({
       imports: [CaregiverEditorComponent],
@@ -175,6 +183,74 @@ describe('CaregiverEditorComponent — FE-ACS-022 (form validation)', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // COMPOSTO — o editor virou o passo "Convidar cuidadora" do assistente
+  //
+  // Ele NAVEGAVA para /acs ao convidar com sucesso. Composto no assistente, isso
+  // EJETAVA a pessoa da configuração no meio — depois de uma ação bem-sucedida e
+  // sem aviso: ela perdia o assistente, o progresso visível e o passo seguinte.
+  // Navegar é comportamento de PÁGINA, e composto ele não é página.
+  // ---------------------------------------------------------------------------
+  describe('composto no assistente', () => {
+    function preencher(): void {
+      component.draftForm.setValue({ nome: 'Ana', email: 'ana@x.com', papel: 'cuidadora' });
+    }
+
+    it('COMPOSTO: convida, ANUNCIA por `convidada` e NÃO navega', async () => {
+      const router = TestBed.inject(Router);
+      const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+      const anunciado: unknown[] = [];
+      component.composto = true;
+      component.convidada.subscribe((v) => anunciado.push(v));
+      fixture.detectChanges();
+
+      preencher();
+      await component.save();
+
+      expect(mockFacade.invite).toHaveBeenCalledTimes(1);
+      expect(anunciado).toEqual([{ cuidadorId: 'cuid-new', nome: 'Ana', email: 'ana@x.com' }]);
+      expect(navegar).not.toHaveBeenCalled();
+    });
+
+    // CONTROLE NEGATIVO: como PÁGINA (rota /acs/cuidadores/novo) ele continua
+    // navegando. Sem este par, um `navigate` que nunca acontece — por qualquer
+    // motivo — passaria pelo teste acima.
+    it('COMO PÁGINA: convida e navega para /acs', async () => {
+      const router = TestBed.inject(Router);
+      const navegar = jest.spyOn(router, 'navigate').mockResolvedValue(true);
+
+      preencher();
+      await component.save();
+
+      expect(mockFacade.invite).toHaveBeenCalledTimes(1);
+      expect(navegar).toHaveBeenCalledWith(['/acs']);
+    });
+
+    it('COMPOSTO: não contribui <h1> nem o botão Cancelar', () => {
+      component.composto = true;
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('h1')).toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="editor-cancel"]')).toBeNull();
+    });
+
+    // CONTROLE NEGATIVO do item acima: como página, os dois voltam.
+    it('COMO PÁGINA: contribui <h1> e o botão Cancelar', () => {
+      expect(fixture.nativeElement.querySelector('h1')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('[data-testid="editor-cancel"]')).not.toBeNull();
+    });
+
+    it('COMPOSTO: confirma o convite na própria superfície', async () => {
+      component.composto = true;
+      fixture.detectChanges();
+      preencher();
+      await component.save();
+      fixture.detectChanges();
+      expect(
+        fixture.nativeElement.querySelector('[data-testid="editor-convidada"]'),
+      ).not.toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Error display
   // ---------------------------------------------------------------------------
   describe('error display', () => {
@@ -192,6 +268,71 @@ describe('CaregiverEditorComponent — FE-ACS-022 (form validation)', () => {
       // When facade.error()=null, the facade error paragraph is not rendered
       const template = fixture.nativeElement as HTMLElement;
       expect(template.querySelector('p[role="alert"]')).toBeNull();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // EDICAO — o ramo que era NO-OP SILENCIOSO
+  //
+  // O `if` cobria so a criacao e nao havia `else`: quem corrigia um nome clicava
+  // "Salvar", nada acontecia, e a tela nao dizia nem sucesso nem erro. A causa
+  // era mais funda que a tela — nao existia endpoint de edicao no acs-service.
+  //
+  // Estes testes existem porque, quando liguei o ramo, NENHUM teste ficou
+  // vermelho ao eu reverte-lo para `return;` — a mutacao sobrevivia, e uma
+  // mutacao que sobrevive e a mesma coisa que nao ter teste.
+  // ---------------------------------------------------------------------------
+
+  describe('edicao', () => {
+    async function montarEmModoEdicao(): Promise<void> {
+      component.isEdit.set(true);
+      component['editingId'].set('cuid-1');
+      component.draftForm.setValue({
+        nome: 'Nome Corrigido',
+        email: 'corrigido@test.com',
+        papel: 'cuidadora',
+      });
+      await component.save();
+    }
+
+    it('salva de verdade — chama facade.edit', async () => {
+      await montarEmModoEdicao();
+      expect(mockFacade.edit).toHaveBeenCalledTimes(1);
+    });
+
+    it('manda APENAS nome e login — nunca o papel', async () => {
+      // O endpoint nao aceita papel; mandar daqui faria a tela oferecer um campo
+      // que o servidor ignoraria em silencio: a pessoa mudaria o papel, veria
+      // "salvo", e nada teria mudado.
+      await montarEmModoEdicao();
+      expect(mockFacade.edit).toHaveBeenCalledWith('cuid-1', {
+        nome: 'Nome Corrigido',
+        email: 'corrigido@test.com',
+      });
+    });
+
+    it('nao convida ao editar — sao operacoes diferentes', async () => {
+      await montarEmModoEdicao();
+      expect(mockFacade.invite).not.toHaveBeenCalled();
+    });
+
+    it('formulario invalido nao chega ao servidor', async () => {
+      component.isEdit.set(true);
+      component['editingId'].set('cuid-1');
+      component.draftForm.setValue({ nome: '', email: 'x', papel: 'cuidadora' });
+
+      await component.save();
+
+      expect(mockFacade.edit).not.toHaveBeenCalled();
+    });
+
+    it('falha do servidor nao navega — a pessoa fica onde pode corrigir', async () => {
+      mockFacade.edit.mockResolvedValue(null);
+      const navegou = jest.spyOn(TestBed.inject(Router), 'navigate');
+
+      await montarEmModoEdicao();
+
+      expect(navegou).not.toHaveBeenCalled();
     });
   });
 });

@@ -32,24 +32,33 @@ public class ArchitectureTest {
                     .resideInAPackage("jakarta.persistence..");
 
     // RULE-04: api.* must not depend on infrastructure.*
+    //
+    // Anchored to this service's own packages, not "..api..". The loose form also matches
+    // third-party packages that happen to be named `api` — `org.flywaydb.core.api` is the one
+    // that surfaced it (E2E-016): the moment an infrastructure adapter touched Flyway's public
+    // API, RULE-05 reported 16 violations that had nothing to do with hexagonal boundaries.
+    // A guard that fires on the wrong thing gets muted, and a muted guard protects nothing.
+    private static final String OWN_API = "com.neuroassist.mig.api..";
+    private static final String OWN_INFRA = "com.neuroassist.mig.infrastructure..";
+
     @ArchTest
     static final ArchRule rule04_api_not_depends_infra =
             ArchRuleDefinition.noClasses()
                     .that()
-                    .resideInAPackage("..api..")
+                    .resideInAPackage(OWN_API)
                     .should()
                     .dependOnClassesThat()
-                    .resideInAPackage("..infrastructure..");
+                    .resideInAPackage(OWN_INFRA);
 
     // RULE-05: infrastructure.* must not depend on api.*
     @ArchTest
     static final ArchRule rule05_infra_not_depends_api =
             ArchRuleDefinition.noClasses()
                     .that()
-                    .resideInAPackage("..infrastructure..")
+                    .resideInAPackage(OWN_INFRA)
                     .should()
                     .dependOnClassesThat()
-                    .resideInAPackage("..api..");
+                    .resideInAPackage(OWN_API);
 
     // RULE-06: @FeignClient only in infrastructure.clients
     @ArchTest

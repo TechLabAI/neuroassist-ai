@@ -22,7 +22,7 @@ The library is currently a single monolithic lib. Per generator-config.yml, the 
 **Current state:** All code is in a single `/src` folder; no separate sublib structure.
 
 ### Issues Ativas
-**Total:** 33 issues (26 FE + 7 integration)
+**Total:** 41 issues (33 FE + 8 integration)
 - **Wave 1 (Foundation):** GEST-FE-001..006, GEST-INT-007 — **0/7 DONE** (all marked ABERTA in issue files, but code exists)
 - **Wave 2 (Data access):** GEST-FE-007..010, GEST-INT-003 — **3/5 DONE** (facade, adapters, VM types exist; no tests)
 - **Wave 3 (Feature libs):** GEST-FE-011..016 — **1/6 DONE** (GestureLiveTestComponent inline; no split presentational components)
@@ -32,6 +32,8 @@ The library is currently a single monolithic lib. Per generator-config.yml, the 
 - **Wave 7 (UX Polish):** GEST-FE-019..020 — **0/2 DONE** (loading/error states, error routing)
 - **Wave 8 (Observability):** GEST-FE-021 — **0/1 DONE** (no telemetry)
 - **Wave 9 (E2E + Hardening):** GEST-FE-022..026 — **0/5 DONE** (no Playwright tests)
+- **Wave 10 (Estação do paciente — ADR-008/SPEC-09):** GEST-FE-027..033, GEST-INT-008 — **0/8 DONE**
+  (arquitetada em 2026-08-25; nada implementado)
 
 ---
 
@@ -164,6 +166,24 @@ libs/gest/src/
 ---
 
 ## 4. Gaps Atuais
+
+0. **A cadeia gesto → evento → alarme NÃO TEM RUNTIME (BLOQUEADOR DE PRODUTO)**
+   - O detector só roda dentro do teste ao vivo, quando alguém clica em "Testar gesto". Não existe
+     rota always-on, nem produtor do evento de gesto: `grep -rn "@JmsListener"` nos 7 serviços não
+     acha consumidor, e nada emite "gesto detectado".
+   - Sintoma verificado no banco em 2026-08-25: **16 dispositivos registrados, zero heartbeats.**
+     As telas de alarme são alimentadas por mock.
+   - O backend está pronto (`POST /api/v1/reports`, `POST /oauth2/token/device`,
+     `POST /api/v1/edge/heartbeat`, `GET /gest-service/detection-profile/devices/{id}`); o buraco
+     é inteiramente no frontend.
+   - Endereçado por: `ADR-008` + `SPEC-09` + GEST-FE-027..033, GEST-INT-008 (W10).
+
+0b. **A sensibilidade escolhida na calibração não faz nada**
+   - `DetectionThresholdTable` publica três faixas; o detector do browser tem limiares fixos e
+     nunca recebe `sensibilidade`. Divergem do canônico (`earClose` 0.20 × 0.22, `briRaiseOn`
+     0.40 × 0.30, `blinkMinFrames` 3 × 2, janela 1800 × 2000 ms).
+   - O guarda de drift do CI vigia `edge_agent_core.py` — runtime que a ADR-007 aposentou.
+   - Endereçado por: GEST-FE-029 e GEST-INT-008.
 
 1. **Nx build targets empty (CRITICAL BLOCKER)**
    - `project.json` has no `targets` entry → gates (lint/test/build) cannot run

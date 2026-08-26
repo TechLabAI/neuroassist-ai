@@ -62,7 +62,7 @@ laptop running the NeuroAssist AI stack locally. No external network access was
 required during sessions.
 
 \textbf{Software.} The edge detection pipeline ran as
-\texttt{poc-edge-agent-webcam.py} (Python~3.11), communicating with the Angular
+\texttt{poc-edge-agent-webcam.py} (Python~3.11; frozen under \texttt{docs/paper/artifacts/}), communicating with the Angular
 web application (\texttt{poc-gesture-detector.ts}) via \texttt{localhost}. The
 \texttt{evnt-service} and \texttt{gest-service} microservices ran locally via Docker
 Compose. Measurement scripts \texttt{measure\_latency.py} and

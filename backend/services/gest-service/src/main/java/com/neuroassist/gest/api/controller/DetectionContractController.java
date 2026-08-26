@@ -31,7 +31,7 @@ public class DetectionContractController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAuthority('gest.detection-contract.read')")
+    @PreAuthorize("hasAuthority('gest.detection-contract.validar')")
     public ResponseEntity<DetectionContractResponse> validateReport(
             @RequestBody DetectionContractRequest request) {
         return ResponseEntity.ok(detectionContractUseCase.validateReport(request));

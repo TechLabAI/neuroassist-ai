@@ -5,20 +5,27 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 /**
- * Per-scenario shared state for BDD step definitions. Scoped to "cucumber-glue" so a fresh instance
- * is created for each scenario. Holds the last HTTP response and entity ID produced by When steps,
- * consumed by Then assertion steps.
+ * Estado compartilhado entre steps de um mesmo cenário. Escopo {@code cucumber-glue}: uma instância
+ * nova por cenário.
+ *
+ * <p>{@code currentToken} substituiu o antigo {@code currentCredentials} de HTTP Basic. O Basic
+ * saiu do {@code SecurityConfig} de produção — ele existia apenas para servir esta suíte, com senha
+ * em texto plano válida em todo ambiente —, então os cenários passaram a assinar JWTs de teste como
+ * fazem os outros seis serviços.
  */
 @Component
 @Scope("cucumber-glue")
 public class ScenarioState {
 
-    /** Last HTTP response received from the service under test. */
+    /** Última resposta HTTP recebida do serviço sob teste. */
     public ResponseEntity<String> lastResponse;
 
-    /** UUID string of the last TipoGesto created or transitioned in the current scenario. */
+    /** UUID (texto) do último TipoGesto criado ou transicionado no cenário. */
     public String lastEntityId;
 
-    /** Basic-auth credentials (user:password) for the current scenario caller. */
-    public String currentCredentials = "gest-manager:manager-secret";
+    /** JWT do chamador atual, sem o prefixo "Bearer ". Nulo = requisição anônima. */
+    public String currentToken;
+
+    /** Resposta anterior, para os cenários de idempotência. */
+    public ResponseEntity<String> previousResponse;
 }

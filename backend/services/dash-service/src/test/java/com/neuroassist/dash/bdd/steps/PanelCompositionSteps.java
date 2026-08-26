@@ -33,6 +33,15 @@ import org.springframework.http.MediaType;
 @RequiredArgsConstructor
 public class PanelCompositionSteps {
 
+    /**
+     * O nome real do paciente, deliberadamente DIFERENTE do seu id ("Marcio").
+     *
+     * <p>Enquanto o defeito estava vivo, o painel devolvia o proprio id no campo {@code name} — e
+     * uma assercao do tipo {@code contains("Marcio")} passava exatamente por causa disso. Com um
+     * nome distinto do id, so a correcao satisfaz a assercao.
+     */
+    static final String MARCIO_NOME = "Marcio Amaral";
+
     final DashBddContext ctx;
 
     @Autowired TestRestTemplate restTemplate;
@@ -54,52 +63,89 @@ public class PanelCompositionSteps {
     @And("Jamilly's ACS scope contains patient \"Marcio\"")
     public void andJamillysAcsScopeContainsPatientMarcio() {
         ctx.currentPatientId = "Marcio";
-        stubAcsScope("jamilly", "[\"Marcio\"]");
+        stubAcsScope("jamilly", "{\"cuidadorId\":\"jamilly\",\"pacienteIds\":[\"Marcio\"]}");
     }
 
     // ==================== Given ====================
 
     @Given("PAC, EVNT and EDGE are all available")
     public void givenPacEvntAndEdgeAreAllAvailable() {
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
         stubEdgeLiveness("Marcio", "online", false);
-        // EVNT soft: nao necessario para summary, mas stub para evitar erros
-        BaseIntegrationTest.evntWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/notifications/unacknowledged"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "application/json")
-                                        .withBody("[]")));
+        stubEvntActiveByPatient(/* comAlarme= */ false);
+    }
+
+    /**
+     * O cenario que este painel existe para atender: ha um pedido de ajuda em aberto.
+     *
+     * <p><b>Controle negativo.</b> Antes desta issue o {@code hasActiveEvent} era {@code false}
+     * literal no codigo — entao qualquer cenario que assertasse {@code false} passava com o defeito
+     * vivo. Este cenario e o unico formato de asserçao que o defeito nao consegue satisfazer.
+     */
+    @Given("Marcio has an unanswered help request in EVNT")
+    public void givenMarcioHasAnUnansweredHelpRequest() {
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEdgeLiveness("Marcio", "online", false);
+        stubEvntActiveByPatient(/* comAlarme= */ true);
+    }
+
+    @Given("PAC does not answer the patient name lookup")
+    public void givenPacDoesNotAnswerTheNameLookup() {
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes"))
+                        .willReturn(aResponse().withStatus(503)));
+        stubEdgeLiveness("Marcio", "online", false);
+        stubEvntActiveByPatient(/* comAlarme= */ true);
     }
 
     @Given("EDGE is unreachable")
     public void givenEdgeIsUnreachable() {
-        // PAC disponivel; EDGE retorna 503 — soft degrade
-        stubPacCommandCatalog("Marcio");
+        // PAC disponivel; EDGE retorna 503 — soft degrade.
+        //
+        // O path estava ERRADO ate E2E-018: `/api/v1/devices/patient/{id}/liveness`, que e a
+        // forma antiga corrigida em C-33. O stub nunca casava, o WireMock respondia 404, e o
+        // `catch (Exception)` do adapter transformava esse 404 em degradado — o cenario passava
+        // sem nunca ter testado um EDGE fora do ar. So apareceu quando o adapter passou a
+        // distinguir "nao ha dispositivo" (404) de "nao consegui perguntar" (503).
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEvntActiveByPatient(/* comAlarme= */ false);
         BaseIntegrationTest.edgeWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/devices/patient/Marcio/liveness"))
+                get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
                         .willReturn(aResponse().withStatus(503)));
+    }
+
+    @Given("EDGE reports that the patient has no paired device")
+    public void givenEdgeReportsNoDevice() {
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
+        stubEvntActiveByPatient(/* comAlarme= */ false);
+        BaseIntegrationTest.edgeWireMock.stubFor(
+                get(urlPathEqualTo("/api/v1/edge/patients/Marcio/liveness"))
+                        .willReturn(aResponse().withStatus(404)));
     }
 
     @Given("EVNT is unreachable")
     public void givenEvntIsUnreachable() {
         // PAC e EDGE disponiveis; EVNT retorna 503 — soft degrade
-        stubPacCommandCatalog("Marcio");
+        stubPacPaciente("Marcio", MARCIO_NOME);
+        stubPacCatalogoAtivo("Marcio");
         stubEdgeLiveness("Marcio", "online", false);
         BaseIntegrationTest.evntWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/notifications/unacknowledged"))
+                get(urlPathEqualTo("/api/v1/events/active/by-patient"))
                         .willReturn(aResponse().withStatus(503)));
     }
 
     @Given("PAC is unreachable")
     public void givenPacIsUnreachable() {
-        // PAC retorna 503 em todos os endpoints — hard dependency (propaga 503)
+        // PAC retorna 503 nos caminhos REAIS — hard dependency do overview (propaga 503)
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/Marcio/commands"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes/Marcio"))
                         .willReturn(aResponse().withStatus(503)));
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/Marcio/calibration"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes/Marcio/catalogo-ativo"))
                         .willReturn(aResponse().withStatus(503)));
     }
 
@@ -143,7 +189,37 @@ public class PanelCompositionSteps {
     public void andMarcioHasADeviceStatusAndALatest() {
         // PatientSummaryEntry{patientId, name, hasActiveEvent, deviceStatus}
         assertThat(ctx.lastResponse.getBody()).contains("deviceStatus");
-        assertThat(ctx.lastResponse.getBody()).contains("Marcio");
+        assertThat(ctx.lastResponse.getBody()).contains("\"patientId\":\"Marcio\"");
+        // "perguntei ao EVNT e nao ha alarme" — false, e nunca null.
+        assertThat(ctx.lastResponse.getBody()).contains("\"hasActiveEvent\":false");
+    }
+
+    @And("the summary shows the real name {string} for {string}")
+    public void andTheSummaryShowsTheRealName(String nome, String patientId) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("o painel mostra o nome vindo do PAC, e nao o id")
+                .contains("\"name\":\"" + nome + "\"");
+    }
+
+    @And("the summary marks {string} as having an active help request")
+    public void andTheSummaryMarksAsHavingActiveEvent(String patientId) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("indicador de pedido de ajuda em aberto para %s", patientId)
+                .contains("\"hasActiveEvent\":true");
+    }
+
+    @And("the event indicator for {string} is unknown")
+    public void andTheEventIndicatorIsUnknown(String patientId) {
+        // null == "nao consegui perguntar ao EVNT". Jamais false, que significaria "nao ha".
+        assertThat(ctx.lastResponse.getBody()).contains("\"hasActiveEvent\":null");
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"hasActiveEvent\":false");
+    }
+
+    @And("the name for {string} is unknown")
+    public void andTheNameIsUnknown(String patientId) {
+        // null, e nunca o id disfarcado de nome.
+        assertThat(ctx.lastResponse.getBody()).contains("\"name\":null");
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"name\":\"Marcio\"");
     }
 
     @And("degradedSections is empty")
@@ -152,16 +228,30 @@ public class PanelCompositionSteps {
         assertThat(ctx.lastResponse.getBody()).doesNotContain("\"deviceStatus\":\"unknown\"");
     }
 
-    @And("the device status for \"Marcio\" is \"unknown\"")
-    public void andTheDeviceStatusForMarcioIsUnknown() {
-        // EDGE soft-degrade: buildSummaryEntry retorna DeviceStatus("unknown","unknown",true)
-        assertThat(ctx.lastResponse.getBody()).contains("unknown");
+    /**
+     * Asserção exata sobre o par JSON, e não {@code contains("unknown")} (E2E-018).
+     *
+     * <p>A forma anterior passava com a palavra "unknown" em qualquer lugar do corpo — inclusive
+     * vinda de outro campo. Com três estados possíveis para {@code deviceStatus}, uma asserção
+     * frouxa deixaria de distinguir exatamente o que esta issue passou a distinguir.
+     */
+    @And("the device status for {string} is {string}")
+    public void andTheDeviceStatusIs(String patient, String expected) {
+        assertThat(ctx.lastResponse.getBody())
+                .as("deviceStatus de %s", patient)
+                .contains("\"deviceStatus\":\"" + expected + "\"");
     }
 
     @And("the device indicator is marked degraded")
     public void andTheDeviceIndicatorIsMarkedDegraded() {
-        // PatientSummaryEntry.deviceStatus = "unknown" indica degradacao
-        assertThat(ctx.lastResponse.getBody()).contains("unknown");
+        // `unknown` é o único estado que significa "não consegui perguntar ao EDGE".
+        assertThat(ctx.lastResponse.getBody()).contains("\"deviceStatus\":\"unknown\"");
+    }
+
+    @And("the device indicator is not marked degraded")
+    public void andTheDeviceIndicatorIsNotMarkedDegraded() {
+        // O painel sabe o estado do dispositivo — mesmo que o estado seja "não há dispositivo".
+        assertThat(ctx.lastResponse.getBody()).doesNotContain("\"deviceStatus\":\"unknown\"");
     }
 
     @And("the summary omits the latest event section")
@@ -195,14 +285,15 @@ public class PanelCompositionSteps {
         // Verifica que HIST recebeu requisicao para o historico de Marcio
         // (from nao e um param da API atual; verificamos o path correto)
         BaseIntegrationTest.histWireMock.verify(
-                getRequestedFor(urlPathEqualTo("/api/v1/patients/Marcio/history")));
+                getRequestedFor(urlPathEqualTo("/api/v1/hist/history"))
+                        .withQueryParam("subjectId", equalTo("Marcio")));
     }
 
     @And("HIST received size \"100\"")
     public void andHistReceivedSize100() {
         // size=200 enviado pelo browser; o servico capa a 100 antes de chamar HIST
         BaseIntegrationTest.histWireMock.verify(
-                getRequestedFor(urlPathEqualTo("/api/v1/patients/Marcio/history"))
+                getRequestedFor(urlPathEqualTo("/api/v1/hist/history"))
                         .withQueryParam("size", equalTo("100")));
     }
 
@@ -216,7 +307,10 @@ public class PanelCompositionSteps {
 
     private void stubAcsScope(String caregiverId, String patientsJson) {
         BaseIntegrationTest.acsWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/caregivers/" + caregiverId + "/patients"))
+                get(urlPathEqualTo(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
@@ -225,43 +319,115 @@ public class PanelCompositionSteps {
                                         .withBody(patientsJson)));
     }
 
-    private void stubPacCommandCatalog(String patientId) {
+    /**
+     * Stub do pac-service. Caminho e corpo espelham {@code PacienteController} / {@code
+     * PacienteResponse}: {@code GET /api/pac/v1/pacientes} (lista do tenant) e {@code GET
+     * /api/pac/v1/pacientes/&#123;id&#125;}.
+     *
+     * <p>O stub anterior inventava {@code /api/v1/patients/&#123;id&#125;/commands} e {@code
+     * .../calibration}, que o PAC responde <b>404 "No static resource"</b> — conferido com curl
+     * contra o servico rodando. Era por isso que o gate ficava verde enquanto o overview nunca
+     * funcionou uma unica vez.
+     */
+    private void stubPacPaciente(String patientId, String nome) {
+        String corpo =
+                ("{\"id\":\"%s\",\"nome\":\"%s\",\"dispositivoEdgeId\":null,"
+                                + "\"cuidadorResponsavelIds\":[],\"rowVersion\":0}")
+                        .formatted(patientId, nome);
         BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/commands"))
+                get(urlPathEqualTo("/api/pac/v1/pacientes"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody("[" + corpo + "]")));
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes/" + patientId))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody(corpo)));
+    }
+
+    /** Espelha {@code CatalogoAtivoController} / {@code CatalogoAtivoResponse}. */
+    private void stubPacCatalogoAtivo(String patientId) {
+        String corpo =
+                ("{\"pacienteId\":\"%s\",\"empresaId\":null,\"catalogoVersao\":3,"
+                                + "\"comandos\":[{\"id\":\"cmd-water\",\"rotulo\":\"Agua\","
+                                + "\"necessidade\":\"hidratacao\",\"primitivoPrincipalId\":null,"
+                                + "\"primitivoSecundarioId\":null,\"sensibilidade\":\"media\","
+                                + "\"tempoMinGestoMs\":300,\"tempoMaxGestoMs\":1200,"
+                                + "\"urgencia\":\"rotina\",\"calibracaoVersao\":2,"
+                                + "\"updatedAt\":\"2026-08-01T00:00:00Z\"}]}")
+                        .formatted(patientId);
+        BaseIntegrationTest.pacWireMock.stubFor(
+                get(urlPathEqualTo("/api/pac/v1/pacientes/" + patientId + "/catalogo-ativo"))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(200)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withHeader("ETag", "\"3\"")
+                                        .withBody(corpo)));
+    }
+
+    /**
+     * Espelha {@code EventQueryController#listActiveByPatient} e {@code
+     * EventQueryUseCase.ActiveEventsByPatientResponse} do evnt-service.
+     */
+    private void stubEvntActiveByPatient(boolean comAlarme) {
+        String alarme = comAlarme ? "[\"Marcio\"]" : "[]";
+        BaseIntegrationTest.evntWireMock.stubFor(
+                get(urlPathEqualTo("/api/v1/events/active/by-patient"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
                                         .withBody(
-                                                "{\"commands\":[\"cmd-water\"],\"calibrationState\":\"calibrated\"}")));
-        BaseIntegrationTest.pacWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/calibration"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"state\":\"calibrated\"}")));
+                                                "{\"consultados\":[\"Marcio\"],\"comAlarmeAtivo\":"
+                                                        + alarme
+                                                        + "}")));
     }
 
+    /**
+     * Stub do edge-service. O path e o corpo espelham {@code LivenessController} / {@code
+     * LivenessResponse} — antes era {@code /api/v1/devices/patient/.../liveness} com um campo
+     * {@code degraded} que o EDGE nunca devolveu (C-34). O {@code degraded} é conceito do DASH
+     * ("não consegui falar com o EDGE"), por isso o parâmetro continua aqui mas não vai para o
+     * corpo: os cenários que testam degradação stubam falha, não um campo.
+     */
     private void stubEdgeLiveness(String patientId, String status, boolean degraded) {
         BaseIntegrationTest.edgeWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/devices/patient/" + patientId + "/liveness"))
+                get(urlPathEqualTo("/api/v1/edge/patients/" + patientId + "/liveness"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
                                         .withBody(
-                                                "{\"deviceId\":\"dev-1\",\"status\":\"%s\",\"degraded\":%s}"
-                                                        .formatted(status, degraded))));
+                                                ("{\"deviceId\":\"dev-1\",\"pacienteId\":\"%s\","
+                                                                + "\"status\":\"%s\","
+                                                                + "\"stalenessThresholdSeconds\":90}")
+                                                        .formatted(patientId, status))));
     }
 
+    /**
+     * Stub do hist-service. Path e corpo espelham {@code HistoryQueryController} / {@code
+     * HistoryQueryResponse}: {@code GET /api/v1/hist/history?subjectType=paciente&subjectId=…}
+     * devolvendo {@code {items, page, size, total}}. O stub anterior inventava {@code
+     * /api/v1/patients/{id}/history} com {@code {entries, page, totalPages}} — e por isso o gate
+     * ficava verde enquanto o endpoint respondia 404 em runtime (C-33).
+     */
     private void stubHistHistory(String patientId) {
         BaseIntegrationTest.histWireMock.stubFor(
-                get(urlPathEqualTo("/api/v1/patients/" + patientId + "/history"))
+                get(urlPathEqualTo("/api/v1/hist/history"))
+                        .withQueryParam("subjectType", equalTo("paciente"))
+                        .withQueryParam("subjectId", equalTo(patientId))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"entries\":[],\"page\":0,\"totalPages\":0}")));
+                                        .withBody(
+                                                "{\"items\":[],\"page\":0,\"size\":20,"
+                                                        + "\"total\":0}")));
     }
 }

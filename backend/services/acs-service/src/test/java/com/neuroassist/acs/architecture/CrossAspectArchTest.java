@@ -40,8 +40,19 @@ public class CrossAspectArchTest {
                     "acs.autenticacao.autenticar",
                     "acs.vinculo.criar",
                     "acs.vinculo.revogar",
+                    // Revoga TODOS os vinculos de um paciente apagado (LGPD), atravessando a
+                    // invariante D-204 — a unica authority do sistema que faz isso. Separada de
+                    // acs.vinculo.revogar de proposito, e concedida apenas ao cliente de servico
+                    // do pac-service: RoleAuthorityPolicyTest percorre todos os papeis humanos
+                    // afirmando a ausencia dela.
+                    "acs.vinculo.revogar-apagamento",
                     "acs.cuidador.criar",
                     "acs.cuidador.desativar",
+                    // Corrigir nome e login. Separada de criar e de desativar: erro de
+                    // digitacao e inevitavel, e a alternativa (desativar e recriar)
+                    // quebra o historico, porque a confirmacao de alarme guarda o id
+                    // da cuidadora.
+                    "acs.cuidador.editar",
                     "acs.cuidador.read",
                     "acs.directory.read",
                     "acs.jwk-set.read",
@@ -55,7 +66,6 @@ public class CrossAspectArchTest {
                     "edge.liveness.resolver",
                     "edge.pairing.criar",
                     "edge.pairing.excluir",
-                    "edge.profile-pointer.read",
                     "evnt.event-confirmation.confirmar",
                     "evnt.event-query.read",
                     "evnt.notification-orchestration.processar",

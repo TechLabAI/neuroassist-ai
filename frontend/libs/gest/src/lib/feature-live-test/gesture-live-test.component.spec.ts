@@ -8,6 +8,7 @@ import {
   GestureTestOutcome,
 } from '@neuroassist/shared/contracts';
 import { GEST_ROUTES } from '../gest.routes';
+import { EDGE_DETECTION_PORT } from '../api/edge-detection.port';
 
 // ---------------------------------------------------------------------------
 // GestureLiveTestComponent — unit tests (GEST-FE-019, FE-020, FE-018)
@@ -151,7 +152,13 @@ describe('GestureLiveTestComponent', () => {
 
     TestBed.configureTestingModule({
       imports: [GestureLiveTestComponent],
-      providers: [{ provide: GestureTestFacade, useValue: mockFacade }],
+      providers: [
+        { provide: GestureTestFacade, useValue: mockFacade },
+        // O componente liga/desliga o overlay da malha pela porta de detecção.
+        // Só o `attachOverlay` é exercido aqui; o resto da porta não é tocado
+        // por estes cenários, que são todos de template.
+        { provide: EDGE_DETECTION_PORT, useValue: { attachOverlay: jest.fn() } },
+      ],
     }).overrideComponent(GestureLiveTestComponent, {
       set: { template: TEST_TEMPLATE },
     });

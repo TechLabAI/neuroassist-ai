@@ -38,7 +38,7 @@ public class EdgeDeviceAdapter implements EdgeDevicePort {
     public DispositivoEdgeRef resolveDispositivo(UUID dispositivoId) {
         try {
             EdgeDispositivoResponse resp = edgeDeviceClient.getDispositivo(dispositivoId);
-            return new DispositivoEdgeRef(resp.id(), resp.pacienteId(), resp.empresaId());
+            return new DispositivoEdgeRef(resp.deviceId(), resp.pacienteId(), resp.tenantRef());
         } catch (FeignException.NotFound e) {
             log.warn("Device not found in EDGE dispositivoId={}", dispositivoId);
             throw new CodedException(

@@ -3,7 +3,10 @@
 spring:
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # E2E-022 — `validate`, nao `create-drop`: as migrations reais sao aplicadas em
+      # BaseIntegrationTest antes do contexto subir, e uma divergencia entre entity e
+      # migration passa a derrubar o contexto. Ver testing-conventions.md §4.1.
+      ddl-auto: validate
   flyway:
     enabled: false
   artemis:

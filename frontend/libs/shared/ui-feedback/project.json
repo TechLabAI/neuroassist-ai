@@ -5,5 +5,28 @@
   "tags": [
     "type:ui",
     "scope:shared"
-  ]
+  ],
+  "targets": {
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": [
+        "{workspaceRoot}/coverage/libs/shared/ui-feedback"
+      ],
+      "options": {
+        "jestConfig": "libs/shared/ui-feedback/jest.config.js",
+        "passWithNoTests": false
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": [
+        "{options.outputFile}"
+      ],
+      "options": {
+        "lintFilePatterns": [
+          "libs/shared/ui-feedback/**/*.ts"
+        ]
+      }
+    }
+  }
 }

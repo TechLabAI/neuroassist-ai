@@ -1,0 +1,115 @@
+{
+  "issue": "EDGE-020",
+  "layer": "be",
+  "computedAt": "2026-08-23T16:02:00",
+  "checklist": {
+    "total": 10,
+    "done": 10,
+    "partial": 0,
+    "missing": 0,
+    "blocked": 0,
+    "items": [
+      {
+        "text": "implementar step definitions completas em `DeviceRegistrationEnrollmentSteps.java` (cenarios: register, enroll, token-expired, already-enrolled, retire, scope-guard)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: DeviceRegistrationEnrollmentSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `DevicePairingSteps.java` (cenarios: pair, unpair, exclusive-pairing-conflict, pair-retired-device, re-pair-with-credential-rotation)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: DevicePairingSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `HeartbeatLivenessSteps.java` (cenarios: online, offline-after-staleness, offline->online transition, device-retired heartbeat, ETag 304, serverTime present)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: HeartbeatLivenessSteps.java"
+      },
+      {
+        "text": "implementar step definitions completas em `ProfilePointerDriftSteps.java` (cenarios: no-drift, drift-detected, GEST-unavailable degraded, no-active-profile)",
+        "state": "DONE",
+        "evidence": "arquivo(s) presente(s) e nao-stub: ProfilePointerDriftSteps.java"
+      },
+      {
+        "text": "garantir que todos os ~38 cenarios passam no `./gradlew :services:edge-service:test -Dcucumber.filter.tags=@integration`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Todos os ~38 cenarios do `@integration` tag passam (exit 0)",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Nenhum cenario com status `Pending` ou `Undefined`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de credential enrollment retorna `clientSecret` uma unica vez e invalida token na segunda tentativa",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de liveness: poll apos staleness retorna `status=offline`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      },
+      {
+        "text": "Cenario de GEST degraded: heartbeat aceito com `profilePointerDegraded=true`",
+        "state": "DONE",
+        "evidence": "marcado (sem arquivo verificavel)"
+      }
+    ]
+  },
+  "gates": {
+    "build": "pass",
+    "lint": "pass",
+    "test": "pass",
+    "e2e": "pass"
+  },
+  "score": {
+    "total": 100,
+    "provisional": false,
+    "range": [
+      100,
+      100
+    ],
+    "breakdown": {
+      "structure": {
+        "max": 30,
+        "value": 30,
+        "basis": "deterministic"
+      },
+      "functionality": {
+        "max": 30,
+        "value": 30,
+        "basis": "heuristic",
+        "needsAgentConfirm": true
+      },
+      "tests_lint": {
+        "max": 20,
+        "value": 20,
+        "basis": "deterministic"
+      },
+      "e2e": {
+        "max": 10,
+        "value": 10,
+        "basis": "deterministic"
+      },
+      "soft": {
+        "value": 10,
+        "basis": "agent",
+        "needsAgentConfirm": false,
+        "assessedAt": "2026-08-23",
+        "rationale": [
+          "a11y: nao se aplica (servico backend).",
+          "observabilidade: logging JSON estruturado (LogstashEncoder em logback-spring.xml), CorrelationIdFilter + MDC propagado a Feign (CorrelationIdInterceptor) e a JMS (MdcContextRestorer), actuator expondo health/info/metrics/prometheus, metricas tagueadas com application e module.",
+          "enforcement multi-empresa: RULE-07 respeitada nos 8 application services. As 3 excecoes sem require() sao principiadas e documentadas — DeviceCredentialVerificationService e DeviceEnrollmentService sao entradas anonimas/service-to-service onde nao ha tenant vinculado ainda: resolvem pelo indice global FORA da transacao, fazem set() e restauram o valor anterior em finally; ProfilePointerService e colaborador e recebe tenantId por parametro.",
+          "prova executavel: MultiTenantIsolationIT (12 cenarios) criado em 2026-08-23 fecha a lacuna que impedia a nota — o comentario de RULE-07 no ArchitectureTest afirmava verificacao por testes de integracao que nao existiam no EDGE. Inclui anti-vacuidade (o device E visivel ao proprio tenant A) e prova de roteamento pelo catalogo tenant_id->schema_nome, nao pelo fallback identificador-como-schema."
+        ]
+      }
+    },
+    "band": "Maduro",
+    "statusTag": "CLOSED"
+  }
+}

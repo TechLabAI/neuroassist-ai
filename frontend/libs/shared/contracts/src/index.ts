@@ -5,6 +5,7 @@ export type {
   GestureTestState,
   GestureTestStep,
   DegradedReason,
+  DetectorType,
   GestureTestOutcome,
   EligibilityResult,
   Sensibilidade,
@@ -27,3 +28,33 @@ export type {
   PairedDeviceOutcome,
   EdgeReadModelDeps,
 } from './lib/edge-contracts';
+
+export type {
+  OnboardingWizardStep,
+  OnboardingWizardContext,
+  OnboardingWizardContributor,
+} from './lib/onboarding-wizard';
+
+// Vocabulário de gestos — o nome canônico que motor, catálogo e banco compartilham.
+export {
+  ENGINE_FEATURE,
+  ENGINE_FEATURE_REFS,
+  GESTURE_GUIDANCE,
+  isEngineFeatureRef,
+  ehDetectavel,
+  motivoIndisponivel,
+  guidanceDe,
+} from './lib/gesture-vocabulary';
+export type {
+  EngineFeatureRef,
+  DetectabilityState,
+  GestureGuidance,
+} from './lib/gesture-vocabulary';
+
+// Token de contexto HTTP compartilhado — ver o cabeçalho de http-context.ts
+// para por que ele vive aqui e não em auth-login.
+export { SKIP_AUTH_HEADER } from './lib/http-context';
+
+// Limiares de detecção de gesto — espelha DetectionThresholds do gest-service (GEST-FE-029).
+export type { DetectionThresholds } from './lib/detection-thresholds';
+export { LIMIARES_PADRAO, CAMPOS_ESCALA_BLENDSHAPE } from './lib/detection-thresholds';

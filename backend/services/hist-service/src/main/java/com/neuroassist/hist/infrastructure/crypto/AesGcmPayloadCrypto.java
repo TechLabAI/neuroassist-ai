@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
  * AES-256-GCM encryption/decryption for payload crypto-shredding (P10, HIST-024).
  *
  * <p>Two-layer encryption:
+ *
  * <ol>
  *   <li>Service master key wraps each per-patient AES-256 key (stored in {@code
  *       patient_encryption_key}).
@@ -30,7 +31,7 @@ public class AesGcmPayloadCrypto {
 
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_TAG_BITS = 128;
-    private static final int IV_BYTES = 12;  // 96-bit IV — recommended for AES-GCM
+    private static final int IV_BYTES = 12; // 96-bit IV — recommended for AES-GCM
     private static final int KEY_BYTES = 32; // 256-bit key
 
     private final SecretKey masterKey;
@@ -128,8 +129,10 @@ public class AesGcmPayloadCrypto {
         int len = hex.length();
         byte[] out = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            out[i / 2] = (byte) ((Character.digit(hex.charAt(i), 16) << 4)
-                    + Character.digit(hex.charAt(i + 1), 16));
+            out[i / 2] =
+                    (byte)
+                            ((Character.digit(hex.charAt(i), 16) << 4)
+                                    + Character.digit(hex.charAt(i + 1), 16));
         }
         return out;
     }

@@ -15,7 +15,18 @@ import {
 // Delay 400ms (project standard).
 // =============================================================================
 
-const NOW = new Date('2026-08-16T14:00:00Z');
+// A âncora dos registros semeados.
+//
+// ERA uma data fixa (`2026-08-16T14:00:00Z`), e isso é uma bomba-relógio: a
+// janela "Semana" do facade é ROLANTE (`now - 7 dias` .. `now`), então a semente
+// foi saindo dela sozinha com a passagem dos dias. Em 24/08 o `/historico`
+// mostrava "Nenhum evento neste período" e oito cenários reprovavam — sem que
+// nada no aplicativo tivesse mudado.
+//
+// Ancorar em `new Date()` faz os deslocamentos abaixo (0, 1, 3 e 8 dias) valerem
+// para sempre: três registros dentro da semana, um só dentro do mês. Como a
+// janela é rolante e não de calendário, não há problema de virada de meia-noite.
+const NOW = new Date();
 
 function isoNDaysAgo(n: number): string {
   const d = new Date(NOW.getTime() - n * 24 * 60 * 60 * 1000);
@@ -104,6 +115,7 @@ function filterByWindow(
 //
 //  __HIST_E2E_LIST_FAIL__   : list() throws a non-HTTP error → facade shows error state
 //  __HIST_E2E_SMALL_PAGE__  : list() returns size=2 so hasMore=true with ≥3 semana records
+//  __HIST_E2E_EMPTY__       : list() returns [] — o estado vazio, de propósito
 // =============================================================================
 
 function e2eFlag(name: string): boolean {
@@ -124,6 +136,15 @@ export class HistClientMockAdapter implements HistClientPort {
           return throwError(() =>
             Object.assign(new Error('E2E simulated list failure'), { status: 503 }),
           );
+        }
+
+        // O estado vazio precisa ser PEDIDO, e não herdado de uma janela que por
+        // acaso não pega nada. Os dois cenários de "período vazio" dependiam de a
+        // semente ser antiga demais para a janela "Hoje" — quando a âncora passou
+        // a ser o presente, eles reprovaram. Um teste que só passa enquanto o
+        // mock envelhece está medindo o calendário, não o aplicativo.
+        if (e2eFlag('__HIST_E2E_EMPTY__')) {
+          return of({ items: [], page: 0, size: params.size ?? 50, total: 0 });
         }
 
         const filtered = filterByWindow(MOCK_RECORDS, params);

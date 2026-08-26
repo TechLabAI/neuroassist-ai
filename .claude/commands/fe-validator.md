@@ -12,10 +12,13 @@ Voce e o agente central do pipeline IA-First do frontend NeuroAssist AI (Angular
 
 **Modulo:** `$ARGUMENTS`
 
-Se nao informado, perguntar: `Qual modulo? (GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
+Se nao informado, perguntar: `Qual modulo? (GWY | REG | MIG | GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E)`
 
 Mapeamento modulo → paths FE:
 
+- GWY = `frontend/libs/gwy/` + issues `GWY-FE-*` / `GWY-INT-*`
+- REG = `frontend/libs/reg/` + issues `REG-FE-*` / `REG-INT-*`
+- MIG = `frontend/libs/mig/` + issues `MIG-FE-*` / `MIG-INT-*`
 - GEST = `frontend/libs/gest/` + issues `GEST-FE-*` / `GEST-INT-*`
 - EVNT = `frontend/libs/evnt/` + issues `EVNT-FE-*` / `EVNT-INT-*`
 - PAC = `frontend/libs/pac/` + issues `PAC-FE-*` / `PAC-INT-*`
@@ -23,6 +26,7 @@ Mapeamento modulo → paths FE:
 - HIST = `frontend/libs/hist/` + issues `HIST-FE-*` / `HIST-INT-*`
 - DASH = `frontend/libs/dash/` + issues `DASH-FE-*` / `DASH-INT-*`
 - EDGE = `frontend/libs/edge/` + issues `EDGE-FE-*` / `EDGE-INT-*`
+- E2E = `frontend/libs/e2e/` + issues `E2E-FE-*` / `E2E-INT-*`
 
 **Validar módulo antes de continuar (D-393):** `python scripts/pipeline-guard.py resolve --module <MODULO>`
 - Exit 0 → módulo válido. Usar JSON retornado.
@@ -95,10 +99,13 @@ python scripts/pipeline-context.py decision-context --tags frontend,validator,pi
 python scripts/pipeline-context.py spec-context --module <MODULE> --pack --semantic
 # D-460: issues relacionadas (cross-modulo, implementacoes semelhantes) — opcional
 python scripts/pipeline-context.py issue-context --module <MODULE> --query "<tema da issue>" --semantic
+# D-611: known pitfalls (rework_pattern) desta camada — consulte ANTES de decidir/rotear
+python scripts/pipeline-context.py learning-context --module <MODULE> --layer fe
 ```
 
 - Retorna as decisões ativas do framework (`D-NNN`) relevantes para este agente — guarda-corpos arquiteturais já decididos.
 - Respeitar as decisões listadas ao avaliar maturidade e rotear (ex.: convenções de pipeline FE, RAG-first, padrões Angular/Nx).
+- `learning-context` (D-611/D-498/D-497) devolve **known pitfalls** cross-client agrupados por `defect_signature`: se um padrão conhecido explica um gap detectado, cite-o na decisão/README em vez de re-diagnosticar do zero. Não é responsabilidade do validator emitir sinal — isso acontece no `fe-implement` quando o defeito é de fato corrigido.
 - `available: false` (ES indisponível) → prosseguir sem o pacote de decisões; **nunca bloquear**.
 - Não reler o consolidation doc — o índice ES é a fonte consultável.
 
@@ -188,7 +195,7 @@ Repetir para cada Nx project impactado. Consolidar verdicts.
 ### Score deterministico + estado do checklist (D-317)
 
 ```bash
-python scripts/validator-score.py score --module <MODULO> --layer fe \
+python scripts/validator-score.py score --issue <MODULO>-NNN --layer fe \
   --gates tmp/gates.json --report
 ```
 
@@ -203,6 +210,7 @@ python scripts/arch-conformance.py check --layer fe --target frontend/libs/<modu
 ```
 
 Exit 2 → devolva ao Implementador com o `conformance.json`. Demais (julgamento):
+
 - `standalone: true` + `ChangeDetectionStrategy.OnPush` em todo `*.component.ts` novo.
 - `takeUntilDestroyed()` (ou `async` pipe / `toSignal()`) em toda subscription nova.
 - Facades expoem signals readonly (`.asReadonly()`).
@@ -218,14 +226,12 @@ Exit 2 → devolva ao Implementador com o `conformance.json`. Demais (julgamento
 
 ## Template obrigatorio do module-state.md
 
-No Modo 1 (BASELINE), quando o module-state.md nao existe, emitir o esqueleto pelo scaffold:
+No Modo 1 (BASELINE), quando o module-state.md nao existe, **escreva-o a partir da
+estrutura de referencia abaixo** — o `doc-scaffold.py` nao emite este artefacto (os
+`kinds` que conhece sao `vision-01..06` e `discovery-00..05`), e o gemeo BE tambem o
+trata como escrito pelo agente.
 
-```bash
-python scripts/doc-scaffold.py module-state --module <MODULO> --layer fe \
-  --output docs/architecture/frontend/modules/<module>/frontend/module-state.md
-```
-
-Preencha os `TODO[agent]` e valide:
+Depois valide:
 
 ```bash
 python scripts/render.py validate-output \

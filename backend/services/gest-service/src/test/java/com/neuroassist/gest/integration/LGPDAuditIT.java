@@ -2,14 +2,31 @@ package com.neuroassist.gest.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.JWSSigner;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.util.Date;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 
 /**
  * Integration test — LGPD / biometric data audit (Soft score §6).
@@ -23,11 +40,17 @@ import org.springframework.http.ResponseEntity;
  * timingWindow}. A proper RFC 7807 ProblemDetail error body should contain only metadata (type,
  * status, title, detail, errors), never raw signal data.
  *
- * <p>Requests carry HTTP Basic credentials for the in-memory {@code gest-manager} user: since
- * gest-service became a real resource server ({@code anyRequest().authenticated()} +
- * {@code @EnableMethodSecurity}) an anonymous call is short-circuited with an empty-bodied 401,
- * which would make these assertions inspect a {@code null} body instead of the domain error payload
- * they exist to audit. Basic (rather than a JWT) keeps the tenant unresolved, exactly as before.
+ * <p><b>Por que Bearer JWT e não HTTP Basic.</b> As requisições carregavam Basic do usuário em
+ * memória {@code gest-manager}, que autentica mas não traz claim de tenant nenhum. Sem tenant o
+ * {@code TenantIdentifierResolver} cai no fallback {@code neuroassist_global}, onde as tabelas do
+ * GEST não existem — e desde que as migrations reais passaram a desenhar o schema (E2E-022) a busca
+ * por um id inexistente morria com {@code relation "tipo_gesto" does not exist} e virava
+ * <b>500</b>, nunca o 404 que este teste existe para auditar. O teste media o corpo de erro errado:
+ * auditava um erro de infraestrutura achando que auditava o not-found de domínio.
+ *
+ * <p>O JWT assinado pela chave embutida reproduz o caminho de produção — claim {@code tenant_id} (o
+ * canônico desde E2E-021), tenant {@code emp_test} roteando para o schema {@code t_emp_test} que
+ * {@code SchemaMigrations} provisiona. Aí sim o 404 é o 404 do controller.
  */
 class LGPDAuditIT extends BaseIntegrationTest {
 
@@ -36,27 +59,76 @@ class LGPDAuditIT extends BaseIntegrationTest {
         "video", "image", "landmark", "confidence", "timingWindow"
     };
 
-    private static final String BASIC_MANAGER =
-            "Basic "
-                    + java.util.Base64.getEncoder()
-                            .encodeToString(
-                                    "gest-manager:manager-secret"
-                                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    /**
+     * Tenant provisionado por {@code SchemaMigrations} — roteia para o schema {@code t_emp_test}.
+     */
+    private static final String TEST_TENANT = "emp_test";
+
+    /** Par de chaves RSA gerado uma vez por JVM — assina os tokens que o decoder abaixo aceita. */
+    private static final KeyPair KEY_PAIR;
+
+    static {
+        try {
+            KeyPairGenerator gen = KeyPairGenerator.getInstance("RSA");
+            gen.initialize(2048);
+            KEY_PAIR = gen.generateKeyPair();
+        } catch (NoSuchAlgorithmException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    /** Substitui o decoder por JWK-URI (que exigiria um Authorization Server de verdade). */
+    @TestConfiguration
+    static class LgpdJwtDecoderConfig {
+
+        @Bean
+        @Primary
+        JwtDecoder lgpdTestJwtDecoder() {
+            return NimbusJwtDecoder.withPublicKey((RSAPublicKey) KEY_PAIR.getPublic()).build();
+        }
+    }
 
     @Autowired private TestRestTemplate restTemplate;
 
-    /** JSON request headers plus HTTP Basic credentials for the in-memory manager user. */
+    /**
+     * Token de gerente: as authorities são as mesmas que o {@code RoleAuthorityPolicy} do ACS emite
+     * para COORDENADOR_CLINICA e que os {@code @PreAuthorize} do controller exigem, verbatim.
+     */
+    private static String managerBearer() {
+        try {
+            JWTClaimsSet claims =
+                    new JWTClaimsSet.Builder()
+                            .subject("lgpd-audit-user")
+                            .issueTime(new Date())
+                            .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
+                            .claim("tenant_id", TEST_TENANT)
+                            .claim(
+                                    "scope",
+                                    "gest.tipo-gesto.read gest.tipo-gesto.criar"
+                                            + " gest.tipo-gesto.editar")
+                            .build();
+            JWSSigner signer = new RSASSASigner((RSAPrivateKey) KEY_PAIR.getPrivate());
+            SignedJWT jwt =
+                    new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).build(), claims);
+            jwt.sign(signer);
+            return "Bearer " + jwt.serialize();
+        } catch (Exception e) {
+            throw new IllegalStateException("Falha ao assinar o token do teste LGPD", e);
+        }
+    }
+
+    /** JSON request headers plus the manager Bearer token. */
     private static HttpHeaders jsonAuthHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set(HttpHeaders.AUTHORIZATION, BASIC_MANAGER);
+        headers.set(HttpHeaders.AUTHORIZATION, managerBearer());
         return headers;
     }
 
-    /** Headers carrying only HTTP Basic credentials (for GET requests). */
+    /** Headers carrying only the manager Bearer token (for GET requests). */
     private static HttpHeaders authHeaders() {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HttpHeaders.AUTHORIZATION, BASIC_MANAGER);
+        headers.set(HttpHeaders.AUTHORIZATION, managerBearer());
         return headers;
     }
 
@@ -93,9 +165,12 @@ class LGPDAuditIT extends BaseIntegrationTest {
                         new HttpEntity<>(authHeaders()),
                         String.class);
 
+        // 404 exato, e nao "algum 4xx": o 500 que esta rota devolvia antes ja passava por 4xx
+        // nenhum, mas um 403 de tenant faltando passaria pela faixa e o teste voltaria a auditar
+        // um corpo que nao e o do not-found.
         assertThat(response.getStatusCode().value())
-                .describedAs("Non-existent ID must produce a 4xx error")
-                .isBetween(400, 499);
+                .describedAs("Non-existent ID must produce a 404")
+                .isEqualTo(404);
 
         String responseBody = response.getBody();
         for (String field : BIOMETRIC_FIELDS) {
@@ -141,6 +216,12 @@ class LGPDAuditIT extends BaseIntegrationTest {
         ResponseEntity<String> response =
                 restTemplate.exchange(
                         "/gest-service/tipo-gesto", HttpMethod.POST, entity, String.class);
+
+        // Sem esta linha o teste era uma guarda que nao guardava nada: um 403 ou um 500 traziam
+        // corpo sem campo biometrico algum e ele passava sem nunca ter criado um TipoGesto.
+        assertThat(response.getStatusCode().value())
+                .describedAs("Valid creation must return 201")
+                .isEqualTo(201);
 
         String responseBody = response.getBody();
         if (responseBody != null) {

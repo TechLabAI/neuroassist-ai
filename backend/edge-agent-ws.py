@@ -11,10 +11,11 @@ for the interactive "test this gesture" calibration loop (PAC calibracao),
 where the browser needs live, per-attempt feedback instead of a fire-and-forget
 report.
 
-Detection algorithm (EAR/BRI thresholds, gesture state machine) is the same
-one used by poc-edge-agent-webcam.py — duplicated here (not imported: hyphens
-in the filename make it a non-importable module name) since both need to stay
-runnable standalone.
+Detection algorithm: thresholds and the EAR/BRI math live in edge_agent_core.py
+and are imported from there (E2E-032). Only the gesture state machine and the
+cooldown are local — the calibration loop is single-shot, so it recovers faster
+than the always-on agent. Everything that decides WHETHER a gesture happened is
+shared; only WHEN the bridge is ready for the next attempt is local.
 
 Auth: PROVISIONAL. The localhost bridge handshake carries no real credential
 yet — GEST-INT-004 (FE) / INT-GEST-007 (BE) track the joint mTLS-vs-OAuth2
@@ -42,57 +43,26 @@ from queue import Empty, Queue
 
 import cv2
 import mediapipe as mp
-import numpy as np
 import websockets
+
+# Thresholds and sensor math: single source (E2E-032). sys.path[0] is this script's own
+# directory, so the import resolves regardless of the working directory.
+from edge_agent_core import (
+    DEFAULT_BAND,
+    DEFAULT_BANDS,
+    LEFT_EYE,
+    RIGHT_EYE,
+    compute_bri,
+    compute_ear,
+    thresholds_for,
+)
 
 CONTRACT_VERSION = "1.0.0"
 
-# ── EAR/BRI thresholds — identical to poc-edge-agent-webcam.py ──────────────
-EAR_CLOSE = 0.22
-EAR_OPEN = 0.27
-EAR_OTHER_MAX = 0.30
-BLINK_MIN_FRAMES = 2
-DOUBLE_BLINK_WINDOW = 2.0
-
-BRI_RAISE_ON = 0.30
-BRI_RAISE_OFF = 0.22
-BRI_OTHER_MAX = 0.25
-BROW_MIN_FRAMES = 5
-
-COOLDOWN_SECONDS = 1.5  # shorter than the production agent — this is a single-shot test
-
-LEFT_EYE = [33, 160, 158, 133, 153, 144]
-RIGHT_EYE = [362, 385, 387, 263, 373, 380]
-LEFT_BROW_PEAK = 105
-RIGHT_BROW_PEAK = 334
-LEFT_EYE_TOP = 159
-RIGHT_EYE_TOP = 386
-LEFT_EYE_OUTER = 33
-RIGHT_EYE_OUTER = 263
-
-
-def _dist(a, b):
-    return float(np.linalg.norm(np.array(a) - np.array(b)))
-
-
-def compute_ear(landmarks, eye_idx, w, h):
-    pts = [(landmarks[i].x * w, landmarks[i].y * h) for i in eye_idx]
-    p1, p2, p3, p4, p5, p6 = pts
-    v1 = _dist(p2, p6)
-    v2 = _dist(p3, p5)
-    hz = _dist(p1, p4)
-    return (v1 + v2) / (2.0 * hz) if hz > 1e-6 else 0.3
-
-
-def compute_bri(landmarks, side):
-    if side == "left":
-        brow_y = landmarks[LEFT_BROW_PEAK].y
-        eye_y = landmarks[LEFT_EYE_TOP].y
-    else:
-        brow_y = landmarks[RIGHT_BROW_PEAK].y
-        eye_y = landmarks[RIGHT_EYE_TOP].y
-    inter = abs(landmarks[RIGHT_EYE_OUTER].x - landmarks[LEFT_EYE_OUTER].x)
-    return (eye_y - brow_y) / inter if inter > 1e-6 else 0.0
+# Deliberately NOT shared with edge_agent_core: the calibration loop is a single-shot test,
+# so it frees up sooner than the always-on agent (3.0 s there). The drift guard excludes this
+# name for that reason.
+COOLDOWN_SECONDS = 1.5
 
 
 class DetectorState:
@@ -112,76 +82,81 @@ class DetectorState:
         return now < self.cooldown_until
 
 
-def process_frame(state: DetectorState, ear_l, ear_r, bri_l, bri_r, watched: str, now: float):
+def process_frame(state: DetectorState, ear_l, ear_r, bri_l, bri_r, watched: str, now: float, th):
     # INTERIM: EAR/BRI detector — not ONNX
     # Detection uses Eye Aspect Ratio (EAR) + Brow Raise Index (BRI) thresholds.
     # The production PEA will use an ONNX classifier (gesture_v1.onnx) — tracked in
     # INT-GEST-004 / INT-GEST-007. This interim is bounded to the pre-PEA period.
     # See ADR-006-ear-bri-interim-detector.md for rationale and safeguards.
-    """Detect exactly the single `watched` tipoGestoId. Returns (fired: bool, confidence)."""
+    """
+    Detect exactly the single `watched` tipoGestoId. Returns (fired: bool, confidence).
+
+    `th` are the thresholds for THIS gesture, from the published profile (E2E-033) — the same
+    gesture can be watched at a different sensitivity than its neighbour in the same profile.
+    """
     if state.in_cooldown(now):
         return False, 0.0
 
     ear_avg = (ear_l + ear_r) / 2.0
-    both_closed = ear_avg < EAR_CLOSE
+    both_closed = ear_avg < th.ear_close
 
     if watched == "tg-piscar-duplo-001":
         if both_closed:
             state.db_frames_below += 1
         else:
-            if state.db_frames_below >= BLINK_MIN_FRAMES:
+            if state.db_frames_below >= th.blink_min_frames:
                 state.blink_times.append(now)
-                cutoff = now - DOUBLE_BLINK_WINDOW
+                cutoff = now - th.double_blink_window
                 state.blink_times = [t for t in state.blink_times if t > cutoff]
                 if len(state.blink_times) >= 2:
-                    conf = max(0.0, min(1.0, 1.0 - ear_avg / EAR_CLOSE))
+                    conf = max(0.0, min(1.0, 1.0 - ear_avg / th.ear_close))
                     return True, conf
             state.db_frames_below = 0
 
     elif watched == "tg-piscar-esquerdo":
-        left_only = ear_l < EAR_CLOSE and ear_r > EAR_OTHER_MAX
+        left_only = ear_l < th.ear_close and ear_r > th.ear_other_max
         if left_only:
             state.lb_frames += 1
         else:
-            if state.lb_frames >= BLINK_MIN_FRAMES and ear_r > EAR_OTHER_MAX:
-                conf = max(0.0, min(1.0, 1.0 - ear_l / EAR_CLOSE))
+            if state.lb_frames >= th.blink_min_frames and ear_r > th.ear_other_max:
+                conf = max(0.0, min(1.0, 1.0 - ear_l / th.ear_close))
                 state.lb_frames = 0
                 return True, conf
             state.lb_frames = 0
 
     elif watched == "tg-piscar-direito":
-        right_only = ear_r < EAR_CLOSE and ear_l > EAR_OTHER_MAX
+        right_only = ear_r < th.ear_close and ear_l > th.ear_other_max
         if right_only:
             state.rb_frames += 1
         else:
-            if state.rb_frames >= BLINK_MIN_FRAMES and ear_l > EAR_OTHER_MAX:
-                conf = max(0.0, min(1.0, 1.0 - ear_r / EAR_CLOSE))
+            if state.rb_frames >= th.blink_min_frames and ear_l > th.ear_other_max:
+                conf = max(0.0, min(1.0, 1.0 - ear_r / th.ear_close))
                 state.rb_frames = 0
                 return True, conf
             state.rb_frames = 0
 
     elif watched == "tg-sobrancelha-dupla":
-        if bri_l > BRI_RAISE_ON and bri_r > BRI_RAISE_ON:
+        if bri_l > th.bri_raise_on and bri_r > th.bri_raise_on:
             state.brow_dual_frames += 1
-            if state.brow_dual_frames >= BROW_MIN_FRAMES:
+            if state.brow_dual_frames >= th.brow_min_frames:
                 return True, 0.85
-        elif bri_l < BRI_RAISE_OFF and bri_r < BRI_RAISE_OFF:
+        elif bri_l < th.bri_raise_off and bri_r < th.bri_raise_off:
             state.brow_dual_frames = 0
 
     elif watched == "tg-sobrancelha-esquerda":
-        if bri_l > BRI_RAISE_ON and bri_r < BRI_OTHER_MAX:
+        if bri_l > th.bri_raise_on and bri_r < th.bri_other_max:
             state.brow_left_frames += 1
-            if state.brow_left_frames >= BROW_MIN_FRAMES:
+            if state.brow_left_frames >= th.brow_min_frames:
                 return True, 0.80
-        elif bri_l < BRI_RAISE_OFF:
+        elif bri_l < th.bri_raise_off:
             state.brow_left_frames = 0
 
     elif watched == "tg-sobrancelha-direita":
-        if bri_r > BRI_RAISE_ON and bri_l < BRI_OTHER_MAX:
+        if bri_r > th.bri_raise_on and bri_l < th.bri_other_max:
             state.brow_right_frames += 1
-            if state.brow_right_frames >= BROW_MIN_FRAMES:
+            if state.brow_right_frames >= th.brow_min_frames:
                 return True, 0.80
-        elif bri_r < BRI_RAISE_OFF:
+        elif bri_r < th.bri_raise_off:
             state.brow_right_frames = 0
 
     return False, 0.0
@@ -199,12 +174,14 @@ class CameraWorker(threading.Thread):
         self.out_queue = out_queue
         self.debug = debug
         self._watched: str | None = None
+        self._thresholds = DEFAULT_BANDS[DEFAULT_BAND]
         self._lock = threading.Lock()
         self._stop = threading.Event()
 
-    def set_watched(self, tipo_gesto_id: str | None) -> None:
+    def set_watched(self, tipo_gesto_id: str | None, thresholds=None) -> None:
         with self._lock:
             self._watched = tipo_gesto_id
+            self._thresholds = thresholds or DEFAULT_BANDS[DEFAULT_BAND]
 
     def stop(self) -> None:
         self._stop.set()
@@ -219,6 +196,7 @@ class CameraWorker(threading.Thread):
             while not self._stop.is_set():
                 with self._lock:
                     watched = self._watched
+                    thresholds = self._thresholds
 
                 if watched is None:
                     if cap is not None:
@@ -266,7 +244,9 @@ class CameraWorker(threading.Thread):
                     print(f"  watching={watched} EAR={ear_l:.3f}/{ear_r:.3f} "
                           f"BRI={bri_l:.3f}/{bri_r:.3f}", end="\r")
 
-                fired, confidence = process_frame(state, ear_l, ear_r, bri_l, bri_r, watched, now)
+                fired, confidence = process_frame(
+                    state, ear_l, ear_r, bri_l, bri_r, watched, now, thresholds
+                )
                 if fired:
                     state.cooldown_until = now + COOLDOWN_SECONDS
                     self.out_queue.put(("recognized", (watched, confidence)))
@@ -285,7 +265,7 @@ async def handle_client(websocket, camera_index: int, debug: bool):
     worker = CameraWorker(camera_index, signal_queue, debug)
     worker.start()
 
-    session = {"commandDraftRef": None, "watching": None}
+    session = {"commandDraftRef": None, "watching": None, "band": DEFAULT_BAND}
 
     async def send_signal(kind: str, primitives=None, degraded=False):
         primitives = primitives or []
@@ -328,6 +308,11 @@ async def handle_client(websocket, camera_index: int, debug: bool):
             "type": "hello",
             "contractVersion": CONTRACT_VERSION,
             "detectorType": "ear_bri",  # ADR-006: interim EAR/BRI detector — not ONNX
+            # Send the active detection profile in start_session and this bridge will calibrate
+            # with the same thresholds the always-on detection uses (E2E-033). Omit it and it
+            # falls back to the `media` band.
+            "acceptsProfile": True,
+            "defaultBand": DEFAULT_BAND,
         }))
 
         async for raw in websocket:
@@ -339,10 +324,22 @@ async def handle_client(websocket, camera_index: int, debug: bool):
             if msg.get("type") == "start_session":
                 session["commandDraftRef"] = msg.get("commandDraftRef")
                 session["watching"] = msg.get("tipoGestoId")
-                worker.set_watched(session["watching"])
-                print(f"[watch] {peer} -> {session['watching']} (draft={session['commandDraftRef']})")
+
+                # The calibration screen may hand us the published detection profile (E2E-033).
+                # It is the browser that carries it, not this bridge: the screen is already
+                # authenticated against GEST, and this localhost bridge holds no credential of
+                # its own (see the PROVISIONAL note at the top). No profile — the browser did
+                # not send one, or GEST is down — falls back to the historical constants, which
+                # is precisely the `media` band. Calibration degrades; it never stops.
+                thresholds, band = thresholds_for(msg.get("profile"), session["watching"])
+                session["band"] = band
+                worker.set_watched(session["watching"], thresholds)
+                print(f"[watch] {peer} -> {session['watching']} "
+                      f"(draft={session['commandDraftRef']} sensibilidade={band} "
+                      f"earClose={thresholds.ear_close})")
             elif msg.get("type") == "stop_session":
                 session["watching"] = None
+                session["band"] = DEFAULT_BAND
                 worker.set_watched(None)
 
     except websockets.ConnectionClosed:

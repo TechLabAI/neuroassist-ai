@@ -3,6 +3,7 @@ package com.neuroassist.edge.api.controller;
 import com.neuroassist.edge.api.dto.HeartbeatRequest;
 import com.neuroassist.edge.api.dto.HeartbeatResponse;
 import com.neuroassist.edge.application.port.in.HeartbeatUseCase;
+import com.neuroassist.edge.shared.error.CodedException;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,16 @@ public class HeartbeatController {
         // deviceId from device JWT sub claim — never from body (anti-spoofing invariant #2,
         // ADR-005)
         UUID deviceId = extractDeviceId(auth);
+        // Anti-spoofing: if the body declares a deviceId, it must match the JWT device.
+        // A body claiming a different device is rejected with 403 (edge.identity-mismatch).
+        if (req.deviceId() != null && !req.deviceId().equals(deviceId)) {
+            throw new CodedException(
+                    "edge.identity-mismatch",
+                    "Body deviceId "
+                            + req.deviceId()
+                            + " does not match authenticated device "
+                            + deviceId);
+        }
         HeartbeatUseCase.HeartbeatResult result =
                 heartbeatUseCase.recordHeartbeat(
                         deviceId, req.agentVersion(), req.runningProfileVersion());

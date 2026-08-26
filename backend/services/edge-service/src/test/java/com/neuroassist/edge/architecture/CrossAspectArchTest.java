@@ -4,6 +4,8 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -14,6 +16,8 @@ import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
+import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,9 +26,16 @@ import java.util.regex.Pattern;
  * Cross-aspect ArchUnit tests — verify that the generated/edited code respects the architectural
  * decisions captured in {@code arch/decisions/*.arch.json}.
  *
- * <p>The catalogues are baked in as static {@code Set<String>} below. To pick up changes to a
- * decision, re-run {@code be-module-generator} for this service (or {@code be-architect-upgrade}
- * after the workspace bumps a version). The drift-check (D-055) will tell you when this is needed.
+ * <p>The catalogues are loaded at test time from the canonical file on the classpath ({@code
+ * permission-catalogue.arch.json}), which is sourced from {@code arch/decisions/} at the repo root
+ * via the {@code sourceSets.test.resources} configuration in {@code build.gradle.kts}. There is NO
+ * inline copy: a rename in {@code @PreAuthorize} that is not reflected in the catalogue file (or
+ * vice-versa) immediately breaks this check.
+ *
+ * <p>E2E-023: inline catalogue replaced by file-based load. Authority family decision: coarse
+ * ({@code edge.manage / edge.device / edge.read / edge.internal}) aligned to what the code actually
+ * enforces. Granular migration deferred — requires RoleAuthorityPolicy update in acs-service and
+ * coordinated multi-service deploy.
  *
  * <p>D-067 (Tier 2.1 — cross-aspect validation).
  */
@@ -33,44 +44,9 @@ import java.util.regex.Pattern;
         importOptions = ImportOption.DoNotIncludeTests.class)
 public class CrossAspectArchTest {
 
-    // ── Baked catalogues ────────────────────────────────────────────────
+    // ── Catalogues loaded from arch/decisions/ (no inline copy) ──────────
 
-    private static final Set<String> PERMISSION_CATALOGUE =
-            Set.of(
-                    "edge.manage",
-                    "edge.device",
-                    "edge.read",
-                    "edge.internal",
-                    "edge.device-registration.aposentar",
-                    "edge.device-registration.criar",
-                    "edge.heartbeat.criar",
-                    "edge.liveness.read",
-                    "edge.liveness.resolver",
-                    "edge.pairing.criar",
-                    "edge.pairing.excluir",
-                    "edge.profile-pointer.read",
-                    "evnt.event-confirmation.confirmar",
-                    "evnt.event-query.read",
-                    "evnt.notification-orchestration.processar",
-                    "evnt.notification-orchestration.reprocessar",
-                    "evnt.report-ingress.ingerir",
-                    "gest.detection-contract.read",
-                    "gest.detection-profile.publicar",
-                    "gest.detection-profile.read",
-                    "gest.eligibility.read",
-                    "gest.tipo-gesto.criar",
-                    "gest.tipo-gesto.editar",
-                    "gest.tipo-gesto.read",
-                    "pac.catalogo-ativo.read",
-                    "pac.comando-authoring.criar",
-                    "pac.comando-authoring.editar",
-                    "pac.comando-lifecycle.aposentar",
-                    "pac.comando-lifecycle.publicar",
-                    "pac.comando-lifecycle.read",
-                    "pac.comando-lifecycle.recalibrar",
-                    "pac.paciente.criar",
-                    "pac.paciente.editar",
-                    "pac.paciente.read");
+    private static final Set<String> PERMISSION_CATALOGUE = loadPermissionCatalogue();
 
     private static final Set<String> ENTITY_SCOPE_FILTER_NAMES =
             Set.of(
@@ -81,6 +57,38 @@ public class CrossAspectArchTest {
             Set.of(
                     // (no events.arch.json pinned at generation time)
                     );
+
+    /**
+     * Loads all permissions from {@code permission-catalogue.arch.json} off the classpath. The file
+     * is the single source of truth; it is added to the test classpath by {@code
+     * sourceSets.test.resources} in {@code build.gradle.kts} without copying.
+     */
+    private static Set<String> loadPermissionCatalogue() {
+        String resource = "permission-catalogue.arch.json";
+        try (InputStream is =
+                CrossAspectArchTest.class.getClassLoader().getResourceAsStream(resource)) {
+            if (is == null) {
+                throw new IllegalStateException(
+                        resource
+                                + " not found on test classpath. "
+                                + "Check sourceSets.test.resources in build.gradle.kts — "
+                                + "it must point to the repo-root arch/decisions/ directory.");
+            }
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(is);
+            Set<String> result = new HashSet<>();
+            for (JsonNode module : root.get("modules")) {
+                for (JsonNode perm : module.get("permissions")) {
+                    result.add(perm.asText());
+                }
+            }
+            return Set.copyOf(result);
+        } catch (IllegalStateException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to load " + resource, ex);
+        }
+    }
 
     private static final Pattern HAS_AUTHORITY =
             Pattern.compile("hasAuthority\\(\\s*'([^']+)'\\s*\\)");
@@ -94,11 +102,13 @@ public class CrossAspectArchTest {
                     .areAnnotatedWith("org.springframework.security.access.prepost.PreAuthorize")
                     .should(
                             new ArchCondition<JavaMethod>(
-                                    "use hasAuthority(...) referencing a code declared in permission-catalogue.arch.json") {
+                                    "use hasAuthority(...) referencing a code declared in"
+                                            + " permission-catalogue.arch.json"
+                                            + " (loaded from arch/decisions/ — no inline copy)") {
                                 @Override
                                 public void check(JavaMethod method, ConditionEvents events) {
                                     if (PERMISSION_CATALOGUE.isEmpty()) {
-                                        return; // no catalogue pinned — skip silently
+                                        return; // no catalogue — skip silently
                                     }
                                     method.getAnnotations().stream()
                                             .filter(
@@ -364,7 +374,7 @@ public class CrossAspectArchTest {
                     .as(
                             "baked catalogues: "
                                     + PERMISSION_CATALOGUE.size()
-                                    + " permissions, "
+                                    + " permissions (loaded from permission-catalogue.arch.json), "
                                     + ENTITY_SCOPE_FILTER_NAMES.size()
                                     + " filter names, "
                                     + EVENT_DESTINATIONS.size()

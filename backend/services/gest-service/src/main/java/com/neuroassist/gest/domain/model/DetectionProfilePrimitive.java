@@ -11,10 +11,27 @@ import java.util.UUID;
  * invariant of TipoGesto (ck_tipo_gesto_supported_needs_ref).
  */
 public record DetectionProfilePrimitive(
-        UUID id, UUID profileId, UUID tipoGestoId, String nomeSnapshot, String engineFeatureRef) {
+        UUID id,
+        UUID profileId,
+        UUID tipoGestoId,
+        String nomeSnapshot,
+        String engineFeatureRef,
+        Sensibilidade sensibilidade) {
 
-    /** Factory: creates a snapshot entry from a SUPPORTED TipoGesto for a given profile. */
-    public static DetectionProfilePrimitive fromSupported(UUID profileId, TipoGesto tipoGesto) {
+    public DetectionProfilePrimitive {
+        // Nunca nulo na borda: o agente escolhe limiar por primitivo, e um nulo aqui viraria
+        // um NullPointerException a 30 fps na casa do paciente.
+        sensibilidade = sensibilidade != null ? sensibilidade : Sensibilidade.padrao();
+    }
+
+    /**
+     * Snapshot de um TipoGesto SUPPORTED para um perfil, na faixa de sensibilidade escolhida.
+     *
+     * @param sensibilidade faixa aplicada a este gesto; {@code null} adota {@link
+     *     Sensibilidade#padrao()}
+     */
+    public static DetectionProfilePrimitive fromSupported(
+            UUID profileId, TipoGesto tipoGesto, Sensibilidade sensibilidade) {
         if (tipoGesto.engineFeatureRef() == null) {
             throw new IllegalStateException(
                     "TipoGesto '"
@@ -26,6 +43,7 @@ public record DetectionProfilePrimitive(
                 profileId,
                 tipoGesto.id(),
                 tipoGesto.nome(),
-                tipoGesto.engineFeatureRef());
+                tipoGesto.engineFeatureRef(),
+                sensibilidade);
     }
 }

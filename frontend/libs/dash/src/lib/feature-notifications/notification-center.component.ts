@@ -43,7 +43,7 @@ import { NotificationsFacade } from '../notifications.facade';
           <p class="text-sm text-danger">{{ facade.error()?.message ?? 'Erro ao carregar notificações.' }}</p>
           <button
             (click)="facade.retry()"
-            class="rounded-lg bg-surface-2 px-4 py-2 text-sm font-semibold text-ink hover:bg-surface-3">
+            class="rounded-lg bg-surface-2 px-4 py-2 text-sm font-semibold text-ink hover:bg-surface-2">
             Tentar novamente
           </button>
         </div>

@@ -289,6 +289,54 @@ public class SharedSteps {
         }
     }
 
+    /**
+     * Obtains a <b>tenant-less</b> service token for the {@code platform-ops} client (E2E-029).
+     *
+     * <p>Onboarding a company is not a clinical act. Until this issue the BDD called a
+     * COORDENADOR_CLINICA a "platform conductor" and logged in as one — which is exactly the
+     * conflation that let a clinic coordinator create and reprocess other companies. The scenario
+     * name was already right; the credential was not.
+     */
+    void issueServiceToken(String clientId, String clientSecret) {
+        issueServiceToken(clientId, clientSecret, null);
+    }
+
+    /**
+     * Token de servico <b>escopado a um tenant</b>.
+     *
+     * <p>O overload sem tenant serve ao {@code platform-ops}, que e tenant-less porque criar
+     * empresa acontece antes de a empresa existir. Todo outro cliente de servico roteia por schema
+     * e portanto precisa informar o tenant — o ACS recusa as duas combinacoes invertidas.
+     */
+    void issueServiceToken(String clientId, String clientSecret, String tenantId) {
+        String body =
+                "{\"clientId\":\""
+                        + clientId
+                        + "\",\"clientSecret\":\""
+                        + clientSecret
+                        + "\""
+                        + (tenantId == null ? "" : ",\"tenantId\":\"" + tenantId + "\"")
+                        + "}";
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        ResponseEntity<String> resp =
+                restTemplate.exchange(
+                        "/oauth2/token/service",
+                        HttpMethod.POST,
+                        new HttpEntity<>(body, headers),
+                        String.class);
+        ctx.lastResponse = resp;
+        if (resp.getStatusCode().is2xxSuccessful() && resp.getBody() != null) {
+            try {
+                JsonNode node = objectMapper.readTree(resp.getBody());
+                if (node.has("accessToken")) {
+                    ctx.bearerToken = node.get("accessToken").asText();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     HttpHeaders bearerHeaders() {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

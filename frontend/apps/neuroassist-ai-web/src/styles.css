@@ -1,23 +1,147 @@
-/* styles.css — global entry stylesheet (Tailwind v4 CSS-first). D-381.
+/* styles.css — stylesheet global de entrada (Tailwind v4 CSS-first). D-381.
  *
- * Rendered by: /new-project P5 (frontend-skeleton) →
- *   frontend/apps/neuroassist-ai-web/src/styles.css
- * Referenced from the app's build `styles` array (project.json / angular.json).
+ * Ordem importa: primeiro o motor do Tailwind, depois os tokens. O bloco @theme
+ * de theme.css alimenta a geração de utilitários (cores, raio, tipografia…), de
+ * modo que `bg-surface` / `text-ink` / `rounded-card` resolvem para os tokens.
+ * Ver docs/architecture/frontend/standards/design-system-tokens.md.
  *
- * Order matters: import Tailwind's engine first, then the design tokens. The
- * `@theme` block in theme.css feeds Tailwind's utility generation (colors,
- * spacing, radius, etc.), so utilities like `bg-surface` / `text-ink` /
- * `rounded-card` resolve to the oklch tokens. See standards/design-system-tokens.md.
+ * O motor só roda porque .postcssrc.json (raiz de /frontend) registra
+ * @tailwindcss/postcss. O @angular/build NÃO lê postcss.config.js — se este
+ * arquivo sumir, o build continua "verde" e o app sai sem CSS nenhum. Ver
+ * plan-fe-render-shell-evnt.md §2.1.
  */
 @import "tailwindcss";
 @import "./theme.css";
 
-html,
-body {
-  height: 100%;
-  margin: 0;
-  background: var(--color-base);
-  color: var(--color-ink);
-  font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
+/* ── Material Symbols — @font-face PRÓPRIO, sem o <link> do Google ────────────
+ * POR QUE não usamos o stylesheet do Google: além do @font-face, ele traz uma
+ * regra `.material-symbols-outlined { font-size: 24px }` SEM layer. No Tailwind
+ * v4 os utilitários vivem em @layer utilities, e CSS sem layer ganha de qualquer
+ * layer independentemente de especificidade — ou seja, aquele 24px anulava todo
+ * `text-[20px]`, `text-[96px]` etc. em TODOS os 30 componentes com ícone. O
+ * ícone de 96px do alarme saía com 24px. Declarando o @font-face aqui, a regra
+ * de classe some e os utilitários voltam a mandar no tamanho.
+ *
+ * O src tenta a CDN primeiro (cache compartilhado, sem custo de bundle) e cai
+ * para a cópia local só se a URL versionada do gstatic sumir. A cópia local tem
+ * ~4 MB: é rede de segurança, não o caminho normal.
+ * Ao atualizar a versão (v367), baixe também o woff2 local correspondente. */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: block;
+  src:
+    url(https://fonts.gstatic.com/s/materialsymbolsoutlined/v367/kJEhBvYX7BgnkSrUwT8OhrdQw4oELdPIeeII9v6oFsI.woff2) format('woff2'),
+    url(/assets/fonts/material-symbols-outlined.woff2) format('woff2');
+}
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    background: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Material Symbols — defaults que antes vinham do stylesheet do Google.
+     Ficam em @layer base de propósito: assim `text-[96px]` & cia. (utilities)
+     ganham do tamanho padrão. Sem a fonte carregada, cada ícone renderiza o NOME
+     da ligadura como texto ("emergency_home", "wifi"…) — sintoma do print de 22/08. */
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    font-feature-settings: 'liga';
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+    border: 2px solid var(--color-base);
+  }
+}
+
+/* ── Glass card system (token-driven) ────────────────────────────────────────
+   Tokens em theme.css: --glass-*, --hero-*. Duas classes canônicas:
+   .glass (base) + .glass--hero (KPI destacado). card-glass* = aliases usados
+   por libs/pac (ds-card, ds-kpi).
+   ─────────────────────────────────────────────────────────────────────────── */
+.glass,
+.card-glass,
+.card-glass-elevated,
+.card-glass-inset,
+.card-glass-hero {
+  background: rgba(var(--glass-rgb) / var(--glass-fill));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* hero: tint colorido + glow — sem borda própria, herda hairline do .glass */
+.glass--hero,
+.card-glass-hero {
+  background-image: var(--hero-tint);
+  box-shadow: var(--hero-glow), var(--glass-shadow), inset 0 1px 0 var(--hero-highlight);
+}
+
+/* fallback sem backdrop-filter (Firefox < 103, etc.) */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass,
+  .card-glass,
+  .card-glass-elevated,
+  .card-glass-inset,
+  .card-glass-hero {
+    background: rgba(var(--glass-rgb) / var(--glass-fill-fallback));
+  }
+}
+
+/* respeitar preferência do usuário por menos transparência */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .card-glass,
+  .card-glass-elevated,
+  .card-glass-inset,
+  .card-glass-hero {
+    background: rgba(var(--glass-rgb) / var(--glass-fill-fallback));
+    backdrop-filter: blur(4px) saturate(1);
+    -webkit-backdrop-filter: blur(4px) saturate(1);
+  }
+}
+
+/* ── Área de conteúdo — mesh de gradiente do tema ───────────────────────────── */
+.content-mesh {
+  background-color: var(--content-bg);
+  background-image: var(--content-mesh);
+}
+
+/* ── Painel IA — superfície azul-glass independente do tema ─────────────────
+   Base navy opaca (#0b1322) + tint azul translúcido → o painel permanece
+   azul-escuro em qualquer tema do app. box-shadow inset = glow azul na borda. */
+.panel-ai-surface {
+  background: linear-gradient(180deg, rgba(59,130,246,.14), rgba(59,130,246,.04)), #0b1322;
+  color: var(--color-panel-text);
+  box-shadow: inset 8px 0 32px rgba(37,99,235,.14);
+}
+
+/* valores monetários — tipografia tabular unificada */
+.currency {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
 }

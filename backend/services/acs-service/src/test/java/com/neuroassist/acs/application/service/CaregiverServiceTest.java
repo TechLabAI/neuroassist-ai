@@ -3,6 +3,7 @@ package com.neuroassist.acs.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -19,14 +20,18 @@ import com.neuroassist.acs.domain.model.TenantStatus;
 import com.neuroassist.acs.domain.model.TenantTipo;
 import com.neuroassist.acs.infrastructure.security.TenantContextHolder;
 import com.neuroassist.acs.shared.error.CaregiverNotFoundException;
+import com.neuroassist.acs.shared.error.LoginDuplicateException;
+import com.neuroassist.acs.shared.error.TenantAlreadySeededException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -305,6 +310,189 @@ class CaregiverServiceTest {
         when(cuidadorRepository.findById(any())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> caregiverService.updateStatus(cuidadorId, CuidadorStatus.INACTIVE))
+                .isInstanceOf(CaregiverNotFoundException.class);
+    }
+
+    // ------------------------------------------------------------------------
+    // E2E-029 — bootstrap do primeiro coordenador
+    // ------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("semeia o primeiro coordenador sem exigir tenant do JWT")
+    void seedFirstCoordinator_worksWithoutMatchingJwtTenant() {
+        UUID novoTenant = UUID.randomUUID();
+        when(tenantRepository.findById(novoTenant))
+                .thenReturn(
+                        Optional.of(
+                                new Tenant(
+                                        novoTenant,
+                                        "Clinica Nova",
+                                        TenantTipo.CLINICA,
+                                        TenantStatus.PROVISIONING,
+                                        null,
+                                        Instant.now())));
+        when(cuidadorRepository.findByTenantId(novoTenant)).thenReturn(List.of());
+        when(cuidadorRepository.findByLogin("coord@nova.dev")).thenReturn(Optional.empty());
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> ((Cuidador) inv.getArgument(0)));
+
+        // O TenantContextHolder aponta para OUTRO tenant — e é justamente isso que o
+        // `create` normal rejeitaria. Aqui não há de quem exigir contexto: a empresa
+        // acabou de nascer e ninguém está dentro dela.
+        CaregiverResponse response =
+                caregiverService.seedFirstCoordinator(
+                        novoTenant, "Coord Nova", "coord@nova.dev", "Test@1234!");
+
+        assertThat(response.papel()).isEqualTo(CuidadorPapel.COORDENADOR_CLINICA.name());
+    }
+
+    @Test
+    @DisplayName("recusa semear duas vezes — o bootstrap roda uma vez por empresa, e só")
+    void seedFirstCoordinator_refusesWhenTenantAlreadyHasCaregivers() {
+        UUID novoTenant = UUID.randomUUID();
+        when(tenantRepository.findById(novoTenant))
+                .thenReturn(
+                        Optional.of(
+                                new Tenant(
+                                        novoTenant,
+                                        "Clinica Nova",
+                                        TenantTipo.CLINICA,
+                                        TenantStatus.ACTIVE,
+                                        "t_abc",
+                                        Instant.now())));
+        when(cuidadorRepository.findByTenantId(novoTenant))
+                .thenReturn(
+                        List.of(
+                                new Cuidador(
+                                        UUID.randomUUID(),
+                                        novoTenant,
+                                        "Ja Existe",
+                                        "existente@nova.dev",
+                                        "hash",
+                                        CuidadorPapel.COORDENADOR_CLINICA,
+                                        CuidadorStatus.ACTIVE,
+                                        Instant.now(),
+                                        null)));
+
+        // Esta é a invariante que substitui a comparação de tenant do JWT. Sem ela, o caminho
+        // de bootstrap viraria uma porta permanente para criar gente dentro de outra empresa.
+        assertThatThrownBy(
+                        () ->
+                                caregiverService.seedFirstCoordinator(
+                                        novoTenant, "Outro", "outro@nova.dev", "Test@1234!"))
+                .isInstanceOf(TenantAlreadySeededException.class);
+
+        verify(cuidadorRepository, never()).save(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // edit — corrigir nome e login
+    //
+    // Existe porque erro de digitacao e inevitavel, e ate aqui a unica saida era
+    // desativar a pessoa e criar outra. Isso quebra o historico: a confirmacao de
+    // alarme guarda o id da cuidadora, e "quem atendeu?" passaria a apontar para
+    // uma conta desativada.
+    // -----------------------------------------------------------------------
+
+    private Cuidador cuidadoraExistente() {
+        return new Cuidador(
+                cuidadorId,
+                tenantId,
+                "Maria Silva",
+                "maria.silva",
+                "$2a$04$hashedpwd",
+                CuidadorPapel.CUIDADORA,
+                CuidadorStatus.ACTIVE,
+                Instant.now(),
+                null);
+    }
+
+    @Test
+    void edit_corrigeNomeELogin() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("maria.souza")).thenReturn(Optional.empty());
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CaregiverResponse resposta =
+                caregiverService.edit(cuidadorId, "Maria Souza", "maria.souza");
+
+        assertThat(resposta.nome()).isEqualTo("Maria Souza");
+        assertThat(resposta.login()).isEqualTo("maria.souza");
+    }
+
+    @Test
+    void edit_naoTocaEmCredencialPapelNemStatus() {
+        // Trocar senha por este caminho daria a quem administra o poder de assumir a
+        // conta de outra pessoa; papel muda o que ela pode fazer no sistema inteiro;
+        // e status tem endpoint proprio, que carrega a invariante D-204. Um segundo
+        // caminho para a mesma escrita seria um caminho SEM a guarda.
+        Cuidador existente = cuidadoraExistente();
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(existente));
+        when(cuidadorRepository.findByLogin(any())).thenReturn(Optional.empty());
+        ArgumentCaptor<Cuidador> capturado = ArgumentCaptor.forClass(Cuidador.class);
+        when(cuidadorRepository.save(capturado.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        caregiverService.edit(cuidadorId, "Nome Novo", "login.novo");
+
+        Cuidador salvo = capturado.getValue();
+        assertThat(salvo.credentialHash()).isEqualTo(existente.credentialHash());
+        assertThat(salvo.papel()).isEqualTo(existente.papel());
+        assertThat(salvo.status()).isEqualTo(existente.status());
+    }
+
+    @Test
+    void edit_normalizaOLoginParaMinusculas() {
+        // Login e identidade de acesso: "Ana@X" e "ana@x" nao podem ser duas pessoas.
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("maria.souza")).thenReturn(Optional.empty());
+        ArgumentCaptor<Cuidador> capturado = ArgumentCaptor.forClass(Cuidador.class);
+        when(cuidadorRepository.save(capturado.capture())).thenAnswer(inv -> inv.getArgument(0));
+
+        caregiverService.edit(cuidadorId, "Maria", "Maria.Souza");
+
+        assertThat(capturado.getValue().login()).isEqualTo("maria.souza");
+    }
+
+    @Test
+    void edit_recusaLoginJaUsadoPorOutraPessoa() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.findByLogin("ja.existe"))
+                .thenReturn(
+                        Optional.of(
+                                new Cuidador(
+                                        UUID.randomUUID(),
+                                        tenantId,
+                                        "Outra Pessoa",
+                                        "ja.existe",
+                                        "$2a$04$x",
+                                        CuidadorPapel.CUIDADORA,
+                                        CuidadorStatus.ACTIVE,
+                                        Instant.now(),
+                                        null)));
+
+        assertThatThrownBy(() -> caregiverService.edit(cuidadorId, "Maria", "ja.existe"))
+                .isInstanceOf(LoginDuplicateException.class);
+
+        verify(cuidadorRepository, never()).save(any());
+    }
+
+    @Test
+    void edit_reenviarOMesmoLoginNaoEConflitoConsigoMesma() {
+        // O caso comum de quem corrige APENAS o nome e devolve o objeto inteiro.
+        // Recusar aqui tornaria a edicao de nome impossivel na pratica.
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.of(cuidadoraExistente()));
+        when(cuidadorRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        CaregiverResponse resposta = caregiverService.edit(cuidadorId, "Maria S.", "maria.silva");
+
+        assertThat(resposta.nome()).isEqualTo("Maria S.");
+        verify(cuidadorRepository, never()).findByLogin(any());
+    }
+
+    @Test
+    void edit_cuidadoraInexistenteEstoura() {
+        when(cuidadorRepository.findById(cuidadorId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> caregiverService.edit(cuidadorId, "X", "x"))
                 .isInstanceOf(CaregiverNotFoundException.class);
     }
 }

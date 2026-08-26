@@ -1,5 +1,8 @@
 # ADR-001 — Python + asyncio as PEA runtime
 
+> **SUPERSEDED (2026-08-22)** por `GEST ADR-007 — O browser é o único motor de detecção`.
+> O runtime Python sai do caminho do produto.
+
 ## Status
 Aceita
 

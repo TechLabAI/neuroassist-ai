@@ -192,12 +192,20 @@ public class HistoryQuerySteps {
         UUID caregiverId = state.caregiverUUID("cg-caregiver");
         UUID pac1Id = state.subjectUUID("pac-1");
         BddWireMockHolder.ACS_WIREMOCK.stubFor(
-                get(urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope"))
+                get(urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withStatus(200)
                                         .withHeader("Content-Type", "application/json")
-                                        .withBody("{\"cuidadorId\":\"" + caregiverId + "\",\"pacienteIds\":[\"" + pac1Id + "\"]}")));
+                                        .withBody(
+                                                "{\"cuidadorId\":\""
+                                                        + caregiverId
+                                                        + "\",\"pacienteIds\":[\""
+                                                        + pac1Id
+                                                        + "\"]}")));
     }
 
     @When("GET \\/history is called with subjectType \"paciente\" and subjectId \"pac-9\"")
@@ -230,7 +238,10 @@ public class HistoryQuerySteps {
         UUID caregiverId = state.caregiverUUID("cg-caregiver");
         // Return a network fault so Feign throws an exception → circuit breaker → 503
         BddWireMockHolder.ACS_WIREMOCK.stubFor(
-                get(urlPathMatching("/api/v1/acs/directory/caregivers/" + caregiverId + "/patient-scope"))
+                get(urlPathMatching(
+                                "/api/v1/acs/directory/caregivers/"
+                                        + caregiverId
+                                        + "/patient-scope"))
                         .willReturn(
                                 aResponse()
                                         .withFault(

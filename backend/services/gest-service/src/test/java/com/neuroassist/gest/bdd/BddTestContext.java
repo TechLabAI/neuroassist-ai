@@ -1,6 +1,7 @@
 package com.neuroassist.gest.bdd;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.Getter;
@@ -298,6 +299,64 @@ public class BddTestContext {
                         version,
                         nomeSnapshot);
         return count != null && count > 0;
+    }
+
+    /** O schema existe de fato no banco? O guarda 503 do TenantContextFilter depende disso. */
+    public boolean schemaExists(String schema) {
+        Integer n =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name = ?",
+                        Integer.class,
+                        schema);
+        return n != null && n > 0;
+    }
+
+    /** Contagem de linhas de uma tabela num schema — base das asserções de "nada foi gravado". */
+    public int countRows(String schema, String tabela) {
+        Integer n =
+                jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM " + schema + "." + tabela, Integer.class);
+        return n != null ? n : 0;
+    }
+
+    /** O id do TipoGesto pelo nome, lido do schema indicado (case-insensitive, como o índice). */
+    public UUID tipoGestoIdByNome(String nome, String schema) {
+        List<UUID> ids =
+                jdbcTemplate.queryForList(
+                        "SELECT id FROM " + schema + ".tipo_gesto WHERE lower(nome) = lower(?)",
+                        UUID.class,
+                        nome);
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    /** {@code active} do perfil de uma versão — a prova de ux_profile_single_active. */
+    public boolean profileActiveFlag(long version, String schema) {
+        Boolean active =
+                jdbcTemplate.queryForObject(
+                        "SELECT active FROM " + schema + ".detection_profile WHERE version = ?",
+                        Boolean.class,
+                        version);
+        return Boolean.TRUE.equals(active);
+    }
+
+    /** Todas as versões de perfil já gravadas no schema, em ordem. */
+    public List<Long> profileVersions(String schema) {
+        return jdbcTemplate.queryForList(
+                "SELECT version FROM " + schema + ".detection_profile ORDER BY version",
+                Long.class);
+    }
+
+    /** Os nomes dos primitivos congelados numa versão de perfil. */
+    public List<String> profilePrimitiveNames(long version, String schema) {
+        return jdbcTemplate.queryForList(
+                "SELECT dpp.nome_snapshot FROM "
+                        + schema
+                        + ".detection_profile_primitive dpp JOIN "
+                        + schema
+                        + ".detection_profile dp ON dp.id = dpp.detection_profile_id"
+                        + " WHERE dp.version = ? ORDER BY dpp.nome_snapshot",
+                String.class,
+                version);
     }
 
     /** Checks whether any row in processed_events or any table contains the reportId. */

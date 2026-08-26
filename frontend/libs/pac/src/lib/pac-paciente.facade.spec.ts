@@ -242,3 +242,114 @@ describe('PacPacienteFacade', () => {
     }));
   });
 });
+
+// =============================================================================
+// Superfície de erro — a ligação que faltava.
+//
+// `save()` e `update()` tinham `error: () => { this._saveState.set('error'); }`
+// — callback SEM PARÂMETRO. O erro chegava e era descartado inteiro: nem código,
+// nem mensagem, nem erros por campo. Toda falha virava o mesmo estado mudo.
+// =============================================================================
+
+import { PacErrorHandler } from './error-surface/pac-error.handler';
+
+function erroHttp(corpo: unknown, status = 400) {
+  // A forma REAL: o HttpClient entrega o corpo em `.error`. Escrever a fixture
+  // como um `new Error('validation')` faria o teste concordar com o consumidor e
+  // discordar do produtor — o defeito nº 1 desta casa.
+  return { status, error: corpo };
+}
+
+describe('PacPacienteFacade — falha de escrita', () => {
+  let facade: PacPacienteFacade;
+  let port: ReturnType<typeof createMockPort>;
+
+  beforeEach(() => {
+    port = createMockPort();
+    TestBed.configureTestingModule({
+      providers: [PacPacienteFacade, { provide: PAC_PACIENTE_PORT, useValue: port }],
+    });
+    facade = TestBed.inject(PacPacienteFacade);
+  });
+
+  it('encaminha o erro ao PacErrorHandler — a ligação que faltava', fakeAsync(() => {
+    const espiao = jest.spyOn(TestBed.inject(PacErrorHandler), 'handle');
+    port.create.mockReturnValue(
+      throwError(() => erroHttp({ type: '/errors/missing-tenant', status: 403 }, 403)),
+    );
+
+    facade.save({ nome: 'Ana' });
+    tick();
+
+    expect(espiao).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'missing-tenant' }),
+      'patient-register',
+    );
+  }));
+
+  it('expõe os erros por CAMPO que o backend mandou', fakeAsync(() => {
+    port.create.mockReturnValue(
+      throwError(() =>
+        erroHttp({
+          type: '/errors/validation',
+          status: 400,
+          fieldErrors: [{ field: 'dispositivo', message: 'Dispositivo desconhecido no catálogo EDGE.' }],
+        }),
+      ),
+    );
+
+    facade.save({ nome: 'Ana' });
+    tick();
+
+    expect(facade.erroDoCampo('dispositivo')).toBe('Dispositivo desconhecido no catálogo EDGE.');
+    expect(facade.erroDoCampo('nome')).toBeNull();
+  }));
+
+  it('erro já mostrado pelo handler não é repetido inline', fakeAsync(() => {
+    // `missing-tenant` vira faixa. Repetir a frase no formulário faria a pessoa
+    // procurar dois problemas onde há um.
+    port.create.mockReturnValue(
+      throwError(() => erroHttp({ type: '/errors/missing-tenant', status: 403 }, 403)),
+    );
+
+    facade.save({ nome: 'Ana' });
+    tick();
+
+    expect(facade.error()).toBeNull();
+    expect(facade.saveState()).toBe('error');
+  }));
+
+  it('falha sem ProblemDetail (rede caída) não estoura e vira mensagem própria', fakeAsync(() => {
+    port.create.mockReturnValue(throwError(() => new Error('Network error')));
+
+    facade.save({ nome: 'Ana' });
+    tick();
+
+    expect(facade.saveState()).toBe('error');
+    expect(facade.fieldErrors()).toEqual([]);
+  }));
+
+  it('uma tentativa nova não herda os erros da anterior', fakeAsync(() => {
+    // Deixar a frase do campo na tela enquanto a chamada corre sugere que ela
+    // ainda vale.
+    port.create.mockReturnValue(
+      throwError(() =>
+        erroHttp({
+          type: '/errors/validation',
+          status: 400,
+          fieldErrors: [{ field: 'nome', message: 'Nome já usado.' }],
+        }),
+      ),
+    );
+    facade.save({ nome: 'Ana' });
+    tick();
+    expect(facade.fieldErrors()).toHaveLength(1);
+
+    port.create.mockReturnValue(of(new HttpResponse({ body: buildPaciente() })));
+    facade.save({ nome: 'Beatriz' });
+    tick();
+
+    expect(facade.fieldErrors()).toEqual([]);
+    expect(facade.saveState()).toBe('saved');
+  }));
+});

@@ -53,6 +53,7 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 .catalogoVersao(p.catalogoVersao())
                 .createdAt(p.createdAt())
                 .updatedAt(p.updatedAt())
+                .erasedAt(p.erasedAt())
                 .build();
     }
 
@@ -67,6 +68,7 @@ public class PacienteRepositoryAdapter implements PacienteRepositoryPort {
                 e.getRowVersion(),
                 e.getCatalogoVersao(),
                 e.getCreatedAt(),
-                e.getUpdatedAt());
+                e.getUpdatedAt(),
+                e.getErasedAt());
     }
 }

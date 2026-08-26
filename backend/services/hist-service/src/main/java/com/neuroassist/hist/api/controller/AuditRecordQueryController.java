@@ -5,6 +5,7 @@ import com.neuroassist.hist.api.dto.AuditRecordQueryResponse;
 import com.neuroassist.hist.api.dto.SubjectRefDto;
 import com.neuroassist.hist.application.port.in.AuditRecordQueryUseCase;
 import com.neuroassist.hist.domain.model.AuditRecord;
+import com.neuroassist.hist.domain.model.MissingTenantClaimException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,14 +53,23 @@ public class AuditRecordQueryController {
 
     // ---- helpers ----
 
+    /**
+     * Le o tenant do JWT, falhando alto quando ele nao esta la.
+     *
+     * <p>Caia no literal {@code "stub-tenant"} (C-35). Os outros tres controllers do HIST foram
+     * corrigidos; este ficou para tras, e o resultado e o pior tipo de erro: a consulta e
+     * respondida contra um tenant que nao existe, e um resultado vazio e indistinguivel de "esta
+     * empresa nao tem fatos". O acs-service emite o claim em todo token que assina, entao a
+     * ausencia dele e configuracao errada, nao um caso a acomodar (E2E-021).
+     */
     private String extractTenantId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            String tenant = jwtAuth.getToken().getClaimAsString("tenant");
+            String tenant = jwtAuth.getToken().getClaimAsString("tenant_id");
             if (tenant != null && !tenant.isBlank()) {
                 return tenant;
             }
         }
-        return "stub-tenant";
+        throw new MissingTenantClaimException();
     }
 
     private AuditRecordQueryResponse toResponse(AuditRecord record) {

@@ -12,28 +12,35 @@
  *   WHEN no signal within tempoMaximoGestoMs → state:'not-recognized'
  *
  * Timeout override:
- *   window.__GEST_E2E_TEMPO_MAX = 1200 (ms) — sets a short timeout on the
- *   GestDevHostComponent draft so the test completes in ~1.5 seconds instead
- *   of the default 8 seconds.
+ *   window.__GEST_E2E_TEMPO_MAX = 2500 (ms) — sets a short timeout on the
+ *   GestDevHostComponent draft so the test completes in ~3 seconds instead
+ *   of the default 8 seconds. Eram 1200ms: como o sinal 'degraded' do motor
+ *   simulado chega aos 900ms, o degradado ficava visível por apenas 300ms
+ *   antes do veredito sobrescrever a badge — janela curta demais para uma
+ *   asserção honesta. 2500ms deixa 1,6s de janela.
  *
  * Sequence with the mock adapter (default honest-degraded path):
  *   0ms:    startTest — state:'testing'
  *   300ms:  preview_frame_ack (mock default)
  *   900ms:  degraded signal → degraded:true, banner appears
- *   1200ms: facade timeout fires → finalize(false) → state:'not-recognized'
+ *   2500ms: facade timeout fires → finalize(false) → state:'not-recognized'
  */
 import { test, expect } from '@playwright/test';
-import { gotoGest, mockCameraSuccess } from './gest-e2e-helpers';
+import { gotoGest, mockCameraSuccess, usarMotorSimulado } from './gest-e2e-helpers';
 
 test.describe('live-test-timeout-not-recognized', () => {
 
   // ── Scenario 1 ───────────────────────────────────────────────────────────
   // BDD: "No gesture within the time window results in not-recognized state"
   test('timeout expires with no recognized signal → not-recognized state with retry', async ({ page }) => {
-    // Short timeout: 1200ms (well below the default 8000ms)
+    // Este cenário mede o caminho degradado honesto do motor SIMULADO
+    // (ack aos 300ms, 'degraded' aos 900ms). Com o motor do produto (MediaPipe,
+    // ADR-007) nada disso acontece contra uma webcam falsa.
+    await usarMotorSimulado(page);
+    // Short timeout: 2500ms (well below the default 8000ms)
     await page.addInitScript(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).__GEST_E2E_TEMPO_MAX = 1200;
+      (window as any).__GEST_E2E_TEMPO_MAX = 2500;
     });
     await mockCameraSuccess(page);
 
@@ -50,14 +57,12 @@ test.describe('live-test-timeout-not-recognized', () => {
       ),
     ).toBeVisible({ timeout: 2_000 });
 
-    // === Final state: not-recognized at ~1200ms ===
-    // Wait for facade timeout to fire (1200ms) + buffer
-    await page.waitForTimeout(600); // already waited ~1s, so 600ms more = ~1.6s total
-
+    // === Final state: not-recognized aos ~2500ms ===
+    // Esperado por condição: o timeout do facade dispara sozinho.
     // "Tentar novamente" button must appear (shown for 'idle' | 'not-recognized' states)
     await expect(
       page.getByRole('button', { name: 'Tentar novamente' }),
-    ).toBeVisible({ timeout: 3_000 });
+    ).toBeVisible({ timeout: 5_000 });
 
     // Badge must show the not-recognized message
     await expect(

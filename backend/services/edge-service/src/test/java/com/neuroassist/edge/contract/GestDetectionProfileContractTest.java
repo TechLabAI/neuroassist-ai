@@ -63,6 +63,11 @@ class GestDetectionProfileContractTest {
                         .withPassword("test")
                         .withInitScript("init-schema.sql");
         POSTGRES.start();
+
+        // E2E-022 — esta classe sobe o SEU PRÓPRIO container e por isso aplica as migrations por
+        // conta. Sem isto o `ddl-auto=validate` do profile de teste derruba o contexto.
+        com.neuroassist.edge.integration.SchemaMigrations.applyTo(
+                POSTGRES, java.util.List.of("t_emp_test", "t_emp_other"));
     }
 
     private static final int WIREMOCK_PORT = 9876;
@@ -79,9 +84,18 @@ class GestDetectionProfileContractTest {
     private static final String SERVICE_TOKEN = "service-identity-jwt-from-acs";
     private static final String CALLER_TOKEN = "caller-device-jwt";
 
+    /** Ver {@code BaseIntegrationTest.jdbcUrlWithSearchPath} — container próprio, mesma razão. */
+    private static String jdbcUrlWithSearchPath() {
+        String url = POSTGRES.getJdbcUrl();
+        return url
+                + (url.contains("?") ? "&" : "?")
+                + "currentSchema=t_emp_test,neuroassist_global";
+    }
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
+        registry.add(
+                "spring.datasource.url", GestDetectionProfileContractTest::jdbcUrlWithSearchPath);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("neuroassist.gest.url", () -> "http://localhost:" + WIREMOCK_PORT);
@@ -226,9 +240,11 @@ class GestDetectionProfileContractTest {
                 .containsExactly("Bearer " + SERVICE_TOKEN);
 
         // The token was fetched from the ACS with the tenant of the request in course.
+        // clientId matches neuroassist.acs.service-token.client-id from application-test.yml.
         gestMock.verify(
                 postRequestedFor(urlEqualTo("/oauth2/token/service"))
-                        .withRequestBody(matchingJsonPath("$.clientId", equalTo("edge-service")))
+                        .withRequestBody(
+                                matchingJsonPath("$.clientId", equalTo("test-edge-service")))
                         .withRequestBody(matchingJsonPath("$.tenantId", equalTo(TENANT))));
     }
 

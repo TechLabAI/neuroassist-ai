@@ -2,6 +2,7 @@ package com.neuroassist.dash.infrastructure.clients.adapter;
 
 import com.neuroassist.dash.application.port.out.NotificationDispatchBackPort;
 import com.neuroassist.dash.infrastructure.clients.EvntClient;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,12 +19,14 @@ public class NotificationDispatchBackAdapter implements NotificationDispatchBack
     private final EvntClient evntClient;
 
     @Override
+    @CircuitBreaker(name = "evnt-service")
     public void reportDelivered(String dispatchId) {
         log.debug("Reportando EVNT: notificacao [{}] entregue via SSE", dispatchId);
         evntClient.reportDelivered(dispatchId);
     }
 
     @Override
+    @CircuitBreaker(name = "evnt-service")
     public void reportAcknowledged(String dispatchId) {
         log.debug(
                 "Reportando EVNT: notificacao [{}] reconhecida pelo cuidador via SSE", dispatchId);
@@ -31,6 +34,7 @@ public class NotificationDispatchBackAdapter implements NotificationDispatchBack
     }
 
     @Override
+    @CircuitBreaker(name = "evnt-service")
     public void reportNoSession(String dispatchId) {
         log.debug(
                 "Reportando EVNT: sem sessao SSE aberta para entrega da notificacao [{}]",

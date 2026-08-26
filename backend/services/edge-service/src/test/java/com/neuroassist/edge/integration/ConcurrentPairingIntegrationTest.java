@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
 import com.neuroassist.edge.application.port.in.PairingUseCase;
+import com.neuroassist.edge.bdd.TestJwtFactory;
 import com.neuroassist.edge.infrastructure.security.TenantContextHolder;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -11,7 +12,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +27,6 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
  * acceptable here because this is a test class. Architecture rule RULE-07 (no field injection)
  * applies to production code only.
  */
-@Disabled(
-        "P9 — concurrent integration test pending schema setup (DB multi-tenant search_path incompatible with ddl-auto:create-drop in tests)")
 class ConcurrentPairingIntegrationTest extends BaseIntegrationTest {
 
     private DeviceRegistrationUseCase deviceRegistrationUseCase;
@@ -44,7 +42,10 @@ class ConcurrentPairingIntegrationTest extends BaseIntegrationTest {
         this.pairingService = service;
     }
 
-    private static final String TENANT = "tenant-concurrent-pair-test";
+    // UUID mapped to schema t_emp_test in neuroassist_global.tenant (init-schema.sql).
+    // MultiTenantConnectionProvider resolves UUID → schema_nome via the real catalogue,
+    // so search_path is set to t_emp_test — the same schema all other integration tests use.
+    private static final String TENANT = TestJwtFactory.TEST_TENANT;
     private static final String ACTOR = "test-actor";
 
     private UUID deviceId;

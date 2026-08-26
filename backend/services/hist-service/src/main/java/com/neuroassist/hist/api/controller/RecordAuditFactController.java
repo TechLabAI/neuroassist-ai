@@ -81,7 +81,8 @@ public class RecordAuditFactController {
                         request.payload(),
                         request.occurredAt(),
                         request.correctsFactId(),
-                        tenantId);
+                        tenantId,
+                        request.scopePacienteId());
 
         RecordAuditFactUseCase.AppendResult result = recordAuditFactUseCase.append(command);
         RecordAuditFactResponse body = toResponse(result.record());
@@ -120,7 +121,7 @@ public class RecordAuditFactController {
 
     private String extractTenantId(Authentication authentication) {
         if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            String tenant = jwtAuth.getToken().getClaimAsString("tenant");
+            String tenant = jwtAuth.getToken().getClaimAsString("tenant_id");
             if (tenant != null && !tenant.isBlank()) {
                 return tenant;
             }

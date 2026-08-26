@@ -1,6 +1,7 @@
 package com.neuroassist.gest.integration;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -10,11 +11,13 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Base64;
 import java.util.Date;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -85,6 +88,32 @@ class SecurityIT extends BaseIntegrationTest {
         mockMvc.perform(get("/gest-service/tipo-gesto")).andExpect(status().isUnauthorized());
     }
 
+    // ── Scenario 1b: HTTP Basic nao autentica mais ──────────────────────────
+    //
+    // O SecurityConfig tinha um httpBasic() com dois usuarios em memoria e senha em texto plano,
+    // sem @Profile — valia em producao. `gest-manager` carregava gest.detection-profile.publicar:
+    // publicar o perfil de deteccao da empresa inteira com uma credencial versionada no
+    // repositorio. Ele existia apenas para servir a suite BDD, que hoje assina JWT.
+    //
+    // 401, e nao 403 nem 500: 403 significaria que a credencial autenticou e parou na autorizacao,
+    // e 500 significaria que chegou ao JDBC sem tenant — os dois provariam que o Basic sobreviveu.
+
+    @Test
+    void http_basic_credentials_no_longer_authenticate() throws Exception {
+        mockMvc.perform(
+                        get("/gest-service/tipo-gesto")
+                                .header(
+                                        "Authorization",
+                                        "Basic "
+                                                + Base64.getEncoder()
+                                                        .encodeToString(
+                                                                "gest-manager:manager-secret"
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8))))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── Scenario 2: valid JWT but wrong scope → 403 ──────────────────────────
 
     @Test
@@ -116,6 +145,45 @@ class SecurityIT extends BaseIntegrationTest {
                 .andExpect(header().exists("X-Correlation-Id"));
     }
 
+    // ── Scenario 5: POST /detection-contract with read-only scope → 403 ──────
+    //
+    // E2E-026: the POST endpoint must be guarded by gest.detection-contract.validar,
+    // not gest.detection-contract.read. A caller with only the read authority must be
+    // rejected — before this fix both GET and POST shared the same read guard, so a
+    // role that had .read could write without realising it.
+
+    @Test
+    void post_detection_contract_with_read_only_scope_returns_403() throws Exception {
+        // Token carries only the read authority — deliberately excluded validar
+        String token = buildToken("user-001", "emp_test", "gest.detection-contract.read");
+
+        mockMvc.perform(
+                        post("/gest-service/detection-contract")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(
+                                        "{\"report\":{\"gestureId\":\"g1\","
+                                                + "\"confidence\":0.91,\"windowMs\":700}}"))
+                .andExpect(status().isForbidden());
+    }
+
+    // ── Scenario 6: POST /detection-contract with validar scope → 200 ────────
+
+    @Test
+    void post_detection_contract_with_validar_scope_returns_200() throws Exception {
+        // Token carries the correct write authority for the POST endpoint
+        String token = buildToken("user-001", "emp_test", "gest.detection-contract.validar");
+
+        mockMvc.perform(
+                        post("/gest-service/detection-contract")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType("application/json")
+                                .content(
+                                        "{\"report\":{\"gestureId\":\"g1\","
+                                                + "\"confidence\":0.91,\"windowMs\":700}}"))
+                .andExpect(status().isOk());
+    }
+
     // ── JWT helper ────────────────────────────────────────────────────────────
 
     /**
@@ -134,7 +202,12 @@ class SecurityIT extends BaseIntegrationTest {
                         .subject(subject)
                         .issueTime(new Date())
                         .expirationTime(new Date(System.currentTimeMillis() + 3_600_000L))
-                        .claim("tenant", tenant)
+                        // E2E-021 tornou "tenant_id" o claim canonico e unico; este teste
+                        // continuou emitindo o alias "tenant". O TenantContextFilter nao o
+                        // encontrava, caia no "sub" ("user-001"), procurava o schema "t_user-001",
+                        // nao achava e devolvia 503 — inclusive nos cenarios que so queriam provar
+                        // 401/403.
+                        .claim("tenant_id", tenant)
                         .claim("scope", String.join(" ", scopes))
                         .build();
 

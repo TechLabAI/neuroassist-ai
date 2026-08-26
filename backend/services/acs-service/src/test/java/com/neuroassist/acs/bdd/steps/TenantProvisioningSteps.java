@@ -40,14 +40,12 @@ public class TenantProvisioningSteps {
     public void givenIAmAuthenticatedAsAPlatformConductorWith() {
         shared.ensureTenant(
                 ctx.testTenantId, "Conductor Tenant", "CLINICA", "ACTIVE", "neuroassist_global");
-        shared.ensureCaregiver(
-                ctx.conductorId,
-                ctx.testTenantId,
-                "Platform Conductor",
-                "conductor@platform.com",
-                ctx.lastRawPassword,
-                "COORDENADOR_CLINICA");
-        shared.issueToken("conductor@platform.com", ctx.lastRawPassword);
+        // E2E-029 — token de serviço do cliente `platform-ops`, sem tenant.
+        //
+        // Antes este passo logava como COORDENADOR_CLINICA e chamava isso de "platform
+        // conductor". O nome do cenário sempre esteve certo; a credencial é que não estava — e
+        // era por isso que um coordenador de clínica podia criar e reprocessar outras empresas.
+        shared.issueServiceToken("platform-ops", "dev-service-secret");
     }
 
     @Given("MIG is available and can provision schemas")
@@ -60,7 +58,12 @@ public class TenantProvisioningSteps {
 
     @When("I POST a tenant with nome \"Família Amaral\" and tipo \"familia\"")
     public void whenIPostATenantWithNomeFamliaAmaral() {
-        String body = "{\"nome\":\"Família Amaral\",\"tipo\":\"CLINICA\"}";
+        // E2E-029 — o primeiro coordenador faz parte de criar a empresa. Sem ele o
+        // tenant nasceria sem ninguém capaz de agir dentro dele.
+        String body =
+                "{\"nome\":\"Família Amaral\",\"tipo\":\"CLINICA\","
+                        + "\"primeiroCoordenador\":{\"nome\":\"Coord Família Amaral\","
+                        + "\"login\":\"coord.amaral@clinica.dev\",\"senha\":\"Test@1234!\"}}";
         ResponseEntity<String> resp =
                 restTemplate.exchange(
                         "/api/v1/acs/tenants",
@@ -68,6 +71,40 @@ public class TenantProvisioningSteps {
                         new HttpEntity<>(body, shared.bearerHeaders()),
                         String.class);
         ctx.lastResponse = resp;
+    }
+
+    /**
+     * O critério de aceite de E2E-029: sem nenhuma chamada extra e sem inserir linha no banco, a
+     * pessoa que vai operar a empresa consegue entrar nela.
+     */
+    @And("the first coordinator can authenticate into the new tenant")
+    public void andTheFirstCoordinatorCanAuthenticate() {
+        String tenantBody = ctx.lastResponse.getBody();
+        assertThat(tenantBody).isNotNull();
+        String newTenantId;
+        try {
+            newTenantId =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(tenantBody)
+                            .get("id")
+                            .asText();
+        } catch (Exception e) {
+            throw new AssertionError("resposta de criação de tenant sem id", e);
+        }
+
+        shared.issueToken("coord.amaral@clinica.dev", "Test@1234!");
+
+        assertThat(ctx.lastResponse.getStatusCode().value())
+                .as("o coordenador semeado tem de conseguir autenticar")
+                .isEqualTo(200);
+        assertThat(ctx.bearerToken).isNotNull();
+
+        // E no tenant certo: um token emitido para a empresa errada seria pior do que nenhum.
+        String claims =
+                new String(
+                        java.util.Base64.getUrlDecoder().decode(ctx.bearerToken.split("[.]")[1]),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(claims).contains(newTenantId);
     }
 
     @And("the tenant status is \"active\"")
@@ -97,7 +134,12 @@ public class TenantProvisioningSteps {
 
     @When("I POST a tenant with nome \"Família Souza\" and tipo \"familia\"")
     public void whenIPostATenantWithNomeFamliaSouza() {
-        String body = "{\"nome\":\"Família Souza\",\"tipo\":\"CLINICA\"}";
+        // E2E-029 — o primeiro coordenador faz parte de criar a empresa. Sem ele o
+        // tenant nasceria sem ninguém capaz de agir dentro dele.
+        String body =
+                "{\"nome\":\"Família Souza\",\"tipo\":\"CLINICA\","
+                        + "\"primeiroCoordenador\":{\"nome\":\"Coord Família Souza\","
+                        + "\"login\":\"coord.souza@clinica.dev\",\"senha\":\"Test@1234!\"}}";
         ResponseEntity<String> resp =
                 restTemplate.exchange(
                         "/api/v1/acs/tenants",
@@ -154,8 +196,18 @@ public class TenantProvisioningSteps {
     @Given("a tenant with status \"active\" exists")
     public void givenATenantWithStatusActiveExists() {
         ctx.retryTenantId = UUID.randomUUID();
+        // Schema PRÓPRIO, e não `neuroassist_global` (E2E-022).
+        //
+        // O Background já criou um tenant com aquele schema, e o schema real tem
+        // `ux_tenant_schema_nome` — duas empresas não podem apontar para o mesmo schema, o que é a
+        // própria definição de isolamento por schema. Com `ddl-auto=create-drop` o Hibernate nunca
+        // criava essa constraint, então a fixture descrevia um estado que produção rejeita.
         shared.ensureTenant(
-                ctx.retryTenantId, "Active Tenant", "CLINICA", "ACTIVE", "neuroassist_global");
+                ctx.retryTenantId,
+                "Active Tenant",
+                "CLINICA",
+                "ACTIVE",
+                "t_" + ctx.retryTenantId.toString().replace("-", ""));
     }
 
     @And("MIG is not called")

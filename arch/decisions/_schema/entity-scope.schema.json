@@ -4,12 +4,29 @@
   "title": "Entity scope catalogue",
   "description": "Cross-service registry mapping JPA entities to data-scope tipos. Source of truth for: (a) @FilterDef + @Filter emission by be-entity-generator; (b) the if/elif branches in DataScopeFilterAspect (which filters to enable for each scope tipo). The tipo strings MUST match rbac.arch.json data_scope.types[*].id (validated by cross_validate_entity_scope_against_rbac). D-062.",
   "type": "object",
-  "required": ["_schema_version", "version", "scopes"],
+  "required": [
+    "_schema_version",
+    "version",
+    "scopes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "_schema_version": { "type": "integer", "const": 1 },
-    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "last_changed": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "$comment": {
+      "type": "string",
+      "description": "Free-text note for maintainers; not consumed by any generator."
+    },
+    "_schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "last_changed": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
     "scopes": {
       "type": "object",
       "description": "Keyed by data-scope tipo (must exist in rbac.data_scope.types). Value is the list of entities subject to that scope.",
@@ -18,7 +35,13 @@
         "minItems": 1,
         "items": {
           "type": "object",
-          "required": ["entity", "table", "filter_name", "column", "param"],
+          "required": [
+            "entity",
+            "table",
+            "filter_name",
+            "column",
+            "param"
+          ],
           "additionalProperties": false,
           "properties": {
             "entity": {
@@ -48,7 +71,10 @@
             },
             "kind": {
               "type": "string",
-              "enum": ["scalar", "list"],
+              "enum": [
+                "scalar",
+                "list"
+              ],
               "default": "scalar",
               "description": "scalar: emits 'column = :param' / setParameter. list: emits 'column IN (:param)' / setParameterList. Mirrors rbac.data_scope.types[*].value_kind (uuid vs csv-uuid)."
             }

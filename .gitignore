@@ -1,6 +1,10 @@
 # Build artifacts
 build/
-out/
+# ANCORADO NA RAIZ de propósito: "out/" sem barra inicial casa QUALQUER diretório
+# chamado out em qualquer profundidade — incluindo application/port/out/, o pacote
+# hexagonal dos outbound ports. Com o padrão solto, 100+ ports dos 7 microsserviços
+# ficaram fora do repositório e um clone limpo não compila.
+/out/
 .gradle/
 target/
 

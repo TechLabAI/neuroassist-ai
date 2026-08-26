@@ -94,6 +94,29 @@ São predicados diferentes.
 como intenção, e resolve de uma vez o problema de o proxy do FE precisar de 9 prefixos distintos
 (passaria a precisar de 2: `/api/v1/**` e `/oauth2/**`).
 
+> ### ✅ DECISÃO FECHADA (22/08) — **(a) normalizar**, já implementada no GWY
+>
+> O commit `fc4d37a` (`E2E-014`, **ADR-008**) normalizou a superfície pública. Os cinco
+> `RewritePath` estão em `neuroassist-ai-api-gateway/src/main/resources/application.yml`:
+>
+> ```
+> /api/v1/pac/(.*)            → /api/pac/v1/${segment}
+> /api/v1/evnt/(.*)           → /api/v1/${segment}
+> /api/v1/dash/(.*)           → /panel/${segment}
+> /api/v1/gest/eligibility    → /gest-service/eligibility
+> /api/v1/gest/tipo-gesto(.*) → /gest-service/tipo-gesto${segment}
+> ```
+>
+> O comentário no próprio arquivo registra que o `RewritePath` também funciona como
+> allow-list: rota que não está ali não é exposta.
+>
+> **Consequências para este plano:**
+> - A pré-condição bloqueante do **P2 deixou de existir** — pode começar.
+> - A hipótese **(a)** é a que vale: o proxy tem 2 prefixos e os **4 adapters do FE mudam
+>   de base path** (a tabela em P2 está correta e continua valendo).
+> - O achado "4 das 7 rotas do GWY não alcançam o controller" acima está **resolvido no
+>   backend**; ficou pendente só o lado FE, que é justamente o P2.
+
 ### Continuidade da última rodada
 
 Primeira rodada do módulo. Não há estado em ES. O insumo é o levantamento acima, revalidado
@@ -363,13 +386,39 @@ sem backend nenhum.
    respondem `404` porque o gateway encaminha `/api/v1/<svc>/**` sem rewrite.
 5. **Externo:** o GWY escuta em `18080` no host, não `8080`.
 
-#### Pré-condição bloqueante
+#### Pré-condição bloqueante — ✅ RESOLVIDA (22/08)
 
-A decisão **(a) normalizar** vs **(b) espelhar** (ver §0) precisa estar fechada com o backend
-antes de escrever o proxy. Ela determina se o FE muda 4 adapters ou nenhum — e escrever o
-proxy antes significa reescrevê-lo depois.
+A decisão **(a) normalizar** vs **(b) espelhar** (ver §0) está fechada em **(a)** e já
+implementada no GWY (`fc4d37a`, `E2E-014`, ADR-008). O proxy pode ser escrito com 2 prefixos
+e os 4 adapters mudam de base path conforme a tabela abaixo — **P2 está desbloqueada**.
 
-O restante desta prioridade assume a recomendação **(a)**.
+O restante desta prioridade assume **(a)**, que agora é fato e não hipótese.
+
+#### Insumos já entregues por `plan-fe-render-shell-evnt.md` (F1–F5, 22/08)
+
+Aquele plano nasceu com uma fase **F6 — mock → http**, que era subconjunto ingênuo desta P2
+(trocaria `provideEvnt({adapter:'mock'})` por `http` editando arquivo — exatamente o que a
+estratégia deste plano proíbe). **F6 foi removida**; a troca de modo é responsabilidade desta
+P2. O que aquelas fases deixaram pronto e a P2 herda:
+
+- **App servido em container, com a superfície de 2 prefixos já funcionando.**
+  `docker/docker-compose.dev.yml` tem o serviço `web` (host `:14200`) e
+  `frontend/nginx.conf` já faz `/api/**` e `/oauth2/**` → `gateway:8080`. É a mesma decisão
+  de roteamento do `proxy.conf.json` desta P2, em outro ponto de entrega — os dois precisam
+  concordar. Vale conferir um contra o outro ao escrever o proxy.
+- **e2e roda contra instância já servida.** `apps/evnt-e2e/playwright.config.ts` passou a
+  desligar o `webServer` quando `APP_URL` está definido (antes, com
+  `reuseExistingServer: true` em `:4200`, qualquer coisa escutando naquela porta faria a
+  suíte rodar contra o app errado, sem avisar). `APP_URL=http://localhost:14200 nx e2e
+  evnt-e2e` → 9/9. **Os outros 6 configs `*-e2e` ainda têm o problema** — vale replicar.
+- **O app renderiza.** Até 22/08 o Tailwind não compilava (`@angular/build` não lê
+  `postcss.config.js`); qualquer verificação visual desta P2 teria sido feita sobre uma tela
+  sem CSS. Ver `plan-fe-render-shell-evnt.md` §2.
+- **INT-FE-DASH-001 fechado:** `DASH_ACTIVE_EVENT_TOKEN` já projeta o `activeEvent` do EVNT
+  em `app.config.ts`. **Ponto de colisão com esta P2 e com a P1**: os três mexem no mesmo
+  arquivo — a P2 reestrutura os 7 `provide<Module>()` a partir de `APP_ADAPTER_MODE` e a P1
+  registra o interceptor. A ligação do token é ortogonal e deve sobreviver à reestruturação;
+  preservá-la.
 
 #### Correções mandatórias
 

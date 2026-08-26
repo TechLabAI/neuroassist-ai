@@ -17,11 +17,12 @@ import io.micrometer.observation.ObservationRegistry;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Implements the tenant provisioning SAGA (ACS-012).
@@ -42,7 +43,6 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TenantProvisioningService {
 
     private static final int MAX_POLL_ATTEMPTS = 10;
@@ -57,6 +57,32 @@ public class TenantProvisioningService {
     private final MeterRegistry meterRegistry;
     private final ObservationRegistry observationRegistry;
 
+    /** Commits step 1 independently of any caller transaction — see {@code doProvision}. */
+    private final TransactionTemplate requiresNewTransaction;
+
+    /**
+     * Explicit constructor instead of {@code @RequiredArgsConstructor}: the {@link
+     * TransactionTemplate} has to be built here with {@code PROPAGATION_REQUIRES_NEW}. Injecting a
+     * shared template would silently join the caller's transaction, which is exactly the bug this
+     * field exists to avoid — and it would look correct.
+     */
+    public TenantProvisioningService(
+            TenantRepositoryPort tenantRepository,
+            MigProvisioningPort migProvisioningPort,
+            HistAuditPort histAuditPort,
+            MeterRegistry meterRegistry,
+            ObservationRegistry observationRegistry,
+            PlatformTransactionManager transactionManager) {
+        this.tenantRepository = tenantRepository;
+        this.migProvisioningPort = migProvisioningPort;
+        this.histAuditPort = histAuditPort;
+        this.meterRegistry = meterRegistry;
+        this.observationRegistry = observationRegistry;
+        this.requiresNewTransaction = new TransactionTemplate(transactionManager);
+        this.requiresNewTransaction.setPropagationBehavior(
+                TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
+
     /**
      * Provisions a new tenant schema via MIG service (SAGA, fail-soft on MIG request).
      *
@@ -68,7 +94,26 @@ public class TenantProvisioningService {
      * @return the tenant: ACTIVE if provisioning succeeded, PROVISIONING if MIG was unavailable
      * @throws TenantProvisioningTimeoutException if schema does not reach READY within poll limit
      */
-    @Transactional
+    /**
+     * <b>Deliberately NOT {@code @Transactional}</b> (E2E-016).
+     *
+     * <p>Step 1 persists the tenant as PROVISIONING and step 2 calls mig-service, which reads
+     * {@code neuroassist_global.tenant} over its own connection to refuse provisioning a schema for
+     * a tenant nobody registered. Inside one transaction that INSERT is invisible to mig-service
+     * until commit, so the call answered 422 {@code invalid-tenant-id} for a tenant acs-service had
+     * just created — the row existed, in a transaction nobody else could see.
+     *
+     * <p>It is the same shape as the trap recorded in CLAUDE.md for tenant binding: work that a
+     * <i>second</i> connection has to observe cannot live inside the first one's transaction. It is
+     * also wrong for a different reason — provisioning runs DDL for an entire schema template, and
+     * holding a database transaction open across that call ties one connection up for its whole
+     * duration.
+     *
+     * <p>Each {@code tenantRepository.save} therefore commits on its own. Atomicity across the
+     * three saves is not lost so much as never appropriate: they are sequential states of one row
+     * (PROVISIONING → schema recorded → ACTIVE), and the fail-soft path already exists precisely to
+     * describe stopping between them.
+     */
     public Tenant provision(Tenant tenant) {
         return Observation.createNotStarted(OBS_PROVISION, observationRegistry)
                 .observe(
@@ -102,7 +147,20 @@ public class TenantProvisioningService {
                         TenantStatus.PROVISIONING,
                         null,
                         criadoEm);
-        tenantRepository.save(provisioning);
+
+        // REQUIRES_NEW, and this is the whole point of step 1 (E2E-016).
+        //
+        // mig-service refuses to provision a schema for a tenant that is not in
+        // `neuroassist_global.tenant`, and it checks over its own connection. TenantService is
+        // annotated @Transactional at class level, so without an independent transaction this
+        // INSERT stays invisible until that outer transaction commits — which happens after the
+        // MIG call. The result was a 422 `invalid-tenant-id` for a tenant acs-service had just
+        // created: the row existed, in a transaction nobody else could see.
+        //
+        // Same family as the tenant-binding trap in CLAUDE.md: work another connection has to
+        // observe cannot live inside this one's transaction. "Persist the intent, then act" only
+        // means anything when the intent is actually durable before the act.
+        requiresNewTransaction.executeWithoutResult(status -> tenantRepository.save(provisioning));
 
         // Step 2: request schema creation from MIG (fail-soft: return PROVISIONING if unavailable)
         String schemaName = "t_" + UUID.randomUUID().toString().replace("-", "");

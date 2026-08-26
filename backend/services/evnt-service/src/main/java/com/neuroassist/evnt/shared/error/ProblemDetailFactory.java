@@ -43,6 +43,14 @@ public final class ProblemDetailFactory {
                                     "conflict",
                                     409,
                                     "Event feedback is terminal and cannot be changed")),
+                    // Identidade de quem confirma divergente do token — 403, nao 422: nao e dado
+                    // invalido, e alguem declarando ser outra pessoa.
+                    Map.entry(
+                            "confirmador-divergente",
+                            new ErrorMetadata(
+                                    "forbidden",
+                                    403,
+                                    "confirmedBy does not match the authenticated subject")),
                     Map.entry(
                             "confirmador-unresolved",
                             new ErrorMetadata(
@@ -52,6 +60,14 @@ public final class ProblemDetailFactory {
                     Map.entry(
                             "evento-not-found",
                             new ErrorMetadata("not_found", 404, "Evento not found")),
+                    // Teto de ids em GET /api/v1/events/active/by-patient. 400 e nao 422: o
+                    // problema esta na FORMA do pedido (lista grande demais), nao no estado do
+                    // dominio. Recusar em vez de truncar — uma resposta truncada pareceria
+                    // completa e esconderia alarmes.
+                    Map.entry(
+                            "too-many-patients",
+                            new ErrorMetadata(
+                                    "validation", 400, "Too many patient ids in a single query")),
                     Map.entry(
                             "tenant-mismatch",
                             new ErrorMetadata(

@@ -1,137 +1,137 @@
 # Service Spec Authoring (NeuroAssist AI Backend)
 
-> Processo e convenções para criar especificações técnicas de backend de qualquer
-> microserviço.
+> Process and conventions for writing the backend technical specifications of any
+> microservice.
 
-Use este arquivo quando precisar especificar um serviço novo (ex.: começando a `crm-service`)
-ou refinar especificação de um existente (ex.: nova feature em `<service-name>`).
-
----
-
-## Pipeline de Authoring (3 fases)
-
-```
-Fase 1 — Análise dos artefatos arquiteturais
-  └── Ler ADRs + modelo de dados + protótipo + mapeamento legado
-
-Fase 2 — Geração do plano de spec
-  └── Listar todas as SPECs a produzir, dependências e ordem
-
-Fase 3 — Geração das specs individuais
-  └── Criar cada SPEC em docs/architecture/backend/services/<service>/
-```
-
-NeuroAssist AI simplifica o processo do padrão Hub: não exige 35 diagramas PlantUML por serviço,
-mas mantém o rigor de SPECs implementáveis sem ambiguidade.
+Use this file when you need to specify a new service (e.g. starting `crm-service`)
+or to refine the spec of an existing one (e.g. a new feature in `<service-name>`).
 
 ---
 
-## Fase 1 -- Análise dos artefatos arquiteturais
+## Authoring Pipeline (3 phases)
 
-### 1.1 Artefatos obrigatórios a ler
+```
+Phase 1 -- Analysis of the architectural artifacts
+  └── Read ADRs + data model + prototype + legacy mapping
 
-| Arquivo | O que extrair |
+Phase 2 -- Spec plan generation
+  └── List every SPEC to produce, its dependencies and the order
+
+Phase 3 -- Individual spec generation
+  └── Create each SPEC under docs/architecture/backend/services/<service>/
+```
+
+NeuroAssist AI simplifies the Hub-standard process: it does not require 35 PlantUML diagrams per service,
+but it keeps the rigor of SPECs that are implementable without ambiguity.
+
+---
+
+## Phase 1 -- Analysis of the architectural artifacts
+
+### 1.1 Mandatory artifacts to read
+
+| File | What to extract |
 |---|---|
-| `docs/architecture/shared/blueprint-core.md` | Modelo mental, camadas, responsabilidade do serviço |
-| `docs/architecture/shared/multi-empresa.md` | ADR-001 schema-per-empresa (sempre relevante) |
-| `docs/architecture/shared/modelo-dados/README.md` | Índice de DDL; foco nas tabelas do módulo |
-| `sql/01_schema_novo.sql` | DDL canônico Postgres do módulo |
-| `docs/architecture/backend/standards/services-catalog.md` | Pacote canônico + responsabilidades do serviço |
-| `MAPEAMENTO_DADOS_LEGADO.md` (raiz) | De-para legado → novo (tabelas do módulo) |
-| `MODELO_DADOS.md` (raiz) | Narrativa de modelo conceitual |
-| `prototipo-canonico` (memória) + `prototipo-padroes-telas` | Padrões de UI que o BE alimenta |
-| `TELAS_FALTANTES.md` | Telas (e portanto endpoints) que precisam existir |
+| `docs/architecture/shared/blueprint-core.md` | Mental model, layers, service responsibility |
+| `docs/architecture/shared/multi-empresa.md` | ADR-001 schema-per-empresa (always relevant) |
+| `docs/architecture/shared/modelo-dados/README.md` | DDL index; focus on the module tables |
+| `sql/01_schema_novo.sql` | Canonical Postgres DDL of the module |
+| `docs/architecture/backend/standards/services-catalog.md` | Canonical package + service responsibilities |
+| `MAPEAMENTO_DADOS_LEGADO.md` (root) | Legacy -> new mapping (module tables) |
+| `MODELO_DADOS.md` (root) | Conceptual model narrative |
+| `prototipo-canonico` (memory) + `prototipo-padroes-telas` | UI patterns the BE feeds |
+| `TELAS_FALTANTES.md` | Screens (and therefore endpoints) that must exist |
 
-### 1.2 O que identificar na análise
+### 1.2 What to identify during the analysis
 
-- **Aggregate raiz** do domínio e seus value objects.
-- **Estados** do ciclo de vida (máquina de estados, quando aplicável).
-- **Ports/adapters externos** (SEFAZ, banco, e-mail, gateway de pagamento).
-- **Serviços de domínio transversais** (idempotência, validação fiscal).
-- **Multi-empresa:** quais tabelas vivem em `<empresa-schemas>` vs `neuroassist_global`.
-- **Eventos produzidos e consumidos** (catálogo em `services-catalog.md`).
-- **Feign clients** necessários (catálogo em `services-catalog.md`).
-- **Dependências abertas** (DEP-XX) que precisam confirmação antes da implementação.
+- **Root aggregate** of the domain and its value objects.
+- **Lifecycle states** (state machine, when applicable).
+- **External ports/adapters** (SEFAZ, bank, e-mail, payment gateway).
+- **Cross-cutting domain services** (idempotency, tax validation).
+- **Multi-empresa:** which tables live in `<empresa-schemas>` vs `neuroassist_global`.
+- **Events produced and consumed** (catalog in `services-catalog.md`).
+- **Feign clients** required (catalog in `services-catalog.md`).
+- **Open dependencies** (DEP-XX) that need confirmation before implementation.
 
-### 1.3 Sinalizar dependências abertas
+### 1.3 Flagging open dependencies
 
-Durante a análise, rastreie informações que precisam confirmação externa:
+During the analysis, track every piece of information that needs external confirmation:
 
 ```
-DEP-01 — [Descrição] — [Quem confirma] — [Impacto nas specs]
+DEP-01 -- [Description] -- [Who confirms it] -- [Impact on the specs]
 ```
 
-Aparecem como notas `> **DEP-XX:**` nas specs que as referenciam.
+They show up as `> **DEP-XX:**` notes in the specs that reference them.
 
 ---
 
-## Fase 2 -- Plano de Spec
+## Phase 2 -- Spec Plan
 
-### 2.1 Localização
+### 2.1 Location
 
 ```
 docs/architecture/backend/services/<service>/plano-spec.md
 ```
 
-### 2.2 Estrutura obrigatória
+### 2.2 Mandatory structure
 
 ```markdown
-# Plano de Spec -- <service-name>
+# Spec Plan -- <service-name>
 
-## 1. Lista de SPECs
-| ID     | Título                              | Inputs                | Outputs                  | Dependências |
+## 1. SPEC list
+| ID     | Title                               | Inputs                | Outputs                  | Dependencies |
 |--------|-------------------------------------|-----------------------|--------------------------|--------------|
 | SPEC-01| API Surface                         | --                    | endpoints REST           | SPEC-04, SPEC-08 |
 | SPEC-02| Use cases (Application Services)    | SPEC-01               | application/service/*    | SPEC-03      |
 | ...    | ...                                 | ...                   | ...                      | ...          |
 
-## 2. Dependências abertas
-| DEP | Descrição | Specs afetadas | Impacto |
-|-----|-----------|----------------|---------|
+## 2. Open dependencies
+| DEP | Description | Affected specs | Impact |
+|-----|-------------|----------------|---------|
 
-## 3. Sequência de produção
-Fundação (domain, estado, validação) → application → infrastructure → api → BDD
+## 3. Production sequence
+Foundation (domain, state, validation) -> application -> infrastructure -> api -> BDD
 ```
 
-### 2.3 SPECs canônicas NeuroAssist AI (8 + 1 opcional)
+### 2.3 Canonical NeuroAssist AI SPECs (8 + 1 optional)
 
-Backbone padrão -- adapte conforme o domínio. Específicos como `<example-service-1>` podem ter
-+1 SPEC dedicado a SEFAZ integration.
+Standard backbone -- adapt it to the domain. Specific services such as `<example-service-1>` may have
++1 SPEC dedicated to SEFAZ integration.
 
-| SPEC | Título | Escopo |
+| SPEC | Title | Scope |
 |---|---|---|
-| **SPEC-01** | API Surface | Endpoints HTTP, contratos request/response, códigos de status, permissões (`<modulo>.<recurso>.<acao>`) |
-| **SPEC-02** | Domain Model | Aggregate raiz, value objects, enums, regras invariantes |
-| **SPEC-03** | Domain Services | Regras transversais (cross-entity), `DomainServiceConfig` |
-| **SPEC-04** | Application Services | Use cases, sequências, transações, EmpresaContextHolder.require() |
-| **SPEC-05** | Persistence | JPA entities, adapters, queries customizadas, índices |
-| **SPEC-06** | Messaging | Eventos produzidos (envelope, queue, payload) + consumed (idempotência) |
-| **SPEC-07** | External Integrations | Feign clients + Resilience4j; integração SEFAZ/bancos/etc. quando aplicável |
-| **SPEC-08** | BDD Test Scenarios | Cenários Gherkin: happy path, falhas, idempotência, multi-empresa |
+| **SPEC-01** | API Surface | HTTP endpoints, request/response contracts, status codes, permissions (`<modulo>.<recurso>.<acao>`) |
+| **SPEC-02** | Domain Model | Root aggregate, value objects, enums, invariant rules |
+| **SPEC-03** | Domain Services | Cross-entity rules, `DomainServiceConfig` |
+| **SPEC-04** | Application Services | Use cases, sequences, transactions, EmpresaContextHolder.require() |
+| **SPEC-05** | Persistence | JPA entities, adapters, custom queries, indexes |
+| **SPEC-06** | Messaging | Events produced (envelope, queue, payload) + consumed (idempotency) |
+| **SPEC-07** | External Integrations | Feign clients + Resilience4j; SEFAZ/bank/etc. integration when applicable |
+| **SPEC-08** | BDD Test Scenarios | Gherkin scenarios: happy path, failures, idempotency, multi-empresa |
 
-**SPEC opcional:**
-- **SPEC-09 -- State Machine** (se o domínio tem máquina de estados complexa: NFe, orçamento, oportunidade CRM)
+**Optional SPEC:**
+- **SPEC-09 -- State Machine** (when the domain has a complex state machine: NFe, quote, CRM opportunity)
 
 ---
 
-## Fase 3 -- Specs individuais
+## Phase 3 -- Individual specs
 
-### 3.1 Localização
-
-```
-docs/architecture/backend/services/<service>/SPEC-{numero}-{slug}.md
-```
-
-### 3.2 Nomenclatura
+### 3.1 Location
 
 ```
-SPEC-{numero}-{slug-kebab-case}.md
+docs/architecture/backend/services/<service>/SPEC-{number}-{slug}.md
 ```
 
-- Numeração pela **sequência de produção** (dependências primeiro).
-- Slug em kebab-case, máximo 40 caracteres.
+### 3.2 Naming
 
-Exemplos:
+```
+SPEC-{number}-{slug-kebab-case}.md
+```
+
+- Numbered by **production sequence** (dependencies first).
+- Slug in kebab-case, at most 40 characters.
+
+Examples:
 ```
 SPEC-01-api-surface.md
 SPEC-04-application-services.md
@@ -139,216 +139,216 @@ SPEC-08-bdd-scenarios.md
 SPEC-09-state-machine-nfe.md
 ```
 
-### 3.2.1 — Palavras reservadas em `generator-config.yml` (D-399)
+### 3.2.1 -- Reserved words in `generator-config.yml` (D-399)
 
-O arquivo `generator-config.yml` é lido via `yaml.safe_load()` (PyYAML YAML 1.1). As
-seguintes palavras são interpretadas como **booleanos** quando não estão entre aspas:
+The `generator-config.yml` file is read through `yaml.safe_load()` (PyYAML YAML 1.1). The
+following words are parsed as **booleans** when they are not quoted:
 
-| Palavra sem aspas | Valor Python recebido |
+| Unquoted word | Python value received |
 |---|---|
 | `on`, `yes`, `true` | `True` |
 | `off`, `no`, `false` | `False` |
 
-**Regra:** use sempre strings quoted para valores que não sejam booleanos semânticos:
+**Rule:** always use quoted strings for values that are not semantic booleans:
 
 ```yaml
-# CORRETO
+# CORRECT
 defaultState: "enabled"
 
-# ERRADO — PyYAML lê como True (bool Python); gerador emite "True" em vez de "enabled"
+# WRONG -- PyYAML reads True (Python bool); the generator emits "True" instead of "enabled"
 defaultState: on
 ```
 
-O script `generator-config-gen.py validate` detecta `defaultState` booleano e reporta
-o erro com dica de correção (D-394). Valores canônicos: `"enabled"` ou `"disabled"`.
+The `generator-config-gen.py validate` script detects a boolean `defaultState` and reports
+the error with a fix hint (D-394). Canonical values: `"enabled"` or `"disabled"`.
 
 ---
 
-### 3.3 Frontmatter obrigatório
+### 3.3 Mandatory frontmatter
 
 ```yaml
 ---
 document_type: backend-spec
-document_id: <service>-spec-{numero}-{slug}
-title: SPEC-{numero} — {Título} — <service-name>
-owner: Tech Lead / Arquitetura
+document_id: <service>-spec-{number}-{slug}
+title: SPEC-{number} -- {Title} -- <service-name>
+owner: Tech Lead / Architecture
 status: draft
-language: pt-BR
+language: en-US
 scope: <service>-mvp
 last_updated: {YYYY-MM-DD}
 ---
 ```
 
-### 3.4 Estrutura interna padrão
+### 3.4 Standard internal structure
 
 ```markdown
-# SPEC-{numero} — {Título}
+# SPEC-{number} -- {Title}
 
-## 1. Objetivo
-[Uma a três frases: o que esta spec especifica e por que existe]
+## 1. Goal
+[One to three sentences: what this spec specifies and why it exists]
 
-## 2. [Conteúdo técnico principal]
-[Tabelas, contratos, regras, sequências — específicos por spec]
+## 2. [Main technical content]
+[Tables, contracts, rules, sequences -- specific to each spec]
 
-## 3. [Seções complementares]
+## 3. [Complementary sections]
 ...
 
 ## N-1. Multi-empresa
-[Como esta spec lida com EmpresaContextHolder; quais tabelas em <empresa-schemas> vs neuroassist_global]
+[How this spec handles EmpresaContextHolder; which tables in <empresa-schemas> vs neuroassist_global]
 
-## N. Dependências
-- **SPEC-XX** -- [o que esta spec precisa daquela]
-- **DEP-XX** -- [informação externa a confirmar]
+## N. Dependencies
+- **SPEC-XX** -- [what this spec needs from that one]
+- **DEP-XX** -- [external information to confirm]
 ```
 
-A seção **Dependências** é sempre a última.
+The **Dependencies** section is always the last one.
 
-### 3.5 Convenções de conteúdo por tipo
+### 3.5 Content conventions by type
 
-**Contratos de interface (ports, use cases):**
+**Interface contracts (ports, use cases):**
 
 ```
-Interface: NomeDoPort
+Interface: PortName
 
-metodo(input: TipoInput, context: EmpresaContext) : TipoOutput
-  → Passo 1: o que faz
-  → Passo 2: o que retorna
-  → Em caso de falha: exceção lançada
+method(input: InputType, context: EmpresaContext) : OutputType
+  -> Step 1: what it does
+  -> Step 2: what it returns
+  -> On failure: exception thrown
 ```
 
-**Tabelas de mapeamento de campos:**
+**Field mapping tables:**
 
 ```markdown
-| Campo input (request) | Campo intermediário (domain) | Campo persistido (JPA) | Obrigatório |
+| Input field (request) | Intermediate field (domain) | Persisted field (JPA) | Required |
 ```
 
-**Sequências de execução (use cases):**
+**Execution sequences (use cases):**
 
 ```
 1. EmpresaContextHolder.require()
-2. PrimeiroPasso.acao(params)
-     → Se condição: fazer X
-     → Se outra condição: fazer Y
-3. SegundoPasso.acao(params)
+2. FirstStep.action(params)
+     -> If condition: do X
+     -> If another condition: do Y
+3. SecondStep.action(params)
 ```
 
-**Tabelas de falha/compensação:**
+**Failure/compensation tables:**
 
 ```markdown
-| Falha no passo | Ação | Estado final |
+| Failing step | Action | Final state |
 ```
 
-**Catálogos de validação:**
+**Validation catalogs:**
 
 ```markdown
-| Código | Campo | Regra | Severidade (BLOCKING|WARNING) |
+| Code | Field | Rule | Severity (BLOCKING|WARNING) |
 ```
 
-**Cenários BDD (SPEC-08):**
+**BDD scenarios (SPEC-08):**
 
 ```gherkin
-# language: pt
-Funcionalidade: [Nome do fluxo]
+# language: en
+Feature: [Flow name]
 
-  Contexto:
-    Dado [pré-condição: empresa ativo, usuário autenticado]
-  Cenário: [Resultado esperado]
-    Dado [estado inicial]
-    Quando [ação executada]
-    Então [assertions verificáveis]
-    E [assertions adicionais]
+  Background:
+    Given [precondition: active empresa, authenticated user]
+  Scenario: [Expected outcome]
+    Given [initial state]
+    When [action executed]
+    Then [verifiable assertions]
+    And [additional assertions]
 ```
 
 ---
 
-## Regras de qualidade das SPECs
+## SPEC quality rules
 
-### Q1 -- Toda spec implementável sem ambiguidade
+### Q1 -- Every spec implementable without ambiguity
 
-- Nomes de classes, métodos e campos = os mesmos que serão usados no código.
-- Tipos explícitos (`String`, `UUID`, `Instant`, `List<X>`, `BigDecimal`, etc.).
-- Enums listam todos os valores válidos.
-- Regras condicionais determinísticas (sem "talvez", "dependendo").
+- Class, method and field names = the same ones the code will use.
+- Explicit types (`String`, `UUID`, `Instant`, `List<X>`, `BigDecimal`, etc.).
+- Enums list every valid value.
+- Deterministic conditional rules (no "maybe", no "it depends").
 
-### Q2 -- Dependências abertas explícitas
+### Q2 -- Open dependencies made explicit
 
-Quando uma informação não está disponível:
+When a piece of information is not available:
 
 ```markdown
-> **DEP-XX:** [Descrição do que falta confirmar e de quem]
+> **DEP-XX:** [Description of what is missing and who confirms it]
 ```
 
-Nunca inventar valores -- marcar DEP-XX e continuar com placeholders explícitos.
+Never invent values -- mark a DEP-XX and continue with explicit placeholders.
 
-### Q3 -- Isolamento entre specs
+### Q3 -- Isolation between specs
 
-Cada spec especifica **uma camada ou capacidade**. Não duplicar:
-- Regras de validação → SPEC-02 (Domain Model) ou SPEC-03 (Domain Services)
-- Transições de estado → SPEC-09 (State Machine, opcional)
-- DDL e índices → sql/01_schema_novo.sql (referenciar -- não duplicar)
-- Auth/authz → SPEC-01 (permission keys) + `rbac.md` global
+Each spec specifies **one layer or capability**. Do not duplicate:
+- Validation rules -> SPEC-02 (Domain Model) or SPEC-03 (Domain Services)
+- State transitions -> SPEC-09 (State Machine, optional)
+- DDL and indexes -> sql/01_schema_novo.sql (reference it -- do not duplicate)
+- Auth/authz -> SPEC-01 (permission keys) + the global `rbac.md`
 
-Quando uma spec precisa referenciar algo de outra, usar `(ver SPEC-XX)` ou `(ver rbac.md §X)`.
+When a spec needs to reference something from another, use `(see SPEC-XX)` or `(see rbac.md section X)`.
 
-### Q4 -- Specs são fonte de verdade
+### Q4 -- Specs are the source of truth
 
-Contratos nas specs (interfaces de ports, estrutura de DTOs, sequências de use cases) têm
-precedência sobre convenções ad hoc. Código deve estar conforme as specs, não o contrário.
+Contracts in the specs (port interfaces, DTO structure, use-case sequences) take
+precedence over ad hoc conventions. Code must conform to the specs, not the other way around.
 
-### Q5 -- Multi-empresa sempre explícito
+### Q5 -- Multi-empresa always explicit
 
-Toda spec que toca dado de empresa deve declarar:
-- Quais tabelas vivem em `<empresa-schemas>` vs `neuroassist_global`.
-- Onde `EmpresaContextHolder.require()` é chamado.
-- Como cross-empresa guard é aplicado (se há aggregate filho).
+Every spec touching empresa data must declare:
+- Which tables live in `<empresa-schemas>` vs `neuroassist_global`.
+- Where `EmpresaContextHolder.require()` is called.
+- How the cross-empresa guard is applied (when there is a child aggregate).
 
 ---
 
-## Diagramas (opcional, focado)
+## Diagrams (optional, focused)
 
-NeuroAssist AI não exige 35 diagramas PlantUML por serviço (como Hub). Diagramas são **opcionais**
-mas recomendados para serviços com complexidade alta (`<example-service-1>`, `<example-service-2>`).
+NeuroAssist AI does not require 35 PlantUML diagrams per service (as Hub does). Diagrams are **optional**
+but recommended for services with high complexity (`<example-service-1>`, `<example-service-2>`).
 
-Localização: `docs/architecture/backend/services/<service>/diagrams/`
+Location: `docs/architecture/backend/services/<service>/diagrams/`
 
-Catálogo mínimo recomendado (~7 diagramas, opcional):
+Recommended minimum catalog (~7 diagrams, optional):
 - 1 C4 component (overview)
 - 1 aggregate + value objects
-- 1-3 sequência (happy path + 1-2 failures)
-- 1 state machine (se houver)
-- 1 ERD (extraído de `sql/01_schema_novo.sql`)
+- 1-3 sequence (happy path + 1-2 failures)
+- 1 state machine (if there is one)
+- 1 ERD (extracted from `sql/01_schema_novo.sql`)
 
-Use PlantUML com paleta consistente (a definir em ADR-002 visual quando primeiro
-serviço for documentado).
-
----
-
-## Checklist de conclusão
-
-Antes de considerar a SPEC de backend de um serviço pronta:
-
-- [ ] Plano `plano-spec.md` gerado com lista completa de SPECs + dependências abertas
-- [ ] SPEC-01 (API Surface) cobre todos os endpoints com contratos completos
-- [ ] SPEC-02/03 (Domain) cobre aggregate, value objects, enums e regras invariantes
-- [ ] SPEC-04 (Application) lista todos os use cases com sequências + EmpresaContextHolder.require()
-- [ ] SPEC-05 (Persistence) referencia DDL em `sql/01_schema_novo.sql` (não duplica)
-- [ ] SPEC-06 (Messaging) lista eventos produzidos + consumidos (alinhado com `services-catalog.md` §6)
-- [ ] SPEC-07 (External) cobre Feign clients + Resilience4j (alinhado com `services-catalog.md` §7)
-- [ ] SPEC-08 (BDD) inclui cenários: happy path, cada falha tipica, idempotência, isolamento de empresa
-- [ ] SPEC-09 (State Machine) se aplicável
-- [ ] Nenhuma informação inventada -- todas as incertezas marcadas como DEP-XX
-- [ ] Permissões nomeadas no padrão `<modulo>.<recurso>.<acao>` (alinhado com `rbac.md`)
-- [ ] Multi-empresa explicitado em toda SPEC que toca dado de empresa
+Use PlantUML with a consistent palette (to be defined in the visual ADR-002 when the first
+service is documented).
 
 ---
 
-## Referências
+## Completion checklist
 
-- `services-catalog.md` -- catálogo de microserviços + pacotes canônicos + eventos
-- `hexagonal-patterns.md` -- estrutura de pacotes e regras
-- `java-conventions.md` -- convenções de código
+Before considering the backend SPEC of a service done:
+
+- [ ] `plano-spec.md` plan generated with the full SPEC list + open dependencies
+- [ ] SPEC-01 (API Surface) covers every endpoint with complete contracts
+- [ ] SPEC-02/03 (Domain) covers aggregate, value objects, enums and invariant rules
+- [ ] SPEC-04 (Application) lists every use case with sequences + EmpresaContextHolder.require()
+- [ ] SPEC-05 (Persistence) references the DDL in `sql/01_schema_novo.sql` (does not duplicate it)
+- [ ] SPEC-06 (Messaging) lists events produced + consumed (aligned with `services-catalog.md` section 6)
+- [ ] SPEC-07 (External) covers Feign clients + Resilience4j (aligned with `services-catalog.md` section 7)
+- [ ] SPEC-08 (BDD) includes scenarios: happy path, each typical failure, idempotency, empresa isolation
+- [ ] SPEC-09 (State Machine) when applicable
+- [ ] No invented information -- every uncertainty marked as DEP-XX
+- [ ] Permissions named in the `<modulo>.<recurso>.<acao>` pattern (aligned with `rbac.md`)
+- [ ] Multi-empresa made explicit in every SPEC touching empresa data
+
+---
+
+## References
+
+- `services-catalog.md` -- microservice catalog + canonical packages + events
+- `hexagonal-patterns.md` -- package structure and rules
+- `java-conventions.md` -- code conventions
 - `platform-patterns.md` -- JMS, Feign, Flyway, MDC, Saga, multi-schema
-- `testing-conventions.md` -- pirâmide de testes
-- `rbac.md` -- modelo de papéis e permissões
-- `docs/architecture/shared/modelo-dados/README.md` -- índice DDL
-- `sql/01_schema_novo.sql` -- DDL canônico
+- `testing-conventions.md` -- test pyramid
+- `rbac.md` -- role and permission model
+- `docs/architecture/shared/modelo-dados/README.md` -- DDL index
+- `sql/01_schema_novo.sql` -- canonical DDL

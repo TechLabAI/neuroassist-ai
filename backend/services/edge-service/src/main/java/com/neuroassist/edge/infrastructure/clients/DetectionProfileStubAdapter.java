@@ -1,28 +1,27 @@
 package com.neuroassist.edge.infrastructure.clients;
 
 import com.neuroassist.edge.application.port.out.DetectionProfilePort;
-import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Stub implementation of {@link DetectionProfilePort}. Returns {@link Optional#empty()} — simulates
- * GEST unavailable (degraded mode). Kept as a non-primary bean for use in unit tests and dev
- * profiles where no real GEST connection is desired.
+ * Stub implementation of {@link DetectionProfilePort} — simulates GEST being unreachable.
  *
- * <p>{@code @Primary} was removed in P4 (EDGE-014): {@link DetectionProfileFeignAdapter} is now the
- * primary implementation.
+ * <p>Non-primary: {@link DetectionProfileFeignAdapter} is the real implementation. Kept for unit
+ * tests and dev profiles with no GEST connection.
+ *
+ * <p>Returns {@link DetectionProfilePort.ProfilePointer#unknown()} rather than "no active profile":
+ * a stub that cannot reach GEST is the <i>unknown</i> case, and saying so keeps the two states
+ * distinct even here.
  */
 @Slf4j
 @Component
 public class DetectionProfileStubAdapter implements DetectionProfilePort {
 
     @Override
-    public Optional<Long> currentProfileVersion(UUID deviceId, String tenantId) {
-        log.debug(
-                "DetectionProfileStubAdapter: returning empty (P2 stub) for deviceId='{}'",
-                deviceId);
-        return Optional.empty();
+    public ProfilePointer currentProfileVersion(UUID deviceId, String tenantId) {
+        log.debug("DetectionProfileStubAdapter: degraded pointer for deviceId='{}'", deviceId);
+        return ProfilePointer.unknown();
     }
 }

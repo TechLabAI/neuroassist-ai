@@ -3,14 +3,17 @@ package com.neuroassist.edge.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
+import com.neuroassist.edge.application.port.out.DeviceDirectoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoCredentialRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEnrollmentRepositoryPort;
+import com.neuroassist.edge.application.port.out.EnrollmentDirectoryPort;
 import com.neuroassist.edge.domain.model.CredentialStatus;
 import com.neuroassist.edge.domain.model.DispositivoCredential;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
@@ -30,6 +33,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,6 +48,8 @@ class DeviceRegistrationServiceTest {
     @Mock private DispositivoEdgeTransitionRepositoryPort transitionRepo;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private EdgeMetrics edgeMetrics;
+    @Mock private EnrollmentDirectoryPort enrollmentDirectory;
+    @Mock private DeviceDirectoryPort deviceDirectory;
 
     private final DispositivoEdgeDomainService domainService = new DispositivoEdgeDomainService();
     private DeviceRegistrationService sut;
@@ -60,7 +66,9 @@ class DeviceRegistrationServiceTest {
                         transitionRepo,
                         domainService,
                         eventPublisher,
-                        edgeMetrics);
+                        edgeMetrics,
+                        enrollmentDirectory,
+                        deviceDirectory);
         ReflectionTestUtils.setField(sut, "enrollmentTtlSeconds", 900L);
         ReflectionTestUtils.setField(sut, "heartbeatIntervalSeconds", 30L);
         ReflectionTestUtils.setField(
@@ -152,6 +160,58 @@ class DeviceRegistrationServiceTest {
         assertThat(result.clientSecret()).startsWith("cs_");
         assertThat(result.tokenScope()).isEqualTo("edge.device");
         assertThat(result.recommendedHeartbeatSeconds()).isEqualTo(30);
+
+        // C-18: o ponteiro clientId→tenant precisa existir no índice global, senão
+        // POST /internal/devices/verify-credential nunca acha o schema do dispositivo.
+        verify(deviceDirectory).publish("edge-" + deviceId, TENANT, deviceId);
+    }
+
+    @Test
+    @DisplayName("enroll: o ponteiro global publicado NÃO carrega o segredo nem seu hash (C-18)")
+    void enrollPublishesPointerWithoutSecret() {
+        UUID deviceId = UUID.randomUUID();
+        String plainToken = "et_nosecret";
+        String tokenHash = DeviceRegistrationService.sha256Hex(plainToken);
+
+        DispositivoEnrollment enrollment =
+                DispositivoEnrollment.mint(
+                        UUID.randomUUID(),
+                        TENANT,
+                        deviceId,
+                        tokenHash,
+                        Instant.now().plusSeconds(900));
+        DispositivoEdge device =
+                new DispositivoEdge(
+                        deviceId,
+                        TENANT,
+                        "label",
+                        null,
+                        PairingState.registered,
+                        null,
+                        null,
+                        null,
+                        0L,
+                        Instant.now(),
+                        Instant.now(),
+                        "op",
+                        "op");
+
+        when(enrollmentRepo.findByTokenHash(tokenHash)).thenReturn(Optional.of(enrollment));
+        when(deviceRepo.findById(deviceId)).thenReturn(Optional.of(device));
+        when(credentialRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(enrollmentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(deviceRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        DeviceRegistrationUseCase.EnrollResult result = sut.enroll(plainToken, "1.4.2");
+
+        ArgumentCaptor<String> clientIdCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deviceDirectory).publish(clientIdCaptor.capture(), eq(TENANT), eq(deviceId));
+        // A assinatura do port só aceita ponteiro; este assert trava o contrato contra
+        // alguém "conveniente" enfiar o hash num campo String no futuro.
+        assertThat(clientIdCaptor.getValue())
+                .isEqualTo("edge-" + deviceId)
+                .doesNotContain(result.clientSecret())
+                .doesNotContain(DeviceRegistrationService.sha256Hex(result.clientSecret()));
     }
 
     @Test
@@ -266,6 +326,9 @@ class DeviceRegistrationServiceTest {
         verify(credentialRepo).save(any(DispositivoCredential.class));
         verify(transitionRepo).save(any(DispositivoEdgeTransition.class));
         verify(deviceRepo).save(any(DispositivoEdge.class));
+        // C-18: revogar a credencial sem remover o ponteiro deixaria verify-credential
+        // consultando o schema do tenant para um dispositivo que já não existe mais.
+        verify(deviceDirectory).revoke("edge-" + deviceId);
     }
 
     @Test

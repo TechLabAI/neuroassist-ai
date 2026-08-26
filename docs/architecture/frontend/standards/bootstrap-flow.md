@@ -1,66 +1,66 @@
 # Bootstrap Flow (NeuroAssist AI Web)
 
-> Sequência de inicialização do `apps/neuroassist-ai-web` + troca de empresa.
+> Startup sequence of `apps/neuroassist-ai-web` + empresa switching.
 
-Goal: prover sequência previsível de inicialização do `neuroassist-ai-web` (Angular standalone).
+Goal: provide a predictable startup sequence for `neuroassist-ai-web` (Angular standalone).
 
 ---
 
-## Estágios de bootstrap (em ordem)
+## Bootstrap stages (in order)
 
 1. **Start app route** -- Angular bootstrap, `provideRouter`, `provideHttpClient`.
-2. **Restaurar sessão** (`AuthSessionService.restore()`)
-   - lê JWT de cookie httpOnly (preferido) ou storage seguro
-   - valida `exp` claim; se expirado, redirect para `iam-service` login
-   - se válido: decodifica claims (`sub`, `roles`, `empresas`)
-3. **Resolver empresa ativo** (`EmpresaContextService.resolve()`)
-   - se JWT carrega `empresa_id` (selecionada antes): usa
-   - se não, mas usuário tem 1 empresa: usa essa automaticamente
-   - se tem N > 1: redirect para tela de seleção de empresa
-4. **Avaliar decisões de acesso** (`AccessDecisionService.evaluate()`)
-   - calcula RBAC + feature flags + capabilities
-5. **Construir navegação** (`NavigationService.buildTree()`)
-   - deriva menu/breadcrumb a partir das decisões e dos `<modulo>.permission-map.ts` registrados
-6. **Renderizar Shell** (slots topbar/sidebar/content) e liberar rotas dos módulos
-7. **Registrar telemetria** (`@neuroassist/shared/observability`)
+2. **Restore session** (`AuthSessionService.restore()`)
+   - reads the JWT from an httpOnly cookie (preferred) or from secure storage
+   - validates the `exp` claim; if expired, redirect to the `iam-service` login
+   - if valid: decodes the claims (`sub`, `roles`, `empresas`)
+3. **Resolve the active empresa** (`EmpresaContextService.resolve()`)
+   - if the JWT carries `empresa_id` (selected earlier): use it
+   - if not, but the user has exactly 1 empresa: use it automatically
+   - if the user has N > 1: redirect to the empresa selection screen
+4. **Evaluate access decisions** (`AccessDecisionService.evaluate()`)
+   - computes RBAC + feature flags + capabilities
+5. **Build navigation** (`NavigationService.buildTree()`)
+   - derives menu/breadcrumb from the decisions and from the registered `<modulo>.permission-map.ts`
+6. **Render the Shell** (topbar/sidebar/content slots) and release the module routes
+7. **Record telemetry** (`@neuroassist/shared/observability`)
    - bootstrap success/failure events
-   - timing de cada estágio (para debug de cold start)
+   - timing of each stage (for cold-start debugging)
 
 ---
 
-## Comportamento de troca de empresa
+## Switching the active empresa
 
-Quando o usuário troca a empresa ativo via seletor (`EmpresaContextService.switchTo(empresaId)`):
+When the user switches the active empresa through the selector (`EmpresaContextService.switchTo(empresaId)`):
 
-- **Cancelar in-flight requests** escopados ao empresa anterior (interceptor checa header e descarta)
-- **Invalidar caches escopados** explicitamente (`QueryClient.invalidateQueries(['empresa', oldId])` ou equivalente)
-- **Recomputar decisões de acesso** (papéis podem variar por empresa)
-- **Reconstruir navegação** se o empresa mudou os módulos habilitados
-- **Atualizar UI sem refresh completo** (signals reagem)
-
----
-
-## Estados globais de UX
-
-- **Loading:** enquanto bootstrap não completou
-- **Error:** falha no bootstrap (route para `ErrorPageComponent`)
-- **No access:** decisão nega rota ou empresa ativo não habilita o módulo
-- **No empresa:** usuário válido mas sem empresa atribuído (extremo -- mostrar mensagem clara para chamar admin)
+- **Cancel in-flight requests** scoped to the previous empresa (the interceptor checks the header and discards them)
+- **Invalidate scoped caches** explicitly (`QueryClient.invalidateQueries(['empresa', oldId])` or equivalent)
+- **Recompute access decisions** (roles may vary per empresa)
+- **Rebuild navigation** if the new empresa changes the enabled modules
+- **Update the UI without a full refresh** (signals react)
 
 ---
 
-## Evidências / observabilidade (mínimo)
+## Global UX states
 
-- Registrar bootstrap timing (start/end por estágio).
-- Registrar reason codes para falhas (`auth_expired`, `empresa_resolve_failed`, `permission_denied`, ...).
-- Registrar eventos de troca de contexto (`empresa_switched` old/new).
-- Logs via `@neuroassist/shared/observability` (não `console.log`).
+- **Loading:** while bootstrap has not completed
+- **Error:** bootstrap failure (route to `ErrorPageComponent`)
+- **No access:** the decision denies the route, or the active empresa does not enable the module
+- **No empresa:** valid user with no empresa assigned (edge case -- show a clear message asking the user to contact an admin)
 
 ---
 
-## Anti-patterns (evitar)
+## Evidence / observability (minimum)
 
-- Bootstrap síncrono que bloqueia a UI por mais de 1s sem feedback visual.
-- Decisão de RBAC dentro de componentes durante bootstrap (delegar a `AccessDecisionService`).
-- Troca de empresa que não invalida caches (dados de empresa A vazam para empresa B).
-- Recarregar a página inteira (`location.reload()`) ao trocar empresa -- usar signals.
+- Record bootstrap timing (start/end per stage).
+- Record reason codes for failures (`auth_expired`, `empresa_resolve_failed`, `permission_denied`, ...).
+- Record context switch events (`empresa_switched` old/new).
+- Log through `@neuroassist/shared/observability` (never `console.log`).
+
+---
+
+## Anti-patterns (avoid)
+
+- Synchronous bootstrap that blocks the UI for more than 1s with no visual feedback.
+- RBAC decisions taken inside components during bootstrap (delegate to `AccessDecisionService`).
+- Switching empresa without invalidating caches (empresa A data leaks into empresa B).
+- Reloading the whole page (`location.reload()`) when switching empresa -- use signals instead.

@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ComandoDraft, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
+import { ComandoDraft, DetectorType, EdgeRecognitionSignal } from '@neuroassist/shared/contracts';
 import { EdgeDetectionPort } from './edge-detection.port';
 
 const NEGOTIATED_VERSION = '1.0.0';
@@ -12,16 +12,20 @@ const NEGOTIATED_VERSION = '1.0.0';
 // rather than faking a positive result.
 //
 // E2E test hooks (Playwright addInitScript only — never set in production):
+//   window.__GEST_E2E_DETECTION = 'mock'
+//     → provideGest() escolhe ESTE adapter em vez do motor do browser (ADR-007).
+//       Sem esse flag os hooks abaixo são inertes na app: o adapter nem é
+//       instanciado. Ver gest.providers.ts.
 //   window.__GEST_E2E_MOCK_RECOGNIZED = true
 //     → fast recognition path: ack (300ms) then recognized (600ms).
-//       Composite drafts also get a second recognized at 1200ms.
+//       Composite drafts also get a second recognized at 2000ms.
 //   window.__GEST_E2E_MOCK_STREAM_ERROR = true
 //     → error path: observable throws at 400ms (tests facade error handler).
 @Injectable()
 export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
   /** ADR-006: mock path does not represent the interim EAR/BRI detector — detectorType
    * remains null. The banner only appears on the real edge agent path (edgeLiveBridge:on). */
-  readonly detectorType = signal<'ear_bri' | 'onnx' | null>(null).asReadonly();
+  readonly detectorType = signal<DetectorType | null>(null).asReadonly();
 
   openStream(draft: ComandoDraft): Observable<EdgeRecognitionSignal> {
     return this.mockStream(draft);
@@ -71,7 +75,13 @@ export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
             });
           }, 600),
         );
-        // Composite: emit a second recognized at 1200ms so step 2 can complete.
+        // Composite: emit a second recognized at 2000ms so step 2 can complete.
+        //
+        // Eram 1200ms. O indicador de passo só existe enquanto o estado é
+        // 'testing', então os 600ms entre o veredito do passo 1 e o final eram
+        // toda a janela em que o E2E podia observar "passo 2 em negrito" — uma
+        // corrida disfarçada de asserção. 1400ms de janela tira a temporização
+        // da conta sem deixar o cenário lento.
         if (draft.composite) {
           timers.push(
             setTimeout(() => {
@@ -80,11 +90,11 @@ export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
                 signalKind: 'recognized',
                 commandDraftRef: draft.commandDraftRef,
                 primitives: [],
-                timingWindow: { startMs: 600, endMs: 1200, durationMs: 600 },
+                timingWindow: { startMs: 600, endMs: 2000, durationMs: 1400 },
                 degraded: false,
                 emittedAt: new Date().toISOString(),
               });
-            }, 1200),
+            }, 2000),
           );
         }
       } else {
@@ -126,5 +136,12 @@ export class EdgeDetectionMockAdapter implements EdgeDetectionPort {
 
   close(): void {
     // Stateless — subscriptions are torn down by the facade's unsubscribe.
+  }
+
+  /** Sem malha: este adaptador não tem landmarks — quem detecta é outro processo
+   * (ou ninguém, no caso do mock). Ignorar em silêncio é o comportamento certo;
+   * o componente não precisa saber qual motor está ligado para montar o canvas. */
+  attachOverlay(): void {
+    // no-op
   }
 }

@@ -165,6 +165,21 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
         ActorRef actor =
                 new ActorRef(command.actor().caregiverId(), command.actor().displayNameSnapshot());
 
+        // Patient scope for caregiver reads (C-16). The producer knows it; when the subject
+        // already is a patient the fact is self-scoping, so the field is optional on the wire.
+        UUID scopePacienteId =
+                command.scopePacienteId() != null
+                        ? command.scopePacienteId()
+                        : ("paciente".equals(subject.type()) ? subject.id() : null);
+        if (scopePacienteId == null) {
+            // Not an error — acesso.* and registro.corrigido legitimately have no patient — but a
+            // fact that silently becomes invisible to every caregiver is worth a line in the log.
+            log.info(
+                    "Fact {} ({}) has no patient scope — readable only with hist:read:all",
+                    command.factId(),
+                    command.factType());
+        }
+
         // Build a pre-hash record to compute the canonical form
         UUID recordId = UUID.randomUUID();
         AuditRecord preHashRecord =
@@ -183,7 +198,8 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         prevHash,
                         null, // recordHash placeholder — computed next
                         resolvedCorrectsRecordId, // HIST internal UUID, null if no correction
-                        false); // erased — always false at write time (P10 / HIST-024)
+                        false, // erased — always false at write time (P10 / HIST-024)
+                        scopePacienteId);
 
         String recordHash = hashChainPort.compute(prevHash, preHashRecord);
 
@@ -204,7 +220,8 @@ public class RecordAuditFactService implements RecordAuditFactUseCase {
                         prevHash,
                         recordHash,
                         resolvedCorrectsRecordId, // HIST internal UUID of corrected record
-                        false); // erased — always false at write time (P10 / HIST-024)
+                        false, // erased — always false at write time (P10 / HIST-024)
+                        scopePacienteId);
 
         // Step 8: persist — all three writes in the same transaction
         AuditRecord persisted = auditLedgerPort.insert(record, command.tenantId());

@@ -1,10 +1,12 @@
 package com.neuroassist.edge.application.service;
 
 import com.neuroassist.edge.application.port.in.DeviceRegistrationUseCase;
+import com.neuroassist.edge.application.port.out.DeviceDirectoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoCredentialRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEdgeTransitionRepositoryPort;
 import com.neuroassist.edge.application.port.out.DispositivoEnrollmentRepositoryPort;
+import com.neuroassist.edge.application.port.out.EnrollmentDirectoryPort;
 import com.neuroassist.edge.domain.event.DispositivoRegistrado;
 import com.neuroassist.edge.domain.model.DispositivoCredential;
 import com.neuroassist.edge.domain.model.DispositivoEdge;
@@ -48,6 +50,8 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
     private final DispositivoEdgeDomainService domainService;
     private final ApplicationEventPublisher eventPublisher;
     private final EdgeMetrics edgeMetrics;
+    private final EnrollmentDirectoryPort enrollmentDirectory;
+    private final DeviceDirectoryPort deviceDirectory;
 
     @Value("${neuroassist.edge.enrollment.ttl-seconds:900}")
     private long enrollmentTtlSeconds;
@@ -82,6 +86,10 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
                 DispositivoEnrollment.mint(
                         UUID.randomUUID(), tenantId, deviceId, tokenHash, expiresAt);
         enrollmentRepo.save(enrollment);
+
+        // Índice global token→tenant: o enroll é anônimo e não consegue descobrir o schema
+        // sozinho (C-21). Publicado na mesma transação que grava o enrollment.
+        enrollmentDirectory.publish(tokenHash, tenantId, deviceId, expiresAt);
 
         log.info("Device registered deviceId='{}' enrollmentExpiresAt='{}'", deviceId, expiresAt);
 
@@ -155,6 +163,11 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
                         UUID.randomUUID(), device.tenantId(), device.id(), clientId, secretHash);
         credentialRepo.save(credential);
 
+        // Índice global clientId→tenant: o ACS recebe só o clientId em
+        // POST /internal/devices/verify-credential e não consegue descobrir o schema sozinho
+        // (C-18). Ponteiro apenas — o secretHash permanece no schema do tenant.
+        deviceDirectory.publish(clientId, device.tenantId(), device.id());
+
         // Record initial agentVersion — api-contract §2.2 ("not yet a heartbeat")
         // Does NOT stamp ultimaSincronizacao (liveness remains offline until first heartbeat)
         DispositivoEdge updated = device.withInitialAgentVersion(agentVersion, "system");
@@ -162,6 +175,9 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
 
         // Mark enrollment consumed atomically with credential issuance
         enrollmentRepo.save(enrollment.withConsumed());
+
+        // Token consumido — o ponteiro global não tem mais uso
+        enrollmentDirectory.revoke(enrollment.tokenHash());
 
         log.info("Device enrolled deviceId='{}' clientId='{}'", device.id(), clientId);
         return new EnrollResult(
@@ -200,6 +216,9 @@ public class DeviceRegistrationService implements DeviceRegistrationUseCase {
         for (DispositivoCredential cred : credentials) {
             if (cred.isActive()) {
                 credentialRepo.save(cred.withRevoked());
+                // O ponteiro global não tem mais uso: sem ele, verify-credential nem chega a
+                // consultar o schema do tenant (C-18).
+                deviceDirectory.revoke(cred.clientId());
                 log.info(
                         "Credential revoked clientId='{}' deviceId='{}'",
                         cred.clientId(),

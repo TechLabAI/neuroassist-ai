@@ -6,9 +6,25 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timer, Subscription, switchMap, of, catchError, retry, defer } from 'rxjs';
+import {
+  timer,
+  Subscription,
+  switchMap,
+  of,
+  catchError,
+  retry,
+  defer,
+  throwError,
+  Observable,
+} from 'rxjs';
 import { DEVICE_PORT } from './api/device.port';
 import { EDGE_TOAST_TOKEN, EDGE_RETRY_TOAST_MESSAGE } from './edge-toast.token';
+import {
+  edgeErrorMessage,
+  isEdgeConflict,
+  isEdgeTransient,
+  deveAvisarPorToast,
+} from './edge-error-messages';
 import {
   DispositivoEdgeView,
   LivenessView,
@@ -19,6 +35,7 @@ import {
   DeviceDetailVM,
 } from '@neuroassist/shared/contracts';
 import { ObservabilityService } from '@neuroassist/shared/observability';
+import { EDGE_ACCESS_DECISION } from './access/edge-access-tokens';
 
 // ---------------------------------------------------------------------------
 // Feature flags consumed from SPEC-05
@@ -71,6 +88,20 @@ export function deriveState(
   return 'offline';
 }
 
+/**
+ * Delay de `retry` que só deixa repetir falhas transientes.
+ *
+ * <p>Devolver `throwError` no `delay` aborta a repetição e propaga o erro
+ * original — é a forma que o RxJS 7 oferece para "repetir condicionalmente".
+ */
+function throwIfNotTransient(err: unknown): Observable<unknown> {
+  // `of` e não `timer(0)`: o retry tem de continuar SÍNCRONO. Qualquer
+  // agendamento aqui adia a transição para a fase de erro em um tique, e a tela
+  // fica um instante mostrando 'registrando…' sobre uma operação já perdida.
+  if (isEdgeTransient(err)) return of(err);
+  return throwError(() => err);
+}
+
 function toTone(state: DerivedState): ConnectivityTone {
   switch (state) {
     case 'online': return 'ok';
@@ -118,8 +149,22 @@ export class DeviceFacade {
   private readonly _pollOk = signal<boolean>(true);
   private readonly _loading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
-  /** Derive conductor entitlement — true until session integration replaces this (FE-EDGE-003 TODO). */
-  private readonly _canManage = signal<boolean>(true);
+  /**
+   * Direito de condutor técnico.
+   *
+   * <p>Vem de `EDGE_ACCESS_DECISION` quando a camada de acesso está provida. Ela
+   * ainda NÃO está: o token tem `factory: () => null` e o app.config não a
+   * substitui, então em execução isto continua valendo `true` para todo mundo —
+   * inclusive para uma cuidadora, que veria "Despareador" e "Aposentar". A
+   * ligação final é o TODO[FE-EDGE-003] e mora fora desta lib (app.config.ts +
+   * as authorities `edge.manage` no token do ACS, que a sessão semeada também
+   * não carrega). O que muda aqui é que a resposta deixa de ser uma constante:
+   * no dia em que o provider existir, o portão passa a valer sem tocar na facade.
+   */
+  private readonly access = inject(EDGE_ACCESS_DECISION, { optional: true });
+  private readonly _canManage = signal<boolean>(
+    this.access === null ? true : this.access.can('edge.manage'),
+  );
 
   private pollSub: Subscription | null = null;
   private lastEtag: string | undefined;
@@ -183,17 +228,30 @@ export class DeviceFacade {
           this._loading.set(false);
         },
         error: (err: unknown) => {
-          this._error.set(String(err));
+          // pt-BR do ProblemDetail, nunca o erro cru: `String(HttpErrorResponse)`
+          // rende "[object Object]", que foi o que a página exibiu no lugar do
+          // cartão de conectividade durante toda a vida do caminho HTTP.
+          this._error.set(edgeErrorMessage(err));
           this._pollOk.set(false);
           this._loading.set(false);
         },
       });
   }
 
-  /** Resolve and load the active patient's device. */
-  resolveForActivePatient(pacienteId: string): void {
+  /**
+   * Resolve and load the active patient's device.
+   *
+   * @param ambiente quando `true`, a chamada é de FUNDO — o shell resolvendo o
+   *   dispositivo do paciente ativo para alimentar o chip da topbar, sem que
+   *   ninguém a tenha pedido. Uma resolução de fundo não pode apagar da tela a
+   *   mensagem de um erro que alguém provocou: as duas escrevem no mesmo
+   *   `_error` porque o DeviceFacade é providedIn:'root', e o shell dispara a
+   *   dele depois da página. O banner "este dispositivo foi aposentado" durava
+   *   até o chip terminar de carregar, e então sumia sozinho.
+   */
+  resolveForActivePatient(pacienteId: string, ambiente = false): void {
     this._loading.set(true);
-    this._error.set(null);
+    if (!ambiente) this._error.set(null);
     this.port
       .resolveDeviceForPatient(pacienteId)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -204,7 +262,12 @@ export class DeviceFacade {
           this._loading.set(false);
         },
         error: (err: unknown) => {
-          this._error.set(String(err));
+          // pt-BR do ProblemDetail, nunca o erro cru: `String(HttpErrorResponse)`
+          // rende "[object Object]", que foi o que a página exibiu no lugar do
+          // cartão de conectividade durante toda a vida do caminho HTTP.
+          if (!ambiente || this._error() === null) {
+            this._error.set(edgeErrorMessage(err));
+          }
           this._pollOk.set(false);
           this._loading.set(false);
         },
@@ -295,18 +358,17 @@ export class DeviceFacade {
     // defer() ensures each retry invokes the port factory again (new HTTP request).
     defer(() => this.port.unpair(dev.deviceId, { reason }))
       .pipe(
-        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        // 3 tentativas no total (FE-EDGE-019 G6), mas SÓ para falha transiente:
+        // repetir um 409 é insistir numa escrita que o servidor acabou de dizer
+        // que está obsoleta.
+        retry({ count: 2, delay: (err) => throwIfNotTransient(err) }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
         next: () => this.load(dev.deviceId), // refresh — no optimistic flip (SPEC-04 §3)
-        error: (err: unknown) => {
-          this._error.set(String(err));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.unpair(reason),
-          });
-        },
+        error: (err: unknown) => this.handleActionError(err, dev.deviceId, () =>
+          this.unpair(reason),
+        ),
       });
   }
 
@@ -317,7 +379,7 @@ export class DeviceFacade {
     // defer() ensures each retry invokes the port factory again (new HTTP request).
     defer(() => this.port.retire(dev.deviceId))
       .pipe(
-        retry({ count: 2 }), // 3 total attempts (FE-EDGE-019 G6)
+        retry({ count: 2, delay: (err) => throwIfNotTransient(err) }),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe({
@@ -330,12 +392,58 @@ export class DeviceFacade {
             deviceId: updated.deviceId,
           });
         },
-        error: (err: unknown) => {
-          this._error.set(String(err));
-          this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, {
-            label: 'Tentar novamente',
-            callback: () => this.retire(),
-          });
+        error: (err: unknown) =>
+          this.handleActionError(err, dev.deviceId, () => this.retire()),
+      });
+  }
+
+  /**
+   * Desfecho comum de unpair/retire quando a ação falha.
+   *
+   * <p>Num conflito (409) o servidor está dizendo "o estado que você viu não é
+   * mais o estado real". A resposta certa é RECARREGAR o read-model — nunca
+   * repetir a escrita, nunca supor o resultado. E o banner do conflito precisa
+   * sobreviver a essa recarga: por isso o refresh é feito aqui, sem passar por
+   * `load()`, que zera `_error` e faria a explicação desaparecer da tela no
+   * mesmo instante em que ela é necessária.
+   */
+  private handleActionError(
+    err: unknown,
+    deviceId: string,
+    reexecutar: () => void,
+  ): void {
+    this._error.set(edgeErrorMessage(err));
+
+    if (isEdgeConflict(err)) {
+      this.refreshAfterConflict(deviceId);
+      return; // conflito não é falha de conexão: não oferecer "tentar novamente"
+    }
+
+    // A MENSAGEM tem de ser a do erro, e a AÇÃO só existe se repetir puder
+    // adiantar. Antes, todo erro produzia "Falha temporária de conexão.
+    // Tente novamente." com botão de repetir — inclusive um 403, que não é
+    // temporário e não melhora com insistência. O aviso mentia sobre a
+    // causa e oferecia uma saída que não existe; quem perdeu permissão
+    // ficava clicando.
+    if (isEdgeTransient(err)) {
+      this.toast?.show(EDGE_RETRY_TOAST_MESSAGE, { label: 'Tentar novamente', callback: reexecutar });
+    } else if (deveAvisarPorToast(err)) {
+      this.toast?.show(edgeErrorMessage(err));
+    }
+  }
+
+  /** Re-busca o dispositivo preservando a mensagem de conflito já exibida. */
+  private refreshAfterConflict(deviceId: string): void {
+    this.port
+      .getDevice(deviceId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (dev) => {
+          this._device.set(dev);
+          this._pollOk.set(true);
+        },
+        error: () => {
+          /* já há uma mensagem de conflito na tela; não sobrepor. */
         },
       });
   }

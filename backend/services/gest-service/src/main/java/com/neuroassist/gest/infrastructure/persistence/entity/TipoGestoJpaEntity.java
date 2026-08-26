@@ -19,8 +19,8 @@ import org.springframework.data.domain.Persistable;
 /**
  * JPA entity for the {@code tipo_gesto} table (tenant-scoped via schema routing). Schema managed by
  * neuroassist-ai-migrations (V0400). Field names mirror the SQL columns from
- * V1__create_initial_schema.sql. Multi-tenancy: no tenant_id column — isolation is via {@code
- * search_path} set by MultiTenantConnectionProvider.
+ * V0400__gest_initial_schema.sql (neuroassist-ai-migrations). Multi-tenancy: no tenant_id column —
+ * isolation is via {@code search_path} set by MultiTenantConnectionProvider.
  *
  * <p>Implements {@link Persistable} because the id is assigned client-side by the domain ({@code
  * TipoGesto.register()}), not by the database — without it, Spring Data JPA's default "id == null

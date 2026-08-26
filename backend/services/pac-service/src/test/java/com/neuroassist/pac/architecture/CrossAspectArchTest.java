@@ -57,6 +57,7 @@ public class CrossAspectArchTest {
                     "pac.comando-lifecycle.read",
                     "pac.comando-lifecycle.recalibrar",
                     "pac.paciente.criar",
+                    "pac.paciente.deletar",
                     "pac.paciente.editar",
                     "pac.paciente.read");
 
