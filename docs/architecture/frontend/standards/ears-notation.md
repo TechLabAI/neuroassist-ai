@@ -16,7 +16,7 @@ A frontend SPEC mixes two kinds of content:
    the UI is built*.
 2. **Acceptance criteria** — testable behavior: what a guard does, what an
    optimistic update guarantees, what the UI shows for each backend error, what a
-   role can and cannot see. This is what becomes an e2e `Cenário:` and what the
+   role can and cannot see. This is what becomes an e2e `Scenario:` and what the
    `fe-ears-coverage.py` gate cross-checks.
 
 The goal is **not** to formalize the whole spec — only the testable subset, so
@@ -110,9 +110,17 @@ write it as EARS. If not, write it as prose.
 
 The `fe-ears-coverage.py` gate matches each `THE SYSTEM SHALL` clause to a
 `.feature` scenario by **keyword overlap**. So each clause must share domain nouns
-with the `Cenário:` that covers it (titles may be pt-BR or English). When a title
-can't share nouns naturally, embed a backtick slug (e.g. `reorder-rollback`) in
-both the clause and the scenario title.
+with the `Scenario:` that covers it. When a title can't share nouns naturally,
+embed a backtick slug (e.g. `reorder-rollback`) in both the clause and the
+scenario title.
+
+> **Gherkin keywords are English** (D-566). `be-bdd-generator.py` and
+> `py-bdd-generator.py` match only `Given|When|Then|And|But`, so a localized
+> `.feature` parses to zero steps and yields an empty step file with no warning.
+> `fe-ears-coverage.py` still recognizes the pt-BR forms (`Cenário:`,
+> `Esquema do Cenário:`) so projects generated before this rule keep passing the
+> gate (D-395/D-443) -- that tolerance is backward compatibility, not a licence
+> to author new features in Portuguese.
 
 ---
 

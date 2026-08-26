@@ -21,12 +21,7 @@ Formatos aceitos (D-422 module-oriented):
 - `<MODULO> <feature-slug> --resume` → Retomar Pipeline A de checkpoint salvo
 - `<MODULO> --resume` → Retomar Pipeline B de checkpoint salvo
 
-Modulos validos no FE: GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E
-
-> `E2E` e um **modulo transversal** (sem microservico e sem lib Nx propria): cobre a
-> integracao ponta-a-ponta do `neuroassist-ai-web` com os 7 backends. Aceita apenas
-> **Pipeline B** (`/fe-autopilot E2E`) — nao ha Pipeline A para ele, porque nao existem
-> features novas a arquitetar, apenas prioridades de habilitacao e validacao.
+Modulos validos no FE: GWY | REG | MIG | GEST | EVNT | PAC | ACS | HIST | DASH | EDGE | E2E
 
 ---
 
@@ -45,7 +40,7 @@ do usuario**: prossegue para a proxima etapa imediatamente.
 1. Extrair `$ARGUMENTS`.
 2. Se contem `--resume`: ler checkpoint em `tmp/fe-autopilot/<ID>/state.json` e pular
    para a etapa salva.
-3. Se input tem 2 tokens onde o primeiro e MODULO valido (GEST/EVNT/PAC/ACS/HIST/DASH/EDGE)
+3. Se input tem 2 tokens onde o primeiro e MODULO valido (GWY/REG/MIG/GEST/EVNT/PAC/ACS/HIST/DASH/EDGE/E2E)
    e o segundo e kebab-case: **Pipeline A**. ID = `<MODULO>-<feature-slug>`.
 4. Se input tem apenas MODULO (sem segundo token ou segundo token e flag `--resume`):
    **Pipeline B**. ID = `<MODULO>`.
@@ -101,7 +96,7 @@ Input: `<MODULO> <feature-slug>` (ex.: `<MODULE> cadastro-cliente`).
 
 ID derivado: `<MODULO>-<feature-slug>` (ex.: `<MODULE>-cadastro-cliente`).
 
-### Etapa A0 -- Semente Angular (automatico — D-383)
+### Etapa A0 -- Semente de prototipo (automatico — D-383)
 
 O protótipo Angular populado do Estágio 0 (Tailwind v4 + CDK + theme.css oklch)
 ja foi vendorizado em `frontend/design-reference/` pelo `/new-project` (P5). Nao

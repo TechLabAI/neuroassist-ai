@@ -16,7 +16,7 @@ salva checkpoints (crash recovery + retomada manual via `--resume`).
 **Input:** `$ARGUMENTS`
 
 Formatos aceitos:
-- `<MODULO>` (ex.: `GEST`) → detecta automaticamente: se o modulo ainda nao tem scaffold → **Pipeline A** (Architect); se ja tem → **Pipeline B** (Implement, loop validator-driven).
+- `<MODULO>` (ex.: `GWY`) → detecta automaticamente: se o modulo ainda nao tem scaffold → **Pipeline A** (Architect); se ja tem → **Pipeline B** (Implement, loop validator-driven).
 - `<MODULO> --architect` → forca **Pipeline A** (re-arquitetar / novo modulo).
 - `<MODULO> --implement` → forca **Pipeline B** (ciclo de desenvolvimento).
 - `<MODULO> --resume` → retomar de checkpoint salvo.

@@ -1,49 +1,49 @@
 # Java Conventions (NeuroAssist AI Backend)
 
-> Convenções de código Java 21 + Spring Boot para todos os microserviços em `backend/services/`.
+> Java 21 + Spring Boot code conventions for every microservice under `backend/services/`.
 
 ## Lombok
 
-- Use `@Value` + `@Builder` para value objects imutáveis.
-- Use `@RequiredArgsConstructor` para DI (constructor injection é obrigatório).
-- Use `@Slf4j` para logging (nunca instanciar Logger diretamente).
-- Nunca use `@Data` em entidades JPA (quebra equals/hashCode com lazy loading e causa problemas de serialização).
-- Para entidades JPA, implemente `equals`/`hashCode` apenas em identificadores imutáveis (id), nunca em coleções ou campos mutáveis.
+- Use `@Value` + `@Builder` for immutable value objects.
+- Use `@RequiredArgsConstructor` for DI (constructor injection is mandatory).
+- Use `@Slf4j` for logging (never instantiate a Logger directly).
+- Never use `@Data` on JPA entities (it breaks equals/hashCode with lazy loading and causes serialization problems).
+- On JPA entities, implement `equals`/`hashCode` on immutable identifiers only (id), never on collections or mutable fields.
 
 ## SLF4J / Logging
 
-- Sempre via Lombok `@Slf4j`.
-- Nunca `System.out` para logging.
-- Nunca instanciar Logger manualmente.
-- Use placeholders (`{}`) para interpolação, nunca concatenação de string.
-- Prefira structured logging (campos separados) sobre interpolação.
-- Níveis: `info` para eventos normais, `warn` para situações inesperadas, `error` para falhas, `debug` para detalhes de desenvolvimento.
-- Nunca exponha dados sensíveis em logs.
+- Always through Lombok `@Slf4j`.
+- Never `System.out` for logging.
+- Never instantiate a Logger manually.
+- Use placeholders (`{}`) for interpolation, never string concatenation.
+- Prefer structured logging (separate fields) over interpolation.
+- Levels: `info` for normal events, `warn` for unexpected situations, `error` for failures, `debug` for development details.
+- Never expose sensitive data in logs.
 
 ## Spring Dependency Injection
 
-- Sempre constructor injection.
-- Nunca `@Autowired` em campo ou método.
-- `@RequiredArgsConstructor` é o padrão para services e components.
-- Prefira beans imutáveis quando possível.
+- Always constructor injection.
+- Never `@Autowired` on a field or method.
+- `@RequiredArgsConstructor` is the standard for services and components.
+- Prefer immutable beans whenever possible.
 
 ## JPA Entities
 
-- Sempre declare `@Getter`/`@Setter` explicitamente.
-- `@Version` obrigatório para optimistic locking quando aplicável.
-- Nunca serialize entidades JPA direto para HTTP (use DTOs).
-- Construtor protected no-args para JPA.
-- Evite lógica de negócio em entidades; mantenha como modelo de dados.
-- Prefira Java records para DTOs (imutáveis, compactos).
+- Always declare `@Getter`/`@Setter` explicitly.
+- `@Version` is mandatory for optimistic locking where applicable.
+- Never serialize JPA entities straight to HTTP (use DTOs).
+- Protected no-args constructor for JPA.
+- Avoid business logic in entities; keep them as data models.
+- Prefer Java records for DTOs (immutable, compact).
 
 ## Naming Conventions
 
 - Classes: PascalCase (`ClienteService`).
-- Métodos e variáveis: camelCase (`calcularTotal`).
-- Constantes: UPPER_SNAKE_CASE.
-- Pacotes: lowercase curto, sem underscores.
+- Methods and variables: camelCase (`calcularTotal`).
+- Constants: UPPER_SNAKE_CASE.
+- Packages: short lowercase, no underscores.
 
-## Organização de pacotes (canônica -- todos os serviços novos)
+## Package organization (canonical -- all new services)
 
 ```
 com.neuroassist.<module>/
@@ -53,122 +53,122 @@ com.neuroassist.<module>/
 └── infrastructure/ → persistence, clients, messaging, config, security
 ```
 
-`<module>` é o nome do módulo (lowercase) — um dos prefixos listados em
-`services-catalog.md` (`gest`, `evnt`, `pac`, `acs`, `hist`, ...).
+`<module>` is the module name (lowercase) -- one of the prefixes listed in
+`services-catalog.md` (`gwy`, `reg`, `mig`, `gest`, `evnt`, ...).
 
-Ver `hexagonal-patterns.md` para detalhes por camada.
+See `hexagonal-patterns.md` for per-layer details.
 
 ## Optional
 
-- Use `Optional` para tipos de retorno que podem ausentar; nunca para parâmetros ou campos de entidade.
-- Nunca retorne `null` em vez de `Optional`.
+- Use `Optional` for return types that may be absent; never for parameters or entity fields.
+- Never return `null` instead of `Optional`.
 
 ## Exception Handling
 
-- Exceções de domínio em `domain.exception`.
-- Mapeie exceções de domínio para HTTP em `@RestControllerAdvice` localizado em `api.exception`.
-- Use `ProblemDetail` (RFC 7807) para respostas padronizadas.
-- Adapters podem lançar exceções infra-específicas; Application Services traduzem para domain.
-- Nunca capture exceções genéricas sem tratamento apropriado.
+- Domain exceptions live in `domain.exception`.
+- Map domain exceptions to HTTP in a `@RestControllerAdvice` located in `api.exception`.
+- Use `ProblemDetail` (RFC 7807) for standardized responses.
+- Adapters may throw infra-specific exceptions; Application Services translate them to domain ones.
+- Never catch generic exceptions without proper handling.
 
-## Imutabilidade e Thread Safety
+## Immutability and Thread Safety
 
-- Beans singleton devem ser thread-safe.
-- Prefira objetos imutáveis para dados compartilhados.
+- Singleton beans must be thread-safe.
+- Prefer immutable objects for shared data.
 
-## Documentação
+## Documentation
 
-- Javadoc em classes/métodos públicos.
-- Documente `@param` e `@return`.
+- Javadoc on public classes/methods.
+- Document `@param` and `@return`.
 
-## Configuração externa e Profiles
+## External configuration and Profiles
 
-- Use `application.yml` + Spring profiles (`@Profile`) para separar ambientes (dev, test, prod, mock).
-- Nunca commitar segredos, senhas ou chaves.
-- Use variáveis de ambiente -- `application.yml` usa sintaxe `${VAR_NAME}`.
+- Use `application.yml` + Spring profiles (`@Profile`) to separate environments (dev, test, prod, mock).
+- Never commit secrets, passwords or keys.
+- Use environment variables -- `application.yml` uses the `${VAR_NAME}` syntax.
 
-## Validação
+## Validation
 
-- Use Bean Validation (`@Valid`, `@NotNull`, `@Size`, etc.) em DTOs e request bodies.
-- Validação de entrada em controllers; Application Services adicionam validações de negócio.
+- Use Bean Validation (`@Valid`, `@NotNull`, `@Size`, etc.) on DTOs and request bodies.
+- Input validation in controllers; Application Services add business validations.
 
-## DTOs e Mapeamento
+## DTOs and Mapping
 
-- Sempre use DTOs para input/output API; nunca retorne entidades JPA direto.
-- Use MapStruct para mapeamento performático entre Entity ↔ Domain ↔ DTO.
-- Adicione MapStruct processor em `annotationProcessor` no `build.gradle.kts`.
+- Always use DTOs for API input/output; never return JPA entities directly.
+- Use MapStruct for performant mapping between Entity <-> Domain <-> DTO.
+- Add the MapStruct processor to `annotationProcessor` in `build.gradle.kts`.
 
 ## Global Exception Handling
 
-- `@RestControllerAdvice` para handling centralizado e respostas padronizadas.
-- Nunca exponha stack traces ou detalhes internos em respostas de erro.
+- `@RestControllerAdvice` for centralized handling and standardized responses.
+- Never expose stack traces or internal details in error responses.
 
 ## Logging Configuration
 
-- Configure via `application.yml`.
-- Use Logback com `logstash-logback-encoder` para JSON estruturado em produção.
-- Pattern de log deve incluir `correlationId` e `empresaId` do MDC.
+- Configure it through `application.yml`.
+- Use Logback with `logstash-logback-encoder` for structured JSON in production.
+- The log pattern must include `correlationId` and `empresaId` from the MDC.
 
 ## API Documentation
 
-- Use SpringDoc OpenAPI para documentar REST APIs.
-- Anote DTOs e endpoints com OpenAPI annotations.
-- OpenAPI gerado por cada serviço alimenta `docs/architecture/shared/contratos/<service>-openapi.yaml`.
+- Use SpringDoc OpenAPI to document REST APIs.
+- Annotate DTOs and endpoints with OpenAPI annotations.
+- The OpenAPI generated by each service feeds `docs/architecture/shared/contratos/<service>-openapi.yaml`.
 
 ## Testing
 
-- **Unit tests:** JUnit 5 + Mockito -- sem Spring context, sem banco.
-- **Integration tests:** Testcontainers com PostgreSQL real -- nunca H2 in-memory.
-- **BDD tests:** Cucumber + JUnit 5 para cobertura comportamental/API.
-- **CDC tests:** Pact JVM para verificação contrato consumer-provider.
-- Use `@ActiveProfiles("test")` e `application-test.yml`.
-- Ver `testing-conventions.md` para convenções completas.
+- **Unit tests:** JUnit 5 + Mockito -- no Spring context, no database.
+- **Integration tests:** Testcontainers with a real PostgreSQL -- never H2 in-memory.
+- **BDD tests:** Cucumber + JUnit 5 for behavioral/API coverage.
+- **CDC tests:** Pact JVM for consumer-provider contract verification.
+- Use `@ActiveProfiles("test")` and `application-test.yml`.
+- See `testing-conventions.md` for the full conventions.
 
 ## Transactions
 
-- `@Transactional` apenas em Application Services (RULE-03).
-- Nunca em controllers ou infrastructure adapters.
-- Propagação explícita (`REQUIRES_NEW`) apenas quando justificado.
+- `@Transactional` only on Application Services (RULE-03).
+- Never on controllers or infrastructure adapters.
+- Explicit propagation (`REQUIRES_NEW`) only when justified.
 
 ## Performance
 
-- `@Cacheable` onde aplicável.
-- Monitore N+1; otimize fetch strategies.
-- `spring.jpa.open-in-view: false` obrigatório (RULE-08).
+- `@Cacheable` where applicable.
+- Watch for N+1; tune fetch strategies.
+- `spring.jpa.open-in-view: false` is mandatory (RULE-08).
 
 ## Security
 
-- Nunca exponha endpoints sem autenticação (exceto `/actuator/health` e `/actuator/prometheus`).
-- Spring Security com JWT resource server (`oauth2ResourceServer.jwt`).
-- Nunca exponha dados sensíveis em logs ou respostas.
+- Never expose endpoints without authentication (except `/actuator/health` and `/actuator/prometheus`).
+- Spring Security with a JWT resource server (`oauth2ResourceServer.jwt`).
+- Never expose sensitive data in logs or responses.
 
 ## API Versioning
 
-- Versione endpoints REST (ex.: `/api/v1/`). Breaking changes exigem nova versão.
-- Endpoints mock/dev usam `/api/v0/` (ver `api-mock-convention.md`).
+- Version REST endpoints (e.g. `/api/v1/`). Breaking changes require a new version.
+- Mock/dev endpoints use `/api/v0/` (see `api-mock-convention.md`).
 
 ## Feign Clients (inter-service HTTP)
 
-- Declare como interfaces com `@FeignClient(name = "service-name")`.
-- Localize em `infrastructure.clients` (RULE-06).
-- Constructor injection via `@RequiredArgsConstructor`.
-- Aplique Resilience4j `@CircuitBreaker` e `@Retry` em métodos de service que chamam Feign.
-- Nunca chame Feign clients de `domain` ou `api`.
+- Declare them as interfaces with `@FeignClient(name = "service-name")`.
+- Place them in `infrastructure.clients` (RULE-06).
+- Constructor injection through `@RequiredArgsConstructor`.
+- Apply Resilience4j `@CircuitBreaker` and `@Retry` on service methods that call Feign.
+- Never call Feign clients from `domain` or `api`.
 
 ## Multi-empresa
 
-- Toda Application Service que toca dado de empresa deve começar com `EmpresaContextHolder.require()` (RULE-07).
-- Detalhes em `docs/architecture/shared/multi-empresa.md`.
+- Every Application Service that touches empresa data must start with `EmpresaContextHolder.require()` (RULE-07).
+- Details in `docs/architecture/shared/multi-empresa.md`.
 
 ## ResponseEntity
 
-- Prefira `ResponseEntity<T>` para respostas HTTP customizadas em controllers.
+- Prefer `ResponseEntity<T>` for custom HTTP responses in controllers.
 
-## Referências
+## References
 
-- `hexagonal-patterns.md` -- Ports & Adapters, layout de pacotes
-- `snippets.md` -- código reference por tipo de classe
+- `hexagonal-patterns.md` -- Ports & Adapters, package layout
+- `snippets.md` -- reference code per class type
 - `platform-patterns.md` -- JMS, Feign, Flyway, MDC, Saga, multi-schema
-- `testing-conventions.md` -- pirâmide de testes
-- `rbac.md` -- modelo de papéis e permissões
-- `services-catalog.md` -- catálogo de microserviços + pacotes canônicos
+- `testing-conventions.md` -- test pyramid
+- `rbac.md` -- role and permission model
+- `services-catalog.md` -- microservice catalog + canonical packages

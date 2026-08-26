@@ -1,6 +1,6 @@
 # Modelo de Dados -- Índice
 
-DDL canônico do NeuroAssist AI (Postgres 15+).
+DDL canônico do NeuroAssist AI (PostgreSQL (transacional, schema-per-empresa) 15+).
 
 ## Fonte de verdade
 

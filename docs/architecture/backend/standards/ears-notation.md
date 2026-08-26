@@ -46,7 +46,7 @@ For behavior that fires in response to an event, API call, or message arrival.
 
 ```
 WHEN a venda transitions to CONFIRMADA,
-   THE SYSTEM SHALL publish `{{ project_name }}.comercial.venda.confirmada`
+   THE SYSTEM SHALL publish `neuroassist-ai.comercial.venda.confirmada`
    AFTER_COMMIT to ActiveMQ.
 ```
 
