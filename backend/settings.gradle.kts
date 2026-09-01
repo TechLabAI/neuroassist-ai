@@ -18,3 +18,5 @@ include(":services:edge-service")  // D-533 scaffold 2026-07-29
 // E2E-013 — nao e um microservico: so hospeda a suite E2E cross-service.
 // Nao entra no `build` padrao; rodar com `./gradlew :services:e2e-tests:e2eTest`.
 include(":services:e2e-tests")
+includeBuild("services/conv-service")
+includeBuild("services/trei-service")

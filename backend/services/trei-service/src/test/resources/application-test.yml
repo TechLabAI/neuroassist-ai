@@ -1,0 +1,27 @@
+# Profile 'test' — Testcontainers (PostgreSQL) + Artemis embedded.
+# DataSource sobrescrito via @DynamicPropertySource em BaseIntegrationTest.
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+  artemis:
+    mode: embedded
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:9999/.well-known/jwks.json
+# D-533 — Feign client URL stubs: Feign validates URLs eagerly at context load;
+# without these the Spring context fails to boot in tests.
+neuroassist:
+  acs:
+    url: http://localhost:9001
+  pac:
+    url: http://localhost:9002
+  hist:
+    url: http://localhost:9003
+eureka:
+  client:
+    enabled: false
