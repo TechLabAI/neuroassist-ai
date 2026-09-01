@@ -77,3 +77,55 @@ export interface DispositivoEdge {
   ultimaSincronizacao: string;  // datetime
   versao: string;  // string
 }
+
+// =============================================================================
+// Emenda 3 (2026-08-30) — módulo CONV. ADR-012/013 (accepted). Adicionado à mão
+// nesta emenda; a próxima regeneração via `python main.py <projeto> --force`
+// deve reproduzir estes tipos a partir de design/data-model.json (já atualizado).
+// =============================================================================
+
+export type NoArvoreFalaTipo = 'categoria' | 'frase';
+export type SessaoPacienteStatus = 'ativa' | 'revogada';
+
+// =============================================================================
+// Emenda 4 (2026-08-31) — Elasticsearch/retrieval puro (ADR-015), fase de TREINAMENTO
+// com LLM colaborativa (ADR-016), TTS ElevenLabs cacheado (ADR-017), bilinguismo
+// EN/PT com autoria independente por idioma (ADR-018). Adicionado à mão nesta emenda.
+// =============================================================================
+
+export type Locale = 'pt' | 'en';
+
+/** Conteúdo de um NoArvoreFala em um idioma específico — texto + áudio cacheado +
+ * Dupla Autorização (ADR-016/ADR-018). Só quando confirmadoCuidadora E confirmadoPaciente
+ * ficam true neste locale, o conteúdo é indexado (Elasticsearch) e sintetizado (ElevenLabs). */
+export interface ConteudoLocale {
+  texto: string;  // string
+  audioRef: string | null;  // referência ao áudio cacheado (não o binário) — null se ainda não sintetizado
+  confirmadoCuidadora: boolean;  // RBAC: treinamento.no.aprovar.cuidadora
+  confirmadoPaciente: boolean;  // RBAC: treinamento.no.aprovar.paciente
+}
+
+/** Nó da árvore de falas — categoria ou frase (ADR-013). parentId nulo = raiz.
+ * conteudo é por Locale (Emenda 4, ADR-018) — texto/áudio deixaram de ser campo único. */
+export interface NoArvoreFala {
+  id: string;  // string
+  pacienteId: string;  // ref → Paciente
+  parentId: string | null;  // ref → NoArvoreFala
+  tipo: NoArvoreFalaTipo;  // enum
+  conteudo: Record<Locale, ConteudoLocale>;  // Emenda 4 — antes era `texto: string`
+  ordem: number;  // int
+  engineFeatureRef: string | null;  // vocabulário unificado de gesto (commit 89f4ee5 do repo real)
+  propostoPorTreinamento: boolean;  // Emenda 4 — true se originado da LLM na fase de TREINAMENTO (ADR-016), false se seed anterior à Emenda 4
+}
+
+/** Sessão de app persistente do paciente, provisionada pela cuidadora (ADR-012, Opção C). */
+export interface SessaoPaciente {
+  id: string;  // string
+  pacienteId: string;  // ref → Paciente
+  provisionadaPor: string;  // ref → Cuidador
+  dispositivoId: string;  // ref → DispositivoEdge
+  status: SessaoPacienteStatus;  // enum
+  provisionadaEm: string;  // datetime
+  revogadaEm: string | null;  // datetime
+  revogadaPor: string | null;  // ref → Cuidador
+}

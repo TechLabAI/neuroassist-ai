@@ -198,6 +198,42 @@
           "type": "string"
         }
       }
+    },
+    "NoArvoreFala": {
+      "description": "Nó da árvore de falas do módulo CONV — categoria ou frase (Emenda 3, 2026-08-30; ADR-013 accepted). parentId nulo = raiz da árvore. engineFeatureRef opcional referencia o vocabulário unificado de gesto (commit 89f4ee5 do repositório real, ver gest/frontend ADR-008 D4) para mapear um gesto reconhecido diretamente a um nó — sem tabela de mapeamento própria do CONV. conteudo é por locale (Emenda 4, 2026-08-31; ADR-018 accepted) — texto/áudio deixaram de ser campo único; cada locale (pt/en) tem texto, audioRef (referência ao áudio cacheado via ElevenLabs, ADR-017) e a Dupla Autorização (confirmadoCuidadora/confirmadoPaciente, ADR-016) que precisa completar antes de indexar no Elasticsearch (ADR-015).",
+      "fields": {
+        "id": { "type": "string", "pk": true },
+        "pacienteId": { "type": "ref", "ref": "Paciente", "label": "nome" },
+        "parentId": { "type": "ref", "ref": "NoArvoreFala", "label": "texto", "nullable": true },
+        "tipo": { "type": "enum", "enum": ["categoria", "frase"] },
+        "conteudo": {
+          "type": "map",
+          "keyEnum": ["pt", "en"],
+          "valueFields": {
+            "texto": { "type": "string" },
+            "audioRef": { "type": "string", "nullable": true },
+            "confirmadoCuidadora": { "type": "boolean" },
+            "confirmadoPaciente": { "type": "boolean" }
+          },
+          "note": "Emenda 4 (2026-08-31), ADR-018 — antes era `texto: { type: string }` único (Emenda 3). Migração real: TODO[arquiteto]."
+        },
+        "ordem": { "type": "int" },
+        "engineFeatureRef": { "type": "string", "nullable": true },
+        "propostoPorTreinamento": { "type": "boolean", "note": "Emenda 4 — true se originado da LLM na fase de TREINAMENTO (ADR-016)" }
+      }
+    },
+    "SessaoPaciente": {
+      "description": "Sessão de app persistente do paciente no próprio celular, provisionada pela cuidadora — não expira, é revogável a qualquer momento (Emenda 3, 2026-08-30; ADR-012 accepted, Opção C: ator novo em acs-service, distinto de cuidador e de dispositivo edge). Revogação reaproveita o mecanismo de blacklist de JWT já existente no projeto real (rbac/session-policy.md).",
+      "fields": {
+        "id": { "type": "string", "pk": true },
+        "pacienteId": { "type": "ref", "ref": "Paciente", "label": "nome" },
+        "provisionadaPor": { "type": "ref", "ref": "Cuidador", "label": "nome" },
+        "dispositivoId": { "type": "ref", "ref": "DispositivoEdge", "label": "status" },
+        "status": { "type": "enum", "enum": ["ativa", "revogada"] },
+        "provisionadaEm": { "type": "datetime" },
+        "revogadaEm": { "type": "datetime", "nullable": true },
+        "revogadaPor": { "type": "ref", "ref": "Cuidador", "label": "nome", "nullable": true }
+      }
     }
   },
   "screenBindings": {
@@ -285,6 +321,52 @@
         "Comando (opcionalmente já cria o primeiro comando do catálogo",
         "se o condutor preencher na Tela 04 antes de voltar)"
       ]
+    },
+    "conv-arvore": {
+      "reads": [
+        "NoArvoreFala[] (filtrado por pacienteId e parentId do nível ativo)"
+      ],
+      "writes": [
+        "(nenhuma escrita direta — seleção de nó folha pode gerar Evento se mapeado a um Comando via engineFeatureRef)"
+      ],
+      "mock": {
+        "nosArvoreFala": "mock-data.json#/nosArvoreFala"
+      }
+    },
+    "celular-ativacao": {
+      "reads": [
+        "Paciente[]",
+        "DispositivoEdge[]",
+        "SessaoPaciente[] (do paciente ativo)"
+      ],
+      "writes": [
+        "SessaoPaciente (criar ao ativar; atualizar status/revogadaEm/revogadaPor ao revogar)"
+      ],
+      "mock": {
+        "sessoesPaciente": "mock-data.json#/sessoesPaciente"
+      }
+    },
+    "treinamento": {
+      "reads": [
+        "NoArvoreFala[] (filtrado por propostoPorTreinamento=true e Dupla Autorização incompleta no locale ativo)"
+      ],
+      "writes": [
+        "NoArvoreFala (criar proposta vinda da LLM ou manual; atualizar conteudo.<locale>.confirmadoCuidadora ao aprovar)"
+      ],
+      "mock": {
+        "nosArvoreFala": "mock-data.json#/nosArvoreFala"
+      }
+    },
+    "confirmacao-treinamento": {
+      "reads": [
+        "NoArvoreFala[] (filtrado por pacienteId, conteudo.<locale>.confirmadoCuidadora=true, conteudo.<locale>.confirmadoPaciente=false)"
+      ],
+      "writes": [
+        "NoArvoreFala.conteudo.<locale>.confirmadoPaciente (e audioRef, ao completar a Dupla Autorização — simulado no protótipo)"
+      ],
+      "mock": {
+        "nosArvoreFala": "mock-data.json#/nosArvoreFala"
+      }
     }
   }
 }

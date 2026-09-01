@@ -102,6 +102,23 @@ type Pareamento = 'idle' | 'pareando' | 'pareado';
               <app-ds-input class="flex-1" placeholder="E-mail" type="email" [(value)]="cuidadoraEmail" icon="mail" />
             </div>
           </app-ds-card>
+
+          <!-- Emenda 3 (2026-08-30) — Tela 07, opcional, fora dos 5 passos numerados
+               (o dispositivo edge fixo já cobre o caso majoritário). -->
+          <app-ds-card>
+            <div class="mb-3 flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px] text-ink-faint">smartphone</span>
+              <h2 class="font-display text-sm font-semibold text-ink">Opcional — celular do paciente</h2>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <p class="text-sm text-ink-soft">Se o paciente consegue operar o próprio celular (ex.: Tobii), ative uma sessão persistente nele.</p>
+              <a routerLink="/celular-paciente" class="flex-shrink-0">
+                <app-ds-button size="sm" variant="secondary">
+                  Ativar celular <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </app-ds-button>
+              </a>
+            </div>
+          </app-ds-card>
         </div>
 
         <!-- Coluna lateral: progresso + conclusão -->

@@ -11,17 +11,16 @@ import { UiStateService } from './ui-state.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <header class="flex h-14 flex-shrink-0 items-center gap-3 border-b border-line bg-surface px-4 md:h-16 md:gap-4 md:px-6">
+    <header class="flex h-16 flex-shrink-0 items-center gap-4 border-b border-line bg-surface px-6">
       <div class="flex items-center gap-2">
         <span class="material-symbols-outlined text-[20px] text-ink-soft">person</span>
         <span class="text-sm font-semibold text-ink">{{ paciente()?.nome ?? '—' }}</span>
       </div>
       @if (dispositivo(); as dev) {
-        <span class="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold md:gap-1.5 md:px-2.5"
+        <span class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
               [class]="dev.status === 'online' ? 'bg-success-bg text-success-ink' : 'bg-danger-bg text-danger-ink'">
           <span class="material-symbols-outlined text-[16px]">{{ dev.status === 'online' ? 'wifi' : 'wifi_off' }}</span>
-          <!-- Texto só no desktop -->
-          <span class="hidden md:inline">Dispositivo {{ dev.status === 'online' ? 'online' : 'offline' }}</span>
+          Dispositivo {{ dev.status === 'online' ? 'online' : 'offline' }}
         </span>
       }
       <div class="flex-1"></div>

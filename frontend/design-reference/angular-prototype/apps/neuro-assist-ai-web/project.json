@@ -27,11 +27,6 @@
             "glob": "**/*",
             "input": "apps/neuro-assist-ai-web/src/assets",
             "output": "assets"
-          },
-          {
-            "glob": "**",
-            "input": "node_modules/@mediapipe/tasks-vision/wasm",
-            "output": "assets/mediapipe-wasm"
           }
         ],
         "styles": [
