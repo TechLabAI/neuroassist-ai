@@ -1,0 +1,107 @@
+# generator-config.yml — CONV (Frontend) — NeuroAssist AI
+# Canonical schema: libs/internal-nx-plugin/src/generators/module/generator-config.schema.json
+# Required: module, issue_prefix, type, libs
+
+module: conv
+issue_prefix: CONV
+type: standard
+shell_route: /paciente         # restricted PATIENT shell root (topbar only); NOT the caregiver shell
+shell_app: web                 # single deployable web app; guarded /paciente root (SPEC-01/06)
+nx_scope: conv
+
+libs:
+  - name: conv/shell-entry
+    type: feature              # lazy entry (@neuroassist/conv); barrel + CONV_MODULE_DESCRIPTOR  [nx: type:app tag]
+  - name: conv/patient-shell
+    type: feature              # restricted shell (PatientShellComponent, topbar only, no sidebar)
+  - name: conv/data-access
+    type: data-access          # Ports + HttpAdapters + signal facades (tree, search, select, binding, audio)
+  - name: conv/access
+    type: domain               # patientSessionGuard + convNavegarGuard (conv.* authorities)
+  - name: conv/feature-speech-tree
+    type: feature              # Tela 06 — SpeechTreePage, SpeechTreeLevel, SpeechNodeButton, InputChannelIndicator
+  - name: conv/feature-tts
+    type: feature              # TtsPlayer (cached audio -> Web Speech -> text-only fallback chain, ADR-007)
+  - name: conv/feature-proposal-confirm
+    type: feature              # Tela 09 — ProposalConfirmPage, PendingConfirmationList, VariantPicker
+  - name: conv/integration
+    type: domain               # ConvShellIntegrationService + INPUT_CHANNEL_PORT bridge (scope:web composition)
+  - name: conv/navigation
+    type: domain               # tree-level / breadcrumb state (PatientBreadcrumb)
+  - name: conv/ui
+    type: ui                   # conv-local presentational components
+
+features:
+  - name: speech-tree
+    routes:
+      - /paciente/arvore
+      - /paciente/arvore/:categoriaId
+    components:
+      - SpeechTreePageComponent
+      - SpeechTreeLevelComponent
+      - SpeechNodeButtonComponent
+      - InputChannelIndicatorComponent
+      - BackButtonComponent
+      - SemanticAssistPanelComponent
+  - name: tts
+    routes: []
+    components:
+      - TtsPlayerComponent
+      - PlaybackStatusComponent
+      - ReplayButtonComponent
+  - name: proposal-confirm
+    routes:
+      - /paciente/confirmar
+    components:
+      - ProposalConfirmPageComponent
+      - PendingConfirmationListComponent
+      - ProposalCardComponent
+      - VariantPickerComponent
+
+data_access:
+  - resource: SpeechTree
+    base_path: /api/v1/conv/tree
+    operations: [getTree, listLevel]
+  - resource: SemanticSearch
+    base_path: /api/v1/conv/search
+    operations: [search]
+  - resource: NodeSelection
+    base_path: /api/v1/conv/nodes/:id/select
+    operations: [select]
+  - resource: GestureBinding
+    base_path: /api/v1/conv/bindings/resolve
+    operations: [resolve]
+  - resource: CachedAudio
+    base_path: audio-ref-uri          # resolved from SelectResponse.audioRef.uri via GWY (confirm base at scaffold)
+    operations: [resolve]
+  - resource: Proposal
+    base_path: /api/v1/conv/proposals  # GAP: endpoint absent from api-contract v1 — MockAdapter until BE adds it
+    operations: [listPending, confirm, adjust, reject]
+
+shell_surfaces: []                     # CONV is patient-only; composed into NO caregiver surface (SPEC-05)
+
+feature_flags:
+  - key: semanticAssistEnabled
+    default: "on"                      # off / ES down => silent manual navigation (OPS-003)
+  - key: gestureChannelEnabled
+    default: "on"                      # off => touch-only; indicator shows gesture off (ADR-014)
+  - key: ttsCacheEnabled
+    default: "on"                      # off => Web Speech fallback (OPS-004 / ADR-007)
+
+shared_deps:
+  - "@neuroassist/shared/access"
+  - "@neuroassist/shared/error-model"
+  - "@neuroassist/shared/observability"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+  - "@neuroassist/shared/ui-theme"
+
+backend_contract: ../../../../../backend/services/conv-service/contracts/api-contract.md
+state_management: signals
+extra_dependencies: []
+
+e2e:
+  features_path: docs/architecture/frontend/modules/conv/frontend/e2e/
+  e2e_project: conv-e2e

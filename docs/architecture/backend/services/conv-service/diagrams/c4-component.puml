@@ -1,0 +1,48 @@
+@startuml conv-c4-component
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+title CONV (conv-service) — C4 Component (hexagonal, com.neuroassist.conv)
+
+Container_Boundary(api, "api") {
+  Component(ctrl, "ConvController(s)", "REST", "tree / search / select / bindings / health; RFC 7807; header + biometric guards")
+  Component(dto, "DTOs + Mappers", "", "request/response, bean-validation")
+}
+Container_Boundary(app, "application") {
+  Component(navUC, "NavigateTreeService", "use case", "parentId walk (static)")
+  Component(searchUC, "AssistedSearchService", "use case", "build kNN body → SearchPort; fail-open")
+  Component(selectUC, "SelectNodeService", "use case", "resolve content+audio; emit SpeechNodeSelected")
+  Component(bindUC, "ResolveBindingService", "use case", "engineFeatureRef → node")
+  Component(localePol, "LocaleResolutionPolicy", "policy", "active locale + pending-locale fallback (G3)")
+  Component(degPol, "DegradationPolicy", "policy", "ES-down → static; audio-absent → web-speech")
+}
+Container_Boundary(dom, "domain") {
+  Component(agg, "ArvoreFala / NoArvoreFala", "aggregate", "invariants: single root, locale-invariant structure, frase-only selectable")
+  Component(vo, "Value Objects", "", "ConteudoLocalizado, AudioRef, EngineFeatureRef, Locale")
+  Component(ports, "Outbound Ports", "interfaces", "TreeRepositoryPort, SearchPort(lib), AcsSessionPort, VocabularyPort, AudioRefPort, HistAuditPort")
+}
+Container_Boundary(infra, "infrastructure") {
+  Component(jpa, "JPA Repositories", "Spring Data", "conv_* tables, schema-per-tenant; writes only conv_audit_outbox")
+  Component(esAdapter, "Elastic retrieval adapter", "over elastic-stack-client-lib", "delegates to SearchPort")
+  Component(acsAdapter, "AcsSessionAdapter", "resource-server + blacklist", "fail-closed")
+  Component(vocAdapter, "VocabularyAdapter", "REST client_credentials", "opaque engineFeatureRef")
+  Component(audioAdapter, "AudioRefAdapter", "filesystem", "presence = fallback signal")
+  Component(histAdapter, "HistAuditAdapter", "REST + outbox retry", "best-effort")
+}
+
+Rel(ctrl, navUC, "")
+Rel(ctrl, searchUC, "")
+Rel(ctrl, selectUC, "")
+Rel(ctrl, bindUC, "")
+Rel(searchUC, degPol, "")
+Rel(selectUC, localePol, "")
+Rel(navUC, ports, "")
+Rel(selectUC, ports, "")
+Rel(searchUC, ports, "")
+Rel(bindUC, ports, "")
+Rel(jpa, ports, "implements TreeRepositoryPort")
+Rel(esAdapter, ports, "implements search access")
+Rel(acsAdapter, ports, "implements AcsSessionPort")
+Rel(vocAdapter, ports, "implements VocabularyPort")
+Rel(audioAdapter, ports, "implements AudioRefPort")
+Rel(histAdapter, ports, "implements HistAuditPort")
+Rel(app, agg, "uses")
+@enduml

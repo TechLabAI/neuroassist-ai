@@ -1,0 +1,15 @@
+{
+  "id": "CONV",
+  "pipeline": "architecture-fullstack",
+  "modulo": "CONV",
+  "service": "conv-service",
+  "module": "conv",
+  "type": "standard",
+  "mode": "full",
+  "beStep": "scaffold",
+  "feStep": "e2e-validate",
+  "currentPhase": "M7",
+  "nextPhase": "done",
+  "timestamp": "2026-08-31T20:00:00Z",
+  "notes": "CONV full-stack architecture completa. BE: 105 arquivos scaffold, compileJava/architectureCheck/CucumberIT 38/38 OK. FE: libs/conv promovida (Track D), patient-shell sob /paciente no app neuroassist-ai-web, 14 e2e specs test.fixme() rastreaveis. Gaps para Layer 2/TREI: G4 (VocabularyAdapter stub), G5 (indice ES arvore-fala depende do TREI escrever), G2/G-2 (ProposalPort MockAdapter -- endpoint real pertence ao TREI)."
+}

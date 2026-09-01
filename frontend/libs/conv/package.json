@@ -1,0 +1,11 @@
+{
+  "name": "@neuroassist/conv",
+  "version": "0.1.0",
+  "peerDependencies": {
+    "@angular/core": ">=21.0.0",
+    "@angular/common": ">=21.0.0",
+    "@angular/router": ">=21.0.0",
+    "rxjs": ">=7.0.0"
+  },
+  "sideEffects": false
+}

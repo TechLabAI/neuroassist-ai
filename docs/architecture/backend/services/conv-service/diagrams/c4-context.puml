@@ -1,0 +1,30 @@
+@startuml conv-c4-context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+title CONV (conv-service) — C4 Context
+
+Person(patient, "Paciente com sessão", "Operates the speech tree via gesture (GEST) or touch; ACS-issued non-expiring revocable session")
+Person_Ext(caregiver, "Cuidadora (indirect)", "Provisions/revokes session in ACS, authors content in TREI — not a CONV runtime user")
+
+System(conv, "conv-service (CONV)", "Serves & navigates the speech tree; retrieval-only assisted search; returns cached-audio refs. Reads only.")
+
+System_Ext(acs, "acs-service (ACS)", "Patient-session JWT issuer/validator + revocation blacklist (hard dep)")
+System_Ext(es, "Elasticsearch 9.4.1", "arvore-fala index — semantic kNN (soft dep, fail-open to static)")
+System_Ext(pacgest, "pac-service / gest-service", "engineFeatureRef vocabulary (soft, gesture channel)")
+System_Ext(audio, "Audio filesystem store", "Pre-synthesized voice files (soft dep, fail-open to Web Speech)")
+System_Ext(hist, "hist-service (HIST)", "Audit trail (best-effort, non-blocking)")
+System_Ext(trei, "trei-service (TREI)", "Sibling writer: authors tree content, embeddings, audio. No runtime call path.")
+System_Ext(gwy, "GWY / REG", "Gateway + Eureka: routes /api/v1/conv/**")
+
+Rel(patient, gwy, "navigate / search / select", "HTTPS + JWT")
+Rel(gwy, conv, "routes /api/v1/conv/**")
+Rel(caregiver, acs, "provisions/revokes session")
+Rel(caregiver, trei, "authors content")
+Rel(conv, acs, "validate JWT + blacklist", "REST, fail-closed")
+Rel(conv, es, "kNN search (SearchPort)", "read-only, fail-open")
+Rel(conv, pacgest, "resolve engineFeatureRef (VocabularyPort)", "REST, read-only")
+Rel(conv, audio, "read cached audio ref (AudioRefPort)", "filesystem, fail-open")
+Rel(conv, hist, "audit facts (HistAuditPort)", "REST, best-effort")
+Rel(trei, es, "writes embeddings/docs (IndexPort)")
+Rel(trei, audio, "writes synthesized audio")
+Rel(trei, conv, "shares schema/index/store (data, not a call)", "dashed")
+@enduml
