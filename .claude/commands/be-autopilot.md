@@ -7,6 +7,15 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash, Agent
 > **Higiene de contexto (D-463):** execute `/clear` ao iniciar uma nova atividade.
 > O contexto vem do RAG (injetado por este command) — não do histórico acumulado.
 > Dentro de uma atividade longa, prefira `/compact` em vez de `/clear`.
+>
+> **Nunca ataque issues/tickets diretamente via `Bash` no chat principal** (build,
+> teste, fix manual issue-a-issue) — mesmo para "só um fix rápido". Esse padrão
+> (medido: D-622) acumula todo o output verbatim de cada issue no contexto do
+> orquestrador e é reenviado via cache a cada turno seguinte, inflando o consumo em
+> ordens de magnitude sem nenhuma delegação a subagent. **Sempre** passe pelo
+> `implementer-agent`/`validator-agent` (Etapas B3-B6) — mesmo para 1 issue avulsa.
+> **Reinicie a sessão** (não apenas `/resume` no mesmo chat) ao trocar de módulo, e
+> ao retomar após um gap longo (> algumas horas) de inatividade do autopilot.
 
 Voce e o orquestrador central do pipeline IA-First do backend NeuroAssist AI (Java + Spring Boot, arquitetura hexagonal).
 
@@ -239,13 +248,40 @@ Roda a suite completa de testes: `test,build,e2e,lint`.
    - Input: `<MODULO> --full-validacao`
    - O agent executa: `gates-run.py --gates test,build,e2e,lint` + `arch-conformance.py`
      + `validator-score.py` com todos os gates preenchidos.
+   - Se algum gate falha, o agent tambem escreve `tmp/pipeline-cycle/<MODULO>/b6-failure.json`
+     (D-554) antes de retornar — ver `be-validator.md` Modo 4 / Resultado.
    - Aguardar a mensagem final do agent (score final + resultado de todos os gates).
 2. Se todos os gates passam: ir para Finalizacao.
-3. Se algum gate falha:
-   - Checkpoint (`currentStep: "full-validate-failed"`, `nextStep: "decision"`, notes com falhas).
-   - Voltar para B2 (Decisao) com o diagnostico detalhado; loop B2→B5 resolve as falhas.
-   - Ao fechar o loop novamente, retornar a B6 (nova rodada de suite completa).
-   - B6 **nao conta** para o contador de `iteration` do safety cap — o cap aplica-se apenas ao loop leve.
+3. Se algum gate falha, rotear deterministicamente (D-554) — **nao decidir a mao**:
+   ```bash
+   python scripts/validator-decide.py b6-fix --failure-report tmp/pipeline-cycle/<MODULO>/b6-failure.json
+   ```
+   - **`TARGETED_FIX`** (regressao pontual — 1-3 testes, sem erro de compilacao):
+     Checkpoint (`currentStep: "full-validate-failed"`, `nextStep: "fix"`, notes com o
+     `failure_type`/`failing_tests`). Ir para **Etapa B4-fix** (abaixo) — pula B2/B3, nao
+     conta para o safety cap.
+   - **`FULL_CYCLE`** (erro de compilacao, 4+ testes, ou sem `b6-failure.json`/ilegivel —
+     default seguro do script): Checkpoint (`currentStep: "full-validate-failed"`,
+     `nextStep: "decision"`, notes com falhas). Voltar para B2 (Decisao); loop B2→B5
+     resolve as falhas; ao fechar de novo, retornar a B6.
+   - B6 e B4-fix **nao contam** para o contador de `iteration` do safety cap — o cap
+     aplica-se apenas ao loop leve B2→B5.
+
+### Etapa B4-fix -- Correcao pontual pos-B6 (D-554)
+
+Alcancada **apenas** via roteamento `TARGETED_FIX` da Etapa B6. Pula B2 (Decisao) e B3
+(Planner) de proposito — a causa ja foi isolada pelo `b6-fix`, replanejar seria retrabalho.
+
+1. Delegar ao `implementer-agent` (D-411 — sonnet tier) em modo correcao pontual:
+   - Input: `<MODULO> --fix`
+   - O agent le `.claude/commands/be-implement.md` secao "Modo de correcao pontual
+     (`--fix`, D-554)": le `tmp/pipeline-cycle/<MODULO>/b6-failure.json` em vez do plano,
+     corrige **somente** os `failing_tests`/`failing_files` listados.
+   - Se o agent bloquear (causa raiz fora do escopo listado): tratar como `FULL_CYCLE` —
+     Checkpoint (`nextStep: "decision"`) e ir para B2 com o diagnostico do bloqueio.
+   - Aguardar a mensagem final do agent (confirma quais falhas foram corrigidas).
+2. Checkpoint (`currentStep: "fix"`, `nextStep: "full-validate"`).
+3. Voltar **direto para B6** (nova rodada de FULL-VALIDACAO) — nao para B5, nao para B2.
 
 ### Finalizacao Pipeline B
 
@@ -260,6 +296,8 @@ Arquitetura hexagonal: OK
 Multi-empresa enforcement: OK
 Iteracoes loop leve: <N> | Rodadas FULL-VALIDACAO: <M>
 Modulo com checklist 100% DONE.
+
+Proximo modulo? Inicie uma sessao nova (D-622) -- nao continue neste chat.
 ```
 
 Registrar no journal (D-415):
@@ -309,6 +347,9 @@ Score final: <score>
 O modulo nao esta concluido. Para continuar:
 -> /be-autopilot <MODULO> --resume
    (o contador de iteracoes reinicia ao retomar)
+
+Se a retomada for depois de um gap longo (horas), inicie sessao nova (D-622) em vez
+de continuar neste chat -- o checkpoint em disco carrega o estado, nao o historico.
 ```
 
 Registrar no journal (D-415):
@@ -338,6 +379,14 @@ python scripts/pipeline_events.py emit \
 - **Nao rodar etapas ja concluidas** -- usar checks de pre-requisito (arquivo existe?) para skip.
 - **Uma prioridade por vez** no B4 -- nunca misturar prioridades numa mesma invocacao do be-implement.
 - **Multi-empresa enforcement** e parte do Validator Modo 3 (B5) -- nao pular.
+- **Nunca implementar/corrigir diretamente via `Bash` no contexto do orquestrador** (D-622) --
+  mesmo um fix de 1 linha em resposta a uma falha do B5/B6 vai para o `implementer-agent`
+  (B3->B4), nunca para uma edicao ad-hoc no chat do autopilot. O orquestrador so le
+  diagnostico (score, gates, done/total); quem edita codigo e sempre o agent isolado.
+- **Trocar de sessao ao trocar de modulo** (D-622, extensao do D-463): ao terminar
+  Finalizacao ou ao pausar por safety cap com um gap de retomada longo, recomendar
+  explicitamente ao operador iniciar sessao nova para o proximo `/be-autopilot <MODULO>`
+  em vez de continuar no mesmo chat -- ver mensagens de Finalizacao/Safety cap abaixo.
 
 ---
 

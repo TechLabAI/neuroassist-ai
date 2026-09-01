@@ -101,6 +101,18 @@
       ]
     },
     {
+      "prefix": "conv",
+      "name": "Conversação por Árvore de Falas",
+      "description": "Árvore de falas navegável por categoria → frase; busca semântica kNN assistida; seleção de node com emissão de SpeechNodeSelected; resolução de vínculo engineFeatureRef; sweep de outbox. Runtime retrieval-only, bilíngue EN/PT, sem LLM em runtime.",
+      "permissions": [
+        "conv.conv-tree.read",
+        "conv.semantic-search.read",
+        "conv.node-selection.emitir",
+        "conv.binding-resolution.resolver",
+        "conv.outbox-retry-sweep.reprocessar"
+      ]
+    },
+    {
       "prefix": "edge",
       "name": "IntegraÃ§Ã£o de Dispositivo Edge",
       "description": "Registro, pareamento e monitoramento de heartbeat do agente local (edge) que roda a detecção de gesto. D-533. E2E-023: catálogo alinhado ao código (coarse). Granular exigiria alterar RoleAuthorityPolicy (ACS) e todos @PreAuthorize do EDGE — coordenação multi-serviço adiada.",
@@ -110,7 +122,21 @@
         "edge.read",
         "edge.internal"
       ]
+    },
+    {
+      "prefix": "trei",
+      "name": "Treinamento Assistido por IA (Autoria da Arvore de Falas)",
+      "description": "Fase separada do uso diario do CONV: LLM (Claude/Anthropic) conversa com cuidadora e paciente para propor categorias/frases novas em cada idioma; conteudo aprovado e indexado no ES e TTS sintetizado.",
+      "permissions": [
+        "trei.sessao-treinamento.iniciar",
+        "trei.sessao-treinamento.criar",
+        "trei.no-autoria.aprovar",
+        "trei.no-autoria.descartar",
+        "trei.publicacao.read",
+        "trei.no-autoria.criar",
+        "trei.no-autoria.read"
+      ]
     }
   ],
-  "$comment": "Workspace ships with empty modules (D-103, Gap B). See _examples/eerripe-permission-catalogue.partial.json for the BOSQ-ERP starting catalogue. New projects: declare your modules via arch/overrides/permission-catalogue.partial.json. D-518: COMM module added. D-525: GROW (gro.*) module added â€” 18 permissions for TenantService/BillingService/PlatformMetricsService/ExpansionOpportunityService/GlobalWhiteLabelService."
+  "$comment": "Workspace ships with empty modules (D-103, Gap B). See _examples/eerripe-permission-catalogue.partial.json for the BOSQ-ERP starting catalogue. New projects: declare your modules via arch/overrides/permission-catalogue.partial.json. D-518: COMM module added. D-525: GROW (gro.*) module added â€” 18 permissions for TenantService/BillingService/PlatformMetricsService/ExpansionOpportunityService/GlobalWhiteLabelService. Emenda 4 gap: CONV+TREI added 2026-09-01 (modules added after P2)."
 }

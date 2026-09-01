@@ -1,20 +1,4 @@
-<!-- fonts.html — links de fonte do Design System (D-381).
-     FONTE DE VERDADE: theme.css. Estes <link> existem para servir as famílias
-     declaradas em --font-display / --font-body / --font-mono. Trocar um token de
-     fonte sem trocar o <link> correspondente (ou vice-versa) deixa o app com o
-     fallback do sistema, sem erro de build.
-
-       --font-display → Montserrat
-       --font-body    → Nunito Sans
-       --font-mono    → JetBrains Mono
-
-     A fonte de ÍCONES (Material Symbols Outlined) NÃO é linkada aqui: seu
-     @font-face está em styles.css. Usar o stylesheet do Google traria junto a
-     regra .material-symbols-outlined{font-size:24px} SEM layer, que vence
-     qualquer utilitário do Tailwind e trava todos os ícones em 24px.
-
-     O conteúdo deste arquivo é espelhado no <head> de index.html. -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Nunito+Sans:opsz,wght@6..12,400;6..12,500;6..12,600;6..12,700&display=swap" rel="stylesheet" />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">

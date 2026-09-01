@@ -19,12 +19,15 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | ACS | acs-service | OK | OK | OK | OK | OK | 2026-07-30 |
 | HIST | hist-service | OK | OK | OK | OK | OK | 2026-08-16 |
 | DASH | dash-service | OK | OK | OK | OK | OK | 2026-08-17 |
+| CONV | conv-service | OK | OK | OK | OK | OK | 2026-08-31 |
+| TREI | trei-service | OK | OK | OK | OK | OK | 2026-09-01 |
 
 ## Ledger de gates diferidos
 
 | Data | Escopo | Gate | Comando de recuperacao | Status |
 |---|---|---|---|---|
 | 2026-07-27 | GEST | bddGate | `python scripts/be-gates-replay.py --run --update --service gest-service --gate bddGate` | diferido |
+| 2026-09-01 | TREI/trei-service | bddGate (CucumberIT) | `cd backend && ./gradlew :trei-service:test --tests "com.neuroassist.trei.bdd.CucumberIT"` | OK (31/31 -- Docker restaurado; 2 defeitos corrigidos: D-533 Feign URL stub ausente em application-test.yml + step Cucumber ambiguo {string} sem quotes na Scenario Outline, trocado para {word}) |
 
 ## Log cronologico
 - 2026-07-27T19:23:59 -- GWY -- Backlog GWY concluido: 21 issues funcionais + 5 de integracao, plan-GWY.md, generator-config.yml (type=gateway)
@@ -67,3 +70,8 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-08-17T22:09:22 -- DASH -- M5 -- BE Scaffold OK -- 71 arquivos hexagonal; compileJava OK; ArchUnit OK (RULE-01..06); ApplicationContextLoads OK; zero-DDL (ADR-004); D-540 registrado (DASH verbs + controller disambiguation); BDD gate running
 - 2026-08-17T22:17:54 -- DASH -- M5 -- BE BDD gate OK -- CucumberIT dry-run 3 features PASS; fix inline: step def "{string}" -> {string} (Cucumber Expression bug, PendingException removido); D-533 recurrence pattern
 - 2026-08-18T09:30:25 -- DASH -- M5 -- BE Scaffold OK -- 71 arquivos hexagonal; compileJava OK; ArchUnit OK; ApplicationContextLoadsIT OK; BDD gate OK (3 features dry-run); fix inline: step def {string} + PendingException removed; D-540 (DASH verbs + controller disambiguation)
+- 2026-08-31T18:32:46 -- CONV -- Specs-Validate -- OK -- EARS 12/12 PASS, gate ArchUnit/Gradle deferido (scaffold ainda nao existe)
+- 2026-08-31T19:23:47 -- CONV -- Scaffold -- OK -- compileJava/architectureCheck/CucumberIT 38/38 verdes
+- 2026-09-01T04:17:28 -- TREI -- M3 -- BE Specs-Validate OK (generate-only) -- EARS gate PASS (140 clausulas THE SYSTEM SHALL); 5 features Gherkin puro (31 cenarios: dual-auth-gate 7, publication-pipeline 6+Outline, embedding-parity-g5 6, llm-authoring 5, bilingual 5); SPEC-01..12; C4; bddGate DIFERIDO pos-scaffold
+- 2026-09-01T05:31:56 -- TREI -- Scaffold -- OK -- compileJava/architectureCheck/compileTestJava OK; bddGate (CucumberIT) DIFERIDO (Docker daemon indisponivel), registrado no Ledger
+- 2026-09-01T07:15:11 -- TREI -- bddGate (CucumberIT) -- OK -- 31/31 apos restaurar Docker; corrigido D-533 (Feign URL stub ausente em trei-service/application-test.yml) e step Cucumber ambiguo ({string} nao casava Scenario Outline sem aspas, trocado por {word})

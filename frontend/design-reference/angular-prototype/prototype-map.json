@@ -117,6 +117,78 @@
         "InviteCaregiverForm"
       ],
       "hasAiDrawer": false
+    },
+    {
+      "id": "conv-arvore",
+      "label": "Conversar",
+      "icon": "chat_bubble",
+      "ngComponent": "ConvArvoreComponent",
+      "ngSelector": "app-conv-arvore",
+      "ngRoute": "/paciente/conversar",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/conv-arvore/conv-arvore.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5 \u2014 Tela 06",
+      "objetivo": "Navega\u00e7\u00e3o categoria \u2192 frase da \u00e1rvore de falas, canal de entrada agn\u00f3stico (gesto via GEST reaproveitando engineFeatureRef, ou toque direto) \u2014 Emenda 3 (2026-08-30), ADR-013 accepted. Roda dentro do shell restrito do paciente (patient-shell.component.ts), n\u00e3o do shell da cuidadora.",
+      "componentes": [
+        "SpeechTreeNavigator (grade de n\u00f3s do n\u00edvel ativo)",
+        "InputChannelIndicator (badge de canal ativo \u2014 toque/gesto)",
+        "TTSPlayer (simulado no prot\u00f3tipo)",
+        "BackButton"
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "celular-ativacao",
+      "label": "Ativar celular do paciente",
+      "icon": "smartphone",
+      "ngComponent": "CelularAtivacaoComponent",
+      "ngSelector": "app-celular-ativacao",
+      "ngRoute": "/celular-paciente",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/celular-ativacao/celular-ativacao.component.ts",
+      "wireframeRef": "\u00a75.1\u20135.5 \u2014 Tela 07",
+      "objetivo": "Cuidadora provisiona a SessaoPaciente (ADR-012 accepted, Op\u00e7\u00e3o C) e pareia o celular como dispositivo edge (ADR-014). Sess\u00e3o n\u00e3o expira; revoga\u00e7\u00e3o sempre vis\u00edvel (constraint SEC-001). Acess\u00edvel a partir do Onboarding, n\u00e3o da sidebar di\u00e1ria.",
+      "componentes": [
+        "DevicePairingStatus (reaproveitado do Onboarding)",
+        "PersistentSessionWarning",
+        "ActiveSessionsList",
+        "RevokeButton"
+      ],
+      "hasAiDrawer": false
+    },
+    {
+      "id": "treinamento",
+      "label": "Treinamento",
+      "icon": "auto_awesome",
+      "ngComponent": "TreinamentoComponent",
+      "ngSelector": "app-treinamento",
+      "ngRoute": "/treinamento",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/treinamento/treinamento.component.ts",
+      "wireframeRef": "§5.1–5.5 — Tela 08",
+      "objetivo": "Cuidadora inicia/assiste uma conversa com a LLM (API Claude/Anthropic) para propor categorias/frases novas do CONV, por idioma — Emenda 4 (2026-08-31), ADR-016 accepted. Roda no shell da cuidadora (DASH), sessão ocasional, não diária. Conversa scriptada no protótipo, sem chamada real de API.",
+      "componentes": [
+        "ChatConversationPanel (scriptado no protótipo)",
+        "LocaleTabs (PT/EN)",
+        "ProposedNodeCard (indicador dual de confirmação por idioma)",
+        "EndSessionButton"
+      ],
+      "hasAiDrawer": true
+    },
+    {
+      "id": "confirmacao-treinamento",
+      "label": "Confirmar frases novas",
+      "icon": "auto_awesome",
+      "ngComponent": "ConfirmacaoTreinamentoComponent",
+      "ngSelector": "app-confirmacao-treinamento",
+      "ngRoute": "/paciente/confirmar-treinamento",
+      "sourceTs": "apps/neuro-assist-ai-web/src/app/screens/confirmacao-treinamento/confirmacao-treinamento.component.ts",
+      "wireframeRef": "§5.1–5.5 — Tela 09",
+      "objetivo": "Paciente confirma/ajusta/recusa propostas já aprovadas pela cuidadora (Tela 08), no seu próprio ritmo — Emenda 4 (2026-08-31), ADR-016 accepted (Dupla Autorização, ADR-018). Roda dentro do shell restrito do paciente (patient-shell.component.ts). Acessível a partir do banner na Tela 06 quando há pendentes.",
+      "componentes": [
+        "PendingConfirmationList",
+        "ConfirmButton",
+        "AdjustButton (variações curtas, sem edição livre)",
+        "RejectButton"
+      ],
+      "hasAiDrawer": false
     }
   ]
 }

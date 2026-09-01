@@ -89,15 +89,21 @@ Interpretar por modo:
 
 ---
 
-## Contexto de decisões do framework (D-419)
+## Contexto de decisões do framework (D-419, cache D-552)
 
-**Executar uma vez no início (best-effort), em qualquer modo:**
+**Executar uma vez no início (best-effort), em qualquer modo.** `decision-context` e
+`spec-context` passam pelo cache de ciclo (`handoff.json`, D-552) — primeira chamada do
+ciclo popula, chamadas seguintes (validator/planner/implement do mesmo `<MODULO>`) reusam
+sem nova consulta ao ES enquanto o TTL (60 min) valer. Sempre passar **os dois** flags
+(`--cache-read` + `--cache-write` no mesmo path); o script decide sozinho ler ou popular:
 
 ```bash
-python scripts/pipeline-context.py decision-context --tags backend,validator,pipeline
+python scripts/pipeline-context.py decision-context --tags backend,validator,pipeline \
+  --cache-read tmp/pipeline-cycle/<MODULO>/handoff.json --cache-write tmp/pipeline-cycle/<MODULO>/handoff.json
 # D-434: specs do modulo via RAG (corpus D-432) — preferir a reler os .md crus; use --query "<tema>" para focar
-python scripts/pipeline-context.py spec-context --module <MODULE> --pack --semantic
-# D-460: issues relacionadas (cross-modulo, implementacoes semelhantes) — opcional
+python scripts/pipeline-context.py spec-context --module <MODULE> --pack --semantic \
+  --cache-read tmp/pipeline-cycle/<MODULO>/handoff.json --cache-write tmp/pipeline-cycle/<MODULO>/handoff.json
+# D-460: issues relacionadas (cross-modulo, implementacoes semelhantes) — opcional (fora do escopo do cache D-552)
 python scripts/pipeline-context.py issue-context --module <MODULE> --query "<tema da issue>" --semantic
 # D-611: known pitfalls (rework_pattern) desta camada — consulte ANTES de decidir/rotear
 python scripts/pipeline-context.py learning-context --module <MODULE> --layer be
@@ -108,6 +114,7 @@ python scripts/pipeline-context.py learning-context --module <MODULE> --layer be
 - `learning-context` (D-611/D-498/D-497) devolve **known pitfalls** (defeitos recorrentes cross-client agrupados por `defect_signature`): se um padrão conhecido explica a causa de um score baixo ou de um gap detectado, cite-o na decisão/README em vez de re-diagnosticar do zero. Não é responsabilidade do validator emitir sinal — isso acontece no `be-implement` quando o defeito é de fato corrigido.
 - `available: false` (ES indisponível) → prosseguir sem o pacote de decisões; **nunca bloquear**.
 - Não reler o consolidation doc — o índice ES é a fonte consultável.
+- **Cache de ciclo (D-552):** `tmp/pipeline-cycle/<MODULO>/handoff.json` é compartilhado entre este agente, `be-planner` e `be-implement` para o mesmo `<MODULO>` — evita repetir `spec-context --pack --semantic` (a chamada mais cara) a cada prioridade do B1-B6. Falha de cache (arquivo ausente/corrompido/TTL expirado) é sempre best-effort: o script cai para a consulta normal ao ES.
 
 ---
 
@@ -182,12 +189,24 @@ README e atualizado (somente delta: secoes 3, 4, 6, 7, 8, 9, 10) apenas apos os 
 
 ### Comandos obrigatorios
 
-**Tier leve (`--light`)** — rode apenas lint + conformance (sem Gradle test/build/e2e):
+**Tier leve (`--light`)** — rode apenas lint + conformance (sem Gradle test/build/e2e).
+`--mode b5 --module <MODULO>` (D-553) faz o `gates-run.py` ler
+`tmp/pipeline-cycle/<MODULO>/touched-packages.json` (escrito pelo `be-implement` na
+prioridade anterior, Etapa 5) e ajustar os gates ao que realmente mudou — ex.: pula gates
+de teste/arch se a prioridade so tocou documentacao. Ausencia do arquivo (prioridade
+antiga, sem D-553) e no-op: comportamento identico ao atual.
 
 ```bash
 python scripts/gates-run.py run --layer be --project <service> \
-  --gates lint --output tmp/gates.json --report
+  --gates lint --mode b5 --module <MODULO> --tmp-dir tmp/pipeline-cycle \
+  --output tmp/gates.json --report
+```
 
+`arch-conformance.py` (checagem estatica, distinta do gate `arch-conformance` do
+`gates-run.py`/ArchUnit) so roda se `touched-packages.json` **nao** existir ou **nao**
+marcar `has_docs_only: true` — ler o arquivo primeiro:
+
+```bash
 python scripts/arch-conformance.py check --layer be --target backend/services/<service> --report
 ```
 
@@ -259,8 +278,25 @@ python scripts/validator-score.py score --issue <MODULO>-NNN --layer be \
 
 - **Gates passam:** score final consolidado. Atualizar README (delta: secoes 3, 4, 6, 7, 8, 9, 10).
   Emitir `VALIDATOR-FULL --status completed`. Autopilot prossegue para Finalização Pipeline B.
-- **Gates falham:** Devolver ao loop B2 com diagnostico. O Planner/Implementador resolve as falhas
-  antes de uma nova rodada de FULL-VALIDACAO. Emitir `VALIDATOR-FULL --status failed`.
+- **Gates falham:** classificar a falha e escrever `b6-failure.json` (D-554) **antes** de
+  devolver ao autopilot — e o `validator-decide.py b6-fix` (rodado pelo autopilot na
+  Etapa B6) que decide entre correção pontual (`implementer-agent` direto) ou replanejamento
+  completo (volta ao B2). Classificação (a partir do output de `test`/`build` em `gates.json`):
+  - `compilation` — erro de compilação/build (nunca elegível a `TARGETED_FIX`).
+  - `single_test` — exatamente 1 teste falhando.
+  - `multiple_tests` — 2+ testes falhando.
+  - `unknown` — falha não classificável a partir do output disponível.
+
+  ```bash
+  python scripts/validator-decide.py write-b6-failure --module <MODULO> --tmp-dir tmp/pipeline-cycle \
+    --failure-type <compilation|single_test|multiple_tests|unknown> \
+    --failing-tests <FQCN#metodo> [--failing-tests <FQCN#metodo2> ...] \
+    --failing-files <caminho> [--failing-files <caminho2> ...] \
+    --error-summary "<primeiras linhas relevantes do erro>"
+  ```
+
+  Emitir `VALIDATOR-FULL --status failed`. **Não decidir a rota aqui** — quem decide
+  `TARGETED_FIX`/`FULL_CYCLE` é o autopilot (Etapa B6), não este agente.
 
 ---
 

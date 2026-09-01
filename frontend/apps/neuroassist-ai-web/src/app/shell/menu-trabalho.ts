@@ -98,6 +98,7 @@ const ROTA_HISTORICO = '/historico';
 const ROTA_EQUIPE = '/acs';
 const ROTA_DISPOSITIVOS = '/edge/device';
 const ROTA_DETECCAO = '/gest';
+const ROTA_TREINAMENTO = '/treinamento';
 const ROTA_ONBOARDING = '/onboarding';
 
 const CATALOGO: readonly EntradaCatalogo[] = [
@@ -137,6 +138,18 @@ const CATALOGO: readonly EntradaCatalogo[] = [
     order: 20,
     grupo: 'trabalho',
     exige: (pode) => pode('pac.catalogo-ativo.read'),
+  },
+  {
+    id: 'treinamento',
+    label: 'Treinamento',
+    icon: 'chat',
+    route: ROTA_TREINAMENTO,
+    order: 25,  // between "Comandos do paciente" (20) and "Histórico" (30)
+    grupo: 'trabalho',
+    // Caregiver who authors the speech tree. `conduzir` is the baseline scope
+    // for the training session (SPEC-05 §2 / api-contract §2.1).
+    // Without it the screen has nothing to show (no session = empty state only).
+    exige: (pode) => pode('treinamento.sessao.conduzir'),
   },
   {
     id: 'historico',

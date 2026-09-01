@@ -1,0 +1,34 @@
+@startuml conv-c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+title CONV (conv-service) — C4 Container
+
+Person(patient, "Paciente com sessão")
+System_Boundary(convb, "conv-service (CONV)") {
+  Container(api, "REST API", "Spring Boot Web", "/api/v1/conv: /tree /search /nodes/{id}/select /bindings/resolve /health")
+  Container(app, "Application (use cases)", "Java", "navigate, assisted-search, select, resolve-binding, locale + degradation policy")
+  Container(domain, "Domain", "Java (pure)", "ArvoreFala / NoArvoreFala aggregate, value objects, invariants")
+  Container(infra, "Infrastructure adapters", "Spring", "JPA repos; SearchPort adapter; AcsSessionPort; VocabularyPort; AudioRefPort; HistAuditPort")
+  ContainerDb(pg, "PostgreSQL", "schema-per-tenant", "conv_arvore_fala / conv_no_arvore_fala / conv_no_conteudo / conv_audit_outbox (authoritative)")
+}
+
+System_Ext(eslib, "elastic-stack-client-lib", "SearchPort/IndexPort + ElasticsearchAdapter (sole holder of co.elastic.clients)")
+System_Ext(es, "Elasticsearch 9.4.1", "neuroassist-ai_arvore-fala (dense_vector kNN)")
+System_Ext(acs, "acs-service")
+System_Ext(pacgest, "pac-service / gest-service")
+System_Ext(audio, "Audio filesystem store")
+System_Ext(hist, "hist-service")
+System_Ext(gwy, "GWY / REG")
+
+Rel(patient, gwy, "HTTPS + JWT")
+Rel(gwy, api, "routes /api/v1/conv/**")
+Rel(api, app, "calls use cases")
+Rel(app, domain, "uses")
+Rel(app, infra, "outbound ports")
+Rel(infra, pg, "JPA (read tree; write outbox only)")
+Rel(infra, eslib, "SearchPort.search (read)")
+Rel(eslib, es, "kNN _search")
+Rel(infra, acs, "validate JWT + blacklist (fail-closed)")
+Rel(infra, pacgest, "resolve engineFeatureRef (client_credentials)")
+Rel(infra, audio, "read audio ref (fail-open)")
+Rel(infra, hist, "audit facts (best-effort)")
+@enduml

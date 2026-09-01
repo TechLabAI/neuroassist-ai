@@ -1,8 +1,6 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, viewChild, ElementRef, OnDestroy, NgZone } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, viewChild, ElementRef, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ComandosFacade, TiposGestoFacade, PacientesFacade } from '../../core/data-access';
-import { PocPublicarPerfilService, PocTestarGestoService, PublicarPerfilResult, TesteGestoResult } from '../../core/poc-http-adapters';
-import { PocGestureDetector, GestureFrame } from '../../core/poc-gesture-detector';
 import { Comando, ComandoSensibilidade, ComandoUrgencia } from '../../shared/data-model';
 import { DsBadgeComponent } from '../../ui/ds-badge.component';
 import { DsCardComponent } from '../../ui/ds-card.component';
@@ -26,7 +24,7 @@ const SENSIBILIDADES: SensibilidadeOpcao[] = [
   { value: 'alta', label: 'Alta', hint: 'detecta o menor sinal' },
 ];
 
-type TesteEstado = 'idle' | 'inicializando' | 'testando' | 'disparando' | 'sucesso' | 'erro';
+type TesteEstado = 'idle' | 'testando' | 'sucesso' | 'erro';
 type NovoTipoAlvo = 'principal' | 'secundario' | null;
 
 /** Estado do formulário do editor — espelha os campos editáveis de Comando.
@@ -177,117 +175,38 @@ interface ComandoForm {
               <p class="mt-2 text-center text-xs text-ink-faint">{{ sensibilidadeHint(form.sensibilidade) }}</p>
             </div>
 
-            <!-- Painel de teste ao vivo -->
-            <div class="mt-5 rounded-xl border border-line bg-surface-2 p-4">
-
-              <!-- Preview com grade de face landmarks -->
-              <div class="relative w-full overflow-hidden rounded-xl bg-black" style="aspect-ratio:4/3">
-                <video #videoPreview autoplay muted playsinline
-                  class="absolute inset-0 h-full w-full object-cover"
-                  [class.opacity-0]="teste() === 'idle' || teste() === 'inicializando' || teste() === 'erro' || teste() === 'sucesso'">
-                </video>
-                <canvas #canvasOverlay
-                  class="absolute inset-0 h-full w-full pointer-events-none"
-                  [class.hidden]="teste() === 'idle' || teste() === 'inicializando' || teste() === 'erro' || teste() === 'sucesso'">
-                </canvas>
-
-                <!-- Ícone / estado quando câmera está inativa -->
-                @if (teste() === 'idle' || teste() === 'inicializando' || teste() === 'erro' || teste() === 'sucesso') {
-                  <div class="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                    @if (teste() === 'inicializando') {
-                      <span class="material-symbols-outlined animate-spin text-[40px] text-white/50">autorenew</span>
-                      <span class="text-xs text-white/50">Carregando detector…</span>
-                    } @else if (teste() === 'sucesso') {
-                      <span class="material-symbols-outlined text-[40px] text-green-400">check_circle</span>
-                    } @else if (teste() === 'erro') {
-                      <span class="material-symbols-outlined text-[40px] text-red-400">videocam_off</span>
+            <div class="mt-5 flex items-center gap-4 rounded-lg bg-surface-2 p-4">
+              <div class="relative grid h-20 w-28 flex-shrink-0 place-items-center overflow-hidden rounded-xl bg-surface">
+                <video #videoPreview class="h-full w-full object-cover" [class.hidden]="teste() !== 'testando'" autoplay muted playsinline></video>
+                @if (teste() !== 'testando') {
+                  <span class="material-symbols-outlined text-[28px]"
+                    [class]="teste() === 'sucesso' ? 'text-success' : teste() === 'erro' ? 'text-danger' : 'text-ink-faint'">
+                    {{ teste() === 'sucesso' ? 'check_circle' : teste() === 'erro' ? 'videocam_off' : 'videocam' }}
+                  </span>
+                }
+              </div>
+              <div class="flex-1 text-xs">
+                @if (teste() === 'idle') {
+                  <span class="text-ink-soft">
+                    @if (form.primitivoSecundario) {
+                      Faça os dois gestos em sequência — testar a combinação reduz o risco de falso negativo.
                     } @else {
-                      <span class="material-symbols-outlined text-[40px] text-white/20">face</span>
+                      Faça o gesto em frente à webcam para confirmar que está sendo reconhecido.
                     }
-                  </div>
-                }
-
-                <!-- Overlay de disparo (enquanto envia) -->
-                @if (teste() === 'disparando') {
-                  <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 rounded-xl">
-                    <span class="material-symbols-outlined animate-spin text-[36px] text-white">autorenew</span>
-                    <span class="text-xs text-white/70">Enviando alarme…</span>
-                  </div>
-                }
-
-                <!-- Contador de piscadas (badge no canto — só para piscar duplo) -->
-                @if ((teste() === 'testando' || teste() === 'disparando') && editando()?.primitivoPrincipal === 'tg-piscar-duplo-001') {
-                  <div class="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1">
-                    <span class="h-2.5 w-2.5 rounded-full transition-colors" [class]="(frame()?.blinkCount ?? 0) >= 1 ? 'bg-brand' : 'bg-white/30'"></span>
-                    <span class="h-2.5 w-2.5 rounded-full transition-colors" [class]="(frame()?.blinkCount ?? 0) >= 2 ? 'bg-brand' : 'bg-white/30'"></span>
-                    <span class="text-[10px] text-white/60 ml-0.5">piscadas</span>
-                  </div>
+                  </span>
+                } @else if (teste() === 'testando') {
+                  <span class="font-medium text-brand">Câmera ativa — faça o gesto agora…</span>
+                } @else if (teste() === 'erro') {
+                  <span class="font-medium text-danger">Não foi possível acessar a webcam. Verifique a permissão do navegador e tente novamente.</span>
+                } @else {
+                  <span class="font-medium text-success-ink">Gesto reconhecido com sucesso!</span>
                 }
               </div>
-
-              <!-- Indicadores de face + EAR -->
-              @if (teste() === 'testando' || teste() === 'disparando') {
-                <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span class="text-ink-soft">Rosto</span>
-                    <p class="mt-0.5 font-medium" [class]="frame()?.faceDetected ? 'text-success-ink' : 'text-ink-faint'">
-                      @if (!frame()?.faceDetected) {
-                        Posicione o rosto…
-                      } @else {
-                        {{ statusGesto(editando()?.primitivoPrincipal ?? '', frame()?.blinkCount ?? 0) }}
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <span class="text-ink-soft">Abertura dos olhos (EAR)</span>
-                    <div class="mt-1.5 flex items-center gap-2">
-                      <div class="h-2 flex-1 overflow-hidden rounded-full bg-surface">
-                        <div class="h-2 rounded-full transition-all duration-100"
-                          [style.width.%]="Math.min(100, (frame()?.earAvg ?? 0) * 300)"
-                          [class]="(frame()?.earAvg ?? 0) < 0.22 ? 'bg-alarm' : 'bg-success'">
-                        </div>
-                      </div>
-                      <span class="w-10 text-right font-mono text-ink-faint">
-                        {{ (frame()?.earAvg ?? 0).toFixed(2) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <p class="mt-2 text-xs text-ink-faint" [innerHTML]="instrucaoGesto(editando()?.primitivoPrincipal ?? '')"></p>
+              @if (teste() === 'testando') {
+                <app-ds-button size="sm" variant="ghost" (click)="pararTeste()">Parar</app-ds-button>
+              } @else {
+                <app-ds-button size="sm" variant="secondary" (click)="testar()">Testar agora</app-ds-button>
               }
-
-              <!-- Mensagem de resultado / erro -->
-              @if (teste() === 'sucesso' && testeResultado(); as r) {
-                <div class="mt-3 rounded-lg bg-surface p-3 text-xs">
-                  <p class="font-medium text-success-ink">✓ Alarme criado — tier: {{ r.tier }}</p>
-                  <p class="mt-0.5 font-mono text-ink-faint">{{ r.eventoId }}</p>
-                  <p class="mt-1 text-ink-soft">Acesse <strong>/#/alarme</strong> para confirmar o atendimento.</p>
-                </div>
-              }
-              @if (teste() === 'erro') {
-                <p class="mt-3 text-xs font-medium text-danger">{{ testeErroMsg() }}</p>
-              }
-
-              <!-- Botões de ação -->
-              <div class="mt-3 flex flex-wrap gap-2">
-                @if (teste() === 'testando') {
-                  <app-ds-button size="sm" (click)="dispararAlarme(form.primitivoPrincipal)">
-                    <span class="material-symbols-outlined text-[15px]">send</span>
-                    Disparar manualmente
-                  </app-ds-button>
-                  <app-ds-button size="sm" variant="ghost" (click)="pararTeste()">Parar</app-ds-button>
-                } @else if (teste() === 'sucesso' || teste() === 'erro') {
-                  <app-ds-button size="sm" variant="secondary" (click)="testar()">
-                    <span class="material-symbols-outlined text-[15px]">refresh</span>
-                    Testar novamente
-                  </app-ds-button>
-                } @else if (teste() !== 'inicializando' && teste() !== 'disparando') {
-                  <app-ds-button size="sm" variant="secondary" (click)="testar()">
-                    <span class="material-symbols-outlined text-[15px]">videocam</span>
-                    Testar agora
-                  </app-ds-button>
-                }
-              </div>
             </div>
           </app-ds-card>
 
@@ -384,31 +303,6 @@ interface ComandoForm {
                 podem ser cadastrados direto no editor de comando.
               </p>
             </app-ds-card>
-
-            <app-ds-card>
-              <h3 class="mb-1 font-display text-sm font-semibold text-ink">Perfil de detecção</h3>
-              <p class="mb-3 text-xs text-ink-soft">Publicar sincroniza os tipos de gesto com o agente edge.</p>
-              @if (publicandoPerfil()) {
-                <app-ds-button [disabled]="true" variant="secondary">
-                  <span class="material-symbols-outlined animate-spin text-[16px]">autorenew</span>
-                  Publicando…
-                </app-ds-button>
-              } @else if (publicacaoOk(); as resultado) {
-                <div class="flex items-center gap-2 text-xs font-medium text-success-ink">
-                  <span class="material-symbols-outlined text-[16px] text-success">check_circle</span>
-                  Perfil v{{ resultado.version }} publicado
-                </div>
-                <app-ds-button class="mt-3" variant="secondary" (click)="publicarPerfil()">Republicar</app-ds-button>
-              } @else {
-                <app-ds-button variant="secondary" (click)="publicarPerfil()">
-                  <span class="material-symbols-outlined text-[16px]">sync</span>
-                  Publicar perfil de detecção
-                </app-ds-button>
-              }
-              @if (publicacaoErro()) {
-                <p class="mt-2 text-xs text-danger">{{ publicacaoErro() }}</p>
-              }
-            </app-ds-card>
           </div>
         </div>
       }
@@ -420,24 +314,11 @@ export class CalibracaoComponent implements OnDestroy {
   private readonly facade = inject(ComandosFacade);
   private readonly tiposGestoFacade = inject(TiposGestoFacade);
   private readonly pacientesFacade = inject(PacientesFacade);
-  private readonly perfilService = inject(PocPublicarPerfilService);
-  private readonly testarService = inject(PocTestarGestoService);
-  private readonly zone = inject(NgZone);
   protected readonly sensibilidades = SENSIBILIDADES;
-  protected readonly Math = Math;
 
-  readonly publicandoPerfil = signal(false);
-  readonly publicacaoOk     = signal<PublicarPerfilResult | null>(null);
-  readonly publicacaoErro   = signal<string | null>(null);
-
-  readonly testeResultado = signal<TesteGestoResult | null>(null);
-  readonly testeErroMsg   = signal<string>('');
-  readonly frame          = signal<GestureFrame | null>(null);
-
-  private readonly videoPreview   = viewChild<ElementRef<HTMLVideoElement>>('videoPreview');
-  private readonly canvasOverlay  = viewChild<ElementRef<HTMLCanvasElement>>('canvasOverlay');
-  private stream:   MediaStream | null = null;
-  private detector: PocGestureDetector | null = null;
+  private readonly videoPreview = viewChild<ElementRef<HTMLVideoElement>>('videoPreview');
+  private stream: MediaStream | null = null;
+  private testeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   readonly loading = computed(() => this.facade.loading() || this.tiposGestoFacade.loading() || this.pacientesFacade.loading());
   readonly comandos = computed(() => this.facade.items());
@@ -453,18 +334,17 @@ export class CalibracaoComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     this.pararStream();
-    this.detector?.destroy();
-    this.detector = null;
   }
 
   private pararStream(): void {
-    this.detector?.stop();
-    this.stream?.getTracks().forEach(t => t.stop());
+    if (this.testeTimeoutId !== null) {
+      clearTimeout(this.testeTimeoutId);
+      this.testeTimeoutId = null;
+    }
+    this.stream?.getTracks().forEach(track => track.stop());
     this.stream = null;
     const video = this.videoPreview()?.nativeElement;
     if (video) video.srcObject = null;
-    const canvas = this.canvasOverlay()?.nativeElement;
-    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   private nomeDoTipo(id: string): string {
@@ -479,37 +359,6 @@ export class CalibracaoComponent implements OnDestroy {
   protected gestoDescricaoForm(form: ComandoForm): string {
     const principal = this.nomeDoTipo(form.primitivoPrincipal);
     return form.primitivoSecundario ? `${principal} + ${this.nomeDoTipo(form.primitivoSecundario)}` : principal;
-  }
-
-  protected instrucaoGesto(tipoGestoId: string): string {
-    switch (tipoGestoId) {
-      case 'tg-piscar-duplo-001':    return 'Pisque <strong>duas vezes de forma deliberada</strong> (olho completamente fechado e reaberto em cada piscada, janela de 1.8 s) — o alarme dispara automaticamente.';
-      case 'tg-piscar-esquerdo':     return 'Feche e reabra <strong>apenas o olho esquerdo</strong> (olho direito deve permanecer aberto) por ~0.1 s — o alarme dispara automaticamente.';
-      case 'tg-piscar-direito':      return 'Feche e reabra <strong>apenas o olho direito</strong> (olho esquerdo deve permanecer aberto) por ~0.1 s — o alarme dispara automaticamente.';
-      case 'tg-sobrancelha-dupla':   return 'Levante <strong>as duas sobrancelhas</strong> simultaneamente e mantenha por ~0.2 s — o alarme dispara automaticamente.';
-      case 'tg-sobrancelha-direita': return 'Levante <strong>apenas a sobrancelha direita</strong> (esquerda relaxada) e mantenha por ~0.2 s — o alarme dispara automaticamente.';
-      case 'tg-sobrancelha-esquerda':return 'Levante <strong>apenas a sobrancelha esquerda</strong> (direita relaxada) e mantenha por ~0.2 s — o alarme dispara automaticamente.';
-      default:                        return 'Execute o gesto configurado — o alarme dispara automaticamente quando reconhecido.';
-    }
-  }
-
-  protected statusGesto(tipoGestoId: string, blinkCount: number): string {
-    switch (tipoGestoId) {
-      case 'tg-piscar-duplo-001':
-        return blinkCount >= 1 ? '1ª piscada ✓ — aguardando 2ª' : 'Detectado ✓ — pisque deliberadamente';
-      case 'tg-piscar-esquerdo':
-        return 'Detectado ✓ — pisque o olho esquerdo';
-      case 'tg-piscar-direito':
-        return 'Detectado ✓ — pisque o olho direito';
-      case 'tg-sobrancelha-dupla':
-        return 'Detectado ✓ — levante as duas sobrancelhas';
-      case 'tg-sobrancelha-direita':
-        return 'Detectado ✓ — levante a sobrancelha direita';
-      case 'tg-sobrancelha-esquerda':
-        return 'Detectado ✓ — levante a sobrancelha esquerda';
-      default:
-        return 'Detectado ✓ — execute o gesto configurado';
-    }
   }
 
   protected sensibilidadeHint(v: ComandoSensibilidade): string {
@@ -543,16 +392,8 @@ export class CalibracaoComponent implements OnDestroy {
     this.cancelarNovoTipo();
   }
 
-  private resetTeste(): void {
-    this.pararStream();
-    this.teste.set('idle');
-    this.testeResultado.set(null);
-    this.testeErroMsg.set('');
-    this.frame.set(null);
-  }
-
   protected novo(): void {
-    this.resetTeste();
+    this.pararStream();
     this.editandoId.set(null);
     this.editando.set({
       rotulo: '',
@@ -563,10 +404,11 @@ export class CalibracaoComponent implements OnDestroy {
       tempoMinimoGestoMs: 400,
       tempoMaximoGestoMs: 1500,
     });
+    this.teste.set('idle');
   }
 
   protected editar(c: Comando): void {
-    this.resetTeste();
+    this.pararStream();
     this.editandoId.set(c.id);
     this.editando.set({
       rotulo: c.rotulo,
@@ -577,83 +419,39 @@ export class CalibracaoComponent implements OnDestroy {
       tempoMinimoGestoMs: c.tempoMinimoGestoMs,
       tempoMaximoGestoMs: c.tempoMaximoGestoMs,
     });
+    this.teste.set('idle');
   }
 
   protected cancelar(): void {
-    this.resetTeste();
+    this.pararStream();
     this.editando.set(null);
     this.editandoId.set(null);
     this.cancelarNovoTipo();
   }
 
+  /** Liga a webcam de verdade (getUserMedia) para o teste ao vivo. Não há reconhecimento
+   * real de gesto no protótipo — só a câmera ligada, para dar feedback tátil concreto de
+   * que "a webcam está vendo você" antes de simular o resultado (ver LBC §12 Emenda 1:
+   * risco de falso negativo em gesto composto é decisão de arquitetura, não de UI). */
   protected async testar(): Promise<void> {
-    this.testeResultado.set(null);
-    this.testeErroMsg.set('');
-    this.frame.set(null);
-
     if (!navigator.mediaDevices?.getUserMedia) {
-      this.testeErroMsg.set('Webcam não disponível neste navegador.');
       this.teste.set('erro');
       return;
     }
-
-    this.teste.set('inicializando');
+    this.teste.set('testando');
     try {
-      // Inicia câmera
       this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      const video  = this.videoPreview()?.nativeElement;
-      const canvas = this.canvasOverlay()?.nativeElement;
-      if (!video || !canvas) throw new Error('elementos de vídeo não encontrados');
-
-      video.srcObject = this.stream;
-      await video.play().catch(() => {});
-
-      // Aguarda o primeiro frame real para garantir videoWidth/Height corretos
-      await new Promise<void>(resolve => {
-        if (video.readyState >= 2) { resolve(); return; }
-        video.addEventListener('loadeddata', () => resolve(), { once: true });
-      });
-      canvas.width  = video.videoWidth  || 640;
-      canvas.height = video.videoHeight || 480;
-
-      // Inicializa o detector (reutiliza instância se já existir)
-      if (!this.detector) {
-        this.detector = new PocGestureDetector(
-          (f)           => this.zone.run(() => this.frame.set(f)),
-          // Só dispara se o gesto detectado for o configurado no comando em edição
-          (tipoGestoId) => {
-            if (tipoGestoId === this.editando()?.primitivoPrincipal) {
-              this.zone.run(() => void this.dispararAlarme(tipoGestoId));
-            }
-          },
-        );
-        await this.detector.init();
+      const video = this.videoPreview()?.nativeElement;
+      if (video) {
+        video.srcObject = this.stream;
+        await video.play().catch(() => {});
       }
-
-      this.teste.set('testando');
-      this.detector.start(video, canvas);
-    } catch (err) {
-      this.pararStream();
-      this.testeErroMsg.set('Não foi possível iniciar o detector. Verifique a webcam e a conexão (primeiro uso baixa ~30 MB).');
-      this.teste.set('erro');
-    }
-  }
-
-  protected async dispararAlarme(tipoGestoId: string): Promise<void> {
-    if (this.teste() === 'disparando' || this.teste() === 'sucesso') return;
-    this.teste.set('disparando');
-    this.detector?.stop();
-    const profileVersion = this.publicacaoOk()?.version ?? 1;
-    const comandoId  = this.editandoId() ?? this.facade.items().find(c => c.primitivoPrincipal === tipoGestoId)?.id ?? 'cmd-desconhecido';
-    const pacienteId = this.pacientesFacade.items()[0]?.id ?? 'pac-marcio';
-    try {
-      const resultado = await this.testarService.disparar(tipoGestoId, profileVersion, comandoId, pacienteId);
-      this.pararStream();
-      this.testeResultado.set(resultado);
-      this.teste.set('sucesso');
+      this.testeTimeoutId = setTimeout(() => {
+        this.pararStream();
+        this.teste.set('sucesso');
+      }, 2500);
     } catch {
       this.pararStream();
-      this.testeErroMsg.set('Erro ao enviar ao evnt-service — verifique se está rodando na porta 8083.');
       this.teste.set('erro');
     }
   }
@@ -661,11 +459,10 @@ export class CalibracaoComponent implements OnDestroy {
   protected pararTeste(): void {
     this.pararStream();
     this.teste.set('idle');
-    this.frame.set(null);
   }
 
   protected salvar(form: ComandoForm): void {
-    this.resetTeste();
+    this.pararStream();
     const id = this.editandoId();
     if (id) {
       this.facade.items.update(list => list.map(c => (c.id === id ? { ...c, ...form } : c)));
@@ -674,27 +471,12 @@ export class CalibracaoComponent implements OnDestroy {
       const novoId = `cmd-${form.rotulo.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || Date.now()}`;
       this.facade.items.update(list => [...list, { id: novoId, pacienteId, ...form }]);
     }
-    this.facade.persistir();
     this.editando.set(null);
     this.editandoId.set(null);
+    // TODO[fe-autopilot]: persistir catálogo e sincronizar com o dispositivo edge no próximo heartbeat
   }
 
   protected remover(id: string): void {
     this.facade.items.update(list => list.filter(c => c.id !== id));
-    this.facade.persistir();
-  }
-
-  protected async publicarPerfil(): Promise<void> {
-    this.publicandoPerfil.set(true);
-    this.publicacaoOk.set(null);
-    this.publicacaoErro.set(null);
-    try {
-      const res = await this.perfilService.publicar();
-      this.publicacaoOk.set(res);
-    } catch {
-      this.publicacaoErro.set('Erro ao publicar — verifique se o gest-service está rodando (porta 8082).');
-    } finally {
-      this.publicandoPerfil.set(false);
-    }
   }
 }

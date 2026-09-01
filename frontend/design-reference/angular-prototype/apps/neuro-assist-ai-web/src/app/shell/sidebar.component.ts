@@ -12,9 +12,12 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'calibracao', label: 'Calibração', icon: 'tune', route: '/calibracao' },
 ];
 
-/** Configuração inicial — uso único pelo condutor técnico, não pela cuidadora no dia a dia. */
+/** Configuração inicial e sessões ocasionais — não é uso diário da cuidadora.
+ * 'treinamento' — Emenda 4 (2026-08-31, ADR-016): sessão de TREINAMENTO com a LLM para
+ * propor conteúdo novo do CONV, ocasional, não diária. */
 const SETUP_ITEMS: NavItem[] = [
   { id: 'onboarding', label: 'Configuração inicial', icon: 'settings', route: '/onboarding' },
+  { id: 'treinamento', label: 'Treinamento', icon: 'auto_awesome', route: '/treinamento' },
 ];
 
 @Component({

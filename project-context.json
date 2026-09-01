@@ -2,7 +2,7 @@
   "version": "v1.0",
   "generatedBy": "techlab-architecture /new-project (ingest_discovery, D-073)",
   "generatedAt": "2026-07-26T23:49:31Z",
-  "lastUpdatedAt": "2026-07-27T16:38:38Z",
+  "lastUpdatedAt": "2026-08-31T19:03:08Z",
   "locale": {
     "primary": "pt-BR",
     "technicalDocs": "en-US",
@@ -42,6 +42,27 @@
     },
     "database": {
       "engine": "PostgreSQL (transacional, schema-per-empresa)"
+    },
+    "elastic": {
+      "enabled": true,
+      "$comment_enabled": "Emenda 4 (2026-08-31), ADR-015 — fundamental ao runtime do CONV (busca semantica/kNN sobre a arvore de falas), retrieval puro (nunca LLM gerando texto em runtime). Fallback: navegacao estatica se indisponivel (constraint OPS-003).",
+      "version": "9.4.1",
+      "clientVersion": "9.4.1",
+      "heapMin": "512m",
+      "heapMax": "1g",
+      "esPort": 9200,
+      "kibanaPort": 5601,
+      "logstashEnabled": false,
+      "integrationContract": "docs/architecture/integrations/elastic-stack-integration.md",
+      "indices": [
+        {
+          "slug": "arvore-fala",
+          "displayName": "Arvore de Falas (CONV)",
+          "class": "dimension",
+          "domainContext": "CONV",
+          "status": "declared"
+        }
+      ]
     }
   },
   "multiTenancy": {
@@ -54,6 +75,14 @@
   "_extensions": {
     "compliance": {
       "lgpd": true
+    },
+    "i18n": {
+      "required": true,
+      "$comment": "Emenda 4 (2026-08-31), ADR-018 — bilinguismo EN/PT em todo o sistema. Autoria independente por locale no CONV/TREI (nao traducao automatica); UI administrativa (DASH) via mecanismo i18n Angular a escolher (@angular/localize vs ngx-translate/transloco).",
+      "locales": [
+        "pt-BR",
+        "en-US"
+      ]
     },
     "wireframe": {
       "path": "D:\\01_Trabalho\\Cybersoft\\TechLab IA\\techlab-ba\\projects\\neuro-assist-ai\\design\\wireframe.md",
@@ -224,7 +253,7 @@
     "frontend_reference": {
       "path": "D:\\01_Trabalho\\Cybersoft\\TechLab IA\\techlab-ba\\projects\\neuro-assist-ai\\design",
       "kind": "angular-prototype",
-      "component_count": 15,
+      "component_count": 20,
       "build_plans": [
         "alarme",
         "calibracao",
@@ -234,7 +263,10 @@
         "onboarding"
       ],
       "has_design_system": true,
-      "has_theme": true
+      "has_theme": true,
+      "vendorPath": "frontend/design-reference",
+      "vendorHash": "74faaf1132644aa9",
+      "vendorSyncedAt": "2026-08-31T19:03:08Z"
     }
   },
   "modules": {
@@ -316,6 +348,26 @@
         "frontendLib": "edge",
         "hasUi": true,
         "isInfrastructure": false
+      },
+      {
+        "prefix": "CONV",
+        "displayName": "Conversação por Árvore de Falas",
+        "description": "Árvore de falas navegável por categoria → frase, canal de entrada agnóstico (gesto via GEST ou toque/mouse direto). Runtime usa retrieval puro (Elasticsearch/kNN) para busca semântica assistida; saída em voz via áudio TTS pré-sintetizado e cacheado (ElevenLabs, voz do paciente); conteúdo bilíngue EN/PT (autoria independente por idioma).",
+        "backendService": "conv-service",
+        "frontendLib": "conv",
+        "hasUi": true,
+        "isInfrastructure": false,
+        "status": "Emenda 3 (2026-08-30) — confirmado, ADR-013 accepted; Emenda 4 (2026-08-31) — busca semântica/TTS/bilíngue, ADR-015/017/018 accepted"
+      },
+      {
+        "prefix": "TREI",
+        "displayName": "Treinamento Assistido por IA (Autoria da Árvore de Falas)",
+        "description": "Fase separada do uso diário do CONV: LLM (Claude/Anthropic) conversa com cuidadora e paciente (fluxo colaborativo, dupla autorização) para propor categorias/frases novas em cada idioma; conteúdo aprovado é indexado no Elasticsearch e tem áudio sintetizado via ElevenLabs. Não participa do runtime de comunicação do paciente.",
+        "backendService": "trei-service",
+        "frontendLib": "trei",
+        "hasUi": true,
+        "isInfrastructure": false,
+        "status": "Emenda 4 (2026-08-31) — módulo novo, ADR-016 accepted por Danilo Amaral"
       },
       {
         "prefix": "E2E",

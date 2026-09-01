@@ -1,0 +1,21 @@
+{
+  "kibana_url": "http://localhost:5601",
+  "space": "default",
+  "dashboards": [
+    {
+      "id": "neuroassist-ai-overview",
+      "title": "NeuroAssist AI — Overview",
+      "description": "Project Elasticsearch indices. Provisioned remotely by kibana_bootstrap.py (D-425). Edit this file to add panels/indices, then re-run `py kibana/kibana_bootstrap.py up`.",
+      "time_from": "now-30d",
+      "time_to": "now",
+      "indices": [
+        {
+          "id": "dv-neuroassist-ai-arvore-fala",
+          "title": "neuroassist-ai_arvore-fala",
+          "time_field": "ingested_at",
+          "label": "Arvore de Falas (CONV)"
+        }
+      ]
+    }
+  ]
+}

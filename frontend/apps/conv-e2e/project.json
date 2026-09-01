@@ -1,0 +1,21 @@
+{
+  "name": "conv-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/conv-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:conv",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "conv"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/conv-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

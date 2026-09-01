@@ -4,6 +4,7 @@ import { pacAuthGuard, pacTenantPatientGuard, pacCommandWriteGuard } from '@neur
 import { AUTH_ROUTES, sessaoRequeridaGuard } from '@neuroassist/shared/auth-login';
 import { acsCaregiverWriteGuard } from '@neuroassist/acs';
 import { estacaoDeviceGuard } from '@neuroassist/gest';
+import { CONV_ROUTES } from '@neuroassist/conv';
 // DASH — promoted by /fe-architect-promote neuroassist-ai DASH (D-494)
 
 export const appRoutes: Routes = [
@@ -11,6 +12,18 @@ export const appRoutes: Routes = [
   // inverso: quem já entrou não volta para o formulário).
   // Precisa vir antes de qualquer rota que possa casar com 'login'.
   ...AUTH_ROUTES,
+
+  // CONV — Patient shell (restricted, patient-only — ADR-012/014, CONV-FE-001/003).
+  // Top-level route OUTSIDE AppShellComponent (like /estacao): no admin sidebar,
+  // no caregiver credential. Isolation is by route ABSENCE, not CSS/state guard.
+  // patientSessionGuard deferred to CONV-FE-018 (Layer 2).
+  // /paciente/conversar → ConvArvoreComponent (Tela 06)
+  // /paciente/confirmar-treinamento → ConfirmacaoTreinamentoComponent (Tela 09)
+  {
+    path: 'paciente',
+    loadChildren: () => Promise.resolve(CONV_ROUTES),
+    title: 'Paciente',
+  },
 
   // Estação do paciente — GEST-FE-030 / ADR-008 / SPEC-09
   // Rota de topo-level: fora do AppShellComponent (como /login e /entrada).
@@ -149,6 +162,15 @@ export const appRoutes: Routes = [
         path: 'historico',
         loadChildren: () =>
           import('@neuroassist/hist').then((m) => m.HIST_ROUTES),
+      },
+
+      // TREI — Treinamento de Árvore de Fala (promoted by /fe-architect-promote neuroassist-ai TREI — D-494)
+      // Route: /treinamento → TREI_ROUTES (sessao + sessao/propostas)
+      // Guard: caregiverSessionGuard + treiGuard (Wave-0 bypass: null tokens pass through)
+      {
+        path: 'treinamento',
+        loadChildren: () =>
+          import('@neuroassist/trei').then((m) => m.TREI_ROUTES),
       },
 
       // Additional modules added progressively via /fe-architect-promote.

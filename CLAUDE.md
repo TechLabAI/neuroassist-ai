@@ -362,6 +362,20 @@ the command above is unchanged.
 - **Never** invent an authority name in `RoleAuthorityPolicy` — every value must match a literal `@PreAuthorize` / SecurityConfig rule in the owning service, verbatim
 - **Never** treat the tenant identifier as a schema name — see "Cross-service contracts" below
 - **Never** rely on a green module gate as proof of integration — the 7 modules were all green while 16 cross-service defects were live
+- **Never** attack issues/tickets one-by-one directly via `Bash` in the main chat
+  (build, test, manual fix loop) instead of going through `/be-autopilot` /
+  `/fe-autopilot` (or `/be-validator` + `/be-planner` + `/be-implement` directly).
+  Measured in this project (D-622): a session that did this accumulated 1.32B input
+  tokens across 2,565 turns and only 9 subagent delegations (session `8e02dd5a`,
+  23–26 Aug, never restarted), vs. a comparable autopilot-driven session elsewhere
+  at 179M tokens across 471 turns and 62 subagent delegations — because every
+  subsequent turn re-sends the entire accumulated Bash output via cache. Even a
+  "quick fix" goes through `implementer-agent`/`fe-implementer-agent`, never a raw
+  edit in the orchestrator's own context.
+- **Never** keep the same chat session open across multiple modules or after a long
+  idle gap (hours) resuming an autopilot run (D-622, extends D-463) — start a new
+  session; the checkpoint on disk (`tmp/be-autopilot/<MODULE>/state.json`) carries
+  the state, not the chat history.
 
 ---
 

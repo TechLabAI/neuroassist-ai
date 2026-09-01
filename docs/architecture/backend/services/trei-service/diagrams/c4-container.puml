@@ -1,0 +1,43 @@
+@startuml trei-c4-container
+title TREI (trei-service) — C4 Container
+
+rectangle "trei-service\nJava 21 / Spring Boot\n:8095" as TREI {
+  rectangle "REST API\n/api/v1/trei" as API
+  rectangle "Application\n(use cases + dual-auth gate\n+ publication pipeline)" as APP
+  rectangle "Outbox drainer\n(embed/tts/index retry)" as OUT
+}
+
+database "PostgreSQL\ntrei_* + shared conv_*" as PG
+database "Elasticsearch 9.4.1\nneuroassist-ai_arvore-fala" as ES
+folder "Audio filesystem" as Audio
+
+rectangle "elastic-stack-client-lib\nIndexPort adapter" as LIB
+cloud "Anthropic API" as Anthropic
+cloud "ElevenLabs API" as Eleven
+node "Embedding sidecar" as Embed
+
+rectangle "ACS" as ACS
+rectangle "PAC" as PAC
+rectangle "HIST" as HIST
+rectangle "REG (Eureka)" as REG
+
+API --> APP
+APP --> OUT
+APP --> PG : JPA (authoring + write conv_* tree)
+OUT --> Embed : EmbeddingPort (G5)
+OUT --> Eleven : TtsSynthesisPort (once)
+OUT --> Audio : AudioStorePort (write)
+OUT --> LIB : IndexPort (write)
+LIB --> ES
+APP --> Anthropic : LlmAuthoringPort
+API --> ACS : resource server (jwk-set-uri) + AcsSessionPort
+APP --> PAC : PacPatientPort / VocabularyPort (read)
+APP --> HIST : HistAuditPort (sync, buffered)
+TREI --> REG : register / discovery
+
+note right of OUT
+  Broker-less (messaging.enabled=false).
+  A locale is marked ativo only after
+  embed+tts+index all ok (ADR-004).
+end note
+@enduml

@@ -1,0 +1,106 @@
+# generator-config.yml — TREI (Frontend) — NeuroAssist AI
+# Canonical schema: libs/internal-nx-plugin/src/generators/module/generator-config.schema.json
+# Required: module, issue_prefix, type, libs
+# TREI has NO BA prototype (D-493 promote path does not apply) — it is SCAFFOLDED from these specs.
+
+module: trei
+issue_prefix: TREI
+type: standard
+shell_route: /treinamento        # caregiver shell route root (Tela 08); NOT a patient surface
+shell_app: web                   # single deployable web app (neuroassist-ai-web); caregiver shell
+nx_scope: trei
+
+libs:
+  - name: trei/shell-entry
+    type: feature                # lazy entry (@neuroassist/trei); barrel + TREI_MODULE_DESCRIPTOR  [nx: type:app tag]
+  - name: trei/access
+    type: domain                 # caregiverSessionGuard + treiGuard + treiProporGuard (treinamento.* scopes)
+  - name: trei/data-access
+    type: data-access            # HTTP adapters + signal facades (TrainingSessionFacade, ProposalReviewFacade)
+  - name: trei/feature-training-session
+    type: feature                # Tela 08 — ChatConversationPanel, LocaleTabs, EndSessionButton
+  - name: trei/feature-proposal-review
+    type: feature                # ProposedNodeCard list, Aprovar/Editar/Descartar, dual-confirmation indicator
+  - name: trei/integration
+    type: domain                 # TreiShellIntegrationService (caregiver-shell registration, scope:web composition)
+  - name: trei/navigation
+    type: domain                 # "Treinamento" breadcrumb / nav state
+  - name: trei/ui
+    type: ui                     # trei-local presentational components (authoring banner, chat bubble, status chip)
+
+features:
+  - name: training-session
+    routes:
+      - /treinamento/sessao
+    components:
+      - TreiRootComponent
+      - TrainingSessionPageComponent
+      - ChatConversationPanelComponent
+      - ChatBubbleComponent
+      - ChatComposerComponent
+      - AssistantThinkingIndicatorComponent
+      - LocaleTabsComponent
+      - ConversationErrorPanelComponent
+      - EmptyStateComponent
+      - EndSessionButtonComponent
+      - SessionEndedNoticeComponent
+  - name: proposal-review
+    routes:
+      - /treinamento/sessao/propostas
+    components:
+      - ProposalReviewPageComponent
+      - ProposalListComponent
+      - ProposedNodeCardComponent
+      - DualConfirmationIndicatorComponent
+      - ProposalEditDialogComponent
+      - ApprovalSummaryBarComponent
+      - ProposalEmptyStateComponent
+
+data_access:
+  - resource: TrainingSession
+    base_path: /api/v1/trei/sessoes
+    operations: [start]
+  - resource: ProposalTurn
+    base_path: /api/v1/trei/sessoes/:sessaoId/propostas
+    operations: [propose]
+  - resource: DraftNode
+    base_path: /api/v1/trei/nos
+    operations: [materialize, inspect, discard]   # POST /nos · GET /nos/:noId · DELETE /nos/:noId?locale=
+  - resource: CaregiverApproval
+    base_path: /api/v1/trei/nos/:noId/aprovacoes/cuidadora
+    operations: [approveCuidadora]                # caregiver side ONLY (INV-1) — NO paciente adapter exists
+  - resource: Publication
+    base_path: /api/v1/trei/nos/:noId/publicacao
+    operations: [status]                          # observe only (post-dual-approval BE side effect)
+  - resource: TreiHealth
+    base_path: /api/v1/trei/health
+    operations: [readiness]                       # embedModelId (G5) + degradedCapabilities
+
+shell_surfaces:
+  - caregiver                    # registered into neuroassist-ai-web sidebar as "Treinamento" (SPEC-05/06)
+
+feature_flags:
+  - key: treinamentoEnabled
+    default: "on"                # module kill-switch; off => menu item + routes not registered
+  - key: streamingConversation
+    default: "off"               # ADR-005: off => request/response turns; on => SSE (needs BE capability)
+  - key: voiceInputEnabled
+    default: "off"               # deferred caregiver voice input (vision doc 01 §5)
+
+shared_deps:
+  - "@neuroassist/shared/access"
+  - "@neuroassist/shared/error-model"
+  - "@neuroassist/shared/observability"
+
+ui_libs_used:
+  - "@neuroassist/shared/ui-layout"
+  - "@neuroassist/shared/ui-feedback"
+  - "@neuroassist/shared/ui-theme"
+
+backend_contract: ../../../../../backend/services/trei-service/contracts/api-contract.md
+state_management: signals
+extra_dependencies: []           # NO @anthropic-ai/*, NO ElevenLabs, NO ES client (ADR-005 / INV-2)
+
+e2e:
+  features_path: docs/architecture/frontend/modules/trei/frontend/e2e/
+  e2e_project: trei-e2e

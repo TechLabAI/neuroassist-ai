@@ -1,0 +1,47 @@
+{
+  "name": "@neuroassist/trei",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/trei/src",
+  "prefix": "trei",
+  "tags": ["scope:trei", "type:feature"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": [
+        "{workspaceRoot}/dist/libs/trei"
+      ],
+      "options": {
+        "project": "libs/trei/ng-package.json",
+        "tsConfig": "libs/trei/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/trei/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/trei/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/trei"],
+      "options": {
+        "jestConfig": "libs/trei/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/trei/**/*.ts",
+          "libs/trei/**/*.html"
+        ]
+      }
+    }
+  }
+}

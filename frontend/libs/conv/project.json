@@ -1,0 +1,45 @@
+{
+  "name": "@neuroassist/conv",
+  "projectType": "library",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/conv/src",
+  "prefix": "conv",
+  "tags": ["scope:conv", "type:feature"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/libs/conv"],
+      "options": {
+        "project": "libs/conv/ng-package.json",
+        "tsConfig": "libs/conv/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/conv/tsconfig.lib.prod.json"
+        },
+        "development": {
+          "tsConfig": "libs/conv/tsconfig.lib.json"
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "test": {
+      "executor": "@nx/jest:jest",
+      "outputs": ["{workspaceRoot}/coverage/libs/conv"],
+      "options": {
+        "jestConfig": "libs/conv/jest.config.js",
+        "passWithNoTests": true
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": [
+          "libs/conv/**/*.ts",
+          "libs/conv/**/*.html"
+        ]
+      }
+    }
+  }
+}

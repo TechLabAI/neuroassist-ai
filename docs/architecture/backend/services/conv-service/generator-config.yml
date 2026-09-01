@@ -1,0 +1,74 @@
+service: conv-service
+type: standard
+port: 8090
+
+domain:
+  aggregates:
+    - ConvArvoreFala
+    - ConvAuditOutbox
+  entities:
+    - ConvNoArvoreFala
+    - ConvNoConteudo
+
+enums:
+  TipoNo:
+    - categoria
+    - frase
+  StatusConteudo:
+    - ativo
+    - pendente
+  AudioFormato:
+    - mp3
+    - opus
+  TipoFato:
+    - SpeechNodeSelected
+    - PhraseMatched
+    - ConvServedDegraded
+  StatusOutbox:
+    - pendente
+    - enviado
+    - descartado
+
+application_services:
+  - name: ConvTreeService
+    operations:
+      - navigateTree
+  - name: SemanticSearchService
+    operations:
+      - searchAssisted
+  - name: NodeSelectionService
+    operations:
+      - selectNode
+  - name: BindingResolutionService
+    operations:
+      - resolveBinding
+  - name: OutboxRetrySweepService
+    operations:
+      - sweepPendingFacts
+
+feign_clients:
+  - name: AcsSessionClient
+    service: acs-service
+    url_prop: neuroassist.acs.url
+  - name: VocabularyClient
+    service: pac-service
+    url_prop: neuroassist.pac.url
+  - name: HistAuditClient
+    service: hist-service
+    url_prop: neuroassist.hist.url
+
+outbound_ports:
+  - SearchPort
+  - AudioRefPort
+  - AcsSessionPort
+  - VocabularyPort
+  - HistAuditPort
+
+consumed_events: []
+
+events:
+  published:
+    - com.neuroassist.conv.event.SpeechNodeSelected
+    - com.neuroassist.conv.event.PhraseMatched
+    - com.neuroassist.conv.event.TreeNavigated
+    - com.neuroassist.conv.event.ConvServedDegraded

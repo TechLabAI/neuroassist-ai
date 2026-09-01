@@ -80,6 +80,12 @@
       ],
       "@neuroassist/shared/contracts": [
         "libs/shared/contracts/src/index.ts"
+      ],
+      "@neuroassist/conv": [
+        "libs/conv/src/index.ts"
+      ],
+      "@neuroassist/trei": [
+        "libs/trei/src/index.ts"
       ]
     }
   },

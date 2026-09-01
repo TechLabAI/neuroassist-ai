@@ -1,7 +1,7 @@
 # Wireframe — NeuroAssist AI
 
-> **Última atualização:** 2026-07-27
-> **Status:** rascunho
+> **Última atualização:** 2026-08-31
+> **Status:** rascunho; Telas 06/07 (Emenda 3, 2026-08-30) e Telas 08/09 (Emenda 4, 2026-08-31) são draft BA — pendentes de validação do arquiteto e não implementadas no protótipo Angular existente
 > **Persistência:** PERSISTENTE — vive com o projeto durante todo o MVP
 
 # Etapa do Pipeline: UI Concept → Wireframe Final → Prototype HTML Único
@@ -46,6 +46,8 @@ Navegação entre: Status (home) · Histórico · Calibração · (Onboarding �
 #### B. Topbar superior
 Mostra o nome do paciente ativo (Márcio Amaral) e o status de conectividade do dispositivo edge (online/offline + última sincronização) — sempre visível, nunca escondido em submenu (Princípio 2.6).
 
+> **(Emenda 3, 2026-08-30, draft BA)** Quando o dispositivo ativo é o celular do próprio paciente (não a máquina fixa da cuidadora), a Topbar mostra um indicador de **"modo paciente"** — badge textual simples (ex.: "Sessão do paciente · ativa desde 12/08") ao lado do status de conectividade, sem esconder nem substituir os elementos existentes. Este indicador só aparece quando `SessaoPaciente.status = ativa` para o dispositivo em uso — TODO[arquiteto]: confirmar se essa distinção é resolvida no frontend (mesmo shell, indicador condicional) ou se o app do paciente é um shell separado, mais restrito (só CONV/GEST, sem sidebar de Histórico/Calibração) — ver ADR-012/013.
+
 #### D. Conteúdo principal
 Sempre presente — renderiza a tela ativa.
 
@@ -69,6 +71,10 @@ Navegação simples por sidebar, sem hierarquia profunda — reflete a baixa den
 #section-historico      (Tela 03)
 #section-calibracao     (Tela 04)
 #section-onboarding     (Tela 05 — admin)
+#section-conversa       (Tela 06 — árvore de falas) — (Emenda 3)
+#section-ativacao-paciente (Tela 07 — ativação do celular do paciente) — (Emenda 3)
+#section-treinamento    (Tela 08 — sessão de TREINAMENTO, shell cuidadora/DASH) — (Emenda 4)
+#section-confirmacao-paciente (Tela 09 — confirmação do paciente, patient-shell) — (Emenda 4)
 ```
 
 ### 4.3 Modelo de dados
@@ -122,9 +128,28 @@ entity DispositivoEdge "Agente local que roda a detecção de gesto"
   status               enum online|offline
   ultimaSincronizacao  datetime
   versao               string
+
+entity NoArvoreFala "Nó da árvore de falas — categoria ou frase (Emenda 3, 2026-08-30, draft BA)"
+  id          string pk
+  pacienteId  ref Paciente label=nome
+  paiId       ref NoArvoreFala? label=texto
+  tipo        enum categoria|frase
+  texto       string
+  ordem       int
+
+entity SessaoPaciente "Sessão de app persistente do paciente, provisionada pela cuidadora (Emenda 3 — modelo de identidade final é TODO[arquiteto], ver ADR-012)"
+  id              string pk
+  pacienteId      ref Paciente label=nome
+  provisionadaPor ref Cuidador label=nome
+  dispositivoId   ref DispositivoEdge label=status
+  status          enum ativa|revogada
+  revogadaEm      datetime?
+  revogadaPor     ref Cuidador? label=nome
 ```
 
 > **Nota (Emenda 1):** `PerfilCalibracao` (1 por paciente) deixou de existir como entidade — foi substituída por `Comando` (N por paciente). `rotulo` é texto livre definido pela família (ex.: "Sapo", "Suvaco", "água" — o sistema não interpreta o significado, ver LBC §7.2). `primitivoSecundario` nulo = gesto simples (1 primitivo); preenchido = gesto composto (2 primitivos combinados, ex.: piscar 2x + sobrancelha). `Evento.comando` substitui o antigo `Evento.tipo` fixo em `HELP_REQUESTED` — o tipo do evento é o próprio comando disparado, e sua urgência (emergência/rotina) vem de `Comando.urgencia`.
+>
+> **Nota (Emenda 3, 2026-08-30, draft BA):** `NoArvoreFala` e `SessaoPaciente` são entidades novas, ainda **não implementadas** no protótipo Angular existente (`design/angular-prototype/`) — cobrem as Telas 06/07 abaixo. `SessaoPaciente` modela apenas o rastro de auditoria (quem provisionou, status, revogação); o **mecanismo de autenticação real** por trás dela (token de dispositivo vs. sessão delegada vs. ator próprio) é decisão em aberto — ver ADR-012 (draft BA). Não confundir `SessaoPaciente` com `Cuidador` — o paciente continua sem login próprio (usuário/senha); a sessão é provisionada, não criada por ele.
 >
 > **Nota (Emenda 2, 2026-07-27):** `primitivoPrincipal`/`primitivoSecundario` deixaram de ser um enum fechado de 6 valores — agora referenciam `TipoGesto`, um **catálogo extensível**. A cuidadora/condutor técnico pode cadastrar um novo tipo de movimento (ex.: "Leitura labial") direto na Tela 04, sem depender de release. O catálogo inicial (sobrancelha, piscar duplo, piscar rápido, piscar devagar, fechar os olhos, mover nariz) é seed, não teto. **Atenção:** cadastrar o *nome* de um tipo de gesto na UI não implica que o motor de detecção (edge) já saiba reconhecê-lo — ver `TODO[arquiteto]` no Framing §6.1/§9.3.
 
@@ -395,5 +420,261 @@ Cadastro inicial de tenant, paciente e pareamento do dispositivo edge — conduz
 Sem painel IA. Tela de uso único/raro — não faz parte da rotina diária da cuidadora, por isso não aparece na sidebar dela (visível só para o papel condutor técnico).
 
 **Estados obrigatórios:** carregamento (pareamento do dispositivo em andamento), erro (falha ao parear dispositivo — orientação de retry), sucesso (confirmação antes de redirecionar para Tela 01).
+
+---
+
+# TELA 06 — Árvore de Falas *(Emenda 3, 2026-08-30 — draft BA, não implementada no protótipo)*
+
+## 5.1 Objetivo
+
+Permitir que o paciente navegue por uma árvore de categorias → frases e comunique uma necessidade específica, usando o canal de entrada que ele conseguir operar — gesto (reaproveitando GEST) ou toque/mouse direto. Cobre os requisitos §3.1 do briefing pós-handoff. Esta tela é o destino principal do "modo paciente" (ver §3.2.B).
+
+## 5.2 Estrutura visual
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  🔵 Sessão do paciente               🟢 Dispositivo online    │
+│──────────────────────────────────────────────────────────────│
+│                                                                │
+│   [ 🥤 Preciso de algo ]   [ 🛏 Reposicionar ]   [ 💬 Falar ]  │
+│                                                                │
+│         (nó selecionado destacado — mesmo destino             │
+│          alcançável por gesto reconhecido OU por toque)       │
+│                                                                │
+│                    [ ‹ Voltar para categorias ]                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Ao selecionar um nó folha (frase), o sistema reproduz a frase em voz (TTS — escopo exato a confirmar com o arquiteto) e opcionalmente gera um `Evento` no catálogo de comandos existente, se o nó estiver mapeado a um `Comando` (ver TODO[arquiteto] no Framing §4.8/§12 pergunta 6 — mapeamento ainda não decidido).
+
+## 5.3 Componentes
+
+- SpeechTreeNavigator *(novo)* — renderiza o nível ativo da árvore (categorias ou frases-folha), destaca visualmente o nó atualmente "selecionado" independente do canal de entrada
+- InputChannelIndicator *(novo)* — mostra discretamente qual canal está ativo (gesto ou toque), sem exigir escolha manual prévia — os dois canais podem coexistir e alimentar o mesmo modelo de nó selecionado
+- TTSPlayer *(novo, escopo a confirmar)* — reproduz a frase selecionada em voz
+- BackButton — volta ao nível anterior da árvore
+
+## 5.4 Dados — bindings
+
+- lê: `NoArvoreFala[]` (filtrado por `pacienteId` e `paiId` do nível ativo)
+- escreve: (nenhuma escrita direta nesta tela — seleção de nó pode gerar `Evento`, ver TODO[arquiteto] acima)
+- mock: TODO — sem mock ainda definido; esta tela não existe no protótipo Angular atual, ver nota de status do documento
+
+## 5.5 Estado dos elementos diferenciadores
+
+Sem painel IA. O elemento diferenciador é o `InputChannelIndicator` — reforça ao paciente e à cuidadora que o mesmo destino é alcançável por qualquer canal disponível, sem hierarquia entre eles.
+
+**Estados obrigatórios:** vazio (árvore ainda não configurada para este paciente — CTA para a cuidadora configurar), carregamento (skeleton dos nós), erro (falha ao carregar árvore), TTS indisponível (fallback visual — texto da frase em destaque, sem áudio).
+
+---
+
+# TELA 07 — Ativação do celular do paciente *(Emenda 3, 2026-08-30 — draft BA, não implementada no protótipo)*
+
+## 5.1 Objetivo
+
+Permitir que a cuidadora ative o celular do paciente como dispositivo edge completo (webcam própria + árvore de falas), provisionando uma sessão persistente sem exigir credencial própria do paciente. Extensão do fluxo de pareamento existente (Tela 05) para o caso "dispositivo é o celular do próprio paciente", não substituição dele — TODO[arquiteto]: confirmar se reaproveita o mesmo fluxo de código de pareamento (`awaiting-claim` → heartbeat, já implementado) ou exige fluxo de provisionamento próprio (ver Framing §12, pergunta 7).
+
+## 5.2 Estrutura visual
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  Ativar celular do paciente                                  │
+│──────────────────────────────────────────────────────────────│
+│  1. Paciente:              [ Márcio Amaral            ]       │
+│  2. Celular do paciente:   [ Pareando... ● ]                  │
+│  3. Sessão persistente:    ⚠ não expira — revogável a         │
+│                               qualquer momento nesta tela      │
+│                                                                │
+│                    [ Ativar celular do paciente ]              │
+│──────────────────────────────────────────────────────────────│
+│  Sessões ativas neste paciente:                               │
+│  📱 iPhone de Márcio — ativa desde 30/08         [ Revogar ]  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## 5.3 Componentes
+
+- DevicePairingStatus (reaproveitado da Tela 05)
+- PersistentSessionWarning *(novo)* — aviso explícito de que a sessão não expira, antes de confirmar a ativação
+- ActiveSessionsList *(novo)* — lista `SessaoPaciente[]` do paciente, com ação de revogação individual (constraint SEC-001 — mecanismo obrigatório, não opcional)
+- RevokeButton *(novo)* — revoga uma `SessaoPaciente` (`status → revogada`, `revogadaEm`, `revogadaPor`)
+
+## 5.4 Dados — bindings
+
+- lê: `Paciente[]`, `DispositivoEdge[]`, `SessaoPaciente[]` (do paciente ativo)
+- escreve: `SessaoPaciente` (criar ao ativar; atualizar `status`/`revogadaEm`/`revogadaPor` ao revogar)
+- mock: TODO — sem mock ainda definido; esta tela não existe no protótipo Angular atual
+
+## 5.5 Estado dos elementos diferenciadores
+
+Sem painel IA. O elemento diferenciador é o `ActiveSessionsList` com revogação sempre visível e de fácil acesso — nunca escondida atrás de configuração avançada, dado que SEC-001 marca a revogação como mecanismo obrigatório.
+
+**Estados obrigatórios:** carregamento (pareamento em andamento), erro (falha ao ativar — orientação de retry), sucesso (confirmação + sessão aparece na lista), vazio (nenhuma sessão de paciente ativa ainda).
+
+---
+
+---
+
+# TELA 08 — Treinamento (sessão com LLM) *(Emenda 4, 2026-08-31 — draft BA, não implementada no protótipo)*
+
+## 5.1 Objetivo
+
+Permitir que a cuidadora inicie/assista uma conversa com a LLM para propor categorias/frases novas da árvore de falas (CONV), em cada idioma (PT/EN) — fase separada do uso diário do paciente (ADR-016). Vive no shell da cuidadora (§3.1/§3.2.A, DASH), não no shell restrito do paciente. O que é proposto aqui fica pendente até o paciente confirmar na Tela 09 — ver ADR-018 §2 (autoria independente por idioma) e ADR-016 (RBAC de dupla autorização).
+
+## 5.2 Estrutura visual
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  Treinamento da árvore de falas          [ PT ▾ ]  [ EN ]     │
+│──────────────────────────────────────────────────────────────│
+│  💬 LLM: "Quer adicionar uma frase para pedir água com gelo?" │
+│  💬 Cuidadora: "Sim, e também uma para chamar o Danilo"       │
+│──────────────────────────────────────────────────────────────│
+│  Propostas pendentes (idioma ativo: PT)                       │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │ 💧 "Quero água com gelo"        [PT ✅ cuidadora]        │  │
+│  │    categoria: Preciso de algo   [PT ⏳ paciente]  [Editar]│  │
+│  ├────────────────────────────────────────────────────────┤  │
+│  │ 📞 "Chamar o Danilo"            [PT ⏳ cuidadora]        │  │
+│  │    categoria: Falar             [PT ⏳ paciente]  [Aprovar]│ │
+│  └────────────────────────────────────────────────────────┘  │
+│                    [ Encerrar sessão de treinamento ]          │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Cada proposta mostra o status de aprovação **por idioma e por perfil** (`confirmadoCuidadora`/`confirmadoPaciente`, ver ADR-016/ADR-018) — só quando ambos ficam `true` no mesmo idioma esse locale do nó é indexado no Elasticsearch e sintetizado no ElevenLabs (ADR-015/017). A cuidadora pode aprovar seu próprio lado aqui; a confirmação do paciente acontece de forma assíncrona na Tela 09.
+
+## 5.3 Componentes
+
+- ChatConversationPanel *(novo)* — histórico da conversa com a LLM (API Claude/Anthropic, ver ADR-016), input de texto/voz da cuidadora
+- LocaleTabs *(novo)* — alterna o idioma ativo (PT/EN) da sessão; propostas e status de aprovação são independentes por locale (ADR-018)
+- ProposedNodeCard *(novo)* — mostra a proposta (categoria/frase), com indicador dual de confirmação (`cuidadora`/`paciente`) por idioma, botão "Aprovar" (lado da cuidadora) e "Editar"
+- EndSessionButton — encerra a sessão de treinamento (não descarta propostas pendentes — ficam em rascunho, ver ADR-016)
+
+## 5.4 Dados — bindings
+
+- lê: `NoArvoreFala[]` (filtrado por `status = rascunho`, com `conteudo.pt`/`conteudo.en`), histórico de conversa da sessão de TREINAMENTO ativa
+- escreve: `NoArvoreFala` (criar proposta vinda da LLM; atualizar `conteudo.<locale>.confirmadoCuidadora` ao aprovar o lado da cuidadora)
+- mock: TODO — sem mock ainda definido; esta tela não existe no protótipo Angular atual
+
+## 5.5 Estado dos elementos diferenciadores
+
+Painel de IA explícito (`ChatConversationPanel`) — é a única tela do produto em que uma LLM gera conteúdo; reforçar visualmente que isso é diferente do runtime do CONV (Tela 06), que nunca gera texto novo (TECH-007). Sugestão de rótulo: badge "Treinamento — não é o app do paciente" na topbar desta tela.
+
+**Estados obrigatórios:** vazio (nenhuma sessão iniciada — CTA "Iniciar treinamento"), carregamento (LLM respondendo), erro (falha ao chamar a API Claude/Anthropic), sessão encerrada com propostas pendentes (aviso de que seguem em rascunho até confirmação do paciente).
+
+---
+
+# TELA 09 — Confirmação do Paciente (Treinamento) *(Emenda 4, 2026-08-31 — draft BA, não implementada no protótipo)*
+
+## 5.1 Objetivo
+
+Permitir que o paciente veja as propostas já aprovadas pela cuidadora (Tela 08) e confirme ou ajuste, no seu próprio ritmo — sem exigir handoff de tela síncrono com a cuidadora (ADR-016 §"handoff de UI"). Vive no shell restrito do paciente (`patient-shell.component.ts`, mesmo shell da Tela 06 — ver §6 abaixo).
+
+## 5.2 Estrutura visual
+
+```text
+┌──────────────────────────────────────────────────────────────┐
+│  🔵 Sessão do paciente               🟢 Dispositivo online    │
+│──────────────────────────────────────────────────────────────│
+│  Novas frases para confirmar (PT)                             │
+│                                                                │
+│   💧 "Quero água com gelo"                                    │
+│      [ ✅ Confirmar ]   [ ✏️ Ajustar ]   [ ✕ Recusar ]         │
+│                                                                │
+│                    [ ‹ Voltar para conversa ]                  │
+└──────────────────────────────────────────────────────────────┘
+```
+
+Só aparecem aqui as propostas com `conteudo.<locale>.confirmadoCuidadora = true`. Ajustar/Recusar não edita o texto livremente (paciente pode ter motricidade limitada) — usa o mesmo canal de entrada agnóstico da Tela 06 (gesto ou toque) para selecionar entre opções curtas apresentadas pela LLM.
+
+## 5.3 Componentes
+
+- PendingConfirmationList *(novo)* — lista nós com `confirmadoCuidadora=true` e `confirmadoPaciente=false` no idioma ativo do paciente
+- ConfirmButton *(novo)* — grava `conteudo.<locale>.confirmadoPaciente = true`; se o outro lado (cuidadora) já estava `true`, dispara indexação (ES) + síntese (ElevenLabs) para esse locale
+- AdjustButton *(novo)* — abre variações curtas sugeridas pela LLM para o paciente escolher (não edição livre de texto)
+- RejectButton *(novo)* — descarta a proposta para este locale (nó permanece em rascunho nos demais locales, se houver)
+
+## 5.4 Dados — bindings
+
+- lê: `NoArvoreFala[]` (filtrado por `pacienteId`, `conteudo.<locale>.confirmadoCuidadora = true`, `conteudo.<locale>.confirmadoPaciente = false`)
+- escreve: `NoArvoreFala.conteudo.<locale>.confirmadoPaciente`
+- mock: TODO — sem mock ainda definido; esta tela não existe no protótipo Angular atual
+
+## 5.5 Estado dos elementos diferenciadores
+
+Sem painel de LLM ativo aqui — a conversa já aconteceu na Tela 08; esta tela é só confirmação, reforçando que o paciente nunca precisa "conversar com a IA" diretamente, só decidir sim/não/ajustar sobre o que já foi proposto.
+
+**Estados obrigatórios:** vazio (nenhuma proposta pendente — tela não aparece/CTA discreto), carregamento, erro, confirmação registrada (feedback visual de sucesso antes de voltar à Tela 06).
+
+---
+
+## 6. Adendo (2026-08-30) — Decisão de shell para a sessão do paciente
+
+> Este bloco é uma **adição**, não uma reescrita das seções acima — Telas 06/07 e a nota da
+> Topbar em §3.2.B permanecem exatamente como registradas. Este adendo fecha a pergunta que
+> §3.2.B deixou como `TODO[arquiteto]` ("mesmo shell com indicador condicional, ou shell
+> separado?"), agora que ADR-011/012/013/014 estão todos `accepted`.
+
+**Decisão (BA/UX, Danilo Amaral):** o celular do paciente usa um **shell separado e mais
+restrito** (`patient-shell.component.ts` no protótipo) quando o dispositivo ativo carrega uma
+`SessaoPaciente` ativa — não o mesmo shell da cuidadora (§3.1/§3.2.A) com um item condicional.
+
+**Por quê:** o celular do paciente carrega duas identidades independentes e com autoridades bem
+menores que a cuidadora — token de dispositivo (`edge.device`, para GEST) e a sessão de paciente
+do ADR-012 (`conv.arvore.navegar`/`conv.no.selecionar`, nada de gestão). Um shell único com
+sidebar completa (Status · Histórico · Calibração · Onboarding) e um indicador condicional
+esconderia essas rotas por CSS/estado do cliente, não por ausência real de rota — superfície de
+ataque desnecessária e confusão de UX para quem não tem motricidade fina para "não clicar ali".
+O shell separado nunca renderiza essas rotas para a sessão do paciente.
+
+**O que muda na prática (Tela 06):** a Tela 06 (Árvore de Falas) passa a viver dentro desse shell
+restrito, não do shell da cuidadora (§3.1). O indicador de "modo paciente" descrito em §3.2.B
+continua existindo como conceito, mas deixa de ser uma variação da Topbar da cuidadora — vive na
+topbar mínima do shell restrito (paciente ativo + status de conectividade do dispositivo, sem
+sidebar).
+
+**Fora de escopo deste adendo:** RBAC real que impõe essa separação no backend (isso é
+implementação, não decisão de UX — ver ADR-012 TODO[arquiteto]). Este adendo decide só a forma do
+shell no frontend.
+
+---
+
+## 7. Adendo (2026-08-31) — TREINAMENTO, busca semântica assistida e bilinguismo
+
+> Este bloco é uma **adição** — Telas 01-07 e os adendos anteriores permanecem exatamente como
+> registrados. Fecha a colocação de shell das Telas 08/09 (novas) e documenta o impacto visual
+> da Emenda 4 (Elasticsearch/retrieval puro, TREINAMENTO, ElevenLabs, bilinguismo) sobre a Tela 06
+> já existente, agora que ADR-015/016/017/018 estão todos `accepted`.
+
+**Shell da Tela 08 (Treinamento):** vive no shell da cuidadora (§3.1/§3.2.A, DASH) — mesma lógica
+do adendo §6: quem conduz a autoria tem a sidebar completa (Status · Histórico · Calibração ·
+Onboarding · **Treinamento**, novo item de menu). Não é uma tela do paciente.
+
+**Shell da Tela 09 (Confirmação do paciente):** vive no shell restrito do paciente
+(`patient-shell.component.ts`, o mesmo da Tela 06, ver §6) — a sessão de paciente do ADR-012 ganha
+uma rota nova (`conv.treinamento.confirmar`, nome provisório) além de `conv.arvore.navegar`/
+`conv.no.selecionar`. Ainda sem sidebar, ainda sem autoridade de gestão.
+
+**O que muda na Tela 06 (Árvore de Falas) — sem reescrever a seção original:** o `SpeechTreeNavigator`
+passa a poder ser alimentado por busca semântica (Elasticsearch/kNN, retrieval puro, ver ADR-015)
+além da navegação manual categoria→frase já descrita em §5.2 da Tela 06 — a navegação manual
+continua existindo como comportamento e como fallback (constraint OPS-003) se o Elasticsearch cair.
+O `TTSPlayer` da Tela 06 deixa de ter "escopo a confirmar": toca o áudio **cacheado** (ElevenLabs,
+síntese só em TREINAMENTO — ADR-017), com fallback para TTS nativo do navegador (Web Speech API)
+se o áudio não estiver disponível (constraint OPS-004).
+
+**Bilinguismo (ADR-018) em Telas 06/08/09:** as três telas ganham um seletor de idioma (PT/EN) —
+na Tela 06 (paciente), o idioma determina qual `conteudo.<locale>` é buscado/reproduzido; na Tela 08
+(cuidadora) e Tela 09 (paciente), determina qual proposta está sendo revisada/confirmada. Um nó
+pode estar "pronto" em um idioma e "pendente" no outro — a Tela 06 só mostra/busca nós com o
+locale ativo já indexado (`confirmadoCuidadora=true AND confirmadoPaciente=true` naquele idioma).
+TODO[arquiteto]: desenho visual exato do seletor de idioma e do que a Tela 06 mostra quando um nó
+existe só no outro idioma (ver ADR-018 TODO — decisão de UX ainda não fechada).
+
+**Fora de escopo deste adendo:** schema real de `NoArvoreFala.conteudo` por locale, pipeline de
+indexação/síntese assíncrona, integração com API Claude/Anthropic — tudo isso é implementação
+(ver ADR-015/016/017/018, seção TODO[arquiteto] de cada um). Este adendo decide só forma de shell
+e impacto visual nas telas existentes e novas.
 
 ---

@@ -1,0 +1,91 @@
+@startuml trei-c4-component
+title TREI (trei-service) — C4 Component (hexagonal, Java)
+
+package "api" {
+  [SessaoController]
+  [PropostaController]
+  [NoController]
+  [AprovacaoController]
+  [HealthController]
+}
+
+package "application" {
+  [ConduzirSessaoTreinamento]
+  [RegistrarPropostaLlm]
+  [MaterializarProposta]
+  [AprovarNoCuidadora]
+  [AprovarNoPaciente]
+  [PublicarNo]
+  [DrenarOutbox]
+}
+
+package "domain" {
+  [NoArvoreFala <<aggregate>>]
+  [ConteudoLocale <<vo>>]
+  [SessaoTreinamento]
+  [PropostaLlm]
+  [PublicacaoOutbox]
+  interface LlmAuthoringPort
+  interface EmbeddingPort
+  interface TtsSynthesisPort
+  interface AudioStorePort
+  interface IndexPort
+  interface AcsSessionPort
+  interface PacPatientPort
+  interface HistAuditPort
+}
+
+package "infrastructure" {
+  [AnthropicClient]
+  [EmbeddingSidecarClient]
+  [ElevenLabsClient]
+  [FilesystemAudioAdapter]
+  [ElasticIndexAdapter]
+  [AcsResourceServerConfig]
+  [PacFeignClient]
+  [HistFeignClient]
+  [JpaRepositories]
+  [OutboxScheduler]
+}
+
+' api -> application
+SessaoController --> ConduzirSessaoTreinamento
+PropostaController --> RegistrarPropostaLlm
+NoController --> MaterializarProposta
+AprovacaoController --> AprovarNoCuidadora
+AprovacaoController --> AprovarNoPaciente
+
+' application -> domain (gate + pipeline)
+AprovarNoPaciente --> NoArvoreFala : evaluate gate
+PublicarNo --> PublicacaoOutbox
+DrenarOutbox --> PublicarNo
+
+' ports implemented by infrastructure
+RegistrarPropostaLlm ..> LlmAuthoringPort
+PublicarNo ..> EmbeddingPort
+PublicarNo ..> TtsSynthesisPort
+PublicarNo ..> AudioStorePort
+PublicarNo ..> IndexPort
+AprovarNoPaciente ..> AcsSessionPort
+ConduzirSessaoTreinamento ..> PacPatientPort
+PublicarNo ..> HistAuditPort
+
+LlmAuthoringPort <|.. AnthropicClient
+EmbeddingPort <|.. EmbeddingSidecarClient
+TtsSynthesisPort <|.. ElevenLabsClient
+AudioStorePort <|.. FilesystemAudioAdapter
+IndexPort <|.. ElasticIndexAdapter
+AcsSessionPort <|.. AcsResourceServerConfig
+PacPatientPort <|.. PacFeignClient
+HistAuditPort <|.. HistFeignClient
+
+note bottom of domain
+  Dependency rule (shared hexagonal ADR
+  ADR-001-hexagonal-architecture.md):
+  domain imports nothing outward;
+  application depends on domain;
+  api + infrastructure depend inward.
+  G5 model id recorded on ConteudoLocale
+  at embed time (SPEC-11).
+end note
+@enduml

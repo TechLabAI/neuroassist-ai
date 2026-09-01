@@ -1,0 +1,80 @@
+service: trei-service
+type: standard
+port: 8095
+
+domain:
+  aggregates:
+    - TreiSessaoTreinamento       # DDL: trei_sessao_treinamento (data-model §2.1)
+  entities:
+    - TreiPropostaLlm             # DDL: trei_proposta_llm (data-model §2.2)
+    - TreiConteudoAutoria         # DDL: trei_conteudo_autoria (data-model §2.3) — G5 anchor
+    - TreiPublicacaoOutbox        # DDL: trei_publicacao_outbox (data-model §2.4)
+
+application_services:
+  - name: SessaoTreinamentoService
+    operations:
+      - startSession              # POST /sessoes (api-contract §2.1)
+      - requestProposal           # POST /sessoes/{sessaoId}/propostas (api-contract §2.2)
+  - name: NoAutoriaService
+    operations:
+      - materializeNode           # POST /nos (api-contract §2.3)
+      - approveCaregiver          # POST /nos/{noId}/aprovacoes/cuidadora (api-contract §2.4)
+      - approvePatient            # POST /nos/{noId}/aprovacoes/paciente (api-contract §2.5)
+      - inspectNode               # GET /nos/{noId} (api-contract §2.6)
+      - discardNode               # DELETE /nos/{noId} (api-contract §2.7)
+  - name: PublicacaoService
+    operations:
+      - getPublicacaoStatus       # GET /nos/{noId}/publicacao (api-contract §2.8)
+
+enums:
+  LocaleAutoria:
+    - pt
+    - en
+  EstadoSessao:
+    - ativa
+    - encerrada
+  EstadoProposta:
+    - proposta
+    - materializada
+    - descartada
+  SubEstado:
+    - rascunho
+    - aguardando_aprovacao
+    - publicando
+    - ativo
+    - descartado
+  EstadoOutbox:
+    - pendente
+    - ok
+    - falha
+  PassoOutbox:
+    - embed
+    - tts
+    - index
+  AudioFormato:
+    - mp3
+    - opus
+
+feign_clients:
+  - name: AcsSessionClient        # hub-integration §1 — revocation blacklist check (fail-closed)
+    service: acs-service
+    url_prop: neuroassist.acs.url
+  - name: PacPatientClient        # hub-integration §2 — patient resolution + engine_feature_ref
+    service: pac-service
+    url_prop: neuroassist.pac.url
+  - name: HistAuditClient         # hub-integration §3 — audit facts (synchronous, buffered)
+    service: hist-service
+    url_prop: neuroassist.hist.url
+
+outbound_ports:
+  - LlmAuthoringPort              # integration-contracts §1 — Anthropic API (authoring only)
+  - EmbeddingPort                 # integration-contracts §2 — self-hosted embedding sidecar (G5)
+  - TtsSynthesisPort              # integration-contracts §3 — ElevenLabs cached voice TTS
+  - AudioStorePort                # integration-contracts §5 — filesystem audio store (shared with CONV)
+  - IndexPort                     # integration-contracts §4 — ES write (from elastic-stack-client-lib; CONV read is SearchPort)
+  - AcsSessionPort                # hub-integration §1 — per-request ACS revocation check (fail-closed)
+
+consumed_events: []               # messaging.enabled=false; no broker; in-process domain events only
+
+events:
+  published: []                   # messaging.enabled=false; SpeechNodePublished is in-process only (event-contracts §2)
