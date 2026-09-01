@@ -36,6 +36,8 @@ import {
   DASH_DEVICE_BADGE_TOKEN,
 } from '@neuroassist/dash';
 import type { ActiveEventVm } from '@neuroassist/dash';
+import { provideConv } from '@neuroassist/conv';
+import { provideTrei } from '@neuroassist/trei';
 import { appRoutes } from './app.routes';
 import { APP_ADAPTER_MODE } from './config/adapter-mode';
 import { CURRENT_ADAPTER_MODE } from './config/adapter-mode-env';
@@ -256,6 +258,13 @@ export const appConfig: ApplicationConfig = {
     provideEdge({ adapter: 'mock' }),
     provideHist({ adapter: 'mock' }),
     provideDash({ adapter: 'mock' }),
+    // CONV — Conversação por Árvore de Falas (patient-only shell, /paciente route).
+    // ProposalPort is always mock (G-2/CONV-INT-006 — real endpoint: future TREI module).
+    // TODO[CONV-INT-001]: flip adapter:'http' once conv-service BE is deployed via GWY.
+    provideConv({ adapter: 'mock' }),
+    // TREI — Treinamento de Árvore de Fala (caregiver authoring surface — Tela 08).
+    // TODO[INT-FE-TREI-001..004]: flip adapter:'http' once trei-service is deployed via GWY.
+    provideTrei({ adapter: 'mock' }),
     // INT-FE-DASH-001 — activeEvent do EVNT ligado ao token do DASH.
     // Esta é a ligação entre módulos que sustenta o invariante `calm` do
     // DashHomeFacade: calm === true  ⟺  não há alarme ativo no EVNT. Enquanto o

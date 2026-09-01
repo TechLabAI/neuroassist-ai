@@ -1,0 +1,21 @@
+{
+  "name": "trei-e2e",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/trei-e2e/src",
+  "projectType": "application",
+  "tags": [
+    "scope:trei",
+    "type:e2e"
+  ],
+  "implicitDependencies": [
+    "@neuroassist/trei"
+  ],
+  "targets": {
+    "e2e": {
+      "executor": "@nx/playwright:playwright",
+      "options": {
+        "config": "apps/trei-e2e/playwright.config.ts"
+      }
+    }
+  }
+}

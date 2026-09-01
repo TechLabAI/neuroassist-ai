@@ -16,6 +16,8 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 | ACS | acs | OK | OK | OK | OK | OK | 2026-08-12 |
 | HIST | hist | OK | OK | OK | OK | OK | 2026-08-16 |
 | DASH | dash | OK | OK | OK | OK | OK | 2026-08-18 |
+| CONV | conv | OK | OK | OK | OK | OK | 2026-08-31 |
+| TREI | trei | OK | OK | OK | OK | OK | 2026-09-01 |
 
 ## Ledger de gates diferidos
 
@@ -59,3 +61,5 @@ Legenda de status: `pendente` | `em andamento` | `OK` | `bloqueado` | `N/A`
 - 2026-08-18T09:27:41 -- DASH -- M6 -- FE Promote OK -- Track D; 2 Ports (DashSummaryPort+DashNotificationsPort) + 2 Mocks + 2 HTTP stubs; DashHomeFacade+NotificationsFacade signals-first; HomeStatusComponent+EntradaComponent+NotificationCenterComponent; DASH=landing /; dash-e2e 3 specs; E2E gate OK (pending)
 - 2026-08-18T09:29:17 -- DASH -- M7 -- FE E2E-Validate OK (pending) -- nx e2e dash-e2e --list exit 0; 3 spec stubs prototype-first; Layer 2 implementa
 - 2026-08-18T09:30:25 -- DASH -- M6 -- FE Promote OK -- Track D; DashSummaryPort+DashNotificationsPort+2 Mocks+2 HTTP stubs; DashHomeFacade+NotificationsFacade signals; HomeStatus+Entrada+NotificationCenter promovidos; DASH=landing /; E2E gate OK (pending)
+- 2026-08-31T19:42:52 -- CONV -- E2E-Validate -- OK (pending) -- nx e2e conv-e2e --list: 14/14 specs listados, 0 erros
+- 2026-09-01T08:50:00 -- TREI -- M6 -- FE Promote OK (Track D -- sem prototipo BA, vision §5) -- 4 Ports (TrainingSession/ProposalTurn/DraftNode/CaregiverApproval) + 4 Mocks + 4 HTTP stubs; TrainingSessionFacade + ProposalReviewFacade (signals-first, INV-1 enforced no PatientApproval); 2 feature stubs (TrainingSessionPageComponent + ProposalReviewPageComponent) scaffolded from SPEC-02/SPEC-04; TREI_ROUTES (/treinamento/sessao + /sessao/propostas); rota /treinamento wired em app.routes.ts; treinamento item adicionado em menu-trabalho.ts (order:25); provideTrei() em app.config.ts; trei-e2e registrado Nx (18 specs / 6 files); build OK (28.73kB + 26.55kB chunks); E2E gate OK (pending); RAG degradado (ES/Ollama ainda down desde M1)
