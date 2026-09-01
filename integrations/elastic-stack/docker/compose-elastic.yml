@@ -1,0 +1,122 @@
+
+# Elasticsearch + Kibana — local development stack for NeuroAssist AI
+#
+# Usage:
+#   docker compose -f integrations/elastic-stack/docker/compose-elastic.yml up -d
+#   docker compose -f integrations/elastic-stack/docker/compose-elastic.yml down -v
+#
+# Endpoints (after startup):
+#   Elasticsearch: http://localhost:9200
+#   Kibana:        http://localhost:5601
+#
+# Verify cluster health:
+#   curl http://localhost:9200/_cluster/health?pretty
+#
+# D-275: single-node, security disabled — for local development only.
+# See "Multi-node cluster" section below for production-path config.
+
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.4.1
+    container_name: -elasticsearch
+    environment:
+      - node.name=-es01
+      - cluster.name=-cluster
+      - discovery.type=single-node
+      # Security disabled for local dev — enable for staging/prod
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      # JVM heap — 1g is sufficient for local dev; size to ~50% of RAM in prod
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+      # Ingest tuning (restore after bulk load)
+      # - index.refresh_interval=-1          # set per-index during bulk load
+      # - index.number_of_replicas=0         # set per-index during bulk load
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - _es_data:/usr/share/elasticsearch/data
+    networks:
+      - -elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.4.1
+    container_name: -kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_NAME=-kibana
+      # Security disabled — matches ES config above
+      - XPACK_SECURITY_ENABLED=false
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=_KIBANA_ENCRYPTION_KEY_REPLACE_ME
+    ports:
+      - "5601:5601"
+    networks:
+      - -elastic
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:5601/api/status | grep -q '\"level\":\"available\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+volumes:
+  _es_data:
+    driver: local
+
+networks:
+  -elastic:
+    driver: bridge
+
+# =============================================================================
+# Multi-node cluster (path-to-production — uncomment and adapt)
+# =============================================================================
+#
+# To run a 3-node cluster, replace the `elasticsearch` service above with:
+#
+# services:
+#   es01:
+#     image: docker.elastic.co/elasticsearch/elasticsearch:9.4.1
+#     environment:
+#       - node.name=es01
+#       - cluster.name=-cluster
+#       - cluster.initial_master_nodes=es01,es02,es03
+#       - discovery.seed_hosts=es02,es03
+#       - xpack.security.enabled=true
+#       - xpack.security.http.ssl.enabled=true
+#       - xpack.security.transport.ssl.enabled=true
+#       # Mount TLS certs via volumes (generated with `elasticsearch-certutil`)
+#       - xpack.security.transport.ssl.keystore.path=certs/elastic-certificates.p12
+#       - xpack.security.transport.ssl.truststore.path=certs/elastic-certificates.p12
+#       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+#       - ES_JAVA_OPTS=-Xms2g -Xmx2g
+#     ports:
+#       - "9200:9200"
+#     volumes:
+#       - es01_data:/usr/share/elasticsearch/data
+#       - ./certs:/usr/share/elasticsearch/config/certs:ro
+#   es02:
+#     # ... (same as es01, no external port)
+#   es03:
+#     # ... (same as es01, no external port)
+#   kibana:
+#     environment:
+#       - ELASTICSEARCH_HOSTS=https://es01:9200
+#       - ELASTICSEARCH_USERNAME=kibana_system
+#       - ELASTICSEARCH_PASSWORD=${KIBANA_SYSTEM_PASSWORD}
+#       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=certs/ca.crt
