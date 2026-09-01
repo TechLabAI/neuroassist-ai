@@ -1,0 +1,52 @@
+@startuml trei-c4-context
+!define RECTANGLE class
+title TREI (trei-service) — C4 Context — Authoring plane of the CONV speech tree
+
+actor "Cuidadora Familiar\n(ACS/DASH shell)" as Caregiver
+actor "Paciente com sessão\n(patient shell, ADR-012)" as Patient
+
+rectangle "trei-service\n(Authoring plane — writes what CONV reads)" as TREI
+
+' Edge / platform
+rectangle "GWY\nSpring Cloud Gateway" as GWY
+rectangle "REG\nEureka" as REG
+rectangle "ACS\nIdentity (OAuth2 realm)" as ACS
+rectangle "PAC\nPatient + vocabulary" as PAC
+rectangle "HIST\nAudit trail" as HIST
+
+' Third-party (authoring only)
+cloud "Claude / Anthropic API\n(LLM — authoring only)" as Anthropic
+cloud "ElevenLabs API\n(cloned-voice TTS)" as Eleven
+node "Embedding sidecar\n(self-hosted multilingual)" as Embed
+
+' Shared derived stores (TREI writes, CONV reads)
+database "Elasticsearch\nneuroassist-ai_arvore-fala" as ES
+folder "Audio filesystem\n${AUDIO_ROOT}/..." as Audio
+database "PostgreSQL\n(shared conv_* tree + trei_* authoring)" as PG
+
+rectangle "conv-service\n(runtime — reads only)" as CONV
+
+Caregiver --> GWY : start session / propose / approve
+Patient --> GWY : approve (patient)
+GWY --> TREI : /api/v1/trei/**
+GWY --> REG
+TREI --> ACS : validate JWT + revocation (fail-closed)
+TREI --> PAC : resolve patient / opaque engine_feature_ref
+TREI --> HIST : audit facts (sync, by ref)
+TREI --> Anthropic : proposal turns (request-scoped)
+TREI --> Embed : index-time vector (G5 model id)
+TREI --> Eleven : synthesize once per (node,locale)
+TREI --> PG : authoring state + write conv_* tree
+TREI --> ES : IndexPort write (embedding + texto + audio_ref)
+TREI --> Audio : cache synthesized audio
+
+CONV ..> ES : SearchPort (read, G5 query-time model id)
+CONV ..> Audio : read cached audio
+CONV ..> PG : read conv_* tree
+
+note bottom of TREI
+  TREI never sits on CONV's runtime path.
+  G5: TREI index-time model id == CONV query-time model id
+  (data-model.md §3, SPEC-11).
+end note
+@enduml

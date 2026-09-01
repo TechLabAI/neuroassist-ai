@@ -8,11 +8,25 @@
   "mode": "full",
   "beStep": "scaffold",
   "feStep": "promote",
-  "currentPhase": "M6",
-  "nextPhase": "M7",
+  "currentPhase": "M7+",
+  "nextPhase": "done (bddGate resolvido)",
   "timestamp": "2026-09-01T08:51:00Z",
   "notes": "M6 concluido: FE Promote Track D (sem prototipo BA). 4 Ports + 4 Mocks + 4 HTTP stubs + TrainingSessionFacade + ProposalReviewFacade (signals, INV-1 enforced). 2 feature stubs scaffolded from SPEC-02/SPEC-04. TREI_ROUTES wired, /treinamento em app.routes.ts + menu-trabalho.ts. provideTrei() em app.config.ts. trei-e2e 18 specs OK (pending). Build green (28.73kB + 26.55kB). RAG degradado (ES/Ollama still down). M3 concluido em paralelo: (BE) be-architect-specs-validate: EARS gate PASS (140 clausulas THE SYSTEM SHALL; 22 usos menores em prosa sem violacao); 5 features Gherkin puro (31 cenarios efectivos); pipeline-guard specs OK; SPEC-01..12 + C4 diagrams validados; SQL DDL 4 CREATE TABLE confirmados; RFC 7807 ProblemDetail confirmado; bddGate DIFERIDO (scaffold nao existe ainda -- M5). (FE) fe-architect-specs: frontend-spec/SPEC-01..08 (route-map, component-hierarchy, view-models, data-access, tool-contract, shell-integration, error-handling, e2e-scenarios) + generator-config.yml + 6 e2e/*.feature (apenas-lado-cuidadora, autoria-e-aprovacao-cuidadora, ciclo-de-sessao, erros-e-degradacao, geracao-server-mediated, independencia-de-locale) gerados usando api-contract.md como fonte de verdade. RAG degradado (ES/Ollama down durante M2, ainda nao restaurado ate M3). M3.5: fe-architect-specs-validate concluido: Gate 1 PASS (50 EARS clauses, 0 violacoes; SPEC-02 sem secao EARS por design documentado); Gate 2 tool artifact bilingual (8/50 keyword-match, EN clauses vs PT scenarios); cobertura semantica manual ~45/50; 5 gaps genuinos para backlog (SPEC-01: treiProporGuard review-reachable + deep-link propostas sem turn ativo; SPEC-04: re-aprovacao idempotente; SPEC-07: patient-not-found 404 ao iniciar + correlationId nao exibido como raw id); INV-1 (sem endpoint paciente) COBERTO com 3 cenarios dedicados em apenas-lado-cuidadora.feature; GAP lista-rascunhos arquiteturalmente resolvido por projecao (documentado em SPEC-04 §3/§6). ES still down -- RAG degradado M3.5.",
   "handoff": {
+    "post-M7-replay": {
+      "status": "OK",
+      "gate": "bddGate (CucumberIT) -- replay pos-Docker",
+      "result": "31/31 tests passed (BUILD SUCCESSFUL)",
+      "defects_fixed": [
+        "D-533 recorrente: Feign URL stub ausente em trei-service/src/test/resources/application-test.yml (neuroassist.acs.url/pac.url/hist.url) -- ApplicationContext falhava ao carregar (IllegalArgumentException: URL malformed com placeholder nao resolvido); copiado do padrao ja presente em conv-service",
+        "Step Cucumber ambiguo: @When(\"the {string} step fails\") exige aspas no texto Gherkin, mas a Scenario Outline substitui <step> sem aspas (ex.: 'the tts step fails'); trocado {string} por {word} + removido o @When(\"the embed step fails\") literal duplicado que mascarava o problema so para o valor 'embed'"
+      ],
+      "files_changed": [
+        "backend/services/trei-service/src/test/resources/application-test.yml",
+        "backend/services/trei-service/src/test/java/com/neuroassist/trei/bdd/steps/PublicationPipelineSteps.java"
+      ],
+      "ledger_updated": "bddGate DIFERIDO -> OK no master-plan BE"
+    },
     "M6": {
       "status": "OK",
       "fe_promote": {
