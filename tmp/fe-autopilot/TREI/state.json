@@ -1,0 +1,13 @@
+{
+  "id": "TREI",
+  "pipeline": "implement",
+  "modulo": "TREI",
+  "feature": null,
+  "currentStep": "validate",
+  "nextStep": "done",
+  "priority": "P9",
+  "progressUnit": "9",
+  "iteration": 4,
+  "timestamp": "2026-09-02T00:00:00Z",
+  "notes": "P9 validado: 37/37 issues DONE, score 90/100 (Maduro). Gates da lib (lint/test/build) PASS. E2E: 37 testes escritos e revisados criteriosamente pelo validator (não pôde executar de fato — sem browser/servidor no ambiente do agent — documentado honestamente em vez de fingir execução). Wiring real de TREI_AUTH_SESSION/TREI_ACCESS_DECISION em app.config.ts confirmado e comparado ao padrão de ACS/PAC/EDGE/HIST/DASH. Todos os invariantes G1-G5+INV-1/4/6 confirmados por leitura de código. FINALIZAÇÃO: módulo TREI encerrado nesta invocação."
+}

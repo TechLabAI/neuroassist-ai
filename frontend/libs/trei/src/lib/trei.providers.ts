@@ -19,8 +19,7 @@ import { CaregiverApprovalHttpAdapter } from './api/caregiver-approval-http.adap
 //
 // Usage in app.config.ts:
 //   providers: [..., provideTrei({ adapter: 'mock' })]
-//
-// TODO[INT-FE-TREI-001..004]: switch to 'http' once trei-service is deployed.
+//   Switch to { adapter: 'http' } once trei-service is deployed (requires GWY running).
 //
 // INV-1 (ADR-007 FE / ADR-003 BE): NO patient-approval port is wired here.
 // Patient confirmation is CONV's domain — a different module, a different actor,

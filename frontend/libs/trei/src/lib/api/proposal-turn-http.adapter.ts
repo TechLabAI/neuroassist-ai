@@ -5,9 +5,11 @@ import { ProposalTurnPort } from './proposal-turn.port';
 import { ProposeRequest, ProposalTurnResponse } from '../trei.types';
 
 // =============================================================================
-// ProposalTurnHttpAdapter — production adapter (stub)
-// TODO[INT-FE-TREI-002]: activate when trei-service is deployed.
+// ProposalTurnHttpAdapter — production adapter
+// Active when provideTrei({ adapter: 'http' }) — requires trei-service + GWY.
 // Base: /api/v1/trei/sessoes/{sessaoId}/propostas (api-contract §2.2)
+// X-Empresa-Id and X-Correlation-Id are injected by accessHttpInterceptor
+// (@neuroassist/shared/access-http-base) — no manual header setup needed here.
 // =============================================================================
 
 @Injectable({ providedIn: 'root' })

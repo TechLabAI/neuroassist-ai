@@ -1,76 +1,41 @@
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
-import { TREI_AUTH_SESSION, TREI_ACCESS_DECISION } from './trei-access-tokens';
+import { TREI_ACCESS_DECISION } from './trei-access-tokens';
 
 // =============================================================================
-// TREI Guards — SPEC-01 §3 (FE-TREI-001..003)
+// treiGuard — TREI-FE-023
 //
-// caregiverSessionGuard : verifies that a valid caregiver session token is present.
-//                         Failure → redirect to /.
-// treiGuard             : verifies treinamento.sessao.conduzir scope.
-//                         Failure → redirect to /.
-// treiProporGuard       : verifies treinamento.no.propor scope (for /propostas sub-route).
-//                         Failure → keeps /treinamento/sessao reachable (review-surface
-//                         remains accessible without propor scope — SPEC-01 gap G1).
+// Verifies that the authenticated caregiver holds the
+// `treinamento.sessao.conduzir` authority before allowing access to the TREI
+// module routes (SPEC-01 §3 table).
 //
-// Wave-0 bypass: tokens default to null. Guards pass through when null — preserving
-// dev/test/mock environments without backend auth running.
+// On failure: redirects to /dashboard (caregiver home — not a patient surface).
+//
+// Authority name: `treinamento.sessao.conduzir` — the authoring/session
+// authority emitted by acs-service as a fine-grained authority (empty-prefix
+// format, CLAUDE.md §Cross-service contracts). Verified against SPEC-01 §3
+// and TREI_MODULE_PERMISSION_MAP ('treinamento.conduzir' alias resolves to
+// this literal — trei.descriptor.ts).
+//
+// Authorization design:
+//   - Reads TREI_ACCESS_DECISION.can() (fail-closed default: always false).
+//   - No Wave-0 bypass — can() → false → redirect to /dashboard.
+//   - caregiverSessionGuard (first in chain) ensures the user is authenticated;
+//     this guard only verifies the specific TREI authority.
+//   - `treinamento.no.aprovar.cuidadora` and `treinamento.no.descartar` are
+//     NOT route guards — they gate actions within the review surface (SPEC-01
+//     §3 note). This guard only gates module entry.
 // =============================================================================
-
-/** caregiverSessionGuard — session presence check (TREI-FE-001). */
-export const caregiverSessionGuard: CanActivateFn = () => {
-  const session = inject(TREI_AUTH_SESSION, { optional: true });
-
-  // Wave-0 bypass: not wired — allow through
-  if (session === null) {
-    return true;
-  }
-
-  if (session.token === null) {
-    return inject(Router).createUrlTree(['/']);
-  }
-
-  return true;
-};
 
 /**
- * treiGuard — treinamento.sessao.conduzir scope check (TREI-FE-002).
- * Guards the /treinamento/sessao route (Tela 08 — ChatConversationPanel).
+ * Guards the /treinamento route subtree — requires `treinamento.sessao.conduzir`.
+ * Redirects to /dashboard when the authority is absent.
  */
 export const treiGuard: CanActivateFn = () => {
-  const access = inject(TREI_ACCESS_DECISION, { optional: true });
+  const access = inject(TREI_ACCESS_DECISION);
+  const router = inject(Router);
 
-  // Wave-0 bypass: not wired — allow through
-  if (access === null) {
-    return true;
-  }
-
-  if (!access.can('treinamento.sessao.conduzir')) {
-    return inject(Router).createUrlTree(['/']);
-  }
-
-  return true;
-};
-
-/**
- * treiProporGuard — treinamento.no.propor scope check (TREI-FE-003).
- * Guards the /treinamento/sessao/propostas sub-route (ProposalReview).
- * Gap G1 (specs-validate): even without treinamento.no.propor the review surface
- * must remain reachable (read-only, no new proposals). This guard blocks only when
- * access decision is explicitly wired AND the scope is absent.
- */
-export const treiProporGuard: CanActivateFn = () => {
-  const access = inject(TREI_ACCESS_DECISION, { optional: true });
-
-  // Wave-0 bypass: not wired — allow through (review is always readable)
-  if (access === null) {
-    return true;
-  }
-
-  // Allow: propor OR conduzir (conduzir is the baseline; propor extends it)
-  if (access.can('treinamento.no.propor') || access.can('treinamento.sessao.conduzir')) {
-    return true;
-  }
-
-  return inject(Router).createUrlTree(['/treinamento/sessao']);
+  return access.can('treinamento.sessao.conduzir')
+    ? true
+    : router.createUrlTree(['/dashboard']);
 };

@@ -10,9 +10,11 @@ import {
 } from '../trei.types';
 
 // =============================================================================
-// DraftNodeHttpAdapter — production adapter (stub)
-// TODO[INT-FE-TREI-003]: activate when trei-service is deployed.
+// DraftNodeHttpAdapter — production adapter
+// Active when provideTrei({ adapter: 'http' }) — requires trei-service + GWY.
 // api-contract: §2.3 (POST /nos), §2.6 (GET /nos/{noId}), §2.7 (DELETE /nos/{noId}?locale=)
+// X-Empresa-Id and X-Correlation-Id are injected by accessHttpInterceptor
+// (@neuroassist/shared/access-http-base) — no manual header setup needed here.
 // =============================================================================
 
 @Injectable({ providedIn: 'root' })

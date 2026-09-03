@@ -15,6 +15,7 @@ import {
   MaterializeRequest,
   NodeDetail,
 } from './trei.types';
+import { TreiTelemetryService } from './trei-telemetry.service';
 
 // =============================================================================
 // ProposalReviewFacade — SPEC-04 §3/§4 (draft node review + caregiver approval)
@@ -60,6 +61,7 @@ function toVm(detail: NodeDetail, locale: TreiLocale): DraftNodeVm | null {
 export class ProposalReviewFacade {
   private readonly draftNodePort = inject(DRAFT_NODE_PORT);
   private readonly approvalPort = inject(CAREGIVER_APPROVAL_PORT);
+  private readonly telemetry = inject(TreiTelemetryService);
 
   // ---------------------------------------------------------------------------
   // Private signals
@@ -145,18 +147,38 @@ export class ProposalReviewFacade {
 
   /**
    * approve(noId, locale) — write the CAREGIVER side of approval (INV-1).
-   * Non-optimistic: confirmadoCuidadora set only after backend confirms.
-   * Idempotent: re-approving an already-approved node is a no-op (SPEC-05).
+   * OPTIMISTIC (P7/FE-024): confirmadoCuidadora is set immediately before the HTTP call.
+   * On success: finalizes from backend response, clears approvalInProgress spinner.
+   * On failure: ROLLBACK to the saved previous node state + sets error.
+   * Idempotent: re-approving an already-approved node is a no-op (SPEC-05 / G3).
    */
   async approve(noId: string, locale: TreiLocale): Promise<void> {
-    this.#setApprovalProgress(noId, true);
+    // G3 idempotency: if already approved, skip the HTTP call entirely.
+    const alreadyApproved = this.#nodes().find(
+      (n) => n.noId === noId && n.locale === locale && n.confirmadoCuidadora,
+    );
+    if (alreadyApproved) return;
+
+    // Capture previous state for rollback (P7/FE-024)
+    const previousNodeState = this.#nodes().find(
+      (n) => n.noId === noId && n.locale === locale,
+    );
+
+    // OPTIMISTIC UPDATE: show card as approved immediately + spinner
+    this.#nodes.update((list) =>
+      list.map((n) =>
+        n.noId === noId && n.locale === locale
+          ? { ...n, confirmadoCuidadora: true, approvalInProgress: true }
+          : n,
+      ),
+    );
 
     try {
       const response = await lastValueFrom(
         this.approvalPort.approve(noId, { locale }),
       );
 
-      // Non-optimistic update: set from backend response
+      // Finalize from backend response, clear the pending spinner
       this.#nodes.update((list) =>
         list.map((n) =>
           n.noId === noId && n.locale === locale
@@ -169,10 +191,33 @@ export class ProposalReviewFacade {
             : n,
         ),
       );
+      // P8 (FE-026): telemetry — node caregiver-approval confirmed (opaque noId; no patient data per SEC-002)
+      this.telemetry.trackNodeApproved(noId);
     } catch (err) {
-      this.#setApprovalProgress(noId, false);
-      this.#error.set(mapError(err, 'Erro ao aprovar nó'));
+      // ROLLBACK (P7/FE-024): restore previous node state
+      // P8 (FE-026): telemetry — node approval error (opaque noId; no patient data)
+      this.telemetry.trackNodeApprovalError(noId);
+      if (previousNodeState) {
+        this.#nodes.update((list) =>
+          list.map((n) =>
+            n.noId === noId && n.locale === locale
+              ? { ...previousNodeState, approvalInProgress: false }
+              : n,
+          ),
+        );
+      } else {
+        this.#setApprovalProgress(noId, false);
+      }
+      this.#error.set(mapError(err, 'Erro ao aprovar nó — tente novamente'));
     }
+  }
+
+  /**
+   * approveNode(noId, locale) — alias for approve(); used by plan P2 contract.
+   * G3: re-approving an already-confirmed node is a no-op (no error, no HTTP call).
+   */
+  async approveNode(noId: string, locale: TreiLocale): Promise<void> {
+    return this.approve(noId, locale);
   }
 
   /**

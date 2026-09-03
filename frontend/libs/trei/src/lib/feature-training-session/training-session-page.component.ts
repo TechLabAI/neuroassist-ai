@@ -1,265 +1,182 @@
 import {
-  Component,
   ChangeDetectionStrategy,
+  Component,
   inject,
-  OnInit,
-  signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { TrainingSessionFacade } from '../trei.facade';
 import { TreiLocale } from '../trei.types';
+import { LocaleTabsComponent } from './locale-tabs.component';
+import { ChatConversationPanelComponent } from './chat-conversation-panel.component';
+import { ConversationErrorPanelComponent } from './conversation-error-panel.component';
+import { EmptySessionStateComponent } from './empty-session-state.component';
+import { EndSessionButtonComponent } from './end-session-button.component';
+import { SessionEndedNoticeComponent } from './session-ended-notice.component';
 
 // =============================================================================
-// TrainingSessionPageComponent — Tela 08 (SPEC-02 §3, FE-TREI-004..012)
+// TrainingSessionPageComponent — Tela 08 (SPEC-02 §2, FE-TREI-013..017)
 // Route: /treinamento/sessao
 //
-// DREI has no BA prototype (D-493 promote path does not apply — vision doc §5).
-// This component is scaffolded from specs (generator-config.yml / SPEC-02).
+// SMART container — reads signals from TrainingSessionFacade and delegates
+// all rendering to presentational components.
 //
-// UI structure (SPEC-02 §3):
-//   - "Treinamento — não é o app do paciente" affordance banner (TECH-007)
-//   - LocaleTabs (PT | EN active locale selector — ADR-018)
-//   - ChatConversationPanel (messages list + AssistantThinkingIndicator)
-//   - ChatComposer (caregiver text input + Send button)
-//   - EndSessionButton + SessionEndedNotice
-//   - EmptyState CTA "Iniciar treinamento" when no session active
+// Signal sources consumed:
+//   - facade.screenVm  → session | messages | activeLocale | status | isAssistantThinking | error
 //
-// TODO[FE-TREI-004..012]: flesh out full UI from SPEC-02 component hierarchy.
-//   Each issue covers one sub-component (ChatBubble, LocaleTabs, ChatComposer, etc.)
-//   This stub covers the structural skeleton: session init + message display.
+// User actions delegated to facade:
+//   - onStart()        → facade.startSession(pacienteId)
+//   - onEnd()          → facade.endSession()
+//   - onLocaleChange() → facade.setActiveLocale(locale)
+//   - onTurnSubmit()   → facade.sendTurn(text, parentNoId, tipo)
+//   - onRetry()        → facade.retry(pacienteId)
+//
+// P6: TreiAuthoringBannerComponent extracted to TreiRootComponent (TREI-FE-021).
+// The banner now renders on all TREI routes via the root layout component.
 // =============================================================================
 
 @Component({
-  selector: 'lib-training-session-page',
+  selector: 'trei-training-session-page',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [
+    RouterLink,
+    LocaleTabsComponent,
+    ChatConversationPanelComponent,
+    ConversationErrorPanelComponent,
+    EmptySessionStateComponent,
+    EndSessionButtonComponent,
+    SessionEndedNoticeComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mx-auto max-w-4xl p-6">
 
-      <!-- AI authoring surface affordance (TECH-007 / vision §4) -->
-      <div
-        class="mb-4 flex items-center gap-2 rounded-xl border border-warning bg-warning-bg px-4 py-2.5 text-sm font-semibold text-warning-ink"
-        data-testid="authoring-banner"
-        aria-label="Esta é a superfície de autoria — não é o app do paciente">
-        <span class="material-symbols-outlined text-[18px]">psychology</span>
-        <span>Treinamento — não é o app do paciente</span>
-      </div>
+      <!-- LocaleTabs (ADR-018 — locale-independent) -->
+      <trei-locale-tabs
+        [locales]="locales"
+        [activeLocale]="activeLocale()"
+        (localeChange)="onLocaleChange($event)" />
 
-      <!-- LocaleTabs (ADR-018 — locale-independent per locale) -->
-      <div class="mb-4 flex gap-2" role="tablist" aria-label="Idioma de autoria">
-        @for (locale of locales; track locale) {
-          <button
-            role="tab"
-            [attr.aria-selected]="activeLocale() === locale"
-            [attr.data-testid]="'locale-tab-' + locale"
-            (click)="setLocale(locale)"
-            class="rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors"
-            [class]="activeLocale() === locale
-              ? 'bg-primary text-white'
-              : 'bg-surface-2 text-ink-soft hover:text-ink'">
-            {{ locale.toUpperCase() }}
-          </button>
-        }
-      </div>
-
-      @if (vm().session === null && vm().status === 'idle') {
-        <!-- EmptyState CTA — no active session (SPEC-02 §4) -->
+      <!-- P7 (FE-025): health-degraded affordance — visible when mock adapter is active -->
+      @if (vm().isDegraded) {
         <div
-          class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line bg-surface p-12 text-center"
-          data-testid="empty-state">
-          <span class="material-symbols-outlined mb-3 text-4xl text-ink-faint">chat</span>
-          <h2 class="font-display text-xl font-bold text-ink">Iniciar treinamento</h2>
-          <p class="mt-2 max-w-sm text-sm text-ink-soft">
-            Converse com o assistente para propor novas categorias e frases
-            para a árvore de fala de Márcio.
-          </p>
-          <button
-            (click)="startSession()"
-            data-testid="start-session-btn"
-            class="mt-6 rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark">
-            Iniciar sessão
-          </button>
+          class="mb-3 flex items-center gap-2 rounded-xl border border-warning bg-warning-bg
+                 px-3 py-2 text-xs text-warning-ink"
+          data-testid="health-degraded-badge"
+          role="status"
+          aria-label="Sistema em modo simulado — sem conexão com o servidor de IA">
+          <span class="material-symbols-outlined text-[14px]" aria-hidden="true">warning</span>
+          Modo simulado — dados reais indisponíveis
         </div>
+      }
+
+      <!-- P7 (INT-005 / G5-link): embed model readiness for CONV integration -->
+      @if (vm().embedModelId) {
+        <div
+          class="mb-3 flex items-center gap-2 rounded-xl border border-success bg-success-bg
+                 px-3 py-2 text-xs text-success-ink"
+          data-testid="embed-model-status"
+          aria-label="Motor de IA disponível">
+          <span class="material-symbols-outlined text-[14px]" aria-hidden="true">smart_toy</span>
+          Motor de IA: disponível
+        </div>
+      }
+
+      <!-- P7 (FE-025 / G4): patient-not-found banner — specific 404 case -->
+      @if (vm().isPatientNotFound) {
+        <div
+          class="mb-4 rounded-xl border border-warning bg-warning-bg p-4"
+          data-testid="patient-not-found-banner"
+          role="alert">
+          <p class="font-semibold text-warning-ink">Paciente não encontrado</p>
+          <p class="mt-1 text-xs text-warning-ink">
+            O perfil do paciente associado não foi localizado no sistema.
+            Verifique se o paciente está ativo antes de iniciar uma sessão de treinamento.
+          </p>
+        </div>
+
+      } @else if (vm().session === null && vm().status === 'idle') {
+        <!-- EmptyState CTA -->
+        <trei-empty-session-state (sessionStart)="onStart()" />
 
       } @else if (vm().status === 'loading') {
         <!-- Loading state -->
         <div class="flex items-center gap-3 rounded-xl bg-surface-2 p-4 text-sm text-ink-soft">
-          <div class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+          <div
+            class="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            role="status"
+            aria-label="Carregando"></div>
           Iniciando sessão…
         </div>
 
       } @else if (vm().status === 'error') {
-        <!-- Error state -->
-        <div role="alert" class="rounded-2xl border border-error bg-error-bg p-4 text-sm text-error-ink"
-             data-testid="session-error">
-          <p class="font-semibold">Erro ao iniciar sessão</p>
-          <p class="mt-1 text-xs">{{ vm().error?.message }}</p>
-          <button
-            (click)="startSession()"
-            class="mt-3 rounded-lg border border-error px-3 py-1.5 text-xs font-semibold text-error-ink hover:bg-error-bg">
-            Tentar novamente
-          </button>
-        </div>
+        <!-- Error state (G5: ConversationErrorPanel never exposes correlationId) -->
+        <trei-conversation-error-panel
+          [error]="vm().error"
+          (retry)="onRetry()" />
 
       } @else {
-        <!-- Active session — conversation panel + composer -->
-        <div class="flex flex-col gap-4">
+        <!-- Active session — conversation panel + controls -->
+        <trei-chat-conversation-panel
+          [turns]="vm().messages"
+          [isThinking]="vm().isAssistantThinking"
+          [showComposer]="vm().session?.estado === 'ativa'"
+          (caregiverTurnSubmit)="onTurnSubmit($event)" />
 
-          <!-- ChatConversationPanel (SPEC-02 §3) -->
-          <div
-            class="flex h-[400px] flex-col gap-3 overflow-y-auto rounded-2xl border border-line bg-surface p-4"
-            data-testid="conversation-panel"
-            aria-label="Conversa com o assistente">
-
-            @for (msg of vm().messages; track msg.id) {
-              <!-- ChatBubble — caregiver vs assistant (SPEC-02 §3) -->
-              <div
-                [attr.data-testid]="'msg-' + msg.role"
-                [attr.data-message-id]="msg.id"
-                class="flex gap-2"
-                [class]="msg.role === 'caregiver' ? 'justify-end' : 'justify-start'">
-                <div
-                  class="max-w-[75%] rounded-2xl px-4 py-2.5 text-sm"
-                  [class]="msg.role === 'caregiver'
-                    ? 'bg-primary text-white'
-                    : 'border border-line bg-surface-2 text-ink'">
-
-                  {{ msg.content }}
-
-                  <!-- AI disclosure badge (TECH-007 / ADR-017) -->
-                  @if (msg.aiDisclosed) {
-                    <div class="mt-2 flex items-center gap-1 text-[11px] opacity-70">
-                      <span class="material-symbols-outlined text-[12px]">psychology</span>
-                      Gerado por IA — verifique antes de aprovar
-                    </div>
-                  }
-
-                  <!-- Proposals list (if any) -->
-                  @if (msg.proposals && msg.proposals.length > 0) {
-                    <div class="mt-3 flex flex-col gap-1" data-testid="proposals-list">
-                      @for (p of msg.proposals; track p.propostaId) {
-                        <div
-                          class="flex items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface px-3 py-2 text-ink"
-                          [attr.data-proposal-id]="p.propostaId">
-                          <span class="text-sm">{{ p.texto }}</span>
-                          <span class="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] text-ink-soft">
-                            {{ p.tipo }}
-                          </span>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-
-            <!-- AssistantThinkingIndicator (SPEC-02 §4) -->
-            @if (vm().isAssistantThinking) {
-              <div class="flex justify-start" data-testid="assistant-thinking">
-                <div class="rounded-2xl border border-line bg-surface-2 px-4 py-2.5">
-                  <div class="flex gap-1.5 items-center text-sm text-ink-soft">
-                    <div class="flex gap-1">
-                      <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-faint [animation-delay:0ms]"></span>
-                      <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-faint [animation-delay:150ms]"></span>
-                      <span class="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-faint [animation-delay:300ms]"></span>
-                    </div>
-                    O assistente está pensando…
-                  </div>
-                </div>
-              </div>
+        <!-- Navigation link + EndSession button -->
+        @if (vm().messages.length > 0) {
+          <div class="mt-4 flex items-center justify-between">
+            <a
+              routerLink="/treinamento/sessao/propostas"
+              data-testid="review-proposals-link"
+              class="text-sm font-semibold text-primary hover:underline">
+              Ver propostas para aprovação →
+            </a>
+            @if (vm().session?.estado === 'ativa') {
+              <trei-end-session-button (end)="onEnd()" />
             }
           </div>
+        }
 
-          <!-- ChatComposer (SPEC-02 §3) -->
-          @if (vm().session?.estado === 'ativa') {
-            <div class="flex gap-2" data-testid="chat-composer">
-              <input
-                [(ngModel)]="instrucao"
-                (keyup.enter)="sendTurn()"
-                [disabled]="vm().isAssistantThinking"
-                placeholder="Descreva o que Márcio precisa falar…"
-                data-testid="composer-input"
-                class="flex-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none disabled:opacity-50" />
-              <button
-                (click)="sendTurn()"
-                [disabled]="!instrucao || vm().isAssistantThinking"
-                data-testid="send-btn"
-                class="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:opacity-50">
-                <span class="material-symbols-outlined text-[18px]">send</span>
-              </button>
-            </div>
-          }
-
-          <!-- Navigation to proposal review -->
-          @if (vm().messages.length > 0) {
-            <div class="flex items-center justify-between">
-              <a
-                routerLink="/treinamento/sessao/propostas"
-                data-testid="review-proposals-link"
-                class="text-sm font-semibold text-primary hover:underline">
-                Ver propostas para aprovação →
-              </a>
-
-              <!-- EndSessionButton (SPEC-02 §4 — no-loss guarantee) -->
-              @if (vm().session?.estado === 'ativa') {
-                <button
-                  (click)="endSession()"
-                  data-testid="end-session-btn"
-                  class="rounded-xl border border-line px-4 py-2 text-sm text-ink-soft hover:bg-surface-2">
-                  Encerrar sessão
-                </button>
-              }
-            </div>
-          }
-
-          <!-- SessionEndedNotice -->
-          @if (vm().session?.estado === 'encerrada') {
-            <div
-              class="rounded-xl border border-success bg-success-bg p-3 text-sm text-success-ink"
-              data-testid="session-ended-notice">
-              Sessão encerrada. As propostas pendentes continuam como rascunhos.
-            </div>
-          }
-
-        </div>
+        <!-- SessionEndedNotice (INV-4: proposals retained as drafts) -->
+        @if (vm().session?.estado === 'encerrada') {
+          <trei-session-ended-notice />
+        }
       }
 
     </div>
   `,
 })
-export class TrainingSessionPageComponent implements OnInit {
+export class TrainingSessionPageComponent {
   private readonly facade = inject(TrainingSessionFacade);
 
   protected readonly locales: TreiLocale[] = ['pt', 'en'];
+
+  /** Assembled screen VM — single signal source for all template bindings. */
   protected readonly vm = this.facade.screenVm;
+
+  /** Active locale signal — passed to LocaleTabsComponent. */
   protected readonly activeLocale = this.facade.activeLocale;
-  protected instrucao = '';
 
   // Mock pacienteId — Layer 2 will wire from session context (DashHomeFacade)
   private readonly MOCK_PACIENTE_ID = 'pac-marcio';
 
-  ngOnInit(): void {
-    // Session is started on CTA click, not on route enter
-  }
-
-  protected startSession(): void {
+  protected onStart(): void {
     void this.facade.startSession(this.MOCK_PACIENTE_ID);
   }
 
-  protected setLocale(locale: TreiLocale): void {
+  protected onEnd(): void {
+    this.facade.endSession();
+  }
+
+  protected onLocaleChange(locale: TreiLocale): void {
     this.facade.setActiveLocale(locale);
   }
 
-  protected sendTurn(): void {
-    if (!this.instrucao.trim() || this.vm().isAssistantThinking) return;
-    const text = this.instrucao.trim();
-    this.instrucao = '';
+  protected onTurnSubmit(text: string): void {
     void this.facade.sendTurn(text, 'n-root', 'frase');
   }
 
-  protected endSession(): void {
-    this.facade.endSession();
+  protected onRetry(): void {
+    void this.facade.retry(this.MOCK_PACIENTE_ID);
   }
 }

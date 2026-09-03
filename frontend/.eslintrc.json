@@ -23,6 +23,7 @@
                   "scope:dash",
                   "scope:acs",
                   "scope:edge",
+                  "scope:trei",
                   "scope:shared"
                 ]
               },
@@ -54,6 +55,10 @@
               {
                 "sourceTag": "scope:edge",
                 "onlyDependOnLibsWithTags": ["scope:edge", "scope:shared"]
+              },
+              {
+                "sourceTag": "scope:trei",
+                "onlyDependOnLibsWithTags": ["scope:trei", "scope:shared"]
               },
               {
                 "sourceTag": "scope:shared",
