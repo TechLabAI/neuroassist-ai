@@ -86,6 +86,22 @@ const ACS_DESCRIPTOR: ModuleDescriptor = {
   requiredPermission: 'acs.cuidador.read',
 };
 
+// ---------------------------------------------------------------------------
+// TREI — Treinamento de Árvore de Fala (caregiver authoring surface)
+// showInNav:true — visible in sidebar for caregivers with treinamento.sessao.conduzir.
+// Shell route: /treinamento (TREI_ROUTES covers /treinamento/sessao and /treinamento/sessao/propostas).
+// Kill-switch: TREI_MODULE_FEATURE_FLAGS['treinamento.enabled'] (in trei.descriptor.ts).
+// Promoted by /fe-architect-promote neuroassist-ai TREI.
+// ---------------------------------------------------------------------------
+const TREI_DESCRIPTOR: ModuleDescriptor = {
+  key: 'trei',
+  label: 'Treinamento',
+  icon: 'chat',
+  shellRoute: '/treinamento',
+  showInNav: true,
+  requiredPermission: 'treinamento.sessao.conduzir',
+};
+
 // Modules added progressively via /fe-architect-promote
 // (only modules with showInNav:true appear in the sidebar)
 export const MODULE_DESCRIPTORS: ModuleDescriptor[] = [
@@ -94,6 +110,7 @@ export const MODULE_DESCRIPTORS: ModuleDescriptor[] = [
   PAC_DESCRIPTOR,
   EDGE_DESCRIPTOR,
   ACS_DESCRIPTOR,
+  TREI_DESCRIPTOR,   // order:25 — caregiver authoring surface (/treinamento)
 ];
 
 /** Convenience: sidebar nav items (modules that contribute a nav entry). */

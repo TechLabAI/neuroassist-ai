@@ -12,13 +12,17 @@ import { PROPOSAL_TURN_PORT } from './api/proposal-turn.port';
 import {
   TrainingSession,
   ChatMessage,
-  LlmProposal,
   TreiLocale,
   TrainingSessionScreenVm,
   AppError,
   StartSessionRequest,
   ProposeRequest,
+  SessionVM,
+  TurnVM,
+  SessionStatus,
+  Locale,
 } from './trei.types';
+import { TreiTelemetryService } from './trei-telemetry.service';
 
 // =============================================================================
 // TrainingSessionFacade — SPEC-03 §3/§4 (training session + conversation)
@@ -52,6 +56,7 @@ export class TrainingSessionFacade {
   private readonly sessionPort = inject(TRAINING_SESSION_PORT);
   private readonly proposalPort = inject(PROPOSAL_TURN_PORT);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly telemetry = inject(TreiTelemetryService);
 
   // ---------------------------------------------------------------------------
   // Private writable signals (SPEC-03 §3 / ADR-007 FE)
@@ -63,8 +68,16 @@ export class TrainingSessionFacade {
   readonly #isAssistantThinking = signal<boolean>(false);
   readonly #error = signal<AppError | null>(null);
 
+  // P7 (FE-025 / G4): patient-not-found detection
+  readonly #isPatientNotFound = signal<boolean>(false);
+
+  // P7 (INT-005 / G5-link): embed model ID — set on session start; null = not yet known
+  // In mock mode this is pre-seeded to reflect the mock environment.
+  // When trei-service is online, this will come from the health endpoint (deferred to P8/P9).
+  readonly #embedModelId = signal<string | null>(null);
+
   // ---------------------------------------------------------------------------
-  // Public readonly signals
+  // Public readonly signals — existing API (preserved for backward compat)
   // ---------------------------------------------------------------------------
   readonly session = this.#session.asReadonly();
   readonly messages = this.#messages.asReadonly();
@@ -72,6 +85,73 @@ export class TrainingSessionFacade {
   readonly status = this.#status.asReadonly();
   readonly isAssistantThinking = this.#isAssistantThinking.asReadonly();
   readonly error = this.#error.asReadonly();
+
+  // P7 new public signals
+  readonly isPatientNotFound = this.#isPatientNotFound.asReadonly();
+  readonly embedModelId = this.#embedModelId.asReadonly();
+
+  // ---------------------------------------------------------------------------
+  // Plan P2 required signals (SPEC-03 §2 / plan-FE-TREI §P2 contract)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * isLoading — true while any async operation (startSession / sendTurn) is in-flight.
+   * Computed from #status; preserves backward compat with status signal.
+   */
+  readonly isLoading = computed<boolean>(() => this.#status() === 'loading');
+
+  /**
+   * isMock — true when the mock adapter is active (trio-service not yet deployed).
+   * Switch to false in provideTrei({ adapter: 'http' }) when trei-service is available.
+   */
+  readonly isMock = signal<boolean>(true);
+
+  /**
+   * isDegraded — P7 (FE-025): health-degraded affordance.
+   * Currently computed from isMock: mock mode = degraded (no real AI pipeline).
+   * When trei-service is online, this will reflect the real health status (P8/P9).
+   */
+  readonly isDegraded = computed<boolean>(() => this.isMock());
+
+  /**
+   * sessions — assembled list of SessionVMs from the current session.
+   * During P1-P8, at most one session is active (session lifecycle is single-session).
+   * Returns [] when no session is active; [sessionVM] when one is.
+   */
+  readonly sessions = computed<SessionVM[]>(() => {
+    const session = this.#session();
+    if (!session) return [];
+
+    const status = this.#mapEstadoToStatus(session.estado);
+    const locale = this.#mapLocaleToVM(session.localeAutoria);
+    const turns = this.#messages().map<TurnVM>((msg) => ({
+      id: msg.id,
+      role: msg.role === 'caregiver' ? 'user' : 'assistant',
+      content: msg.content,
+      createdAt: msg.timestamp,
+    }));
+
+    return [{ id: session.sessaoId, patientId: session.pacienteId, status, locale, turns }];
+  });
+
+  /**
+   * activeTurn — the most recent assistant turn (the latest assistant message).
+   * null when no assistant has responded yet or the session is idle.
+   */
+  readonly activeTurn = computed<TurnVM | null>(() => {
+    const msgs = this.#messages();
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      if (msgs[i].role === 'assistant') {
+        return {
+          id: msgs[i].id,
+          role: 'assistant',
+          content: msgs[i].content,
+          createdAt: msgs[i].timestamp,
+        };
+      }
+    }
+    return null;
+  });
 
   /** Assembled screen VM (SPEC-03 §3). */
   readonly screenVm = computed<TrainingSessionScreenVm>(() => ({
@@ -81,6 +161,11 @@ export class TrainingSessionFacade {
     status: this.#status() === 'active' ? 'loaded' : this.#status() === 'idle' ? 'idle' : this.#status() === 'error' ? 'error' : 'loading',
     isAssistantThinking: this.#isAssistantThinking(),
     error: this.#error(),
+    // P7 (FE-025 / G4): patient-not-found and degraded state
+    isPatientNotFound: this.#isPatientNotFound(),
+    isDegraded: this.isDegraded(),
+    // P7 (INT-005): embed model ID for CONV readiness display
+    embedModelId: this.#embedModelId(),
   }));
 
   // ---------------------------------------------------------------------------
@@ -92,6 +177,8 @@ export class TrainingSessionFacade {
     this.#status.set('loading');
     this.#error.set(null);
     this.#messages.set([]);
+    // Reset patient-not-found flag on each attempt (P7/FE-025/G4)
+    this.#isPatientNotFound.set(false);
 
     const request: StartSessionRequest = {
       pacienteId,
@@ -102,9 +189,34 @@ export class TrainingSessionFacade {
       const session = await lastValueFrom(this.sessionPort.start(request));
       this.#session.set(session);
       this.#status.set('active');
+      // P7 (INT-005): set embed model ID from session response — llmModelId acts as
+      // proxy for AI pipeline availability until health endpoint is wired (P8/P9).
+      // In mock mode a static embed model value is used; HTTP mode derives from session.
+      this.#embedModelId.set(
+        this.isMock()
+          ? `embed-mock:${session.llmModelId}`
+          : session.llmModelId,
+      );
+      // P8 (FE-026): telemetry — session started (opaque sessaoId only; no patientId per SEC-002)
+      this.telemetry.trackSessionStarted(session.sessaoId);
     } catch (err) {
-      this.#error.set(mapError(err, 'Erro ao iniciar sessão de treinamento'));
+      const appError = mapError(err, 'Erro ao iniciar sessão de treinamento');
+      this.#error.set(appError);
       this.#status.set('error');
+      // P8 (FE-026): telemetry — session error (errorCode only; no sensitive data)
+      const errorCode = err instanceof Object && 'status' in err
+        ? `HTTP_${(err as { status: number }).status}`
+        : 'UNKNOWN';
+      this.telemetry.trackSessionError(errorCode);
+
+      // P7 (FE-025 / G4): detect patient-not-found (HTTP 404) — show specific banner
+      const is404 =
+        err instanceof Object &&
+        'status' in err &&
+        (err as { status: number }).status === 404;
+      if (is404) {
+        this.#isPatientNotFound.set(true);
+      }
     }
   }
 
@@ -146,10 +258,14 @@ export class TrainingSessionFacade {
       };
       this.#messages.update((msgs) => [...msgs, assistantMsg]);
       this.#isAssistantThinking.set(false);
+      // P8 (FE-026): telemetry — turn submitted (opaque sessaoId only; no patient data per SEC-002)
+      this.telemetry.trackTurnSubmitted(session.sessaoId);
     } catch (err) {
       this.#isAssistantThinking.set(false);
       const appErr = mapError(err, 'Erro ao gerar propostas — tente novamente');
       this.#error.set(appErr);
+      // P8 (FE-026): telemetry — turn error (opaque sessaoId only; no patient data)
+      this.telemetry.trackTurnError(session.sessaoId);
     }
   }
 
@@ -169,8 +285,28 @@ export class TrainingSessionFacade {
     this.#status.set('idle');
   }
 
-  /** retry — retry after a startSession error. */
+  /** retry — retry after a startSession error (P7: also resets isPatientNotFound). */
   async retry(pacienteId: string): Promise<void> {
     await this.startSession(pacienteId);
+  }
+
+  /**
+   * submitTurn — alias for sendTurn (plan P2 contract).
+   * Sends a caregiver instruction and receives LLM proposals.
+   */
+  async submitTurn(instrucao: string, parentNoId: string, tipo: 'frase' | 'categoria'): Promise<void> {
+    return this.sendTurn(instrucao, parentNoId, tipo);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private mapping helpers (P2 view model computation)
+  // ---------------------------------------------------------------------------
+
+  #mapEstadoToStatus(estado: 'ativa' | 'encerrada'): SessionStatus {
+    return estado === 'ativa' ? 'ACTIVE' : 'ENDED';
+  }
+
+  #mapLocaleToVM(locale: TreiLocale): Locale {
+    return locale === 'pt' ? 'pt-BR' : 'en-US';
   }
 }

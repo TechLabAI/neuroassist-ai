@@ -37,7 +37,7 @@ import {
 } from '@neuroassist/dash';
 import type { ActiveEventVm } from '@neuroassist/dash';
 import { provideConv } from '@neuroassist/conv';
-import { provideTrei } from '@neuroassist/trei';
+import { provideTrei, TREI_AUTH_SESSION, TREI_ACCESS_DECISION } from '@neuroassist/trei';
 import { appRoutes } from './app.routes';
 import { APP_ADAPTER_MODE } from './config/adapter-mode';
 import { CURRENT_ADAPTER_MODE } from './config/adapter-mode-env';
@@ -265,6 +265,41 @@ export const appConfig: ApplicationConfig = {
     // TREI — Treinamento de Árvore de Fala (caregiver authoring surface — Tela 08).
     // TODO[INT-FE-TREI-001..004]: flip adapter:'http' once trei-service is deployed via GWY.
     provideTrei({ adapter: 'mock' }),
+    // FIM DO "Wave-0 bypass" do TREI. O `caregiverSessionGuard` e o `treiGuard`
+    // usavam `TREI_AUTH_SESSION.token === null` e `TREI_ACCESS_DECISION.can() === false`
+    // como padrão de fábrica — o que significa que /treinamento era acessível apenas
+    // em modo sem-guarda.
+    //
+    // Após ligar estes tokens, os guards verificam o JWT real:
+    //   - `caregiverSessionGuard` lê `sessao.token()` — redireciona para /login se nulo.
+    //   - `treiGuard` lê `sessao.pode('treinamento.sessao.conduzir')`.
+    //   - `treiProporGuard` lê `sessao.pode('treinamento.no.propor')` (G1 — redireciona
+    //     para /treinamento/sessao, nunca 403, nunca /dashboard).
+    //
+    // As authorities do TREI ('treinamento.*') ainda não são emitidas pelo acs-service
+    // (tres-service não implantado). Quando implantado, o RoleAuthorityPolicy do
+    // acs-service deve incluir estas authorities e as fixtures de teste devem ser
+    // atualizadas com valores reais do serviço.
+    {
+      provide: TREI_AUTH_SESSION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          get token(): string | null {
+            return sessao.token();
+          },
+        };
+      },
+    },
+    {
+      provide: TREI_ACCESS_DECISION,
+      useFactory: () => {
+        const sessao = inject(AuthSessionStore);
+        return {
+          can: (authority: string) => sessao.pode(authority),
+        };
+      },
+    },
     // INT-FE-DASH-001 — activeEvent do EVNT ligado ao token do DASH.
     // Esta é a ligação entre módulos que sustenta o invariante `calm` do
     // DashHomeFacade: calm === true  ⟺  não há alarme ativo no EVNT. Enquanto o

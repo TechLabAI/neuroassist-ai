@@ -1,37 +1,57 @@
 import {
-  Component,
   ChangeDetectionStrategy,
-  inject,
+  Component,
   OnInit,
+  computed,
+  inject,
+  signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs/operators';
 import { ProposalReviewFacade } from '../trei-proposal.facade';
-import { TreiLocale, DraftNodeVm } from '../trei.types';
+import { DraftNodeVm, TreiLocale } from '../trei.types';
+import { ApprovalSummaryBarComponent } from './approval-summary-bar.component';
+import { ProposalListComponent } from './proposal-list.component';
+import { ProposalEmptyStateComponent } from './proposal-empty-state.component';
+import { ProposalEditDialogComponent } from './proposal-edit-dialog.component';
+import { NodeActionEvent } from './proposed-node-card.component';
 
 // =============================================================================
-// ProposalReviewPageComponent — Tela 08 / Propostas sub-view (SPEC-04, FE-TREI-013..023)
+// ProposalReviewPageComponent — SPEC-02 §3, TREI-FE-018 (smart container)
 // Route: /treinamento/sessao/propostas
 //
-// TREI has no BA prototype (D-493 promote path does not apply — vision doc §5).
-// This component is scaffolded from specs (SPEC-04 §3 / generator-config.yml).
+// SMART container — reads signals from ProposalReviewFacade and delegates
+// all rendering to presentational components.
 //
-// UI structure (SPEC-04 §3):
-//   - ApprovalSummaryBar (count of rascunho / aguardando_aprovacao nodes)
-//   - LocaleTabs (PT | EN — locale-independent per ADR-018)
-//   - ProposalList (ProposedNodeCard rows)
-//     - DualConfirmationIndicator (cuidadora ✓ / paciente pending)
-//     - Aprovar button (POST /aprovacoes/cuidadora — CAREGIVER ONLY, INV-1)
-//     - Descartar button (DELETE /nos/{noId}?locale=)
-//   - ProposalEmptyState when list is empty
+// Signal sources consumed:
+//   - facade.screenVm  → nodes | activeLocale | status | error
 //
-// TODO[FE-TREI-013..023]: flesh out full UI from SPEC-04 component hierarchy.
-//   This stub covers the structural skeleton: node list + approval + discard.
+// G2 (deep-link): reads ?proposalId= query param via ActivatedRoute.
+//   When proposalId is present but no nodes are loaded, attempts loadNode().
+//   When no session is active, the empty-state component guides the caregiver back.
+//
+// INV-1 (ADR-007): confirmadoPaciente is NEVER referenced in this component.
+//   Approval writes go only to facade.approve() (caregiver side).
+//   The patient side is CONV's domain (Tela 09).
+//
+// User actions delegated to facade:
+//   - onLocaleChange() → facade.setActiveLocale()
+//   - onApprove()      → facade.approve(noId, locale)
+//   - onReject()       → facade.discard(noId, locale)
+//   - onEditSave()     → facade.materialize() (pre-approval text edit)
 // =============================================================================
 
 @Component({
-  selector: 'lib-proposal-review-page',
+  selector: 'trei-proposal-review-page',
   standalone: true,
-  imports: [RouterLink],
+  imports: [
+    RouterLink,
+    ApprovalSummaryBarComponent,
+    ProposalListComponent,
+    ProposalEmptyStateComponent,
+    ProposalEditDialogComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mx-auto max-w-4xl p-6">
@@ -42,29 +62,32 @@ import { TreiLocale, DraftNodeVm } from '../trei.types';
           routerLink="/treinamento/sessao"
           data-testid="back-to-session"
           class="flex items-center gap-1 text-sm text-ink-soft hover:text-ink">
-          <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>
           Voltar à conversa
         </a>
-        <div class="h-4 w-px bg-line"></div>
+        <div class="h-4 w-px bg-line" aria-hidden="true"></div>
         <h1 class="font-display text-xl font-bold text-ink">Propostas para aprovação</h1>
       </div>
 
-      <!-- AI authoring affordance (TECH-007 — must be present on every TREI route) -->
+      <!-- AI authoring affordance (TECH-007 / vision §4) -->
+      <!-- P6: moved to TreiRootComponent so it appears on all TREI routes -->
       <div
-        class="mb-4 flex items-center gap-2 rounded-xl border border-warning bg-warning-bg px-4 py-2.5 text-sm font-semibold text-warning-ink"
-        data-testid="authoring-banner">
-        <span class="material-symbols-outlined text-[18px]">psychology</span>
+        class="mb-4 flex items-center gap-2 rounded-xl border border-warning bg-warning-bg
+               px-4 py-2.5 text-sm font-semibold text-warning-ink"
+        data-testid="authoring-banner"
+        aria-label="Esta é a superfície de autoria — não é o app do paciente">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">psychology</span>
         <span>Treinamento — não é o app do paciente</span>
       </div>
 
-      <!-- LocaleTabs (ADR-018) -->
+      <!-- Locale tabs (ADR-018: locale-independent per-locale approval) -->
       <div class="mb-4 flex gap-2" role="tablist" aria-label="Idioma de autoria">
         @for (locale of locales; track locale) {
           <button
             role="tab"
             [attr.aria-selected]="vm().activeLocale === locale"
             [attr.data-testid]="'locale-tab-' + locale"
-            (click)="setLocale(locale)"
+            (click)="onLocaleChange(locale)"
             class="rounded-lg px-4 py-1.5 text-sm font-semibold transition-colors"
             [class]="vm().activeLocale === locale
               ? 'bg-primary text-white'
@@ -75,168 +98,144 @@ import { TreiLocale, DraftNodeVm } from '../trei.types';
       </div>
 
       <!-- ApprovalSummaryBar -->
-      <div class="mb-4 flex gap-4 rounded-xl bg-surface-2 px-4 py-3 text-sm">
-        <span class="text-ink-soft">
-          Rascunhos: <span class="font-semibold text-ink">{{ rascunhoCount() }}</span>
-        </span>
-        <span class="text-ink-soft">
-          Aguardando paciente: <span class="font-semibold text-ink">{{ aguardandoCount() }}</span>
-        </span>
+      <div class="mb-4">
+        <trei-approval-summary-bar
+          [rascunhoCount]="rascunhoCount()"
+          [aguardandoCount]="aguardandoCount()" />
       </div>
 
+      <!-- G2: deep-link info when proposalId is in query params but nodes are not yet loaded -->
+      @if (proposalId() && vm().status === 'idle') {
+        <div
+          class="mb-4 flex items-center gap-2 rounded-xl border border-info bg-info-bg
+                 px-4 py-2.5 text-sm text-info-ink"
+          data-testid="deeplink-loading-notice"
+          role="status">
+          <span
+            class="h-4 w-4 animate-spin rounded-full border-2 border-info-ink border-t-transparent"
+            aria-hidden="true"></span>
+          A carregar proposta solicitada…
+        </div>
+      }
+
+      <!-- Main content area -->
       @if (vm().status === 'loading') {
         <!-- Loading skeleton -->
-        <div class="flex flex-col gap-3" aria-busy="true">
+        <div class="flex flex-col gap-3" aria-busy="true" aria-label="Carregando propostas">
           @for (_ of [1, 2, 3]; track $index) {
-            <div class="h-24 animate-pulse rounded-2xl bg-surface-2"></div>
+            <div class="h-24 animate-pulse rounded-2xl bg-surface-2" aria-hidden="true"></div>
           }
         </div>
 
       } @else if (vm().status === 'error') {
-        <!-- Error state -->
-        <div role="alert" class="rounded-2xl border border-error bg-error-bg p-4 text-sm text-error-ink"
-             data-testid="proposal-error">
+        <!-- Error state (G5: error never exposes correlationId in UI) -->
+        <div
+          role="alert"
+          class="rounded-2xl border border-error bg-error-bg p-4 text-sm text-error-ink"
+          data-testid="proposal-error">
           <p class="font-semibold">Erro ao carregar propostas</p>
           <p class="mt-1 text-xs">{{ vm().error?.message }}</p>
         </div>
 
       } @else if (vm().nodes.length === 0) {
-        <!-- ProposalEmptyState (SPEC-04 §4) -->
-        <div
-          class="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-line bg-surface p-12 text-center"
-          data-testid="proposal-empty-state">
-          <span class="material-symbols-outlined mb-3 text-4xl text-ink-faint">playlist_add_check</span>
-          <p class="text-sm text-ink-soft">
-            Nenhuma proposta ainda. Volte à conversa e peça ao assistente novas frases.
-          </p>
-          <a
-            routerLink="/treinamento/sessao"
-            class="mt-4 text-sm font-semibold text-primary hover:underline">
-            Ir para a conversa
-          </a>
-        </div>
+        <!-- Empty state — no drafts for this locale -->
+        <trei-proposal-empty-state />
 
       } @else {
-        <!-- ProposalList (ProposedNodeCard rows) -->
-        <div class="flex flex-col gap-3" data-testid="proposal-list">
-          @for (node of vm().nodes; track node.noId) {
-            <!-- ProposedNodeCard (SPEC-04 §3) -->
-            <div
-              class="rounded-2xl border border-line bg-surface p-4 shadow-card"
-              [attr.data-testid]="'proposal-card'"
-              [attr.data-node-id]="node.noId">
-
-              <div class="flex items-start justify-between gap-4">
-                <!-- Node text + metadata -->
-                <div>
-                  <p class="font-semibold text-ink">{{ node.texto }}</p>
-                  <div class="mt-1 flex items-center gap-2 text-xs text-ink-soft">
-                    <span class="rounded-md bg-surface-2 px-1.5 py-0.5">{{ node.tipo }}</span>
-                    <span class="rounded-md bg-surface-2 px-1.5 py-0.5">{{ node.locale.toUpperCase() }}</span>
-                  </div>
-                </div>
-
-                <!-- DualConfirmationIndicator (cuidadora + paciente — SPEC-04 §3) -->
-                <div class="flex shrink-0 flex-col gap-1 text-xs" data-testid="dual-confirmation">
-                  <div class="flex items-center gap-1.5"
-                       [attr.data-testid]="'cuidadora-' + (node.confirmadoCuidadora ? 'confirmed' : 'pending')">
-                    @if (node.confirmadoCuidadora) {
-                      <span class="material-symbols-outlined text-[14px] text-success-ink">check_circle</span>
-                      <span class="text-success-ink font-semibold">Cuidadora ✓</span>
-                    } @else {
-                      <span class="material-symbols-outlined text-[14px] text-ink-faint">radio_button_unchecked</span>
-                      <span class="text-ink-faint">Cuidadora pendente</span>
-                    }
-                  </div>
-                  <div class="flex items-center gap-1.5"
-                       [attr.data-testid]="'paciente-' + (node.confirmadoPaciente ? 'confirmed' : 'pending')">
-                    @if (node.confirmadoPaciente) {
-                      <span class="material-symbols-outlined text-[14px] text-success-ink">check_circle</span>
-                      <span class="text-success-ink font-semibold">Paciente ✓</span>
-                    } @else {
-                      <span class="material-symbols-outlined text-[14px] text-ink-faint">radio_button_unchecked</span>
-                      <span class="text-ink-faint">Paciente pendente</span>
-                    }
-                  </div>
-                </div>
-              </div>
-
-              <!-- Actions -->
-              <div class="mt-3 flex gap-2">
-                @if (!node.confirmadoCuidadora) {
-                  <!-- Aprovar button — CAREGIVER SIDE ONLY (INV-1, ADR-007 FE) -->
-                  <button
-                    (click)="approve(node)"
-                    [disabled]="node.approvalInProgress || node.discardInProgress"
-                    data-testid="aprovar-btn"
-                    class="rounded-xl bg-success-bg px-3 py-1.5 text-xs font-semibold text-success-ink transition-colors hover:bg-success-bg/80 disabled:opacity-50">
-                    @if (node.approvalInProgress) {
-                      Aprovando…
-                    } @else {
-                      Aprovar (minha parte)
-                    }
-                  </button>
-                } @else {
-                  <span
-                    class="rounded-xl bg-success-bg px-3 py-1.5 text-xs font-semibold text-success-ink"
-                    data-testid="aprovado-badge">
-                    ✓ Aprovado por mim
-                  </span>
-                }
-
-                <!-- Descartar button -->
-                @if (node.subEstado === 'rascunho' || node.subEstado === 'aguardando_aprovacao') {
-                  <button
-                    (click)="discard(node)"
-                    [disabled]="node.discardInProgress || node.approvalInProgress"
-                    data-testid="descartar-btn"
-                    class="rounded-xl border border-line px-3 py-1.5 text-xs text-ink-soft hover:bg-surface-2 disabled:opacity-50">
-                    @if (node.discardInProgress) {
-                      Descartando…
-                    } @else {
-                      Descartar
-                    }
-                  </button>
-                }
-              </div>
-            </div>
-          }
-        </div>
+        <!-- ProposalList with ProposedNodeCards (INV-1 propagated through component tree) -->
+        <trei-proposal-list
+          [nodes]="vm().nodes"
+          [activeLocale]="vm().activeLocale"
+          (approve)="onApprove($event)"
+          (reject)="onReject($event)" />
       }
+
+      <!-- ProposalEditDialog (controlled by editingNode signal) -->
+      <trei-proposal-edit-dialog
+        [draftText]="editingNodeText()"
+        [isOpen]="editingNode() !== null"
+        (save)="onEditSave($event)"
+        (dismiss)="editingNode.set(null)" />
 
     </div>
   `,
 })
 export class ProposalReviewPageComponent implements OnInit {
   private readonly facade = inject(ProposalReviewFacade);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly locales: TreiLocale[] = ['pt', 'en'];
+
+  /** Assembled screen VM — single signal source for all template bindings. */
   protected readonly vm = this.facade.screenVm;
 
+  /**
+   * G2 (deep-link): reads ?proposalId= query parameter.
+   * When present, the page attempts to load the referenced node automatically.
+   */
+  protected readonly proposalId = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('proposalId'))),
+    { initialValue: null },
+  );
+
+  /** State for ProposalEditDialog — the node currently being edited (null = closed). */
+  protected readonly editingNode = signal<DraftNodeVm | null>(null);
+
+  /** Derived text for the edit dialog from editingNode. */
+  protected readonly editingNodeText = computed(() => this.editingNode()?.texto ?? '');
+
+  /** Count of rascunho nodes (awaiting caregiver approval). */
+  protected readonly rascunhoCount = computed(
+    () => this.facade.nodes().filter((n) => n.subEstado === 'rascunho').length,
+  );
+
+  /** Count of nodes already approved by caregiver but awaiting patient confirmation. */
+  protected readonly aguardandoCount = computed(
+    () => this.facade.nodes().filter((n) => n.subEstado === 'aguardando_aprovacao').length,
+  );
+
   ngOnInit(): void {
-    // Nodes are loaded reactively as they are materialized via the session facade.
-    // No explicit load() needed here — ProposalReviewFacade accumulates nodes
-    // as materialize() is called during the conversation.
-    // Layer 2 (FE-TREI-013): will add loadAll() if session resume is needed.
+    // G2: if a proposalId is specified in the deep-link, auto-load that node.
+    const pid = this.proposalId();
+    if (pid && this.facade.nodes().length === 0) {
+      void this.facade.loadNode(pid);
+    }
   }
 
-  protected setLocale(locale: TreiLocale): void {
+  protected onLocaleChange(locale: TreiLocale): void {
     this.facade.setActiveLocale(locale);
   }
 
-  protected approve(node: DraftNodeVm): void {
-    void this.facade.approve(node.noId, node.locale);
+  /** Approve caregiver side (INV-1: only caregiver side, never patient side). */
+  protected onApprove(event: NodeActionEvent): void {
+    void this.facade.approve(event.noId, event.locale);
   }
 
-  protected discard(node: DraftNodeVm): void {
-    void this.facade.discard(node.noId, node.locale);
+  /** Discard/reject a draft node. */
+  protected onReject(event: NodeActionEvent): void {
+    void this.facade.discard(event.noId, event.locale);
   }
 
-  protected rascunhoCount(): number {
-    return this.vm().nodes.filter((n) => n.subEstado === 'rascunho').length;
+  /** Open the edit dialog for a node (pre-approval text edit). */
+  protected onEditOpen(node: DraftNodeVm): void {
+    this.editingNode.set(node);
   }
 
-  protected aguardandoCount(): number {
-    return this.vm().nodes.filter((n) => n.subEstado === 'aguardando_aprovacao').length;
+  /** Save edited text — pre-approval text correction via materialize. */
+  protected onEditSave(text: string): void {
+    const node = this.editingNode();
+    if (node == null) return;
+
+    void this.facade.materialize({
+      pacienteId: '',           // resolved by the mock adapter from session context
+      propostaId: node.noId,
+      parentNoId: 'n-root',
+      tipo: node.tipo,
+      locale: node.locale,
+      texto: text,
+      engineFeatureRef: null,
+    });
+
+    this.editingNode.set(null);
   }
 }

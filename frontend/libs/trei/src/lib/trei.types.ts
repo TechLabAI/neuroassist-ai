@@ -200,6 +200,12 @@ export interface TrainingSessionScreenVm {
   status: ScreenStatus;
   isAssistantThinking: boolean;  // LLM call in-flight
   error: AppError | null;
+  // P7 (FE-025 / G4): patient-not-found specific detection — avoids generic error panel
+  isPatientNotFound: boolean;
+  // P7 (FE-025): health-degraded affordance — true when running on mock adapter
+  isDegraded: boolean;
+  // P7 (INT-005 / G5-link): embed model readiness for CONV integration display
+  embedModelId: string | null;
 }
 
 /** Assembled proposal review screen state. */
@@ -215,5 +221,84 @@ export interface AppError {
   code: string;
   message: string;
   status?: number;
+  correlationId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// View model types required by the plan P2 contract (SPEC-03 §2)
+// These sit alongside the existing FE-only view models above.
+// ---------------------------------------------------------------------------
+
+/** Session lifecycle status (view-model layer). */
+export type SessionStatus = 'ACTIVE' | 'ENDED' | 'ERROR';
+
+/**
+ * Node approval sub-state (view-model layer).
+ * Maps from the BE SubEstado (api-contract §2.3) to a caregiver-facing
+ * readability-first set of values.
+ */
+export type NodeSubEstado =
+  | 'PENDING'
+  | 'APPROVED_CAREGIVER'
+  | 'APPROVED_PATIENT'
+  | 'PUBLISHED'
+  | 'REJECTED';
+
+/** BCP-47 locale codes supported by TREI (SPEC-03 §2, api-contract §1.3). */
+export type Locale = 'pt-BR' | 'en-US' | 'es-ES';
+
+/** A single conversation turn in the training session (view-model layer). */
+export interface TurnVM {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+/** Assembled training session view model (SPEC-03 §2). */
+export interface SessionVM {
+  id: string;
+  patientId: string;
+  status: SessionStatus;
+  locale: Locale;
+  turns: TurnVM[];
+}
+
+/**
+ * Draft-node view model for the proposal review panel (SPEC-03 §2).
+ * Distinct from DraftNodeVm (which has approvalInProgress/discardInProgress
+ * flags for optimistic UI in P7). ProposalNodeVM is the simpler read model.
+ */
+export interface ProposalNodeVM {
+  id: string;
+  text: string;
+  category: string;
+  subEstado: NodeSubEstado;
+  approvedCaregiver: boolean;
+  approvedPatient: boolean;
+}
+
+/** Summary of approval status across locales (view-model layer). */
+export interface ApprovalStatusVM {
+  nodeId: string;
+  caregiverApproved: boolean;
+  patientApproved: boolean;
+  subEstado: NodeSubEstado;
+}
+
+// ---------------------------------------------------------------------------
+// ProblemDetail (RFC 7807) — used by TreiErrorMapper
+// ---------------------------------------------------------------------------
+
+/**
+ * RFC 7807 ProblemDetail shape as returned by trei-service (api-contract §3).
+ * The `correlationId` is echoed from the `X-Correlation-Id` request header by GWY.
+ */
+export interface ProblemDetail {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
   correlationId?: string;
 }

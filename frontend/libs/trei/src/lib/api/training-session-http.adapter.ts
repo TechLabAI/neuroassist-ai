@@ -5,9 +5,11 @@ import { TrainingSessionPort } from './training-session.port';
 import { StartSessionRequest, TrainingSession } from '../trei.types';
 
 // =============================================================================
-// TrainingSessionHttpAdapter — production adapter (stub)
-// TODO[INT-FE-TREI-001]: activate when trei-service is deployed.
+// TrainingSessionHttpAdapter — production adapter
+// Active when provideTrei({ adapter: 'http' }) — requires trei-service + GWY.
 // Base: /api/v1/trei/sessoes (GWY route, api-contract §2.1)
+// X-Empresa-Id and X-Correlation-Id are injected by accessHttpInterceptor
+// (@neuroassist/shared/access-http-base) — no manual header setup needed here.
 // =============================================================================
 
 @Injectable({ providedIn: 'root' })
