@@ -50,3 +50,37 @@ frontend/.angular/
 frontend/coverage/
 frontend/test-results/
 frontend/libs/dist/
+
+# Secrets (mantém os .example)
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Ephemeral pipeline output and local config — regenerated or machine-specific,
+# not part of the source under review.
+tmp/
+_inbox/
+auxil/
+.mcp.json
+.techlab/*.json
+
+# Derived issue state — recomputed from the code on each validation run.
+docs/architecture/**/*.state.json
+docs/architecture/**/*.checklist.json
+docs/architecture/**/*.soft.json
+docs/architecture/**/*.plan-state.json
+
+# Pipeline progress journals, build logs and local outputs
+project-journal.md
+project-checklist.md
+architecture.lock
+/clean-build.log
+/test-output.txt
+/project-tree.html
+
+# Material de terceiros (artigos, carta, template SBC): fica só no disco
+docs/paper/references/123667.pdf
+docs/paper/references/_PAKDD25__SHIP.pdf
+docs/paper/references/Marcio_Letter*.pdf
+docs/paper/references/Template_SBC/
