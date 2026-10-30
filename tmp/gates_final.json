@@ -1,7 +1,0 @@
-{
-  "test": "pass",
-  "build": "pass",
-  "lint": "pass",
-  "e2e": "deferred",
-  "arch": "pass"
-}
